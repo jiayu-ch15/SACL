@@ -5,7 +5,7 @@ def get_config():
     parser = argparse.ArgumentParser(description='StarCraft2.')
 
     # prepare
-    parser.add_argument("--algorithm_name", type=str, default='test')
+    parser.add_argument("--algorithm_name", type=str, default='mappo')
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--cuda", action='store_false', default=True)
     parser.add_argument("--cuda_deterministic", action='store_false', default=True)
@@ -23,13 +23,6 @@ def get_config():
     # env
     parser.add_argument("--env_name", type=str, default='StarCraft2')
     parser.add_argument("--map_name", type=str, default='5m_vs_6m')
-   
-
-    # reward
-    parser.add_argument("--reward_randomization", action='store_true', default=False)
-    parser.add_argument("--share_reward", action='store_true', default=False)
-    parser.add_argument("--shape_reward", action='store_true', default=False)
-    parser.add_argument("--shape_beta", type=float, default=0.8, help='use how much global reward')
     
     # network
     parser.add_argument("--share_policy", action='store_false', default=True, help='agent share the same policy')
