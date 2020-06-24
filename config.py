@@ -97,7 +97,7 @@ def get_config_SC():
     parser = argparse.ArgumentParser(description='StarCraft2.')
 
     # prepare
-    parser.add_argument("--algorithm_name", type=str, default='mappo')
+    parser.add_argument("--algorithm_name", type=str, default='5m_vs_6m')
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--cuda", action='store_false', default=True)
     parser.add_argument("--cuda_deterministic", action='store_false', default=True)
@@ -114,7 +114,7 @@ def get_config_SC():
     
     # env
     parser.add_argument("--env_name", type=str, default='StarCraft2')
-    parser.add_argument("--map_name", type=str, default='3m')
+    parser.add_argument("--map_name", type=str, default='5m_vs_6m')
    
 
     # reward
