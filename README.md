@@ -26,18 +26,18 @@ pip install -r requirements.txt
 
 - config.py: all hyper-parameters
   
-- default: use cuda, GRU and share policy
+  - default: use cuda, GRU and share policy
   
 - train.py: all train code
 
-  - here is an example:
+  - Here is an example:
 
   ```Bash
   conda activate mappo-sc
   python train.py --map_name="3m" -algorithm_name="mappo" 
   ```
 
-  And you can use tensorboardX to see the training curve in fold `results`:
+  - You can use tensorboardX to see the training curve in fold `results`:
   
   ```Bash
   tensorboard --logdir=./results/ 
