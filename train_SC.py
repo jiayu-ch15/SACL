@@ -25,21 +25,7 @@ import shutil
 def make_parallel_env(args):
     def get_env_fn(rank):
         def init_env():
-            if args.env_name == "PrisonerDilemma" or args.env_name == "StagHunt" or args.env_name == "Chicken":
-                assert num_agents == 2, ("only 2 agents is supported, check the config.py.")
-                env = MGEnv(args)
-            elif args.env_name == "Cleanup":
-                env = CleanupEnv(args)
-            elif args.env_name == "Harvest":
-                env = HarvestEnv(args)
-            elif args.env_name == "HarvestGW" or args.env_name == "StagHuntGW" or args.env_name == "EscalationGW":
-                assert num_agents == 2, ("only 2 agent is supported in single navigation, check the config.py.")
-                env = GridWorldEnv(args)
-            elif args.env_name == "single_navigation":
-                from utils.make_env import make_env
-                assert num_agents == 1, ("only 1 agent is supported in single navigation, check the config.py.")
-                env = make_env(args)
-            elif args.env_name == "StarCraft2":
+            if args.env_name == "StarCraft2":
                 env = StarCraft2Env(args)
             else:
                 print("Can not support the " + args.env_name + "environment." )
@@ -91,7 +77,6 @@ def main():
 
     # env
     envs = make_parallel_env(args)
-    print(envs.observation_space)
     num_agents = get_map_params(args.map_name)["n_agents"]
     #Policy network
     actor_critic = []
@@ -217,13 +202,14 @@ def main():
             with torch.no_grad():
                 for i in range(num_agents):
                     value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic ,recurrent_c_states, recurrent_c_states_critic = actor_critic[i].act(rollouts[i].share_obs[step], 
-                                                        rollouts[i].obs[step], 
-                                                        rollouts[i].recurrent_hidden_states[step], 
-                                                        rollouts[i].recurrent_hidden_states_critic[step],
-                                                        rollouts[i].recurrent_c_states[step], 
-                                                        rollouts[i].recurrent_c_states_critic[step], 
-                                                        rollouts[i].masks[step],
-                                                        available_actions[:,i,:])
+                    rollouts[i].obs[step], 
+                    rollouts[i].recurrent_hidden_states[step], 
+                    rollouts[i].recurrent_hidden_states_critic[step],
+                    rollouts[i].recurrent_c_states[step], 
+                    rollouts[i].recurrent_c_states_critic[step], 
+                    rollouts[i].masks[step],
+                    available_actions[:,i,:])
+                    
                     values.append(value)
                     actions.append(action)
                     action_log_probs.append(action_log_prob)
@@ -319,131 +305,8 @@ def main():
             value_losses.append(value_loss)
             action_losses.append(action_loss)
             dist_entropies.append(dist_entropy)
-            
-        if args.env_name == "PrisonerDilemma" or args.env_name == "Chicken" or args.env_name == "StagHunt":
-            for info in infos:
-                if 'coop&coop_num' in info.keys():
-                    coop_num.append(info['coop&coop_num'])
-                if 'defect&defect_num' in info.keys():
-                    defect_num.append(info['defect&defect_num'])
-                if 'coop&defect_num' in info.keys():
-                    coopdefect_num.append(info['coop&defect_num'])
-                if 'defect&coop_num' in info.keys():
-                    defectcoop_num.append(info['defect&coop_num'])
-            
-            for i in range(args.n_rollout_threads):            
-                logger.add_scalars('coop&coop_num_per_episode',
-                        {'coop&coop_num_per_episode': coop_num[all_episode]},
-                        all_episode)
-                logger.add_scalars('defect&defect_num_per_episode',
-                        {'defect&defect_num_per_episode': defect_num[all_episode]},
-                        all_episode)
-                logger.add_scalars('coop&defect_num_per_episode',
-                        {'coop&defect_num_per_episode': coopdefect_num[all_episode]},
-                        all_episode)
-                logger.add_scalars('defect&coop_num_per_episode',
-                        {'defect&coop_num_per_episode': defectcoop_num[all_episode]},
-                        all_episode)
-                all_episode += 1
-        elif args.env_name == "Cleanup":
-            for info in infos:
-                if 'collective_return' in info.keys():
-                    collective_return.append(info['collective_return'])
-                if 'sustainability' in info.keys():
-                    sustainability.append(info['sustainability'])
-                if 'waste_cleared' in info.keys():
-                    waste_cleared.append(info['waste_cleared'])
-                if 'fire' in info.keys():
-                    fire.append(info['fire'])
-
-            for i in range(args.n_rollout_threads):            
-                logger.add_scalars('collective_return',
-                    {'collective_return': collective_return[all_episode]},
-                    all_episode)
-                logger.add_scalars('sustainability',
-                    {'sustainability': sustainability[all_episode]/num_agents},
-                    all_episode)
-                logger.add_scalars('waste_cleared',
-                    {'waste_cleared': waste_cleared[all_episode]},
-                    all_episode)
-                logger.add_scalars('fire',
-                    {'fire': fire[all_episode]},
-                    all_episode)
-                all_episode += 1
-        elif args.env_name == "Harvest":
-            for info in infos:
-                if 'collective_return' in info.keys(): 
-                    collective_return.append(info['collective_return'])
-                if 'sustainability' in info.keys():
-                    sustainability.append(info['sustainability'])
-                if 'apple_consumption' in info.keys():
-                    apple_consumption.append(info['apple_consumption'])
-                if 'fire' in info.keys():
-                    fire.append(info['fire']) 
-
-            for i in range(args.n_rollout_threads):  
-                logger.add_scalars('collective_return',
-                    {'collective_return': collective_return[all_episode]},
-                    all_episode)
-                logger.add_scalars('sustainability',
-                    {'sustainability': sustainability[all_episode]/num_agents},
-                    all_episode)
-                logger.add_scalars('apple_consumption',
-                    {'apple_consumption': apple_consumption[all_episode]},
-                    all_episode)
-                logger.add_scalars('fire',
-                    {'fire': fire[all_episode]},
-                    all_episode)    
-                all_episode += 1 
-        elif args.env_name == "StagHuntGW":
-            for info in infos:
-                if 'collective_return' in info.keys(): 
-                    collective_return.append(info['collective_return']) 
-                if 'coop&coop_num' in info.keys():
-                    coop_num.append(info['coop&coop_num'])
-                if 'gore1_num' in info.keys(): 
-                    gore1_num.append(info['gore1_num']) 
-                if 'gore2_num' in info.keys():
-                    gore2_num.append(info['gore2_num'])
-                if 'hare1_num' in info.keys(): 
-                    hare1_num.append(info['hare1_num']) 
-                if 'hare2_num' in info.keys():
-                    hare2_num.append(info['hare2_num'])
-            for i in range(args.n_rollout_threads):  
-                logger.add_scalars('collective_return',
-                    {'collective_return': collective_return[all_episode]},
-                    all_episode)
-                logger.add_scalars('coop&coop_num_per_episode',
-                        {'coop&coop_num_per_episode': coop_num[all_episode]},
-                        all_episode) 
-                logger.add_scalars('gore1_num_per_episode',
-                    {'gore1_num_per_episode': gore1_num[all_episode]},
-                    all_episode) 
-                logger.add_scalars('gore2_num_per_episode',
-                    {'gore2_num_per_episode': gore2_num[all_episode]},
-                    all_episode)
-                logger.add_scalars('hare1_num_per_episode',
-                    {'hare1_num_per_episode': hare1_num[all_episode]},
-                    all_episode) 
-                logger.add_scalars('hare2_num_per_episode',
-                    {'hare2_num_per_episode': hare2_num[all_episode]},
-                    all_episode)  
-                all_episode += 1
-        elif args.env_name == "HarvestGW" or args.env_name == "EscalationGW":
-            for info in infos:
-                if 'collective_return' in info.keys(): 
-                    collective_return.append(info['collective_return']) 
-                if 'coop&coop_num' in info.keys():
-                    coop_num.append(info['coop&coop_num'])
-            for i in range(args.n_rollout_threads):  
-                logger.add_scalars('collective_return',
-                    {'collective_return': collective_return[all_episode]},
-                    all_episode)
-                logger.add_scalars('coop&coop_num_per_episode',
-                        {'coop&coop_num_per_episode': coop_num[all_episode]},
-                        all_episode)   
-                all_episode += 1  
-        elif args.env_name == "StarCraft2":
+             
+        if args.env_name == "StarCraft2":
             for info in infos:
                 if 'battles_won' in info.keys():
                     logger.add_scalars('battles_won',
