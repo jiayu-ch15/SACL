@@ -7,6 +7,7 @@ git clone https://github.com/zoeyuchao/mappo-sc.git
 cd ~/mappo-sc
 conda create -n mappo-sc python==3.6.2
 conda activate mappo-sc
+pip install torch==1.5.1+cu101 torchvision==0.6.1+cu101 -f https://download.pytorch.org/whl/torch_stable.html
 pip install -r requirements.txt
 ```
 
