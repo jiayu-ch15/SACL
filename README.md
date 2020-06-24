@@ -2,6 +2,8 @@
 
 ## 1.Install
 
+test on CUDA == 10.1
+
 ```Bash
 git clone https://github.com/zoeyuchao/mappo-sc.git
 cd ~/mappo-sc
@@ -35,9 +37,8 @@ pip install -r requirements.txt
 
   ```Bash
   conda activate mappo-sc
-  python train.py --map_name="3m" -algorithm_name="mappo" 
-  # OR just use the bash script
-./train_sc.sh
+  chmod +x ./train_sc.sh
+  ./train_sc.sh
   ```
   
   - You can use tensorboardX to see the training curve in fold `results`:
