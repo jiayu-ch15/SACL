@@ -35,8 +35,10 @@ pip install -r requirements.txt
   ```Bash
   conda activate mappo-sc
   python train.py --map_name="3m" -algorithm_name="mappo" 
+  # OR just use the bash script
+./train_sc.sh
   ```
-
+  
   - You can use tensorboardX to see the training curve in fold `results`:
   
   ```Bash
