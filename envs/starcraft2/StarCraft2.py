@@ -196,7 +196,6 @@ class StarCraft2Env(MultiAgentEnv):
         # Map arguments
         self.map_name = [args.map_name]
         #map_name is a list of identical maps or one map
-        print(self.map_name[0])
         map_params = get_map_params(self.map_name[0])
         self.n_agents = map_params["n_agents"]
         self.n_enemies = map_params["n_enemies"]

@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tensorboardX import SummaryWriter
 
-from envs import MGEnv, CleanupEnv, HarvestEnv, GridWorldEnv
+from envs import StarCraft2Env, get_map_params
 from algorithm.ppo import PPO
 from algorithm.model import Policy
 
@@ -25,20 +25,8 @@ import shutil
 def make_parallel_env(args):
     def get_env_fn(rank):
         def init_env():
-            if args.env_name == "PrisonerDilemma" or args.env_name == "StagHunt" or args.env_name == "Chicken":
-                assert args.num_agents == 2, ("only 2 agents is supported, check the config.py.")
-                env = MGEnv(args)
-            elif args.env_name == "Cleanup":
-                env = CleanupEnv(args)
-            elif args.env_name == "Harvest":
-                env = HarvestEnv(args)
-            elif args.env_name == "HarvestGW" or args.env_name == "StagHuntGW" or args.env_name == "EscalationGW":
-                assert args.num_agents == 2, ("only 2 agent is supported in single navigation, check the config.py.")
-                env = GridWorldEnv(args)
-            elif args.env_name == "single_navigation":
-                from utils.make_env import make_env
-                assert args.num_agents == 1, ("only 1 agent is supported in single navigation, check the config.py.")
-                env = make_env(args)
+            if args.env_name == "StarCraft2":
+                env = StarCraft2Env(args)
             else:
                 print("Can not support the " + args.env_name + "environment." )
                 raise NotImplementedError
@@ -89,24 +77,25 @@ def main():
 
     # env
     envs = make_parallel_env(args)
+    num_agents = get_map_params(args.map_name)["n_agents"]
     #Policy network
     actor_critic = []
     if args.share_policy:
         ac = Policy(envs.observation_space[0], 
                     envs.action_space[0],
-                    num_agents = args.num_agents,
+                    num_agents = num_agents,
                     base_kwargs={'lstm': args.lstm,
                                  'naive_recurrent': args.naive_recurrent_policy,
                                  'recurrent': args.recurrent_policy,
                                  'hidden_size': args.hidden_size})
         ac.to(device)
-        for agent_id in range(args.num_agents):
+        for agent_id in range(num_agents):
             actor_critic.append(ac)         
     else:
-        for agent_id in range(args.num_agents):
+        for agent_id in range(num_agents):
             ac = Policy(envs.observation_space[0], 
                       envs.action_space[0],
-                      num_agents = args.num_agents,
+                      num_agents = num_agents,
                       base_kwargs={'naive_recurrent': args.naive_recurrent_policy,
                                    'recurrent': args.recurrent_policy,
                                    'hidden_size': args.hidden_size})
@@ -115,7 +104,7 @@ def main():
           
     agents = []
     rollouts = [] 
-    for agent_id in range(args.num_agents):
+    for agent_id in range(num_agents):
         # algorithm
         agent = PPO(actor_critic[agent_id],
                    agent_id,
@@ -132,7 +121,7 @@ def main():
                    use_clipped_value_loss= args.use_clipped_value_loss)
 
         #replay buffer
-        ro = RolloutStorage(args.num_agents,
+        ro = RolloutStorage(num_agents,
                             agent_id,
                             args.episode_length, 
                             args.n_rollout_threads,
@@ -145,9 +134,9 @@ def main():
         rollouts.append(ro)
     
     # reset env 
-    obs = envs.reset()
+    obs, available_actions = envs.reset()
     # rollout
-    for i in range(args.num_agents):
+    for i in range(num_agents):
         if len(envs.observation_space[0]) == 1:
             rollouts[i].share_obs[0].copy_(torch.tensor(obs.reshape(args.n_rollout_threads, -1)))
             rollouts[i].obs[0].copy_(torch.tensor(obs[:,i,:]))
@@ -180,6 +169,11 @@ def main():
     waste_cleared = []
     sustainability = []
     fire = []
+    battles_won = []
+    battles_game = []
+    battles_draw = []
+    win_rate = []
+    restarts = []
 
     start = time.time()
     episodes = int(args.num_env_steps) // args.episode_length // args.n_rollout_threads
@@ -189,7 +183,7 @@ def main():
 
         if args.use_linear_lr_decay:
             # decrease learning rate linearly
-            for i in range(args.num_agents):
+            for i in range(num_agents):
                 update_linear_schedule(agents[i].optimizer, 
                                        episode, 
                                        episodes, 
@@ -206,14 +200,16 @@ def main():
             recurrent_c_statess_critic = []
 
             with torch.no_grad():
-                for i in range(args.num_agents):
+                for i in range(num_agents):
                     value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic ,recurrent_c_states, recurrent_c_states_critic = actor_critic[i].act(rollouts[i].share_obs[step], 
-                                                        rollouts[i].obs[step], 
-                                                        rollouts[i].recurrent_hidden_states[step], 
-                                                        rollouts[i].recurrent_hidden_states_critic[step],
-                                                        rollouts[i].recurrent_c_states[step], 
-                                                        rollouts[i].recurrent_c_states_critic[step], 
-                                                        rollouts[i].masks[step])
+                    rollouts[i].obs[step], 
+                    rollouts[i].recurrent_hidden_states[step], 
+                    rollouts[i].recurrent_hidden_states_critic[step],
+                    rollouts[i].recurrent_c_states[step], 
+                    rollouts[i].recurrent_c_states_critic[step], 
+                    rollouts[i].masks[step],
+                    available_actions[:,i,:])
+                    
                     values.append(value)
                     actions.append(action)
                     action_log_probs.append(action_log_prob)
@@ -226,7 +222,7 @@ def main():
             actions_env = []
             for i in range(args.n_rollout_threads):
                 one_hot_action_env = []
-                for k in range(args.num_agents):
+                for k in range(num_agents):
                     one_hot_action = np.zeros(envs.action_space[0].n)
                     one_hot_action[actions[k][i]] = 1
                     one_hot_action_env.append(one_hot_action)
@@ -234,17 +230,17 @@ def main():
             
             
             # Obser reward and next obs
-            obs, reward, done, infos = envs.step(actions_env)
+            obs, reward, done, infos, available_actions = envs.step(actions_env)
 
             # If done then clean the history of observations.
             # insert data in buffer
             masks = []
             bad_masks = []
-            for i in range(args.num_agents):
+            for i in range(num_agents):
                 mask = []
                 bad_mask = []
                 for done_ in done:  
-                    if done_[i]:              
+                    if done_:              
                         mask.append([0.0])
                         bad_mask.append([1.0])
                     else:
@@ -253,7 +249,7 @@ def main():
                 masks.append(torch.FloatTensor(mask))
                 bad_masks.append(torch.FloatTensor(bad_mask))
                             
-            for i in range(args.num_agents):
+            for i in range(num_agents):
                 if len(envs.observation_space[0]) == 1:
                     rollouts[i].insert(torch.tensor(obs.reshape(args.n_rollout_threads, -1)), 
                                         torch.tensor(obs[:,i,:]), 
@@ -283,7 +279,7 @@ def main():
                                         
         with torch.no_grad():
             next_values = []
-            for i in range(args.num_agents):
+            for i in range(num_agents):
                 next_value = actor_critic[i].get_value(rollouts[i].share_obs[-1], 
                                                        rollouts[i].obs[-1], 
                                                        rollouts[i].recurrent_hidden_states[-1],
@@ -293,7 +289,7 @@ def main():
                                                        rollouts[i].masks[-1]).detach()
                 next_values.append(next_value)
 
-        for i in range(args.num_agents):
+        for i in range(num_agents):
             rollouts[i].compute_returns(next_values[i], 
                                         args.use_gae, 
                                         args.gamma,
@@ -304,139 +300,43 @@ def main():
         value_losses = []
         action_losses = []
         dist_entropies = []
-        for i in range(args.num_agents):
+        for i in range(num_agents):
             value_loss, action_loss, dist_entropy = agents[i].update(rollouts[i])
             value_losses.append(value_loss)
             action_losses.append(action_loss)
             dist_entropies.append(dist_entropy)
-            
-        if args.env_name == "PrisonerDilemma" or args.env_name == "Chicken" or args.env_name == "StagHunt":
+             
+        if args.env_name == "StarCraft2":
             for info in infos:
-                if 'coop&coop_num' in info.keys():
-                    coop_num.append(info['coop&coop_num'])
-                if 'defect&defect_num' in info.keys():
-                    defect_num.append(info['defect&defect_num'])
-                if 'coop&defect_num' in info.keys():
-                    coopdefect_num.append(info['coop&defect_num'])
-                if 'defect&coop_num' in info.keys():
-                    defectcoop_num.append(info['defect&coop_num'])
-            
-            for i in range(args.n_rollout_threads):            
-                logger.add_scalars('coop&coop_num_per_episode',
-                        {'coop&coop_num_per_episode': coop_num[all_episode]},
-                        all_episode)
-                logger.add_scalars('defect&defect_num_per_episode',
-                        {'defect&defect_num_per_episode': defect_num[all_episode]},
-                        all_episode)
-                logger.add_scalars('coop&defect_num_per_episode',
-                        {'coop&defect_num_per_episode': coopdefect_num[all_episode]},
-                        all_episode)
-                logger.add_scalars('defect&coop_num_per_episode',
-                        {'defect&coop_num_per_episode': defectcoop_num[all_episode]},
-                        all_episode)
-                all_episode += 1
-        elif args.env_name == "Cleanup":
-            for info in infos:
-                if 'collective_return' in info.keys():
-                    collective_return.append(info['collective_return'])
-                if 'sustainability' in info.keys():
-                    sustainability.append(info['sustainability'])
-                if 'waste_cleared' in info.keys():
-                    waste_cleared.append(info['waste_cleared'])
-                if 'fire' in info.keys():
-                    fire.append(info['fire'])
-
-            for i in range(args.n_rollout_threads):            
-                logger.add_scalars('collective_return',
-                    {'collective_return': collective_return[all_episode]},
-                    all_episode)
-                logger.add_scalars('sustainability',
-                    {'sustainability': sustainability[all_episode]/args.num_agents},
-                    all_episode)
-                logger.add_scalars('waste_cleared',
-                    {'waste_cleared': waste_cleared[all_episode]},
-                    all_episode)
-                logger.add_scalars('fire',
-                    {'fire': fire[all_episode]},
-                    all_episode)
-                all_episode += 1
-        elif args.env_name == "Harvest":
-            for info in infos:
-                if 'collective_return' in info.keys(): 
-                    collective_return.append(info['collective_return'])
-                if 'sustainability' in info.keys():
-                    sustainability.append(info['sustainability'])
-                if 'apple_consumption' in info.keys():
-                    apple_consumption.append(info['apple_consumption'])
-                if 'fire' in info.keys():
-                    fire.append(info['fire']) 
-
-            for i in range(args.n_rollout_threads):  
-                logger.add_scalars('collective_return',
-                    {'collective_return': collective_return[all_episode]},
-                    all_episode)
-                logger.add_scalars('sustainability',
-                    {'sustainability': sustainability[all_episode]/args.num_agents},
-                    all_episode)
-                logger.add_scalars('apple_consumption',
-                    {'apple_consumption': apple_consumption[all_episode]},
-                    all_episode)
-                logger.add_scalars('fire',
-                    {'fire': fire[all_episode]},
-                    all_episode)    
-                all_episode += 1 
-        elif args.env_name == "StagHuntGW":
-            for info in infos:
-                if 'collective_return' in info.keys(): 
-                    collective_return.append(info['collective_return']) 
-                if 'coop&coop_num' in info.keys():
-                    coop_num.append(info['coop&coop_num'])
-                if 'gore1_num' in info.keys(): 
-                    gore1_num.append(info['gore1_num']) 
-                if 'gore2_num' in info.keys():
-                    gore2_num.append(info['gore2_num'])
-                if 'hare1_num' in info.keys(): 
-                    hare1_num.append(info['hare1_num']) 
-                if 'hare2_num' in info.keys():
-                    hare2_num.append(info['hare2_num'])
-            for i in range(args.n_rollout_threads):  
-                logger.add_scalars('collective_return',
-                    {'collective_return': collective_return[all_episode]},
-                    all_episode)
-                logger.add_scalars('coop&coop_num_per_episode',
-                        {'coop&coop_num_per_episode': coop_num[all_episode]},
-                        all_episode) 
-                logger.add_scalars('gore1_num_per_episode',
-                    {'gore1_num_per_episode': gore1_num[all_episode]},
+                if 'battles_won' in info.keys():
+                    logger.add_scalars('battles_won',
+                    {'battles_won': info['battles_won']},
                     all_episode) 
-                logger.add_scalars('gore2_num_per_episode',
-                    {'gore2_num_per_episode': gore2_num[all_episode]},
+                if 'battles_game' in info.keys():
+                    logger.add_scalars('battles_game',
+                        {'battles_game': info['battles_game']},
+                        all_episode)
+                    if info['battles_game'] == 0:
+                        logger.add_scalars('win_rate',
+                        {'win_rate': 0},
+                        all_episode)
+                    else:
+                        logger.add_scalars('win_rate',
+                        {'win_rate': info['battles_won']/info['battles_game']},
+                        all_episode)
+                if 'battles_draw' in info.keys():
+                    logger.add_scalars('battles_draw',
+                    {'battles_draw': info['battles_draw']},
                     all_episode)
-                logger.add_scalars('hare1_num_per_episode',
-                    {'hare1_num_per_episode': hare1_num[all_episode]},
-                    all_episode) 
-                logger.add_scalars('hare2_num_per_episode',
-                    {'hare2_num_per_episode': hare2_num[all_episode]},
-                    all_episode)  
-                all_episode += 1
-        elif args.env_name == "HarvestGW" or args.env_name == "EscalationGW":
-            for info in infos:
-                if 'collective_return' in info.keys(): 
-                    collective_return.append(info['collective_return']) 
-                if 'coop&coop_num' in info.keys():
-                    coop_num.append(info['coop&coop_num'])
-            for i in range(args.n_rollout_threads):  
-                logger.add_scalars('collective_return',
-                    {'collective_return': collective_return[all_episode]},
-                    all_episode)
-                logger.add_scalars('coop&coop_num_per_episode',
-                        {'coop&coop_num_per_episode': coop_num[all_episode]},
-                        all_episode)   
-                all_episode += 1      
+                if 'restarts' in info.keys():
+                    logger.add_scalars('restarts',
+                        {'restarts': info['restarts']},
+                        all_episode)
+                all_episode += 1     
         
         # clean the buffer and reset
-        obs = envs.reset()
-        for i in range(args.num_agents):
+        obs, available_actions = envs.reset()
+        for i in range(num_agents):
             if len(envs.observation_space[0]) == 1:
                 rollouts[i].share_obs[0].copy_(torch.tensor(obs.reshape(args.n_rollout_threads, -1)))
                 rollouts[i].obs[0].copy_(torch.tensor(obs[:,i,:]))
@@ -459,7 +359,7 @@ def main():
                 raise NotImplementedError
             rollouts[i].to(device)
 
-        for i in range(args.num_agents):
+        for i in range(num_agents):
             # save for every interval-th episode or for the last epoch
             if (episode % args.save_interval == 0 or episode == episodes - 1):            
                 torch.save({
@@ -477,234 +377,10 @@ def main():
                         total_num_steps,
                         args.num_env_steps,
                         int(total_num_steps / (end - start))))
-            for i in range(args.num_agents):
+            for i in range(num_agents):
                 print("value loss of agent%i: " %i + str(value_losses[i]))
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()
-    
-    if args.eval:
-        ###----------------------------------------------------------###
-        ###----------------------------------------------------------###
-        ###----------------------------------------------------------###	   
-        eval_dir = run_dir / 'eval'
-        log_dir = eval_dir  / 'logs'
-        os.makedirs(str(log_dir))
-        logger = SummaryWriter(str(log_dir))
-    
-        # eval best policy	
-        eval_rewards = [] 	
-    
-        # env	
-        if args.env_name == "PrisonerDilemma" or args.env_name == "StagHunt" or args.env_name == "Chicken":	
-            assert args.num_agents == 2, ("only 2 agents is supported, check the config.py.")	
-            env = MGEnv(args)	
-        elif args.env_name == "Cleanup":	
-            env = CleanupEnv(args)	
-        elif args.env_name == "Harvest":	
-            env = HarvestEnv(args)	
-        elif args.env_name == "HarvestGW" or args.env_name == "StagHuntGW" or args.env_name == "EscalationGW":	
-            assert args.num_agents == 2, ("only 2 agent is supported in single navigation, check the config.py.")	
-            env = GridWorldEnv(args)	
-        elif args.env_name == "single_navigation":	
-            from utils.make_env import make_env	
-            assert args.num_agents == 1, ("only 1 agent is supported in single navigation, check the config.py.")	
-            env = make_env(args)	
-        else:	
-            print("Can not support the " + args.env_name + "environment." )	
-            raise NotImplementedError	
-    
-        #Policy network    	        
-            
-        coop_num = []
-        defect_num = []
-        coopdefect_num = []
-        defectcoop_num = []
-        gore1_num = []
-        gore2_num = []
-        hare1_num = []
-        hare2_num = []
-        collective_return = []
-        apple_consumption = []
-        waste_cleared = []
-        sustainability = []
-        fire = []	
-            
-        for episode in range(args.eval_episodes):  
-            print("Episode %i of %i" % (episode, args.eval_episodes))       
-            state = env.reset()	
-            state = np.array([state])	
-   
-            share_obs = []	
-            obs = []	
-            recurrent_hidden_statess = []	
-            recurrent_hidden_statess_critic = []	
-            recurrent_c_statess = []	
-            recurrent_c_statess_critic = []	
-            masks = []	
-            policy_reward = 0	
-    
-            # rollout	
-            for i in range(args.num_agents):	
-                if len(env.observation_space[0]) == 1:	
-                    share_obs.append((torch.tensor(state.reshape(1, -1),dtype=torch.float32)).to(device))	
-                    obs.append((torch.tensor(state[:,i,:],dtype=torch.float32)).to(device))	
-                elif len(env.observation_space[0]) == 3:	
-                    share_obs.append((torch.tensor(state.reshape(1, -1, env.observation_space[0][1], env.observation_space[0][2]),dtype=torch.float32)).to(device))	
-                    obs.append((torch.tensor(state[:,i,:,:,:],dtype=torch.float32)).to(device))	
-                else:	
-                    raise NotImplementedError	
-                recurrent_hidden_statess.append(torch.zeros(1, actor_critic[i].recurrent_hidden_state_size).to(device))	
-                recurrent_hidden_statess_critic.append(torch.zeros(1, actor_critic[i].recurrent_hidden_state_size).to(device))	
-                recurrent_c_statess.append(torch.zeros(1, actor_critic[i].recurrent_hidden_state_size).to(device))	
-                recurrent_c_statess_critic.append(torch.zeros(1, actor_critic[i].recurrent_hidden_state_size).to(device))	
-                masks.append(torch.ones(1,1).to(device))	
-    
-            for step in range(args.episode_length):	   
-                print("step %i of %i" % (step, args.episode_length))	
-                # Sample actions	                	
-                one_hot_actions = []	
-                for i in range(args.num_agents):
-                    one_hot_action = np.zeros(env.action_space[0].n)	
-                    with torch.no_grad():	
-                        value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic,recurrent_c_states, recurrent_c_states_critic = actor_critic[i].act(share_obs[i], obs[i], recurrent_hidden_statess[i], recurrent_hidden_statess_critic[i], recurrent_c_statess[i], recurrent_c_statess_critic[i], masks[i])
-                    recurrent_hidden_statess[i].copy_(recurrent_hidden_states)	
-                    recurrent_hidden_statess_critic[i].copy_(recurrent_hidden_states_critic) 	
-                    recurrent_c_statess[i].copy_(recurrent_c_states)	
-                    recurrent_c_statess_critic[i].copy_(recurrent_c_states_critic)              	
-                    one_hot_action[action] = 1	
-                    one_hot_actions.append(one_hot_action)	
-    
-                # Obser reward and next obs	
-                state, reward, done, infos = env.step(one_hot_actions)	
-    
-                for i in range(args.num_agents):	
-                    print("Reward of agent%i: " %i + str(reward[i]))	
-                    policy_reward += reward[i]
-                    
-                if all(done):
-                    break
-                    	
-                state = np.array([state])	
-    
-                for i in range(args.num_agents):	
-                    if len(env.observation_space[0]) == 1:	
-                        share_obs[i].copy_(torch.tensor(state.reshape(1, -1),dtype=torch.float32))	
-                        obs[i].copy_(torch.tensor(state[:,i,:],dtype=torch.float32))	
-                    elif len(env.observation_space[0]) == 3:	
-                        share_obs[i].copy_(torch.tensor(state.reshape(1, -1, env.observation_space[0][1], env.observation_space[0][2]),dtype=torch.float32))	
-                        obs[i].copy_(torch.tensor(state[:,i,:,:,:],dtype=torch.float32))
-                        
-            eval_rewards.append(policy_reward)
-            
-            if args.env_name == "PrisonerDilemma" or args.env_name == "Chicken" or args.env_name == "StagHunt":
-                if 'coop&coop_num' in infos.keys():
-                    coop_num.append(infos['coop&coop_num'])
-                if 'defect&defect_num' in infos.keys():
-                    defect_num.append(infos['defect&defect_num'])
-                if 'coop&defect_num' in infos.keys():
-                    coopdefect_num.append(infos['coop&defect_num'])
-                if 'defect&coop_num' in infos.keys():
-                    defectcoop_num.append(infos['defect&coop_num'])
-                           
-                logger.add_scalars('coop&coop_num_per_episode',
-                        {'coop&coop_num_per_episode': coop_num[episode]},
-                        episode)
-                logger.add_scalars('defect&defect_num_per_episode',
-                        {'defect&defect_num_per_episode': defect_num[episode]},
-                        episode)
-                logger.add_scalars('coop&defect_num_per_episode',
-                        {'coop&defect_num_per_episode': coopdefect_num[episode]},
-                        episode)
-                logger.add_scalars('defect&coop_num_per_episode',
-                        {'defect&coop_num_per_episode': defectcoop_num[episode]},
-                        episode)
-            elif args.env_name == "Cleanup":
-                if 'collective_return' in infos.keys():
-                    collective_return.append(infos['collective_return'])
-                if 'sustainability' in infos.keys():
-                    sustainability.append(infos['sustainability'])
-                if 'waste_cleared' in infos.keys():
-                    waste_cleared.append(infos['waste_cleared'])
-                if 'fire' in infos.keys():
-                    fire.append(infos['fire'])
-            
-                logger.add_scalars('collective_return',
-                    {'collective_return': collective_return[episode]},
-                    episode)
-                logger.add_scalars('sustainability',
-                    {'sustainability': sustainability[episode]/args.num_agents},
-                    episode)
-                logger.add_scalars('waste_cleared',
-                    {'waste_cleared': waste_cleared[episode]},
-                    episode)
-                logger.add_scalars('fire',
-                    {'fire': fire[episode]},
-                    episode)
-            elif args.env_name == "Harvest":
-                if 'collective_return' in infos.keys(): 
-                    collective_return.append(infos['collective_return'])
-                if 'sustainability' in infos.keys():
-                    sustainability.append(infos['sustainability'])
-                if 'apple_consumption' in infos.keys():
-                    apple_consumption.append(infos['apple_consumption'])
-                if 'fire' in infos.keys():
-                    fire.append(infos['fire']) 
- 
-                logger.add_scalars('collective_return',
-                    {'collective_return': collective_return[episode]},
-                    episode)
-                logger.add_scalars('sustainability',
-                    {'sustainability': sustainability[episode]/args.num_agents},
-                    episode)
-                logger.add_scalars('apple_consumption',
-                    {'apple_consumption': apple_consumption[episode]},
-                    episode)
-                logger.add_scalars('fire',
-                    {'fire': fire[episode]},
-                    episode)    
-            elif args.env_name == "StagHuntGW":
-                if 'collective_return' in infos.keys(): 
-                    collective_return.append(infos['collective_return']) 
-                    logger.add_scalars('collective_return',
-                    {'collective_return': collective_return[episode]},
-                    episode)
-                if 'coop&coop_num' in infos.keys():
-                    coop_num.append(infos['coop&coop_num'])
-                    logger.add_scalars('coop&coop_num_per_episode',
-                        {'coop&coop_num_per_episode': coop_num[episode]},
-                        episode)
-                if 'gore1_num' in infos.keys():
-                    gore1_num.append(infos['gore1_num'])
-                    logger.add_scalars('gore1_num_per_episode',
-                        {'gore1_num_per_episode': gore1_num[episode]},
-                        episode)
-                if 'gore2_num' in infos.keys():
-                    gore2_num.append(infos['gore2_num'])
-                    logger.add_scalars('gore2_num_per_episode',
-                        {'gore2_num_per_episode': gore2_num[episode]},
-                        episode)
-                if 'hare1_num' in infos.keys():
-                    hare1_num.append(infos['hare1_num'])
-                    logger.add_scalars('hare1_num_per_episode',
-                        {'hare1_num_per_episode': hare1_num[episode]},
-                        episode)
-                if 'hare2_num' in infos.keys():
-                    hare2_num.append(infos['hare2_num'])
-                    logger.add_scalars('hare2_num_per_episode',
-                        {'hare2_num_per_episode': hare2_num[episode]},
-                        episode)
-            elif args.env_name == "HarvestGW" or args.env_name == "EscalationGW":
-                if 'collective_return' in infos.keys(): 
-                    collective_return.append(infos['collective_return']) 
-                    logger.add_scalars('collective_return',
-                    {'collective_return': collective_return[episode]},
-                    episode)
-                if 'coop&coop_num' in infos.keys():
-                    coop_num.append(infos['coop&coop_num'])
-                    logger.add_scalars('coop&coop_num_per_episode',
-                        {'coop&coop_num_per_episode': coop_num[episode]},
-                        episode)
-        logger.export_scalars_to_json(str(log_dir / 'summary.json'))	
-        logger.close()
+    envs.close()
 if __name__ == "__main__":
     main()
