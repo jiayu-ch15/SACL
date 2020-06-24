@@ -45,3 +45,12 @@ pip install -r requirements.txt
   tensorboard --logdir=./results/ 
   ```
 
+3. Tips
+
+   Sometimes StarCraftII exits abnormally, and you need to kill the program manually.
+
+   ```Bash
+   ps -ef | grep StarCraftII | grep -v grep | cut -c 9-15 | xargs kill -9
+   ```
+
+   
