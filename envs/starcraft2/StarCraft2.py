@@ -80,6 +80,7 @@ class StarCraft2Env(MultiAgentEnv):
         obs_terrain_height=False,
         obs_instead_of_state=False,
         obs_timestep_number=False,
+        obs_agent_id = False,
         state_last_action=True,
         state_timestep_number=False,
         reward_sparse=False,
@@ -212,6 +213,7 @@ class StarCraft2Env(MultiAgentEnv):
         self.obs_pathing_grid = obs_pathing_grid
         self.obs_terrain_height = obs_terrain_height
         self.obs_timestep_number = obs_timestep_number
+        self.obs_agent_id = obs_agent_id
         self.state_last_action = state_last_action
         self.state_timestep_number = state_timestep_number
         if self.obs_all_health:
@@ -405,7 +407,7 @@ class StarCraft2Env(MultiAgentEnv):
 
     def step(self, actions):
         """A single environment step. Returns reward, terminated, info."""
-        actions_int = [int(a) for a in actions]
+        actions_int = [int(np.argmax(a)) for a in actions]
 
         self.last_action = np.eye(self.n_actions)[np.array(actions_int)]
 
@@ -1235,7 +1237,7 @@ class StarCraft2Env(MultiAgentEnv):
             timestep_feats=1
             all_feats += timestep_feats
             
-        return [all_feats, n_ally_feats, n_enemy_feats, own_feats, agent_id_feats, timestep_feats]
+        return [all_feats, n_ally_feats, n_enemy_feats, own_feats,move_feats, agent_id_feats, timestep_feats]
 
     def get_state_size(self):
         """Returns the size of the global state."""
@@ -1391,9 +1393,9 @@ class StarCraft2Env(MultiAgentEnv):
         if self._sc2_proc:
             self._sc2_proc.close()
 
-    def seed(self):
+    def seed(self, seed):
         """Returns the random seed used by the environment."""
-        return self._seed
+        self._seed = seed
 
     def render(self):
         """Not implemented."""

@@ -61,8 +61,8 @@ class Policy(nn.Module):
     def forward(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks):
         raise NotImplementedError
 
-    def act(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks, available_actions, deterministic=False):
-        value, actor_features, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic = self.base(share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
+    def act(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks, available_actions, deterministic=False):
+        value, actor_features, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
         
         dist = self.dist(actor_features, available_actions)
 
@@ -76,12 +76,12 @@ class Policy(nn.Module):
 
         return value, action, action_log_probs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic
 
-    def get_value(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks):
-        value, _, _, _,_ ,_ = self.base(share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
+    def get_value(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks):
+        value, _, _, _,_ ,_ = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
         return value
 
-    def evaluate_actions(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks, action):
-        value, actor_features, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic = self.base(share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
+    def evaluate_actions(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks, action):
+        value, actor_features, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
         dist = self.dist(actor_features)
 
         action_log_probs = dist.log_probs(action)
@@ -101,8 +101,8 @@ class NNBase(nn.Module):
         self._attn=attn
                 
         if self._attn:
-            self.self_attn_actor = SelfAttnActor(obs_shape, num_agents, num_enemies, attn_layers, attn_size, attn_head)
-            self.self_attn_critic = SelfAttnCritic(obs_shape, num_agents, num_enemies, attn_layers, attn_size, attn_head)
+            self.self_attn_actor = SelfAttn(obs_shape, num_agents, num_enemies, attn_layers, attn_size, attn_head)
+            self.self_attn_critic = Attn(obs_shape, num_agents, attn_layers, attn_size, attn_head)
         
         assert (self._lstm and (self._recurrent or self._naive_recurrent))==False, ("LSTM and GRU can not be set True simultaneously.")
 
@@ -399,34 +399,36 @@ class MLPBase(NNBase):
         super(MLPBase, self).__init__(obs_shape, num_agents, num_enemies, lstm, naive_recurrent, recurrent, hidden_size, attn, attn_layers, attn_size, attn_head)
 
         if attn:
-            num_inputs = 
+            num_inputs_actor = 3 * attn_size 
+            num_inputs_critic = 2 * attn_size
         else:
-            num_inputs = obs_shape[0]
+            num_inputs_actor = obs_shape[0]
+            num_inputs_critic = num_agents * obs_shape[0]
         init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
                                constant_(x, 0), np.sqrt(2))
 
         self.actor = nn.Sequential(
-            init_(nn.Linear(num_inputs, hidden_size)), nn.Tanh(),
+            init_(nn.Linear(num_inputs_actor, hidden_size)), nn.Tanh(),
             init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh())
 
         self.critic = nn.Sequential(
-            init_(nn.Linear(num_inputs * num_agents, hidden_size)), nn.Tanh(),
+            init_(nn.Linear(num_inputs_critic, hidden_size)), nn.Tanh(),
             init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh())
 
         self.critic_linear = init_(nn.Linear(hidden_size, 1))
 
         self.train()
 
-    def forward(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks):
+    def forward(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks):
         share_x = share_inputs
         x = inputs
         
         if self.is_attn:
             x = self.self_attn_actor(x)
-            share_x = self.self_attn_critic(share_x)
-        
-        hidden_critic = self.critic(share_x)
+            share_x = self.self_attn_critic(agent_id, share_x)
+                
         hidden_actor = self.actor(x)
+        hidden_critic = self.critic(share_x)
 
         if self.is_recurrent or self.is_naive_recurrent:
             hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
@@ -573,7 +575,7 @@ class MultiHeadAttention2Layers(nn.Module):
         q_ = self.fc_2(q_)
         return q_, torch.cat((residual1, residual2), dim=-1), attn2.squeeze()
         
-class SelfAttnActor(nn.Module):
+class SelfAttn(nn.Module):
     def __init__(self, obs_shape, num_agents, num_enemies, attn_layers=1, attn_size=64, attn_head=1):
         super(SelfAttn, self).__init__()
         self.attn_layers = attn_layers
@@ -586,8 +588,10 @@ class SelfAttnActor(nn.Module):
         self.num_inputs_ally = obs_shape[1]
         self.num_inputs_enemy = obs_shape[2]
         self.num_inputs_own = obs_shape[3]
-        self.agent_id_feats = obs_shape[4]
-        self.timestep_feats = obs_shape[5]
+        self.num_inputs_move = obs_shape[4]
+        self.agent_id_feats = obs_shape[5]
+        self.timestep_feats = obs_shape[6]
+        self.fc = nn.Linear(self.num_inputs_own + self.num_inputs_move+self.agent_id_feats+self.timestep_feats, self.attn_size)
         
         if self.attn_layers == 1:
             self.a_self_attn = MultiHeadAttention(self.attn_head, self.num_inputs_ally, self.attn_size, self.attn_size, self.attn_size)
@@ -598,72 +602,68 @@ class SelfAttnActor(nn.Module):
         
     def forward(self, inputs):
         # inputs [bs,all_size*nagents]       
-        bs = inputs.shape[0]
+        bs = inputs.size(0)
         # Own features
-        own_feats = inputs[:,-self.num_inputs_own-self.agent_id_feats-self.timestep_feats:-self.agent_id_feats-self.timestep_feats].reshape(bs, 1, -1)
+        if self.agent_id_feats+self.timestep_feats == 0:
+            own_feats = inputs[:,-self.num_inputs_own:].view(bs, 1, -1)
+        else:
+            own_feats = inputs[:,-self.num_inputs_own-self.agent_id_feats-self.timestep_feats:-self.agent_id_feats-self.timestep_feats].view(bs, 1, -1)
         
         # Ally features
-        ally_feats = inputs[:,0:self.num_inputs_ally*(self.num_allies)].reshape(bs, self.num_allies, -1)        
+        ally_feats = inputs[:,0:self.num_inputs_ally*(self.num_allies)].view(bs, self.num_allies, -1)        
         ally_feats, own_feats_a, _ = self.a_self_attn(own_feats, ally_feats, ally_feats)
-        ally_own_feats = torch.cat((ally_feats.reshape(bs, -1), own_feats_a.reshape(bs, -1)), dim=-1)
+        #ally_own_feats = torch.cat((ally_feats.view(bs, -1), own_feats_a.view(bs, -1)), dim=-1)
+        ally_own_feats = ally_feats.view(bs, -1)
         
         # Enemy features
-        enemy_feats = inputs[:, self.num_inputs_ally*self.num_allies:self.num_inputs_ally*self.num_allies + self.num_inputs_enemy*self.num_enemies].reshape(bs, self.num_enemies, -1)
-        enemy_feats, own_feats_a, _ = self.e_self_attn(own_feats[:,;,0:self.num_inputs_enemy], enemy_feats, enemy_feats)
-        enemy_own_feats = torch.cat((enemy_feats.reshape(bs, -1), own_feats_a.reshape(bs, -1)), dim=-1)
+        enemy_feats = inputs[:, self.num_inputs_ally*self.num_allies:self.num_inputs_ally*self.num_allies + self.num_inputs_enemy*self.num_enemies].view(bs, self.num_enemies, -1)
+        enemy_feats, own_feats_a, _ = self.e_self_attn(own_feats[:,0:self.num_inputs_enemy], enemy_feats, enemy_feats)
+        #enemy_own_feats = torch.cat((enemy_feats.view(bs, -1), own_feats_a.view(bs, -1)), dim=-1)
+        enemy_own_feats = enemy_feats.view(bs, -1)
         
         #Move and own and other features
         other_feats = inputs[:, self.num_inputs_ally*self.num_allies + self.num_inputs_enemy*self.num_enemies:]
-
+        other_feats = self.fc(other_feats)
+        
         #Concat everything
         inputs = torch.cat((ally_own_feats, enemy_own_feats, other_feats), dim=-1)
         
         return inputs
         
-class SelfAttnCritic(nn.Module):
-    def __init__(self, obs_shape, num_agents, num_enemies, attn_layers=1, attn_size=64, attn_head=1):
-        super(SelfAttn, self).__init__()
+class Attn(nn.Module):
+    def __init__(self, obs_shape, num_agents, attn_layers=1, attn_size=64, attn_head=1):
+        super(Attn, self).__init__()
         self.attn_layers = attn_layers
         self.attn_size = attn_size
         self.attn_head = attn_head
         self.num_agents = num_agents
         self.num_allies = num_agents-1
-        self.num_enemies = num_enemies
+        
         self.num_inputs = obs_shape[0]
-        self.num_inputs_ally = obs_shape[1]
-        self.num_inputs_enemy = obs_shape[2]
-        self.num_inputs_own = obs_shape[3]
-        self.agent_id_feats = obs_shape[4]
-        self.timestep_feats = obs_shape[5]
+        self.fc = nn.Linear(self.num_inputs, self.attn_size)
         
         if self.attn_layers == 1:
-            self.a_self_attn = MultiHeadAttention(self.attn_head, self.num_inputs_ally, self.attn_size, self.attn_size, self.attn_size)
-            self.e_self_attn = MultiHeadAttention(self.attn_head, self.num_inputs_enemy, self.attn_size, self.attn_size, self.attn_size)
+            self.a_attn = MultiHeadAttention(self.attn_head, self.num_inputs, self.attn_size, self.attn_size, self.attn_size)
         elif self.attn_layers == 2:
-            self.a_self_attn = MultiHeadAttention2Layers(self.attn_head, self.num_inputs_ally, self.attn_size, self.attn_size, self.attn_size)
-            self.e_self_attn = MultiHeadAttention2Layers(self.attn_head, self.num_inputs_enemy, self.attn_size, self.attn_size, self.attn_size)
+            self.a_attn = MultiHeadAttention2Layers(self.attn_head, self.num_inputs, self.attn_size, self.attn_size, self.attn_size)
         
-    def forward(self, inputs):
-        # inputs [bs,all_size*nagents]       
-        bs = inputs.shape[0]
-        # Own features
-        own_feats = inputs[:,-self.num_inputs_own-self.agent_id_feats-self.timestep_feats:-self.agent_id_feats-self.timestep_feats].reshape(bs, 1, -1)
+    def forward(self, agent_id, inputs):
+        # inputs [bs,all_size*nagents]          
+        bs = inputs.size(0)
+        inputs = inputs.view(bs, self.num_agents, -1)
+        
+        # Self features
+        self_obs = inputs[:,agent_id,:].view(bs, 1, -1)
         
         # Ally features
-        ally_feats = inputs[:,0:self.num_inputs_ally*(self.num_allies)].reshape(bs, self.num_allies, -1)        
-        ally_feats, own_feats_a, _ = self.a_self_attn(own_feats, ally_feats, ally_feats)
-        ally_own_feats = torch.cat((ally_feats.reshape(bs, -1), own_feats_a.reshape(bs, -1)), dim=-1)
+        ally_obs = inputs[:,torch.arange(self.num_agents)!=agent_id,:].view(bs, self.num_allies, -1)               
         
-        # Enemy features
-        enemy_feats = inputs[:, self.num_inputs_ally*self.num_allies:self.num_inputs_ally*self.num_allies + self.num_inputs_enemy*self.num_enemies].reshape(bs, self.num_enemies, -1)
-        enemy_feats, own_feats_a, _ = self.e_self_attn(own_feats[:,;,0:self.num_inputs_enemy], enemy_feats, enemy_feats)
-        enemy_own_feats = torch.cat((enemy_feats.reshape(bs, -1), own_feats_a.reshape(bs, -1)), dim=-1)
+        ally_obs, self_obs_a, _ = self.a_attn(self_obs, ally_obs, ally_obs)
+        ally_self_obs = ally_obs.view(bs, -1)
         
-        #Move and own and other features
-        other_feats = inputs[:, self.num_inputs_ally*self.num_allies + self.num_inputs_enemy*self.num_enemies:]
-
-        #Concat everything
-        inputs = torch.cat((ally_own_feats, enemy_own_feats, other_feats), dim=-1)
+        self_obs = self.fc(inputs[:,agent_id,:])
+        
+        inputs = torch.cat((ally_self_obs, self_obs), dim=-1)        
         
         return inputs
         

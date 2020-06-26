@@ -152,14 +152,7 @@ def main():
     
     # rollout
     for i in range(num_agents):
-        if len(envs.observation_space[0]) == 1:
-            rollouts[i].share_obs[0].copy_(torch.tensor(obs.reshape(args.n_rollout_threads, -1)))
-            rollouts[i].obs[0].copy_(torch.tensor(obs[:,i,:]))
-            rollouts[i].recurrent_hidden_states.zero_()
-            rollouts[i].recurrent_hidden_states_critic.zero_()
-            rollouts[i].recurrent_c_states.zero_()
-            rollouts[i].recurrent_c_states_critic.zero_()
-        elif len(envs.observation_space[0]) == 3:
+        if len(envs.observation_space[0]) == 3:
             rollouts[i].share_obs[0].copy_(torch.tensor(obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2] )))
             rollouts[i].obs[0].copy_(torch.tensor(obs[:,i,:,:,:]))
             rollouts[i].recurrent_hidden_states.zero_()
@@ -167,32 +160,18 @@ def main():
             rollouts[i].recurrent_c_states.zero_()
             rollouts[i].recurrent_c_states_critic.zero_()
         else:
-            raise NotImplementedError
+            rollouts[i].share_obs[0].copy_(torch.tensor(obs.reshape(args.n_rollout_threads, -1)))
+            rollouts[i].obs[0].copy_(torch.tensor(obs[:,i,:]))
+            rollouts[i].recurrent_hidden_states.zero_()
+            rollouts[i].recurrent_hidden_states_critic.zero_()
+            rollouts[i].recurrent_c_states.zero_()
+            rollouts[i].recurrent_c_states_critic.zero_()
         rollouts[i].to(device) 
     
     # run
-    coop_num = []
-    defect_num = []
-    coopdefect_num = []
-    defectcoop_num = []
-    gore1_num = []
-    gore2_num = []
-    hare1_num = []
-    hare2_num = []
-    collective_return = []
-    apple_consumption = []
-    waste_cleared = []
-    sustainability = []
-    fire = []
-    battles_won = []
-    battles_game = []
-    battles_draw = []
-    win_rate = []
-    restarts = []
-
     start = time.time()
     episodes = int(args.num_env_steps) // args.episode_length // args.n_rollout_threads
-    all_episode = 0
+    timesteps = 0
 
     for episode in range(episodes):
 
@@ -216,7 +195,8 @@ def main():
 
             with torch.no_grad():
                 for i in range(num_agents):
-                    value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic ,recurrent_c_states, recurrent_c_states_critic = actor_critic[i].act(rollouts[i].share_obs[step], 
+                    value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic ,recurrent_c_states, recurrent_c_states_critic = actor_critic[i].act(i,
+                    rollouts[i].share_obs[step], 
                     rollouts[i].obs[step], 
                     rollouts[i].recurrent_hidden_states[step], 
                     rollouts[i].recurrent_hidden_states_critic[step],
@@ -265,20 +245,7 @@ def main():
                 bad_masks.append(torch.FloatTensor(bad_mask))
                             
             for i in range(num_agents):
-                if len(envs.observation_space[0]) == 1:
-                    rollouts[i].insert(torch.tensor(obs.reshape(args.n_rollout_threads, -1)), 
-                                        torch.tensor(obs[:,i,:]), 
-                                        recurrent_hidden_statess[i], 
-                                        recurrent_hidden_statess_critic[i],
-                                        recurrent_c_statess[i], 
-                                        recurrent_c_statess_critic[i], 
-                                        actions[i],
-                                        action_log_probs[i], 
-                                        values[i], 
-                                        torch.tensor(reward[:, i].reshape(-1,1)), 
-                                        masks[i], 
-                                        bad_masks[i])
-                elif len(envs.observation_space[0]) == 3:
+                if len(envs.observation_space[0]) == 3:
                     rollouts[i].insert(torch.tensor(obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])), 
                                         torch.tensor(obs[:,i,:,:,:]), 
                                         recurrent_hidden_statess[i], 
@@ -291,11 +258,53 @@ def main():
                                         torch.tensor(reward[:, i].reshape(-1,1)), 
                                         masks[i], 
                                         bad_masks[i])
+                else:
+                    rollouts[i].insert(torch.tensor(obs.reshape(args.n_rollout_threads, -1)), 
+                                        torch.tensor(obs[:,i,:]), 
+                                        recurrent_hidden_statess[i], 
+                                        recurrent_hidden_statess_critic[i],
+                                        recurrent_c_statess[i], 
+                                        recurrent_c_statess_critic[i], 
+                                        actions[i],
+                                        action_log_probs[i], 
+                                        values[i], 
+                                        torch.tensor(reward[:, i].reshape(-1,1)), 
+                                        masks[i], 
+                                        bad_masks[i])
+                                        
+            if args.env_name == "StarCraft2":
+                for info in infos:
+                    if 'battles_won' in info.keys():
+                        logger.add_scalars('battles_won',
+                        {'battles_won': info['battles_won']},
+                        timesteps) 
+                    if 'battles_game' in info.keys():
+                        logger.add_scalars('battles_game',
+                            {'battles_game': info['battles_game']},
+                            timesteps)
+                        if info['battles_game'] == 0:
+                            logger.add_scalars('win_rate',
+                            {'win_rate': 0},
+                            timesteps)
+                        else:
+                            logger.add_scalars('win_rate',
+                            {'win_rate': info['battles_won']/info['battles_game']},
+                            timesteps)
+                    if 'battles_draw' in info.keys():
+                        logger.add_scalars('battles_draw',
+                        {'battles_draw': info['battles_draw']},
+                        timesteps)
+                    if 'restarts' in info.keys():
+                        logger.add_scalars('restarts',
+                            {'restarts': info['restarts']},
+                            timesteps)
+                    timesteps += 1
                                         
         with torch.no_grad():
             next_values = []
             for i in range(num_agents):
-                next_value = actor_critic[i].get_value(rollouts[i].share_obs[-1], 
+                next_value = actor_critic[i].get_value(i,
+                                                       rollouts[i].share_obs[-1], 
                                                        rollouts[i].obs[-1], 
                                                        rollouts[i].recurrent_hidden_states[-1],
                                                        rollouts[i].recurrent_hidden_states_critic[-1],
@@ -319,49 +328,12 @@ def main():
             value_loss, action_loss, dist_entropy = agents[i].update(rollouts[i])
             value_losses.append(value_loss)
             action_losses.append(action_loss)
-            dist_entropies.append(dist_entropy)
-             
-        if args.env_name == "StarCraft2":
-            for info in infos:
-                if 'battles_won' in info.keys():
-                    logger.add_scalars('battles_won',
-                    {'battles_won': info['battles_won']},
-                    all_episode) 
-                if 'battles_game' in info.keys():
-                    logger.add_scalars('battles_game',
-                        {'battles_game': info['battles_game']},
-                        all_episode)
-                    if info['battles_game'] == 0:
-                        logger.add_scalars('win_rate',
-                        {'win_rate': 0},
-                        all_episode)
-                    else:
-                        logger.add_scalars('win_rate',
-                        {'win_rate': info['battles_won']/info['battles_game']},
-                        all_episode)
-                if 'battles_draw' in info.keys():
-                    logger.add_scalars('battles_draw',
-                    {'battles_draw': info['battles_draw']},
-                    all_episode)
-                if 'restarts' in info.keys():
-                    logger.add_scalars('restarts',
-                        {'restarts': info['restarts']},
-                        all_episode)
-                all_episode += 1     
+            dist_entropies.append(dist_entropy)     
         
         # clean the buffer and reset
         obs, available_actions = envs.reset()
         for i in range(num_agents):
-            if len(envs.observation_space[0]) == 1:
-                rollouts[i].share_obs[0].copy_(torch.tensor(obs.reshape(args.n_rollout_threads, -1)))
-                rollouts[i].obs[0].copy_(torch.tensor(obs[:,i,:]))
-                rollouts[i].recurrent_hidden_states.zero_()
-                rollouts[i].recurrent_hidden_states_critic.zero_()
-                rollouts[i].recurrent_c_states.zero_()
-                rollouts[i].recurrent_c_states_critic.zero_()
-                rollouts[i].masks[0].copy_(torch.ones(args.n_rollout_threads, 1))
-                rollouts[i].bad_masks[0].copy_(torch.ones(args.n_rollout_threads, 1))
-            elif len(envs.observation_space[0]) == 3:
+            if len(envs.observation_space[0]) == 3:
                 rollouts[i].share_obs[0].copy_(torch.tensor(obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2] )))
                 rollouts[i].obs[0].copy_(torch.tensor(obs[:,i,:,:,:]))
                 rollouts[i].recurrent_hidden_states.zero_()
@@ -371,7 +343,14 @@ def main():
                 rollouts[i].masks[0].copy_(torch.ones(args.n_rollout_threads, 1))
                 rollouts[i].bad_masks[0].copy_(torch.ones(args.n_rollout_threads, 1))
             else:
-                raise NotImplementedError
+                rollouts[i].share_obs[0].copy_(torch.tensor(obs.reshape(args.n_rollout_threads, -1)))
+                rollouts[i].obs[0].copy_(torch.tensor(obs[:,i,:]))
+                rollouts[i].recurrent_hidden_states.zero_()
+                rollouts[i].recurrent_hidden_states_critic.zero_()
+                rollouts[i].recurrent_c_states.zero_()
+                rollouts[i].recurrent_c_states_critic.zero_()
+                rollouts[i].masks[0].copy_(torch.ones(args.n_rollout_threads, 1))
+                rollouts[i].bad_masks[0].copy_(torch.ones(args.n_rollout_threads, 1))
             rollouts[i].to(device)
 
         for i in range(num_agents):

@@ -13,11 +13,12 @@ class RolloutStorage(object):
         self.agent_id = agent_id
         if len(obs_shape) == 3:
             self.share_obs = torch.zeros(episode_length + 1, n_rollout_threads, obs_shape[0] * num_agents, obs_shape[1], obs_shape[2])
-        elif len(obs_shape) == 1:
-            self.share_obs = torch.zeros(episode_length + 1, n_rollout_threads, obs_shape[0] * num_agents)
+            self.obs = torch.zeros(episode_length + 1, n_rollout_threads, *obs_shape)
         else:
-            raise NotImplementedError
-        self.obs = torch.zeros(episode_length + 1, n_rollout_threads, *obs_shape)
+            self.share_obs = torch.zeros(episode_length + 1, n_rollout_threads, obs_shape[0] * num_agents)
+            self.obs = torch.zeros(episode_length + 1, n_rollout_threads, obs_shape[0])
+        
+        
         self.recurrent_hidden_states = torch.zeros(
             episode_length + 1, n_rollout_threads, recurrent_hidden_state_size)
         self.recurrent_c_states = torch.zeros(
