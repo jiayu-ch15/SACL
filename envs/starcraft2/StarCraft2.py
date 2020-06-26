@@ -96,13 +96,14 @@ class StarCraft2Env(MultiAgentEnv):
         window_size_y=1200,
         heuristic_ai=False,
         heuristic_rest=False,
-        debug=True,
+        debug=False,
     ):
         """
         Create a StarCraftC2Env environment.
+
         Parameters
         ----------
-        map_name : [str], optional
+        map_name : str, optional
             The name of the SC2 map to play (default is "8m"). The full list
             can be found by running bin/map_list.
         step_mul : int, optional
@@ -194,9 +195,8 @@ class StarCraft2Env(MultiAgentEnv):
             debugging purposes (default is False).
         """
         # Map arguments
-        self.map_name = [args.map_name]
-        #map_name is a list of identical maps or one map
-        map_params = get_map_params(self.map_name[0])
+        self.map_name = args.map_name
+        map_params = get_map_params(self.map_name)
         self.n_agents = map_params["n_agents"]
         self.n_enemies = map_params["n_enemies"]
         self.episode_limit = map_params["limit"]
@@ -232,6 +232,7 @@ class StarCraft2Env(MultiAgentEnv):
         # Other
         self.game_version = game_version
         self.continuing_episode = continuing_episode
+        self._seed = seed
         self.heuristic_ai = heuristic_ai
         self.heuristic_rest = heuristic_rest
         self.debug = debug
@@ -255,7 +256,6 @@ class StarCraft2Env(MultiAgentEnv):
         self.max_reward = (
             self.n_enemies * self.reward_death_value + self.reward_win
         )
-        self.max_reward_base = self.max_reward
 
         self.agents = {}
         self.enemies = {}
@@ -289,138 +289,73 @@ class StarCraft2Env(MultiAgentEnv):
 
         # Try to avoid leaking SC2 processes on shutdown
         atexit.register(lambda: self.close())
-        self.num_agents_survived = 0
         
         self.action_space = []
         self.observation_space = []
         for i in range(self.n_agents):
             self.action_space.append(Discrete(self.n_actions))
-            self.observation_space.append([self.get_obs_size()])
+            self.observation_space.append(self.get_obs_size())
 
-    def _launch(self, test_mode=False):
+    def _launch(self):
         """Launch the StarCraft II game."""
         self._run_config = run_configs.get(version=self.game_version)
-        if len(self.map_name) == 1:
-            _map = maps.get(self.map_name[-1])
+        _map = maps.get(self.map_name)
 
-            # Setting up the interface
-            interface_options = sc_pb.InterfaceOptions(raw=True, score=False)
-            self._sc2_proc = self._run_config.start(window_size=self.window_size)
-            self._controller = self._sc2_proc.controller
+        # Setting up the interface
+        interface_options = sc_pb.InterfaceOptions(raw=True, score=False)
+        self._sc2_proc = self._run_config.start(window_size=self.window_size)
+        self._controller = self._sc2_proc.controller
 
-            # Request to create the game
-            create = sc_pb.RequestCreateGame(
-                local_map=sc_pb.LocalMap(
-                    map_path=_map.path,
-                    map_data=self._run_config.map_data(_map.path)),
-                realtime=False,
-                random_seed=self._seed)
-            create.player_setup.add(type=sc_pb.Participant)
-            create.player_setup.add(type=sc_pb.Computer, race=races[self._bot_race],
-                                    difficulty=difficulties[self.difficulty])
-            self._controller.create_game(create)
+        # Request to create the game
+        create = sc_pb.RequestCreateGame(
+            local_map=sc_pb.LocalMap(
+                map_path=_map.path,
+                map_data=self._run_config.map_data(_map.path)),
+            realtime=False,
+            random_seed=self._seed)
+        create.player_setup.add(type=sc_pb.Participant)
+        create.player_setup.add(type=sc_pb.Computer, race=races[self._bot_race],
+                                difficulty=difficulties[self.difficulty])
+        self._controller.create_game(create)
 
-            join = sc_pb.RequestJoinGame(race=races[self._agent_race],
-                                        options=interface_options)
-            self._controller.join_game(join)
+        join = sc_pb.RequestJoinGame(race=races[self._agent_race],
+                                     options=interface_options)
+        self._controller.join_game(join)
 
-            game_info = self._controller.game_info()
-            map_info = game_info.start_raw
-            map_play_area_min = map_info.playable_area.p0
-            map_play_area_max = map_info.playable_area.p1
-            self.max_distance_x = map_play_area_max.x - map_play_area_min.x
-            self.max_distance_y = map_play_area_max.y - map_play_area_min.y
-            self.map_x = map_info.map_size.x
-            self.map_y = map_info.map_size.y
+        game_info = self._controller.game_info()
+        map_info = game_info.start_raw
+        map_play_area_min = map_info.playable_area.p0
+        map_play_area_max = map_info.playable_area.p1
+        self.max_distance_x = map_play_area_max.x - map_play_area_min.x
+        self.max_distance_y = map_play_area_max.y - map_play_area_min.y
+        self.map_x = map_info.map_size.x
+        self.map_y = map_info.map_size.y
 
-            if map_info.pathing_grid.bits_per_pixel == 1:
-                vals = np.array(list(map_info.pathing_grid.data)).reshape(
-                    self.map_x, int(self.map_y / 8))
-                self.pathing_grid = np.transpose(np.array([
-                    [(b >> i) & 1 for b in row for i in range(7, -1, -1)]
-                    for row in vals], dtype=np.bool))
-            else:
-                self.pathing_grid = np.invert(np.flip(np.transpose(np.array(
-                    list(map_info.pathing_grid.data), dtype=np.bool).reshape(
-                        self.map_x, self.map_y)), axis=1))
-
-            self.terrain_height = np.flip(
-                np.transpose(np.array(list(map_info.terrain_height.data))
-                    .reshape(self.map_x, self.map_y)), 1) / 255
+        if map_info.pathing_grid.bits_per_pixel == 1:
+            vals = np.array(list(map_info.pathing_grid.data)).reshape(
+                self.map_x, int(self.map_y / 8))
+            self.pathing_grid = np.transpose(np.array([
+                [(b >> i) & 1 for b in row for i in range(7, -1, -1)]
+                for row in vals], dtype=np.bool))
         else:
-            self._sc2_proc_list = []
-            self._controller_list = []
-            for map_one in self.map_name:
-                _map = maps.get(map_one)
-                # Setting up the interface
-                interface_options = sc_pb.InterfaceOptions(raw=True, score=False)
-                _sc2_proc = self._run_config.start(window_size=self.window_size)
-                _controller = _sc2_proc.controller
+            self.pathing_grid = np.invert(np.flip(np.transpose(np.array(
+                list(map_info.pathing_grid.data), dtype=np.bool).reshape(
+                    self.map_x, self.map_y)), axis=1))
 
-                # Request to create the game
-                create = sc_pb.RequestCreateGame(
-                    local_map=sc_pb.LocalMap(
-                        map_path=_map.path,
-                        map_data=self._run_config.map_data(_map.path)),
-                    realtime=False,
-                    random_seed=self._seed)
-                create.player_setup.add(type=sc_pb.Participant)
-                create.player_setup.add(type=sc_pb.Computer, race=races[self._bot_race],
-                                        difficulty=difficulties[self.difficulty])
-                _controller.create_game(create)
+        self.terrain_height = np.flip(
+            np.transpose(np.array(list(map_info.terrain_height.data))
+                .reshape(self.map_x, self.map_y)), 1) / 255
 
-                join = sc_pb.RequestJoinGame(race=races[self._agent_race],
-                                            options=interface_options)
-                _controller.join_game(join)
-                self._sc2_proc_list.append(_sc2_proc)
-                self._controller_list.append(_controller)
-
-            # Set up controller and sc_pb
-            if test_mode:
-                index = len(self.map_name) - 1
-            else:
-                index = np.random.choice(len(self.map_name)-1)
-            map_params = get_map_params(self.map_name[index])
-            self.n_agents = map_params["n_agents"]
-            self.n_enemies = map_params["n_enemies"]
-            self.episode_limit = map_params["limit"]
-            self._sc2_proc = self._sc2_proc_list[index]
-            self._controller = self._controller_list[index]
-
-            game_info = self._controller.game_info()
-            map_info = game_info.start_raw
-            map_play_area_min = map_info.playable_area.p0
-            map_play_area_max = map_info.playable_area.p1
-            self.max_distance_x = map_play_area_max.x - map_play_area_min.x
-            self.max_distance_y = map_play_area_max.y - map_play_area_min.y
-            self.map_x = map_info.map_size.x
-            self.map_y = map_info.map_size.y
-
-            if map_info.pathing_grid.bits_per_pixel == 1:
-                vals = np.array(list(map_info.pathing_grid.data)).reshape(
-                    self.map_x, int(self.map_y / 8))
-                self.pathing_grid = np.transpose(np.array([
-                    [(b >> i) & 1 for b in row for i in range(7, -1, -1)]
-                    for row in vals], dtype=np.bool))
-            else:
-                self.pathing_grid = np.invert(np.flip(np.transpose(np.array(
-                    list(map_info.pathing_grid.data), dtype=np.bool).reshape(
-                        self.map_x, self.map_y)), axis=1))
-
-            self.terrain_height = np.flip(
-                np.transpose(np.array(list(map_info.terrain_height.data))
-                    .reshape(self.map_x, self.map_y)), 1) / 255
-
-    def reset(self, test_mode=False):
+    def reset(self):
         """Reset the environment. Required after each full episode.
         Returns initial observations and states.
         """
         self._episode_steps = 0
         if self._episode_count == 0:
             # Launch StarCraft II
-            self._launch(test_mode)
+            self._launch()
         else:
-            self._restart(test_mode)
+            self._restart()
 
         # Information kept for counting the reward
         self.death_tracker_ally = np.zeros(self.n_agents)
@@ -449,10 +384,9 @@ class StarCraft2Env(MultiAgentEnv):
             logging.debug("Started Episode {}"
                           .format(self._episode_count).center(60, "*"))
 
-        #return self.get_obs(), self.get_state(), available_actions
         return self.get_obs(), available_actions
 
-    def _restart(self, test_mode=False):
+    def _restart(self):
         """Restart the environment by killing all units on the map.
         There is a trigger in the SC2Map file, which restarts the
         episode when there are no units left.
@@ -460,34 +394,18 @@ class StarCraft2Env(MultiAgentEnv):
         try:
             self._kill_all_units()
             self._controller.step(2)
-            if len(self.map_name) > 1:
-                #Random choose another map
-                if test_mode:
-                    index = len(self.map_name) - 1
-                else:
-                    index = np.random.choice(len(self.map_name)-1)
-                map_params = get_map_params(self.map_name[index])
-                self.n_agents = map_params["n_agents"]
-                self.n_enemies = map_params["n_enemies"]
-                self.episode_limit = map_params["limit"]
-                self._sc2_proc = self._sc2_proc_list[index]
-                self._controller = self._controller_list[index]
         except (protocol.ProtocolError, protocol.ConnectionError):
-            self.full_restart(test_mode)
+            self.full_restart()
 
-    def full_restart(self, test_mode=False):
+    def full_restart(self):
         """Full restart. Closes the SC2 process and launches a new one. """
-        if len(self.map_name) > 1:
-            for _sc2_proc in self._sc2_proc_list:
-                _sc2_proc.close()
-        else:
-            self._sc2_proc.close()
-        self._launch(test_mode)
+        self._sc2_proc.close()
+        self._launch()
         self.force_restarts += 1
 
     def step(self, actions):
         """A single environment step. Returns reward, terminated, info."""
-        actions_int = [int(np.argmax(a)) for a in actions]
+        actions_int = [int(a) for a in actions]
 
         self.last_action = np.eye(self.n_actions)[np.array(actions_int)]
 
@@ -527,10 +445,11 @@ class StarCraft2Env(MultiAgentEnv):
         terminated = False
         reward = self.reward_battle()
         
-        
         available_actions = []
         for i in range(self.n_agents):
             available_actions.append(self.get_avail_agent_actions(i))
+            
+        info = {"battle_won": False}
 
         if game_end_code is not None:
             # Battle is over
@@ -551,18 +470,11 @@ class StarCraft2Env(MultiAgentEnv):
                 else:
                     reward = -1
 
-            # This is added to compute average agents survived
-            # for a_idx in range(self.n_agents):
-            #     unit = self.get_unit_by_id(a_idx)
-            #     if unit.health > 0:
-            #         self.num_agents_survived += 1
-            # print('Average survived ', self.num_agents_survived/32)
-
         elif self._episode_steps >= self.episode_limit:
             # Episode limit reached
             terminated = True
-            #if self.continuing_episode:
-                #info["episode_limit"] = True
+            if self.continuing_episode:
+                info["episode_limit"] = True
             self.battles_game += 1
             self.timeouts += 1
             
@@ -570,7 +482,6 @@ class StarCraft2Env(MultiAgentEnv):
                 "battles_won": self.battles_won,
                 "battles_game": self.battles_game,
                 "battles_draw": self.timeouts,
-                "timeouts": self.timeouts,
                 "restarts": self.force_restarts,
                }
 
@@ -582,13 +493,12 @@ class StarCraft2Env(MultiAgentEnv):
 
         if self.reward_scale:
             reward /= self.max_reward / self.reward_scale_rate
-        
+
         return self.get_obs(), [reward]*self.n_agents, terminated, info, available_actions
 
     def get_agent_action(self, a_id, action):
         """Construct the action for agent a_id."""
         avail_actions = self.get_avail_agent_actions(a_id)
-        
         assert avail_actions[action] == 1, \
                 "Agent {} cannot perform action {}".format(a_id, action)
 
@@ -869,10 +779,7 @@ class StarCraft2Env(MultiAgentEnv):
 
     def save_replay(self):
         """Save a replay."""
-        map_name_prefix = ""
-        for element in self.map_name:  
-            map_name_prefix += element  
-        prefix = self.replay_prefix or map_name_prefix
+        prefix = self.replay_prefix or self.map_name
         replay_dir = self.replay_dir or ""
         replay_path = self._run_config.save_replay(
             self._controller.save_replay(), replay_dir=replay_dir, prefix=prefix)
@@ -952,22 +859,26 @@ class StarCraft2Env(MultiAgentEnv):
 
     def get_obs_agent(self, agent_id):
         """Returns observation for agent_id. The observation is composed of:
+
            - agent movement features (where it can move to, height information and pathing grid)
            - enemy features (available_to_attack, health, relative_x, relative_y, shield, unit_type)
            - ally features (visible, distance, relative_x, relative_y, shield, unit_type)
            - agent unit features (health, shield, unit_type)
+
            All of this information is flattened and concatenated into a list,
            in the aforementioned order. To know the sizes of each of the
            features inside the final list of features, take a look at the
            functions ``get_obs_move_feats_size()``,
            ``get_obs_enemy_feats_size()``, ``get_obs_ally_feats_size()`` and
            ``get_obs_own_feats_size()``.
+
            The size of the observation vector may vary, depending on the
            environment configuration and type of units present in the map.
            For instance, non-Protoss units will not have shields, movement
            features may or may not include terrain height and pathing grid,
            unit_type is not included if there is only one type of unit in the
            map etc.).
+
            NOTE: Agents should have access only to their local observations
            during decentralised execution.
         """
@@ -982,6 +893,7 @@ class StarCraft2Env(MultiAgentEnv):
         enemy_feats = np.zeros(enemy_feats_dim, dtype=np.float32)
         ally_feats = np.zeros(ally_feats_dim, dtype=np.float32)
         own_feats = np.zeros(own_feats_dim, dtype=np.float32)
+        agent_id_feats = np.zeros(self.n_agents,dtype=np.float32)
 
         if unit.health > 0:  # otherwise dead, return all zeros
             x = unit.pos.x
@@ -1084,6 +996,12 @@ class StarCraft2Env(MultiAgentEnv):
 
             # Own features
             ind = 0
+            own_feats[0]=1 # visible
+            own_feats[1]=0 # distance
+            own_feats[2]=0 # X
+            own_feats[3]=0 # Y
+            
+            ind = 4
             if self.obs_own_health:
                 own_feats[ind] = unit.health / unit.health_max
                 ind += 1
@@ -1095,239 +1013,32 @@ class StarCraft2Env(MultiAgentEnv):
             if self.unit_type_bits > 0:
                 type_id = self.get_unit_type_id(unit, True)
                 own_feats[ind + type_id] = 1
-
+                ind += self.unit_type_bits
+                
+            if self.obs_last_action:
+                ally_feats[ind:] = self.last_action[agent_id]
+                
         agent_obs = np.concatenate(
-            (
-                move_feats.flatten(),
-                enemy_feats.flatten(),
-                ally_feats.flatten(),
-                own_feats.flatten(),
-            )
-        )
-
-        if self.obs_timestep_number:
-            agent_obs = np.append(agent_obs,
-                                  self._episode_steps / self.episode_limit)
-
-        if self.debug:
-            logging.debug("Obs Agent: {}".format(agent_id).center(60, "-"))
-            logging.debug("Avail. actions {}".format(
-                self.get_avail_agent_actions(agent_id)))
-            logging.debug("Move feats {}".format(move_feats))
-            logging.debug("Enemy feats {}".format(enemy_feats))
-            logging.debug("Ally feats {}".format(ally_feats))
-            logging.debug("Own feats {}".format(own_feats))
-
-        return agent_obs
-
-    def get_obs_agent_alone(self, agent_id):
-        """Returns observation for agent_id. The observation is composed of:
-           - agent movement features (where it can move to, height information and pathing grid)
-           - enemy features (available_to_attack, health, relative_x, relative_y, shield, unit_type)
-           - agent unit features (health, shield, unit_type)
-           All of this information is flattened and concatenated into a list,
-           in the aforementioned order. To know the sizes of each of the
-           features inside the final list of features, take a look at the
-           functions ``get_obs_move_feats_size()``,
-           ``get_obs_enemy_feats_size()`` and
-           ``get_obs_own_feats_size()``.
-           The size of the observation vector may vary, depending on the
-           environment configuration and type of units present in the map.
-           For instance, non-Protoss units will not have shields, movement
-           features may or may not include terrain height and pathing grid,
-           unit_type is not included if there is only one type of unit in the
-           map etc.).
-           NOTE: Agents should have access only to their local observations
-           during decentralised execution.
-        """
-        unit = self.get_unit_by_id(agent_id)
-
-        move_feats_dim = self.get_obs_move_feats_size()
-        enemy_feats_dim = self.get_obs_enemy_feats_size()
-        own_feats_dim = self.get_obs_own_feats_size()
-
-        move_feats = np.zeros(move_feats_dim, dtype=np.float32)
-        enemy_feats = np.zeros(enemy_feats_dim, dtype=np.float32)
-        own_feats = np.zeros(own_feats_dim, dtype=np.float32)
-
-        if unit.health > 0:  # otherwise dead, return all zeros
-            x = unit.pos.x
-            y = unit.pos.y
-            sight_range = self.unit_sight_range(agent_id)
-
-            # Movement features
-            avail_actions = self.get_avail_agent_actions(agent_id)
-            for m in range(self.n_actions_move):
-                move_feats[m] = avail_actions[m + 2]
-
-            ind = self.n_actions_move
-
-            if self.obs_pathing_grid:
-                move_feats[
-                    ind : ind + self.n_obs_pathing
-                ] = self.get_surrounding_pathing(unit)
-                ind += self.n_obs_pathing
-
-            if self.obs_terrain_height:
-                move_feats[ind:] = self.get_surrounding_height(unit)
-
-            # Enemy features
-            for e_id, e_unit in self.enemies.items():
-                e_x = e_unit.pos.x
-                e_y = e_unit.pos.y
-                dist = self.distance(x, y, e_x, e_y)
-
-                if (
-                    dist < sight_range and e_unit.health > 0
-                ):  # visible and alive
-                    # Sight range > shoot range
-                    enemy_feats[e_id, 0] = avail_actions[
-                        self.n_actions_no_attack + e_id
-                    ]  # available
-                    enemy_feats[e_id, 1] = dist / sight_range  # distance
-                    enemy_feats[e_id, 2] = (
-                        e_x - x
-                    ) / sight_range  # relative X
-                    enemy_feats[e_id, 3] = (
-                        e_y - y
-                    ) / sight_range  # relative Y
-
-                    ind = 4
-                    if self.obs_all_health:
-                        enemy_feats[e_id, ind] = (
-                            e_unit.health / e_unit.health_max
-                        )  # health
-                        ind += 1
-                        if self.shield_bits_enemy > 0:
-                            max_shield = self.unit_max_shield(e_unit)
-                            enemy_feats[e_id, ind] = (
-                                e_unit.shield / max_shield
-                            )  # shield
-                            ind += 1
-
-                    if self.unit_type_bits > 0:
-                        type_id = self.get_unit_type_id(e_unit, False)
-                        enemy_feats[e_id, ind + type_id] = 1  # unit type
-
-            # Own features
-            ind = 0
-            if self.obs_own_health:
-                own_feats[ind] = unit.health / unit.health_max
-                ind += 1
-                if self.shield_bits_ally > 0:
-                    max_shield = self.unit_max_shield(unit)
-                    own_feats[ind] = unit.shield / max_shield
-                    ind += 1
-
-            if self.unit_type_bits > 0:
-                type_id = self.get_unit_type_id(unit, True)
-                own_feats[ind + type_id] = 1
-
-        agent_obs = np.concatenate(
-            (
-                move_feats.flatten(),
-                enemy_feats.flatten(),
-                own_feats.flatten(),
-            )
-        )
-
-        if self.obs_timestep_number:
-            agent_obs = np.append(agent_obs,
-                                  self._episode_steps / self.episode_limit)
-
-        if self.debug:
-            logging.debug("Obs Agent: {}".format(agent_id).center(60, "-"))
-            logging.debug("Avail. actions {}".format(
-                self.get_avail_agent_actions(agent_id)))
-            logging.debug("Move feats {}".format(move_feats))
-            logging.debug("Enemy feats {}".format(enemy_feats))
-            logging.debug("Own feats {}".format(own_feats))
-
-        return agent_obs
-
-    def get_obs_agent_interactive(self, agent_id):
-        """Returns observation for agent_id. The observation is composed of:
-           - agent movement features (where it can move to, height information and pathing grid)
-           - enemy features (available_to_attack, health, relative_x, relative_y, shield, unit_type)
-           - agent unit features (health, shield, unit_type)
-           All of this information is flattened and concatenated into a list,
-           in the aforementioned order. To know the sizes of each of the
-           features inside the final list of features, take a look at the
-           functions ``get_obs_move_feats_size()``,
-           ``get_obs_enemy_feats_size()`` and
-           ``get_obs_own_feats_size()``.
-           The size of the observation vector may vary, depending on the
-           environment configuration and type of units present in the map.
-           For instance, non-Protoss units will not have shields, movement
-           features may or may not include terrain height and pathing grid,
-           unit_type is not included if there is only one type of unit in the
-           map etc.).
-           NOTE: Agents should have access only to their local observations
-           during decentralised execution.
-        """
-        unit = self.get_unit_by_id(agent_id)
-
-        move_feats_dim = self.get_obs_move_feats_size()
-        enemy_feats_dim = self.get_obs_enemy_feats_size()
-        ally_feats_dim = self.get_obs_ally_feats_size()
-        own_feats_dim = self.get_obs_own_feats_size()
-
-        move_feats = np.zeros(move_feats_dim, dtype=np.float32)
-        enemy_feats = np.zeros(enemy_feats_dim, dtype=np.float32)
-        ally_feats = np.zeros(ally_feats_dim, dtype=np.float32)
-        own_feats = np.zeros(own_feats_dim, dtype=np.float32)
-
-        if unit.health > 0:  # otherwise dead, return all zeros
-            x = unit.pos.x
-            y = unit.pos.y
-            sight_range = self.unit_sight_range(agent_id)
-
-            # Ally features
-            al_ids = [
-                al_id for al_id in range(self.n_agents) if al_id != agent_id
-            ]
-            for i, al_id in enumerate(al_ids):
-
-                al_unit = self.get_unit_by_id(al_id)
-                al_x = al_unit.pos.x
-                al_y = al_unit.pos.y
-                dist = self.distance(x, y, al_x, al_y)
-
-                if (
-                    dist < sight_range and al_unit.health > 0
-                ):  # visible and alive
-                    ally_feats[i, 0] = 1  # visible
-                    ally_feats[i, 1] = dist / sight_range  # distance
-                    ally_feats[i, 2] = (al_x - x) / sight_range  # relative X
-                    ally_feats[i, 3] = (al_y - y) / sight_range  # relative Y
-
-                    ind = 4
-                    if self.obs_all_health:
-                        ally_feats[i, ind] = (
-                            al_unit.health / al_unit.health_max
-                        )  # health
-                        ind += 1
-                        if self.shield_bits_ally > 0:
-                            max_shield = self.unit_max_shield(al_unit)
-                            ally_feats[i, ind] = (
-                                al_unit.shield / max_shield
-                            )  # shield
-                            ind += 1
-
-                    if self.unit_type_bits > 0:
-                        type_id = self.get_unit_type_id(al_unit, True)
-                        ally_feats[i, ind + type_id] = 1
-                        ind += self.unit_type_bits
-
-                    if self.obs_last_action:
-                        ally_feats[i, ind:] = self.last_action[al_id]
-
-
-        agent_obs = np.concatenate(
-            (
-                ally_feats.flatten(),
-            )
-        )
+                                  (
+                                      ally_feats.flatten(),
+                                      enemy_feats.flatten(),
+                                      move_feats.flatten(),               
+                                      own_feats.flatten()
+                                  )
+                              )
+        
+        # Agent id features
+        if self.obs_agent_id:
+            agent_id_feats[agent_id]=1.
+            agent_obs = np.concatenate(
+                                      (
+                                          ally_feats.flatten(),
+                                          enemy_feats.flatten(),
+                                          move_feats.flatten(),               
+                                          own_feats.flatten(),
+                                          agent_id_feats.flatten()
+                                      )
+                                  )
 
         if self.obs_timestep_number:
             agent_obs = np.append(agent_obs,
@@ -1350,22 +1061,6 @@ class StarCraft2Env(MultiAgentEnv):
         during decentralised execution.
         """
         agents_obs = [self.get_obs_agent(i) for i in range(self.n_agents)]
-        return agents_obs
-
-    def get_obs_alone(self):
-        """Returns all agent observations in a list.
-        NOTE: Agents should have access only to their local observations
-        during decentralised execution.
-        """
-        agents_obs = [self.get_obs_agent_alone(i) for i in range(self.n_agents)]
-        return agents_obs
-
-    def get_obs_interactive(self):
-        """Returns all agent observations in a list.
-        NOTE: Agents should have access only to their local observations
-        during decentralised execution.
-        """
-        agents_obs = [self.get_obs_agent_interactive(i) for i in range(self.n_agents)]
         return agents_obs
 
     def get_state(self):
@@ -1497,11 +1192,12 @@ class StarCraft2Env(MultiAgentEnv):
     def get_obs_own_feats_size(self):
         """Returns the size of the vector containing the agents' own features.
         """
-        own_feats = self.unit_type_bits
+        own_feats = 4 + self.unit_type_bits
         if self.obs_own_health:
             own_feats += 1 + self.shield_bits_ally
-        if self.obs_timestep_number:
-            own_feats += 1
+            
+        if self.obs_last_action:
+            own_feats += self.n_actions
 
         return own_feats
 
@@ -1525,29 +1221,21 @@ class StarCraft2Env(MultiAgentEnv):
 
         enemy_feats = n_enemies * n_enemy_feats
         ally_feats = n_allies * n_ally_feats
-
-        return move_feats + enemy_feats + ally_feats + own_feats
         
-    
-
-    def get_obs_alone_size(self):
-        """Returns the size of the observation."""
-        own_feats = self.get_obs_own_feats_size()
-        move_feats = self.get_obs_move_feats_size()
-
-        n_enemies, n_enemy_feats = self.get_obs_enemy_feats_size()
-
-        enemy_feats = n_enemies * n_enemy_feats
-
-        return move_feats + enemy_feats + own_feats
-
-    def get_obs_interactive_size(self):
-        """Returns the size of the observation."""
-        n_allies, n_ally_feats = self.get_obs_ally_feats_size()
+        all_feats = move_feats + enemy_feats + ally_feats + own_feats
         
-        ally_feats = n_allies * n_ally_feats
+        agent_id_feats=0
+        timestep_feats=0
 
-        return ally_feats
+        if self.obs_agent_id:
+            agent_id_feats = self.n_agents
+            all_feats += agent_id_feats
+            
+        if self.obs_timestep_number:
+            timestep_feats=1
+            all_feats += timestep_feats
+            
+        return [all_feats, n_ally_feats, n_enemy_feats, own_feats, agent_id_feats, timestep_feats]
 
     def get_state_size(self):
         """Returns the size of the global state."""
@@ -1568,6 +1256,50 @@ class StarCraft2Env(MultiAgentEnv):
             size += 1
 
         return size
+
+    def get_visibility_matrix(self):
+        """Returns a boolean numpy array of dimensions 
+        (n_agents, n_agents + n_enemies) indicating which units
+        are visible to each agent.
+        """
+        arr = np.zeros(
+            (self.n_agents, self.n_agents + self.n_enemies), 
+            dtype=np.bool,
+        )
+
+        for agent_id in range(self.n_agents):
+            current_agent = self.get_unit_by_id(agent_id)
+            if current_agent.health > 0:  # it agent not dead
+                x = current_agent.pos.x
+                y = current_agent.pos.y
+                sight_range = self.unit_sight_range(agent_id)
+
+                # Enemies
+                for e_id, e_unit in self.enemies.items():
+                    e_x = e_unit.pos.x
+                    e_y = e_unit.pos.y
+                    dist = self.distance(x, y, e_x, e_y)
+
+                    if (dist < sight_range and e_unit.health > 0):
+                        # visible and alive
+                        arr[agent_id, self.n_agents + e_id] = 1
+
+                # The matrix for allies is filled symmetrically
+                al_ids = [
+                    al_id for al_id in range(self.n_agents) 
+                    if al_id > agent_id
+                ]
+                for i, al_id in enumerate(al_ids):
+                    al_unit = self.get_unit_by_id(al_id)
+                    al_x = al_unit.pos.x
+                    al_y = al_unit.pos.y
+                    dist = self.distance(x, y, al_x, al_y)
+
+                    if (dist < sight_range and al_unit.health > 0):  
+                        # visible and alive
+                        arr[agent_id, al_id] = arr[al_id, agent_id] = 1
+
+        return arr
 
     def get_unit_type_id(self, unit, ally):
         """Returns the ID of unit type in the given scenario."""
@@ -1597,8 +1329,6 @@ class StarCraft2Env(MultiAgentEnv):
                     type_id = 1
                 else:
                     type_id = 2
-            elif self.map_type == "stalkers_and_zealots_vs_zergling":
-                type_id = 0
 
         return type_id
 
@@ -1658,19 +1388,12 @@ class StarCraft2Env(MultiAgentEnv):
 
     def close(self):
         """Close StarCraft II."""
-        if len(self.map_name) > 1:
-            for _sc2_proc in self._sc2_proc_list:
-                if _sc2_proc:
-                    _sc2_proc.close()
-        else:
-            if self._sc2_proc:
-                self._sc2_proc.close()
-        
-    def seed(self, seed):
-        if seed is None:
-            self._seed = 1
-        else:
-            self._seed = seed
+        if self._sc2_proc:
+            self._sc2_proc.close()
+
+    def seed(self):
+        """Returns the random seed used by the environment."""
+        return self._seed
 
     def render(self):
         """Not implemented."""
@@ -1703,8 +1426,6 @@ class StarCraft2Env(MultiAgentEnv):
                 key=attrgetter("unit_type", "pos.x", "pos.y"),
                 reverse=False,
             )
-            #This is added for random permutation of ally agents
-            random.shuffle(ally_units_sorted)
 
             for i in range(len(ally_units_sorted)):
                 self.agents[i] = ally_units_sorted[i]
@@ -1718,15 +1439,13 @@ class StarCraft2Env(MultiAgentEnv):
                         )
                     )
 
-            if len(self.map_name) > 1:
-                self.max_reward = self.max_reward_base
             for unit in self._obs.observation.raw_data.units:
                 if unit.owner == 2:
                     self.enemies[len(self.enemies)] = unit
-                    if self._episode_count == 0 or len(self.map_name) > 1:
+                    if self._episode_count == 0:
                         self.max_reward += unit.health_max + unit.shield_max
 
-            if (self._episode_count == 0 or len(self.map_name) > 1) and bool(self.agents):
+            if self._episode_count == 0:
                 min_unit_type = min(
                     unit.unit_type for unit in self.agents.values()
                 )
@@ -1820,9 +1539,6 @@ class StarCraft2Env(MultiAgentEnv):
         elif self.map_type == "bane":
             self.baneling_id = min_unit_type
             self.zergling_id = min_unit_type + 1
-        elif self.map_type == "stalkers_and_zealots_vs_zergling":
-            self.stalker_id = min_unit_type
-            self.zealot_id = min_unit_type + 1
 
     def only_medivac_left(self, ally):
         """Check if only Medivac units are left."""
@@ -1862,52 +1578,3 @@ class StarCraft2Env(MultiAgentEnv):
             "restarts": self.force_restarts,
         }
         return stats
-
-    def simulate_next_state(self, obs_last_action=False, obs_agent_id=False):
-        #TODO: this needs to restore the self.everything
-        avail_actions = self.get_avail_actions()
-        num_actions = np.array(avail_actions).shape[-1]
-        assumed_actions = (((np.array(avail_actions)[:, 0]==1)*1 + (np.array(avail_actions)[:, 1]==1)*2)-1).tolist()
-        simulated_next_state = []
-        original_obs = np.array(self.get_obs())
-
-        self._controller.quick_save()
-        for i in range(self.n_agents):
-            for action, valid in enumerate(avail_actions[i]):
-                if valid:
-                    #Keep this for now
-                    new_obs = self.get_obs()
-                    if np.std(original_obs-np.array(new_obs)) != 0:
-                        query = sc_pb.RequestQuery()
-                        result = self._controller.query(query)
-                        print(result)   
-                        for i in range(self.n_agents):
-                            if np.std(original_obs[i]-np.array(new_obs[i])) != 0:
-                                print(original_obs[i])
-                                print(new_obs[i])
-                                exit()
-                    actions = deepcopy(assumed_actions)
-                    actions[i] = action
-                    reward, _, _ = self.step(actions)
-                    obs = np.array(self.get_obs())
-                    obs = np.concatenate((obs[:i], obs[i+1:]), axis=0)
-                    if obs_last_action:
-                        actions_oh = np.zeros(num_actions)
-                        actions_oh[action] = 1
-                        obs = np.concatenate((obs, np.repeat(np.expand_dims(actions_oh, axis=0), self.n_agents-1, axis=0)), axis=-1)
-                    if obs_agent_id:
-                        agent_id = np.eye(self.n_agents)
-                        agent_id = np.concatenate((agent_id[:i], agent_id[i+1:]), axis=0)
-                        obs = np.concatenate((obs, agent_id), axis=-1)
-                    simulated_next_state.append(obs)
-                    self._controller.quick_load()
-                else:
-                    obs = np.zeros((self.n_agents-1, self.get_obs_size()))
-                    if obs_last_action:
-                        obs = np.concatenate((obs, np.zeros((self.n_agents-1, num_actions))), axis=-1)
-                    if obs_agent_id:
-                        obs = np.concatenate((obs, np.zeros((self.n_agents-1, self.n_agents))), axis=-1)
-                    simulated_next_state.append(obs)
-        obs = np.array(self.get_obs())
-        self._controller.quick_load()
-        return simulated_next_state, num_actions

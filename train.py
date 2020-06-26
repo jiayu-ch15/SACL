@@ -78,16 +78,23 @@ def main():
     # env
     envs = make_parallel_env(args)
     num_agents = get_map_params(args.map_name)["n_agents"]
+    num_enemies = get_map_params(args.map_name)["n_enemies"]
     #Policy network
     actor_critic = []
     if args.share_policy:
         ac = Policy(envs.observation_space[0], 
                     envs.action_space[0],
                     num_agents = num_agents,
+                    num_enemies = num_enemies,
                     base_kwargs={'lstm': args.lstm,
                                  'naive_recurrent': args.naive_recurrent_policy,
                                  'recurrent': args.recurrent_policy,
-                                 'hidden_size': args.hidden_size})
+                                 'hidden_size': args.hidden_size,
+                                 'attn': args.attn,
+                                 'attn_layers': args.attn_layers,
+                                 'attn_size': args.attn_size,
+                                 'attn_head': args.attn_head
+                                 })
         ac.to(device)
         for agent_id in range(num_agents):
             actor_critic.append(ac)         
@@ -96,9 +103,16 @@ def main():
             ac = Policy(envs.observation_space[0], 
                       envs.action_space[0],
                       num_agents = num_agents,
-                      base_kwargs={'naive_recurrent': args.naive_recurrent_policy,
-                                   'recurrent': args.recurrent_policy,
-                                   'hidden_size': args.hidden_size})
+                      num_enemies = num_enemies,
+                      base_kwargs={'lstm': args.lstm,
+                                 'naive_recurrent': args.naive_recurrent_policy,
+                                 'recurrent': args.recurrent_policy,
+                                 'hidden_size': args.hidden_size,
+                                 'attn': args.attn,
+                                 'attn_layers': args.attn_layers,
+                                 'attn_size': args.attn_size,
+                                 'attn_head': args.attn_head
+                                 })
             ac.to(device)
             actor_critic.append(ac) 
           
@@ -127,7 +141,7 @@ def main():
                             args.n_rollout_threads,
                             envs.observation_space[agent_id], 
                             envs.action_space[agent_id],
-                            actor_critic[agent_id].recurrent_hidden_state_size)
+                            actor_critic[agent_id].recurrent_hidden_size)
                        
         
         agents.append(agent)
@@ -135,6 +149,7 @@ def main():
     
     # reset env 
     obs, available_actions = envs.reset()
+    
     # rollout
     for i in range(num_agents):
         if len(envs.observation_space[0]) == 1:

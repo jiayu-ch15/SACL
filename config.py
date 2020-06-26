@@ -13,13 +13,6 @@ def get_config():
     parser.add_argument("--n_rollout_threads", type=int, default=32)
     parser.add_argument("--num_env_steps", type=int, default=10e6, help='number of environment steps to train (default: 10e6)') 
     
-    # lstm
-    parser.add_argument("--naive_recurrent_policy", action='store_true', default=False, help='use a naive recurrent policy')
-    parser.add_argument("--recurrent_policy", action='store_false', default=True, help='use a recurrent policy')
-    parser.add_argument("--lstm", action='store_true', default=False, help='use a lstm policy')
-    parser.add_argument("--data_chunk_length", type=int, default=10)
-    parser.add_argument("--critic_full_obs", action='store_true', default=False)
-    
     # env
     parser.add_argument("--env_name", type=str, default='StarCraft2')
     parser.add_argument("--map_name", type=str, default='5m_vs_6m')
@@ -27,6 +20,19 @@ def get_config():
     # network
     parser.add_argument("--share_policy", action='store_false', default=True, help='agent share the same policy')
     parser.add_argument("--hidden_size", type=int, default=64)
+    
+    # lstm
+    parser.add_argument("--naive_recurrent_policy", action='store_true', default=False, help='use a naive recurrent policy')
+    parser.add_argument("--recurrent_policy", action='store_false', default=True, help='use a recurrent policy')
+    parser.add_argument("--lstm", action='store_true', default=False, help='use a lstm policy')
+    parser.add_argument("--data_chunk_length", type=int, default=10)
+    parser.add_argument("--critic_full_obs", action='store_true', default=False)
+    
+    # attn
+    parser.add_argument("--attn", action='store_true', default=False)
+    parser.add_argument("--attn_layers", type=int, default=1)
+    parser.add_argument("--attn_size", type=int, default=64)
+    parser.add_argument("--attn_head", type=int, default=1)
     
     # ppo
     parser.add_argument("--ppo_epoch", type=int, default=4, help='number of ppo epochs (default: 4)')    
