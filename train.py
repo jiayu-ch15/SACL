@@ -184,6 +184,7 @@ def main():
                                        args.lr)           
 
         for step in range(args.episode_length):
+            print(step)
             # Sample actions
             values = []
             actions= []
