@@ -440,128 +440,143 @@ class MLPBase(NNBase):
 
         return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic
 
-class FeedForward(nn.Module):
-    def __init__(self, d_model, d_ff=2048, dropout = 0.1):
-        super().__init__() 
-        # We set d_ff as a default to 2048
-        init_ = lambda m: nn.init.xavier_uniform_(m)
-        self.linear_1 = init_(nn.Linear(d_model, d_ff))
-        self.dropout = nn.Dropout(dropout)
-        self.linear_2 = init_(nn.Linear(d_ff, d_model))
-    def forward(self, x):
-        x = self.dropout(F.relu(self.linear_1(x)))
-        x = self.linear_2(x)
-        return x
 
-def ScaledDotProductAttention(q, k, v, d_k, mask=None, dropout=None):
-    
-    scores = torch.matmul(q, k.transpose(-2, -1)) /  math.sqrt(d_k)
-    if mask is not None:
-        mask = mask.unsqueeze(1)
-        scores = scores.masked_fill(mask == 0, -1e9)
-    scores = F.softmax(scores, dim=-1)
-    
-    if dropout is not None:
-        scores = dropout(scores)
-        
-    output = torch.matmul(scores, v)
-    return output
+class ScaledDotProductAttention(nn.Module):
+    ''' Scaled Dot-Product Attention '''
+
+    def __init__(self, temperature, attn_dropout=0.0):
+        super(ScaledDotProductAttention, self).__init__()
+        self.temperature = temperature
+        self.dropout = nn.Dropout(attn_dropout)
+
+    def forward(self, q, k, v, mask=None):
+        attn = torch.matmul(q / self.temperature, k.transpose(2, 3))
+        if mask is not None:
+            attn = attn.masked_fill(mask == 0, -1e9)
+
+        attn = self.dropout(F.softmax(attn, dim=-1))
+        output = torch.matmul(attn, v)
+        return output, attn
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, heads, d_model, dropout = 0.1):
-        super().__init__()
-        
-        init_ = lambda m: nn.init.xavier_uniform_(m)
-        
-        self.d_model = d_model
-        self.d_k = d_model // heads
-        self.h = heads
-        
-        self.q_linear = init_(nn.Linear(d_model, d_model))
-        self.v_linear = init_(nn.Linear(d_model, d_model))
-        self.k_linear = init_(nn.Linear(d_model, d_model))
-        self.dropout = nn.Dropout(dropout)
-        self.out = init_(nn.Linear(d_model, d_model))
-    
+    ''' Multi-Head Attention module '''
+    def __init__(self, n_head, d_model, d_k, d_v, dout, dropout=0.1, bias=True):
+        super(MultiHeadAttention, self).__init__()
+
+        self.n_head = n_head
+        self.d_k = d_k
+        self.d_v = d_v
+
+        self.w_qs = nn.Linear(d_model, n_head * d_k, bias=bias)
+        self.w_ks = nn.Linear(d_model, n_head * d_k, bias=bias)
+        self.w_vs = nn.Linear(d_model, n_head * d_v, bias=bias)
+        self.fc = nn.Sequential(nn.Linear(n_head * d_v, n_head * d_v, bias=bias), nn.ReLU(), nn.Linear(n_head * d_v, dout, bias=bias))
+
+        self.attention = ScaledDotProductAttention(temperature=d_k ** 0.5, attn_dropout=dropout)
+        self.layer_norm_q = nn.LayerNorm(n_head * d_k, eps=1e-6)
+        self.layer_norm_k = nn.LayerNorm(n_head * d_k, eps=1e-6)
+        self.layer_norm_v = nn.LayerNorm(n_head * d_v, eps=1e-6)
+
+
     def forward(self, q, k, v, mask=None):
+        d_k, d_v, n_head = self.d_k, self.d_v, self.n_head
+        sz_b, len_q, len_k, len_v = q.size(0), q.size(1), k.size(1), v.size(1)
+
+        # Pass through the pre-attention projection: b x lq x (n*dv)
+        # Separate different heads: b x lq x n x dv
+        q = self.w_qs(q).view(sz_b, len_q, n_head, d_k)
+        k = self.w_ks(k).view(sz_b, len_k, n_head, d_k)
+        v = self.w_vs(v).view(sz_b, len_v, n_head, d_v)
+        residual = q
+
+        # Transpose for attention dot product: b x n x lq x dv
+        q, k, v = self.layer_norm_q(q).transpose(1, 2), self.layer_norm_k(k).transpose(1, 2), self.layer_norm_v(v).transpose(1, 2)
+        if mask is not None:
+            mask = mask.unsqueeze(1)   # For head axis broadcasting.
+        q, attn = self.attention(q, k, v, mask=mask)
+
+        # Transpose to move the head dimension back: b x lq x n x dv
+        # Combine the last two dimensions to concatenate all the heads together: b x lq x (n*dv)
+        q = q.transpose(1, 2).contiguous().view(sz_b, len_q, -1)
+        q = self.fc(q)
+        return q, residual, attn.squeeze()
         
-        bs = q.size(0)
+class MultiHeadAttention2Layers(nn.Module):
+    ''' Multi-Head Attention module '''
+    def __init__(self, n_head, d_model, d_k, d_v, dout, dropout=0.1, bias=True):
+        super(MultiHeadAttention2Layers, self).__init__()
+
+        self.n_head = n_head
+        self.d_k = d_k
+        self.d_v = d_v
+
+        self.w_qs_1 = nn.Linear(d_model, n_head * d_k, bias=bias)
+        self.w_ks_1 = nn.Linear(d_model, n_head * d_k, bias=bias)
+        self.w_vs_1 = nn.Linear(d_model, n_head * d_v, bias=bias)
+        self.fc_1 = nn.Linear(n_head * d_v, dout, bias=bias)
+
+        self.attention_1 = ScaledDotProductAttention(temperature=d_k ** 0.5, attn_dropout=dropout)
+        self.layer_norm_q_1 = nn.LayerNorm(n_head * d_k, eps=1e-6)
+        self.layer_norm_k_1 = nn.LayerNorm(n_head * d_k, eps=1e-6)
+        self.layer_norm_v_1 = nn.LayerNorm(n_head * d_v, eps=1e-6)
+
+        # 2nd layer of attention
+        self.w_qs_2 = nn.Linear(n_head * d_k, n_head * d_k, bias=bias)
+        self.w_ks_2 = nn.Linear(d_model, n_head * d_k, bias=bias)
+        self.w_vs_2 = nn.Linear(d_model, n_head * d_v, bias=bias)
+        self.fc_2 = nn.Linear(n_head * d_v, dout, bias=bias)
+
+        self.attention_2 = ScaledDotProductAttention(temperature=d_k ** 0.5, attn_dropout=dropout)
+        self.layer_norm_q_2 = nn.LayerNorm(n_head * d_k, eps=1e-6)
+        self.layer_norm_k_2 = nn.LayerNorm(n_head * d_k, eps=1e-6)
+        self.layer_norm_v_2 = nn.LayerNorm(n_head * d_v, eps=1e-6)
+
+
+    def forward(self, q, k, v, mask=None):
+        d_k, d_v, n_head = self.d_k, self.d_v, self.n_head
+        #In this layer, we perform self attention
+        sz_b, len_q, len_k, len_v = q.size(0), q.size(1), k.size(1), v.size(1)
+        # Pass through the pre-attention projection: b x lq x (n*dv)
+        # Separate different heads: b x lq x n x dv
+        q_ = self.w_qs_1(q).view(sz_b, len_q, n_head, d_k)
+        k_ = self.w_ks_1(k).view(sz_b, len_k, n_head, d_k)
+        v_ = self.w_vs_1(v).view(sz_b, len_v, n_head, d_v)
+        residual1 = q_
+
+        # Transpose for attention dot product: b x n x lq x dv
+        q_, k_, v_ = self.layer_norm_q_1(q_).transpose(1, 2), self.layer_norm_k_1(k_).transpose(1, 2), self.layer_norm_v_1(v_).transpose(1, 2)
+        if mask is not None:
+            mask = mask.unsqueeze(1)   # For head axis broadcasting.
+        q_, attn1 = self.attention_1(q_, k_, v_, mask=mask)
+
+        # Transpose to move the head dimension back: b x lq x n x dv
+        # Combine the last two dimensions to concatenate all the heads together: b x lq x (n*dv)
+        q_ = q_.transpose(1, 2).contiguous().view(sz_b, len_q, -1)
+        q_ = self.fc_1(q_)
+
+        # In second layer we use attention
+        sz_b, len_q, len_k, len_v = q.size(0), q.size(1), k.size(1), v.size(1)
+        # Pass through the pre-attention projection: b x lq x (n*dv)
+        # Separate different heads: b x lq x n x dv
+        q_ = self.w_qs_2(q_).view(sz_b, len_q, n_head, d_k)
+        k_ = self.w_ks_2(k).view(sz_b, len_k, n_head, d_k)
+        v_ = self.w_vs_2(v).view(sz_b, len_v, n_head, d_v)
+        residual2 = q_
+
+        # Transpose for attention dot product: b x n x lq x dv
+        q_, k_, v_ = self.layer_norm_q_2(q_).transpose(1, 2), self.layer_norm_k_2(k_).transpose(1, 2), self.layer_norm_v_2(v_).transpose(1, 2)
+        if mask is not None:
+            mask = mask.unsqueeze(1)   # For head axis broadcasting.
+        q_, attn2 = self.attention_2(q_, k_, v_, mask=mask)
+
+        # Transpose to move the head dimension back: b x lq x n x dv
+        # Combine the last two dimensions to concatenate all the heads together: b x lq x (n*dv)
+        q_ = q_.transpose(1, 2).contiguous().view(sz_b, len_q, -1)
+        q_ = self.fc_2(q_)
+        return q_, torch.cat((residual1, residual2), dim=-1), attn2.squeeze()
         
-        # perform linear operation and split into h heads
-        
-        k = self.k_linear(k).view(bs, -1, self.h, self.d_k)
-        q = self.q_linear(q).view(bs, -1, self.h, self.d_k)
-        v = self.v_linear(v).view(bs, -1, self.h, self.d_k)
-        
-        # transpose to get dimensions bs * h * sl * d_model
-       
-        k = k.transpose(1,2)
-        q = q.transpose(1,2)
-        v = v.transpose(1,2)
-        # calculate attention
-        scores = ScaledDotProductAttention(q, k, v, self.d_k, mask, self.dropout)
-        
-        # concatenate heads and put through final linear layer
-        concat = scores.transpose(1,2).contiguous()\
-        .view(bs, -1, self.d_model)
-        
-        output = self.out(concat)
-    
-        return output
-        
-class EncoderLayer(nn.Module):
-    def __init__(self, d_model, heads, dropout = 0.1):
-        super().__init__()
-        self.norm_1 = nn.LayerNorm(d_model)
-        self.norm_2 = nn.LayerNorm(d_model)
-        self.attn = MultiHeadAttention(heads, d_model)
-        self.ff = FeedForward(d_model)
-        self.dropout_1 = nn.Dropout(dropout)
-        self.dropout_2 = nn.Dropout(dropout)
-        
-    def forward(self, x, mask):
-        x2 = self.norm_1(x)
-        x = x + self.dropout_1(self.attn(x2,x2,x2,mask))
-        x2 = self.norm_2(x)
-        x = x + self.dropout_2(self.ff(x2))
-        return x
-        
-def get_clones(module, N):
-    return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
-    
-class Encoder(nn.Module):
-    def __init__(self, input_size, d_model=512, attn_N=2, heads=8):
-        super(Encoder, self).__init__()
-        
-        init_ = lambda m: nn.init.xavier_uniform_(m)
-        
-        self.attn_N = attn_N
-        self.fc = init_(nn.Linear(input_size, d_model))
-        self.layers = get_clones(EncoderLayer(d_model, heads), self.attn_N)
-        self.norm = nn.layerNorm(d_model)
-        
-    def forward(self, src, mask=None):
-        x = self.fc(src)
-        for i in range(self.attn_N):
-            x = self.layers[i](x, mask)
-        return self.norm(x)
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-                
 class SelfAttn(nn.Module):
-    def __init__(self, obs_shape, num_agents, num_enemies, attn_layers=1, attn_size=64, attn_heads=1):
+    def __init__(self, obs_shape, num_agents, num_enemies, attn_layers=1, attn_size=64, attn_head=1):
         super(SelfAttn, self).__init__()
         self.attn_layers = attn_layers
         self.attn_size = attn_size
@@ -614,9 +629,24 @@ class SelfAttn(nn.Module):
         inputs = torch.cat((ally_own_feats, enemy_own_feats, other_feats), dim=-1)
         
         return inputs
-               
-
-                
+        
+class Attn(nn.Module):
+    def __init__(self, obs_shape, num_agents, attn_layers=1, attn_size=64, attn_head=1):
+        super(Attn, self).__init__()
+        self.attn_layers = attn_layers
+        self.attn_size = attn_size
+        self.attn_head = attn_head
+        self.num_agents = num_agents
+        self.num_allies = num_agents-1
+        
+        self.num_inputs = obs_shape[0]
+        self.fc = nn.Linear(self.num_inputs, self.attn_size)
+        
+        if self.attn_layers == 1:
+            self.a_attn = MultiHeadAttention(self.attn_head, self.num_inputs, self.attn_size, self.attn_size, self.attn_size)
+        elif self.attn_layers == 2:
+            self.a_attn = MultiHeadAttention2Layers(self.attn_head, self.num_inputs, self.attn_size, self.attn_size, self.attn_size)
+        
     def forward(self, agent_id, inputs):
         # inputs [bs,all_size*nagents]          
         bs = inputs.size(0)
