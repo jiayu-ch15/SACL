@@ -5,7 +5,8 @@ import torch.nn.functional as F
 
 from utils.distributions import Bernoulli, Categorical, DiagGaussian
 from utils.util import init
-
+import copy
+import math
 
 class Flatten(nn.Module):
     def forward(self, x):
@@ -13,22 +14,22 @@ class Flatten(nn.Module):
 
 
 class Policy(nn.Module):
-    def __init__(self, obs_shape, action_space, num_agents, num_enemies, base=None, base_kwargs=None):
+    def __init__(self, obs_shape, action_space, num_agents, base=None, base_kwargs=None):
         super(Policy, self).__init__()
         if base_kwargs is None:
             base_kwargs = {}
 
         if action_space.__class__.__name__ == "Discrete":
             num_actions = action_space.n
-            self.base = MLPBase(obs_shape, num_agents, num_enemies, **base_kwargs)
+            self.base = MLPBase(obs_shape, num_agents, **base_kwargs)
             self.dist = Categorical(self.base.output_size, num_actions)
         elif action_space.__class__.__name__ == "Box":
             num_actions = action_space.shape[0]
-            self.base = MLPBase(obs_shape, num_agents, num_enemies, **base_kwargs)
+            self.base = MLPBase(obs_shape, num_agents, **base_kwargs)
             self.dist = DiagGaussian(self.base.output_size, num_actions)
         elif action_space.__class__.__name__ == "MultiBinary":
             num_actions = action_space.shape[0]
-            self.base = MLPBase(obs_shape, num_agents, num_enemies, **base_kwargs)
+            self.base = MLPBase(obs_shape, num_agents, **base_kwargs)
             self.dist = Bernoulli(self.base.output_size, num_actions)
         else:
             raise NotImplementedError
@@ -61,8 +62,8 @@ class Policy(nn.Module):
     def forward(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks):
         raise NotImplementedError
 
-    def act(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks, available_actions, deterministic=False):
-        value, actor_features, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
+    def act(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks, available_actions, deterministic=False):
+        value, actor_features, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic = self.base(share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
         
         dist = self.dist(actor_features, available_actions)
 
@@ -76,12 +77,12 @@ class Policy(nn.Module):
 
         return value, action, action_log_probs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic
 
-    def get_value(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks):
-        value, _, _, _,_ ,_ = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
+    def get_value(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks):
+        value, _, _, _,_ ,_ = self.base(share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
         return value
 
-    def evaluate_actions(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks, action):
-        value, actor_features, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
+    def evaluate_actions(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks, action):
+        value, actor_features, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic = self.base(share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
         dist = self.dist(actor_features)
 
         action_log_probs = dist.log_probs(action)
@@ -91,7 +92,7 @@ class Policy(nn.Module):
 
 
 class NNBase(nn.Module):
-    def __init__(self, obs_shape, num_agents, num_enemies, lstm=False, naive_recurrent=False, recurrent=False, hidden_size=64, attn=False, attn_layers=1, attn_size=64, attn_head=1):
+    def __init__(self, obs_shape, num_agents, lstm=False, naive_recurrent=False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8):
         super(NNBase, self).__init__()
 
         self._hidden_size = hidden_size
@@ -101,8 +102,8 @@ class NNBase(nn.Module):
         self._attn=attn
                 
         if self._attn:
-            self.self_attn_actor = SelfAttn(obs_shape, num_agents, num_enemies, attn_layers, attn_size, attn_head)
-            self.self_attn_critic = Attn(obs_shape, num_agents, attn_layers, attn_size, attn_head)
+            self.encoder_actor = Encoder(obs_shape[0],obs_shape[1:], attn_size, attn_N, attn_heads)
+            self.encoder_critic = Encoder(obs_shape[0]*num_agents, None, attn_size, attn_N, attn_heads)
         
         assert (self._lstm and (self._recurrent or self._naive_recurrent))==False, ("LSTM and GRU can not be set True simultaneously.")
 
@@ -316,7 +317,6 @@ class NNBase(nn.Module):
             c = c.unsqueeze(0)
             outputs = []
             for i in range(len(has_zeros) - 1):
-                # We can now process steps that don't have any zeros in masks together!
                 # This is much faster
                 start_idx = has_zeros[i]
                 end_idx = has_zeros[i + 1]
@@ -395,15 +395,15 @@ class NNBase(nn.Module):
         return x, hxs, c
 
 class MLPBase(NNBase):
-    def __init__(self, obs_shape, num_agents, num_enemies, lstm = False, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_layers=1, attn_size=64, attn_head=1):
-        super(MLPBase, self).__init__(obs_shape, num_agents, num_enemies, lstm, naive_recurrent, recurrent, hidden_size, attn, attn_layers, attn_size, attn_head)
+    def __init__(self, obs_shape, num_agents, lstm = False, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8):
+        super(MLPBase, self).__init__(obs_shape, num_agents, lstm, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads)
 
         if attn:
-            num_inputs_actor = 3 * attn_size 
-            num_inputs_critic = 2 * attn_size
+            num_inputs_actor = attn_size 
+            num_inputs_critic = attn_size
         else:
             num_inputs_actor = obs_shape[0]
-            num_inputs_critic = num_agents * obs_shape[0]
+            num_inputs_critic = obs_shape[0]*num_agents
         init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
                                constant_(x, 0), np.sqrt(2))
 
@@ -419,13 +419,13 @@ class MLPBase(NNBase):
 
         self.train()
 
-    def forward(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks):
+    def forward(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks):
         share_x = share_inputs
         x = inputs
         
         if self.is_attn:
-            x = self.self_attn_actor(x)
-            share_x = self.self_attn_critic(agent_id, share_x)
+            x = self.encoder_actor(x)
+            share_x = self.encoder_critic(share_x)
                 
         hidden_actor = self.actor(x)
         hidden_critic = self.critic(share_x)
@@ -442,9 +442,9 @@ class MLPBase(NNBase):
 
 class FeedForward(nn.Module):
     def __init__(self, d_model, d_ff=2048, dropout = 0.1):
-        super().__init__() 
+        super(FeedForward, self).__init__() 
         # We set d_ff as a default to 2048
-        init_ = lambda m: nn.init.xavier_uniform_(m)
+        init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
         self.linear_1 = init_(nn.Linear(d_model, d_ff))
         self.dropout = nn.Dropout(dropout)
         self.linear_2 = init_(nn.Linear(d_ff, d_model))
@@ -469,9 +469,9 @@ def ScaledDotProductAttention(q, k, v, d_k, mask=None, dropout=None):
 
 class MultiHeadAttention(nn.Module):
     def __init__(self, heads, d_model, dropout = 0.1):
-        super().__init__()
+        super(MultiHeadAttention, self).__init__()
         
-        init_ = lambda m: nn.init.xavier_uniform_(m)
+        init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0)) 
         
         self.d_model = d_model
         self.d_k = d_model // heads
@@ -503,7 +503,7 @@ class MultiHeadAttention(nn.Module):
         
         # concatenate heads and put through final linear layer
         concat = scores.transpose(1,2).contiguous()\
-        .view(bs, -1, self.d_model)
+        .view(bs, self.d_model)
         
         output = self.out(concat)
     
@@ -511,7 +511,7 @@ class MultiHeadAttention(nn.Module):
         
 class EncoderLayer(nn.Module):
     def __init__(self, d_model, heads, dropout = 0.1):
-        super().__init__()
+        super(EncoderLayer, self).__init__()
         self.norm_1 = nn.LayerNorm(d_model)
         self.norm_2 = nn.LayerNorm(d_model)
         self.attn = MultiHeadAttention(heads, d_model)
@@ -529,112 +529,61 @@ class EncoderLayer(nn.Module):
 def get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
     
+def split_obs(obs, split_shape):
+    start_idx = 0
+    split_obs = []
+    for i in range(len(split_shape)):
+        split_obs.append(obs[:,start_idx:(start_idx+split_shape[i])])
+        start_idx += split_shape[i]
+    return split_obs
+    
+class Embedding(nn.Module):
+    def __init__(self, split_shape, d_model):
+        super(Embedding, self).__init__()
+        self.split_shape = split_shape
+                
+        init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
+        
+        for i in range(len(split_shape)):
+            setattr(self,'fc_'+str(i), init_(nn.Linear(split_shape[i], split_shape[i])))
+                  
+        input_size = np.sum(split_shape) + split_shape[-1]*(len(split_shape)-1) 
+        self.fc = init_(nn.Linear(input_size, d_model))
+
+        
+    def forward(self, x):
+        x = split_obs(x,self.split_shape)
+        N = len(x)
+        
+        x1 = []        
+        for i in range(N):
+            exec('x1.append(self.fc_{}(x[{}]))'.format(i,i))
+            
+        x2 = x1[-1] 
+        self_x = x1[-1]   
+        for i in range(N-1):
+            x2 = torch.cat((x2, self_x, x1[i]), dim=-1) 
+            
+        out = self.fc(x2)  
+                
+        return out
+    
 class Encoder(nn.Module):
-    def __init__(self, input_size, d_model=512, attn_N=2, heads=8):
+    def __init__(self, input_size, split_shape=None, d_model=512, attn_N=2, heads=8):
         super(Encoder, self).__init__()
         
-        init_ = lambda m: nn.init.xavier_uniform_(m)
-        
+        init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
         self.attn_N = attn_N
-        self.fc = init_(nn.Linear(input_size, d_model))
+        if split_shape==None:
+            self.embedding = init_(nn.Linear(input_size, d_model))
+        else:
+            self.embedding = Embedding(split_shape, d_model)
         self.layers = get_clones(EncoderLayer(d_model, heads), self.attn_N)
-        self.norm = nn.layerNorm(d_model)
+        self.norm = nn.LayerNorm(d_model)
         
     def forward(self, src, mask=None):
-        x = self.fc(src)
+        x = self.embedding(src)
         for i in range(self.attn_N):
             x = self.layers[i](x, mask)
-        return self.norm(x)
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-                
-class SelfAttn(nn.Module):
-    def __init__(self, obs_shape, num_agents, num_enemies, attn_layers=1, attn_size=64, attn_heads=1):
-        super(SelfAttn, self).__init__()
-        self.attn_layers = attn_layers
-        self.attn_size = attn_size
-        self.attn_head = attn_head
-        self.num_agents = num_agents
-        self.num_allies = num_agents-1
-        self.num_enemies = num_enemies
-        self.num_inputs = obs_shape[0]
-        self.num_inputs_ally = obs_shape[1]
-        self.num_inputs_enemy = obs_shape[2]
-        self.num_inputs_own = obs_shape[3]
-        self.num_inputs_move = obs_shape[4]
-        self.agent_id_feats = obs_shape[5]
-        self.timestep_feats = obs_shape[6]
-        self.fc = nn.Linear(self.num_inputs_own + self.num_inputs_move+self.agent_id_feats+self.timestep_feats, self.attn_size)
-        
-        if self.attn_layers == 1:
-            self.a_self_attn = MultiHeadAttention(self.attn_head, self.num_inputs_ally, self.attn_size, self.attn_size, self.attn_size)
-            self.e_self_attn = MultiHeadAttention(self.attn_head, self.num_inputs_enemy, self.attn_size, self.attn_size, self.attn_size)
-        elif self.attn_layers == 2:
-            self.a_self_attn = MultiHeadAttention2Layers(self.attn_head, self.num_inputs_ally, self.attn_size, self.attn_size, self.attn_size)
-            self.e_self_attn = MultiHeadAttention2Layers(self.attn_head, self.num_inputs_enemy, self.attn_size, self.attn_size, self.attn_size)
-        
-    def forward(self, inputs):
-        # inputs [bs,all_size*nagents]       
-        bs = inputs.size(0)
-        # Own features
-        if self.agent_id_feats+self.timestep_feats == 0:
-            own_feats = inputs[:,-self.num_inputs_own:].view(bs, 1, -1)
-        else:
-            own_feats = inputs[:,-self.num_inputs_own-self.agent_id_feats-self.timestep_feats:-self.agent_id_feats-self.timestep_feats].view(bs, 1, -1)
-        
-        # Ally features
-        ally_feats = inputs[:,0:self.num_inputs_ally*(self.num_allies)].view(bs, self.num_allies, -1)        
-        ally_feats, own_feats_a, _ = self.a_self_attn(own_feats, ally_feats, ally_feats)
-        #ally_own_feats = torch.cat((ally_feats.view(bs, -1), own_feats_a.view(bs, -1)), dim=-1)
-        ally_own_feats = ally_feats.view(bs, -1)
-        
-        # Enemy features
-        enemy_feats = inputs[:, self.num_inputs_ally*self.num_allies:self.num_inputs_ally*self.num_allies + self.num_inputs_enemy*self.num_enemies].view(bs, self.num_enemies, -1)
-        enemy_feats, own_feats_a, _ = self.e_self_attn(own_feats[:,0:self.num_inputs_enemy], enemy_feats, enemy_feats)
-        #enemy_own_feats = torch.cat((enemy_feats.view(bs, -1), own_feats_a.view(bs, -1)), dim=-1)
-        enemy_own_feats = enemy_feats.view(bs, -1)
-        
-        #Move and own and other features
-        other_feats = inputs[:, self.num_inputs_ally*self.num_allies + self.num_inputs_enemy*self.num_enemies:]
-        other_feats = self.fc(other_feats)
-        
-        #Concat everything
-        inputs = torch.cat((ally_own_feats, enemy_own_feats, other_feats), dim=-1)
-        
-        return inputs
-               
-
-                
-    def forward(self, agent_id, inputs):
-        # inputs [bs,all_size*nagents]          
-        bs = inputs.size(0)
-        inputs = inputs.view(bs, self.num_agents, -1)
-        
-        # Self features
-        self_obs = inputs[:,agent_id,:].view(bs, 1, -1)
-        
-        # Ally features
-        ally_obs = inputs[:,torch.arange(self.num_agents)!=agent_id,:].view(bs, self.num_allies, -1)               
-        
-        ally_obs, self_obs_a, _ = self.a_attn(self_obs, ally_obs, ally_obs)
-        ally_self_obs = ally_obs.view(bs, -1)
-        
-        self_obs = self.fc(inputs[:,agent_id,:])
-        
-        inputs = torch.cat((ally_self_obs, self_obs), dim=-1)        
-        
-        return inputs
-        
+        return self.norm(x)     
     

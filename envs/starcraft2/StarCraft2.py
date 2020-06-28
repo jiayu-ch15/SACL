@@ -1002,7 +1002,6 @@ class StarCraft2Env(MultiAgentEnv):
             own_feats[1]=0 # distance
             own_feats[2]=0 # X
             own_feats[3]=0 # Y
-            
             ind = 4
             if self.obs_own_health:
                 own_feats[ind] = unit.health / unit.health_max
@@ -1237,7 +1236,7 @@ class StarCraft2Env(MultiAgentEnv):
             timestep_feats=1
             all_feats += timestep_feats
             
-        return [all_feats, n_ally_feats, n_enemy_feats, own_feats,move_feats, agent_id_feats, timestep_feats]
+        return [all_feats, ally_feats, enemy_feats, move_feats, own_feats+agent_id_feats+timestep_feats]
 
     def get_state_size(self):
         """Returns the size of the global state."""

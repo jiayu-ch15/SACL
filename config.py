@@ -30,9 +30,9 @@ def get_config():
     
     # attn
     parser.add_argument("--attn", action='store_true', default=False)
-    parser.add_argument("--attn_layers", type=int, default=1)
-    parser.add_argument("--attn_size", type=int, default=64)
-    parser.add_argument("--attn_head", type=int, default=1)
+    parser.add_argument("--attn_N", type=int, default=2)
+    parser.add_argument("--attn_size", type=int, default=512)
+    parser.add_argument("--attn_heads", type=int, default=8)
     
     # ppo
     parser.add_argument("--ppo_epoch", type=int, default=4, help='number of ppo epochs (default: 4)')    

@@ -107,7 +107,6 @@ class DummyVecEnv(VecEnv):
         
         for (i, done) in enumerate(dones):
             if done:
-                print("reset") 
                 obs[i], available_actions[i] = self.envs[i].reset()
                 self.ts[i] = 0
         self.actions = None
