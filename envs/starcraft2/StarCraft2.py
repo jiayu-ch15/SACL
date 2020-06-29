@@ -1236,7 +1236,7 @@ class StarCraft2Env(MultiAgentEnv):
             timestep_feats=1
             all_feats += timestep_feats
             
-        return [all_feats, ally_feats, enemy_feats, move_feats, own_feats+agent_id_feats+timestep_feats]
+        return [all_feats, [n_allies, n_ally_feats], [n_enemies, n_enemy_feats], [1, move_feats], [1,own_feats+agent_id_feats+timestep_feats]]
 
     def get_state_size(self):
         """Returns the size of the global state."""

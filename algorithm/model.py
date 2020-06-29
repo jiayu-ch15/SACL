@@ -62,8 +62,8 @@ class Policy(nn.Module):
     def forward(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks):
         raise NotImplementedError
 
-    def act(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks, available_actions, deterministic=False):
-        value, actor_features, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic = self.base(share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
+    def act(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks, available_actions, deterministic=False):
+        value, actor_features, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
         
         dist = self.dist(actor_features, available_actions)
 
@@ -77,12 +77,12 @@ class Policy(nn.Module):
 
         return value, action, action_log_probs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic
 
-    def get_value(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks):
-        value, _, _, _,_ ,_ = self.base(share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
+    def get_value(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks):
+        value, _, _, _,_ ,_ = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
         return value
 
-    def evaluate_actions(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks, action):
-        value, actor_features, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic = self.base(share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
+    def evaluate_actions(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks, action):
+        value, actor_features, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
         dist = self.dist(actor_features)
 
         action_log_probs = dist.log_probs(action)
@@ -92,7 +92,7 @@ class Policy(nn.Module):
 
 
 class NNBase(nn.Module):
-    def __init__(self, obs_shape, num_agents, lstm=False, naive_recurrent=False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8):
+    def __init__(self, obs_shape, num_agents, lstm=False, naive_recurrent=False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, average_pool=True):
         super(NNBase, self).__init__()
 
         self._hidden_size = hidden_size
@@ -102,8 +102,8 @@ class NNBase(nn.Module):
         self._attn=attn
                 
         if self._attn:
-            self.encoder_actor = Encoder(obs_shape[0],obs_shape[1:], attn_size, attn_N, attn_heads)
-            self.encoder_critic = Encoder(obs_shape[0]*num_agents, None, attn_size, attn_N, attn_heads)
+            self.encoder_actor = Encoder(obs_shape[0], obs_shape[1:], attn_size, attn_N, attn_heads, average_pool)
+            self.encoder_critic = Encoder(obs_shape[0]*num_agents, [[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, average_pool)
         
         assert (self._lstm and (self._recurrent or self._naive_recurrent))==False, ("LSTM and GRU can not be set True simultaneously.")
 
@@ -395,12 +395,20 @@ class NNBase(nn.Module):
         return x, hxs, c
 
 class MLPBase(NNBase):
-    def __init__(self, obs_shape, num_agents, lstm = False, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8):
-        super(MLPBase, self).__init__(obs_shape, num_agents, lstm, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads)
+    def __init__(self, obs_shape, num_agents, lstm = False, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, average_pool=True):
+        super(MLPBase, self).__init__(obs_shape, num_agents, lstm, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, average_pool)
 
         if attn:
-            num_inputs_actor = attn_size 
-            num_inputs_critic = attn_size
+            num_inputs = 0
+            split_shape = obs_shape[1:]
+            for i in range(len(split_shape)):
+                num_inputs += split_shape[i][0]
+            if average_pool == True:
+                num_inputs_actor = num_inputs + obs_shape[-1][1]
+            else:
+                num_inputs_actor = num_agents + obs_shape[0]
+                
+            num_inputs_critic = obs_shape[0] + num_agents
         else:
             num_inputs_actor = obs_shape[0]
             num_inputs_critic = obs_shape[0]*num_agents
@@ -419,13 +427,13 @@ class MLPBase(NNBase):
 
         self.train()
 
-    def forward(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks):
+    def forward(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks):
         share_x = share_inputs
         x = inputs
         
         if self.is_attn:
             x = self.encoder_actor(x)
-            share_x = self.encoder_critic(share_x)
+            share_x = self.encoder_critic(share_x, agent_id)
                 
         hidden_actor = self.actor(x)
         hidden_critic = self.critic(share_x)
@@ -503,7 +511,7 @@ class MultiHeadAttention(nn.Module):
         
         # concatenate heads and put through final linear layer
         concat = scores.transpose(1,2).contiguous()\
-        .view(bs, self.d_model)
+        .view(bs, -1, self.d_model)
         
         output = self.out(concat)
     
@@ -528,62 +536,99 @@ class EncoderLayer(nn.Module):
         
 def get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
-    
+
+# [L,[1,2],[1,2],[1,2]]   
 def split_obs(obs, split_shape):
     start_idx = 0
     split_obs = []
     for i in range(len(split_shape)):
-        split_obs.append(obs[:,start_idx:(start_idx+split_shape[i])])
-        start_idx += split_shape[i]
+        split_obs.append(obs[:,start_idx:(start_idx+split_shape[i][0]*split_shape[i][1])])
+        start_idx += split_shape[i][0]*split_shape[i][1]
     return split_obs
     
+class SelfEmbedding(nn.Module):
+    def __init__(self, split_shape, d_model):
+        super(Embedding, self).__init__()
+        self.split_shape = split_shape
+                
+        init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
+        print(split_shape)
+        for i in range(len(split_shape)):
+            if i==(len(split_shape)-1):
+                setattr(self,'fc_'+str(i), init_(nn.Linear(split_shape[i][1], d_model)))
+            else:
+                setattr(self,'fc_'+str(i), init_(nn.Linear(split_shape[i][1]+split_shape[-1][1], d_model)))
+                  
+        
+    def forward(self, x, self_idx=-1):
+        x = split_obs(x,self.split_shape)
+        N = len(x)
+        
+        x1 = []  
+        self_x = x[self_idx]      
+        for i in range(N-1):
+            K = self.split_shape[i][0]
+            L = self.split_shape[i][1]
+            for j in range(K):
+                temp = torch.cat((x[i][:,L*j:(L*j+L)],self_x),dim=-1)
+                exec('x1.append(self.fc_{}(temp))'.format(i))
+        temp = x[self_idx]
+        exec('x1.append(self.fc_{}(temp))'.format(N-1))
+
+        out = torch.stack(x1,1)        
+                            
+        return out, self_x
+        
 class Embedding(nn.Module):
     def __init__(self, split_shape, d_model):
         super(Embedding, self).__init__()
         self.split_shape = split_shape
                 
         init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
-        
+        print(split_shape)
         for i in range(len(split_shape)):
-            setattr(self,'fc_'+str(i), init_(nn.Linear(split_shape[i], split_shape[i])))
+            setattr(self,'fc_'+str(i), init_(nn.Linear(split_shape[i][1], d_model)))
                   
-        input_size = np.sum(split_shape) + split_shape[-1]*(len(split_shape)-1) 
-        self.fc = init_(nn.Linear(input_size, d_model))
-
         
-    def forward(self, x):
+    def forward(self, x, self_idx):
         x = split_obs(x,self.split_shape)
         N = len(x)
         
-        x1 = []        
+        x1 = []   
+        self_x = x[self_idx]     
         for i in range(N):
-            exec('x1.append(self.fc_{}(x[{}]))'.format(i,i))
-            
-        x2 = x1[-1] 
-        self_x = x1[-1]   
-        for i in range(N-1):
-            x2 = torch.cat((x2, self_x, x1[i]), dim=-1) 
-            
-        out = self.fc(x2)  
-                
-        return out
+            K = self.split_shape[i][0]
+            L = self.split_shape[i][1]
+            for j in range(K):
+                temp = x[i][:,L*j:(L*j+L)]
+                exec('x1.append(self.fc_{}(temp))'.format(i))
+
+        out = torch.stack(x1,1)        
+                            
+        return out,self_x
     
 class Encoder(nn.Module):
-    def __init__(self, input_size, split_shape=None, d_model=512, attn_N=2, heads=8):
+    def __init__(self, input_size, split_shape=None, d_model=512, attn_N=2, heads=8, average_pool=True):
         super(Encoder, self).__init__()
         
         init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
         self.attn_N = attn_N
-        if split_shape==None:
-            self.embedding = init_(nn.Linear(input_size, d_model))
-        else:
+        self.average_pool = average_pool
+        if split_shape[0].__class__ == list:
             self.embedding = Embedding(split_shape, d_model)
+        else:
+            self.embedding = SelfEmbedding(split_shape, d_model)
         self.layers = get_clones(EncoderLayer(d_model, heads), self.attn_N)
         self.norm = nn.LayerNorm(d_model)
         
-    def forward(self, src, mask=None):
-        x = self.embedding(src)
+    def forward(self, src, self_idx=-1, mask=None):
+        x, self_x = self.embedding(src, self_idx)
         for i in range(self.attn_N):
             x = self.layers[i](x, mask)
-        return self.norm(x)     
+        x = self.norm(x)
+        if self.average_pool: 
+            x = F.avg_pool1d(x, kernel_size=x.size(-1)).view(x.size(0),-1)
+            x = torch.cat((x, self_x),dim=-1)
+        x = x.view(x.size(0),-1)
+        return x    
     

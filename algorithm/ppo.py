@@ -65,7 +65,7 @@ class PPO():
                         adv_targ = sample
                 
                 # Reshape to do in a single forward pass for all steps
-                values, action_log_probs, dist_entropy, _, _, _, _ = self.actor_critic.evaluate_actions(share_obs_batch, 
+                values, action_log_probs, dist_entropy, _, _, _, _ = self.actor_critic.evaluate_actions(self.agent_id, share_obs_batch, 
                 obs_batch, recurrent_hidden_states_batch,recurrent_hidden_states_critic_batch,recurrent_c_states_batch,recurrent_c_states_critic_batch, masks_batch,actions_batch)
 
                 ratio = torch.exp(action_log_probs -

@@ -192,7 +192,8 @@ def main():
 
             with torch.no_grad():
                 for i in range(num_agents):
-                    value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic ,recurrent_c_states, recurrent_c_states_critic = actor_critic[i].act(rollouts[i].share_obs[step], 
+                    value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic ,recurrent_c_states, recurrent_c_states_critic = actor_critic[i].act(i,
+                    rollouts[i].share_obs[step], 
                     rollouts[i].obs[step], 
                     rollouts[i].recurrent_hidden_states[step], 
                     rollouts[i].recurrent_hidden_states_critic[step],
@@ -299,7 +300,8 @@ def main():
         with torch.no_grad():
             next_values = []
             for i in range(num_agents):
-                next_value = actor_critic[i].get_value(rollouts[i].share_obs[-1], 
+                next_value = actor_critic[i].get_value(i,
+                                                       rollouts[i].share_obs[-1], 
                                                        rollouts[i].obs[-1], 
                                                        rollouts[i].recurrent_hidden_states[-1],
                                                        rollouts[i].recurrent_hidden_states_critic[-1],
