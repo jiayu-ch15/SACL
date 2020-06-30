@@ -398,17 +398,17 @@ class MLPBase(NNBase):
     def __init__(self, obs_shape, num_agents, lstm = False, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, average_pool=True):
         super(MLPBase, self).__init__(obs_shape, num_agents, lstm, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, average_pool)
 
-        if attn:
-            num_inputs = 0
-            split_shape = obs_shape[1:]
-            for i in range(len(split_shape)):
-                num_inputs += split_shape[i][0]
+        if attn:           
             if average_pool == True:
-                num_inputs_actor = num_inputs + obs_shape[-1][1]
+                num_inputs_actor = attn_size + obs_shape[-1][1]
+                num_inputs_critic = attn_size + obs_shape[0]
             else:
-                num_inputs_actor = num_agents + obs_shape[0]
-                
-            num_inputs_critic = obs_shape[0] + num_agents
+                num_inputs = 0
+                split_shape = obs_shape[1:]
+                for i in range(len(split_shape)):
+                    num_inputs += split_shape[i][0]
+                num_inputs_actor = num_inputs * attn_size
+                num_inputs_critic = num_agents * attn_size
         else:
             num_inputs_actor = obs_shape[0]
             num_inputs_critic = obs_shape[0]*num_agents
@@ -605,7 +605,7 @@ class Embedding(nn.Module):
 
         out = torch.stack(x1,1)        
                             
-        return out,self_x
+        return out, self_x
     
 class Encoder(nn.Module):
     def __init__(self, input_size, split_shape=None, d_model=512, attn_N=2, heads=8, average_pool=True):
@@ -626,7 +626,8 @@ class Encoder(nn.Module):
         for i in range(self.attn_N):
             x = self.layers[i](x, mask)
         x = self.norm(x)
-        if self.average_pool: 
+        if self.average_pool:
+            x = torch.transpose(x,1,2) 
             x = F.avg_pool1d(x, kernel_size=x.size(-1)).view(x.size(0),-1)
             x = torch.cat((x, self_x),dim=-1)
         x = x.view(x.size(0),-1)
