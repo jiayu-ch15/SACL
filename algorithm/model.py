@@ -552,7 +552,7 @@ class SelfEmbedding(nn.Module):
         self.split_shape = split_shape
                 
         init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
-        print(split_shape)
+
         for i in range(len(split_shape)):
             if i==(len(split_shape)-1):
                 setattr(self,'fc_'+str(i), init_(nn.Linear(split_shape[i][1], d_model)))
@@ -585,7 +585,7 @@ class Embedding(nn.Module):
         self.split_shape = split_shape
                 
         init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
-        print(split_shape)
+
         for i in range(len(split_shape)):
             setattr(self,'fc_'+str(i), init_(nn.Linear(split_shape[i][1], d_model)))
                   
