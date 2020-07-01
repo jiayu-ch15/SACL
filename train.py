@@ -393,37 +393,7 @@ def main():
                                             torch.tensor(eval_reward[:, i].reshape(-1,1)), 
                                             eval_masks[i], 
                                             eval_bad_masks[i])
-                                            
-            if args.env_name == "StarCraft2":
-                battles_won = []
-                battles_game = []
-                battles_draw = []
-                win_rate = []
-                for i,info in enumerate(eval_infos):
-                    if 'battles_won' in info.keys():
-                        battles_won.append(info['battles_won'])                         
-                    if 'battles_game' in info.keys():
-                        battles_game.append(info['battles_game'])                        
-                        if info['battles_game'] == 0:
-                            win_rate.append(0)
-                        else:
-                            win_rate.append(info['battles_won']/info['battles_game'])                            
-                    if 'battles_draw' in info.keys():
-                        battles_draw.append(info['battles_draw'])
-                        
-                    logger.add_scalars('eval_battles_won',
-                                        {'eval_battles_won': np.mean(battles_won)},
-                                        total_num_steps)
-                    logger.add_scalars('eval_battles_game',
-                                        {'eval_battles_game': np.mean(battles_game)},
-                                        total_num_steps)
-                    logger.add_scalars('eval_win_rate',
-                                        {'eval_win_rate': np.mean(win_rate)},
-                                        total_num_steps)
-                    logger.add_scalars('eval_battles_draw',
-                                        {'eval_battles_draw': np.mean(battles_draw)},
-                                        total_num_steps)     
-        
+                                                    
         # clean the buffer and reset
         obs, available_actions = envs.reset()
         for i in range(num_agents):
@@ -496,6 +466,34 @@ def main():
                                         total_num_steps)
                     logger.add_scalars('battles_draw',
                                         {'battles_draw': np.mean(battles_draw)},
+                                        total_num_steps)
+                eval_battles_won = []
+                eval_battles_game = []
+                eval_battles_draw = []
+                eval_win_rate = []
+                for i,info in enumerate(eval_infos):
+                    if 'battles_won' in info.keys():
+                        eval_battles_won.append(info['battles_won'])                         
+                    if 'battles_game' in info.keys():
+                        eval_battles_game.append(info['battles_game'])                        
+                        if info['battles_game'] == 0:
+                            eval_win_rate.append(0)
+                        else:
+                            eval_win_rate.append(info['battles_won']/info['battles_game'])                            
+                    if 'battles_draw' in info.keys():
+                        eval_battles_draw.append(info['battles_draw'])
+                        
+                    logger.add_scalars('eval_battles_won',
+                                        {'eval_battles_won': np.mean(eval_battles_won)},
+                                        total_num_steps)
+                    logger.add_scalars('eval_battles_game',
+                                        {'eval_battles_game': np.mean(eval_battles_game)},
+                                        total_num_steps)
+                    logger.add_scalars('eval_win_rate',
+                                        {'eval_win_rate': np.mean(eval_win_rate)},
+                                        total_num_steps)
+                    logger.add_scalars('eval_battles_draw',
+                                        {'eval_battles_draw': np.mean(eval_battles_draw)},
                                         total_num_steps)
 
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
