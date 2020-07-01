@@ -77,6 +77,7 @@ def main():
 
     # env
     envs = make_parallel_env(args)
+    eval_envs = make_parallel_env(args)
     num_agents = get_map_params(args.map_name)["n_agents"]
     #Policy network
     actor_critic = []
@@ -308,12 +309,12 @@ def main():
                             agent_id,
                             args.episode_length, 
                             args.n_rollout_threads,
-                            envs.observation_space[agent_id], 
-                            envs.action_space[agent_id],
+                            eval_envs.observation_space[agent_id], 
+                            eval_envs.action_space[agent_id],
                             actor_critic[agent_id].recurrent_hidden_size)
                 eval_rollouts.append(ro)
             # reset env 
-            eval_obs, eval_available_actions = envs.reset()
+            eval_obs, eval_available_actions = eval_envs.reset()
             
             for i in range(num_agents):
                 eval_rollouts[i].share_obs[0].copy_(torch.tensor(eval_obs.reshape(args.n_rollout_threads, -1)))
@@ -358,12 +359,12 @@ def main():
                 for i in range(args.n_rollout_threads):
                     eval_one_hot_action_env = []
                     for k in range(num_agents):
-                        eval_one_hot_action = np.zeros(envs.action_space[0].n)
+                        eval_one_hot_action = np.zeros(eval_envs.action_space[0].n)
                         eval_one_hot_action[eval_actions[k][i]] = 1
                         eval_one_hot_action_env.append(eval_one_hot_action)
                     eval_actions_env.append(eval_one_hot_action_env)
                 
-                eval_obs, eval_reward, eval_done, eval_infos, eval_available_actions = envs.step(eval_actions_env)
+                eval_obs, eval_reward, eval_done, eval_infos, eval_available_actions = eval_envs.step(eval_actions_env)
 
                 eval_masks = []
                 eval_bad_masks = []
@@ -455,18 +456,18 @@ def main():
                     if 'battles_draw' in info.keys():
                         battles_draw.append(info['battles_draw'])
                         
-                    logger.add_scalars('battles_won',
-                                        {'battles_won': np.mean(battles_won)},
-                                        total_num_steps)
-                    logger.add_scalars('battles_game',
-                                        {'battles_game': np.mean(battles_game)},
-                                        total_num_steps)
-                    logger.add_scalars('win_rate',
-                                        {'win_rate': np.mean(win_rate)},
-                                        total_num_steps)
-                    logger.add_scalars('battles_draw',
-                                        {'battles_draw': np.mean(battles_draw)},
-                                        total_num_steps)
+                logger.add_scalars('battles_won',
+                                    {'battles_won': np.mean(battles_won)},
+                                    total_num_steps)
+                logger.add_scalars('battles_game',
+                                    {'battles_game': np.mean(battles_game)},
+                                    total_num_steps)
+                logger.add_scalars('win_rate',
+                                    {'win_rate': np.mean(win_rate)},
+                                    total_num_steps)
+                logger.add_scalars('battles_draw',
+                                    {'battles_draw': np.mean(battles_draw)},
+                                    total_num_steps)
                 eval_battles_won = []
                 eval_battles_game = []
                 eval_battles_draw = []
@@ -482,19 +483,20 @@ def main():
                             eval_win_rate.append(info['battles_won']/info['battles_game'])                            
                     if 'battles_draw' in info.keys():
                         eval_battles_draw.append(info['battles_draw'])
-                        
-                    logger.add_scalars('eval_battles_won',
-                                        {'eval_battles_won': np.mean(eval_battles_won)},
-                                        total_num_steps)
-                    logger.add_scalars('eval_battles_game',
-                                        {'eval_battles_game': np.mean(eval_battles_game)},
-                                        total_num_steps)
-                    logger.add_scalars('eval_win_rate',
-                                        {'eval_win_rate': np.mean(eval_win_rate)},
-                                        total_num_steps)
-                    logger.add_scalars('eval_battles_draw',
-                                        {'eval_battles_draw': np.mean(eval_battles_draw)},
-                                        total_num_steps)
+                    
+                logger.add_scalars('eval_battles_won',
+                                    {'eval_battles_won': np.mean(eval_battles_won)},
+                                    total_num_steps)
+                
+                logger.add_scalars('eval_battles_game',
+                                    {'eval_battles_game': np.mean(eval_battles_game)},
+                                    total_num_steps)
+                logger.add_scalars('eval_win_rate',
+                                    {'eval_win_rate': np.mean(eval_win_rate)},
+                                    total_num_steps)
+                logger.add_scalars('eval_battles_draw',
+                                    {'eval_battles_draw': np.mean(eval_battles_draw)},
+                                    total_num_steps)
 
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()
