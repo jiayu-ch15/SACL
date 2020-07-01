@@ -299,7 +299,130 @@ def main():
             value_loss, action_loss, dist_entropy = agents[i].update(rollouts[i])
             value_losses.append(value_loss)
             action_losses.append(action_loss)
-            dist_entropies.append(dist_entropy)     
+            dist_entropies.append(dist_entropy)
+            
+        if episode % args.eval_interval == 0:
+            eval_rollouts = []
+            for agent_id in range(num_agents):
+                ro = RolloutStorage(num_agents,
+                            agent_id,
+                            args.episode_length, 
+                            args.n_rollout_threads,
+                            envs.observation_space[agent_id], 
+                            envs.action_space[agent_id],
+                            actor_critic[agent_id].recurrent_hidden_size)
+                eval_rollouts.append(ro)
+            # reset env 
+            eval_obs, eval_available_actions = envs.reset()
+            
+            for i in range(num_agents):
+                eval_rollouts[i].share_obs[0].copy_(torch.tensor(eval_obs.reshape(args.n_rollout_threads, -1)))
+                eval_rollouts[i].obs[0].copy_(torch.tensor(eval_obs[:,i,:]))
+                eval_rollouts[i].recurrent_hidden_states.zero_()
+                eval_rollouts[i].recurrent_hidden_states_critic.zero_()
+                eval_rollouts[i].recurrent_c_states.zero_()
+                eval_rollouts[i].recurrent_c_states_critic.zero_()
+                eval_rollouts[i].to(device)            
+
+            for step in range(args.episode_length):
+                eval_values = []
+                eval_actions= []
+                eval_action_log_probs = []
+                eval_recurrent_hidden_statess = []
+                eval_recurrent_hidden_statess_critic = []
+                eval_recurrent_c_statess = []
+                eval_recurrent_c_statess_critic = []
+                
+                for i in range(num_agents):
+                    value, eval_action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic ,recurrent_c_states, recurrent_c_states_critic = actor_critic[i].act(i,
+                    eval_rollouts[i].share_obs[step], 
+                    eval_rollouts[i].obs[step], 
+                    eval_rollouts[i].recurrent_hidden_states[step], 
+                    eval_rollouts[i].recurrent_hidden_states_critic[step],
+                    eval_rollouts[i].recurrent_c_states[step], 
+                    eval_rollouts[i].recurrent_c_states_critic[step], 
+                    eval_rollouts[i].masks[step],
+                    eval_available_actions[:,i,:],
+                    deterministic=True)
+
+                    eval_values.append(value)
+                    eval_actions.append(eval_action)
+                    eval_action_log_probs.append(action_log_prob)
+                    eval_recurrent_hidden_statess.append(recurrent_hidden_states)
+                    eval_recurrent_hidden_statess_critic.append(recurrent_hidden_states_critic)
+                    eval_recurrent_c_statess.append(recurrent_c_states)
+                    eval_recurrent_c_statess_critic.append(recurrent_c_states_critic)
+                
+                # rearrange action           
+                eval_actions_env = []
+                for i in range(args.n_rollout_threads):
+                    eval_one_hot_action_env = []
+                    for k in range(num_agents):
+                        eval_one_hot_action = np.zeros(envs.action_space[0].n)
+                        eval_one_hot_action[eval_actions[k][i]] = 1
+                        eval_one_hot_action_env.append(eval_one_hot_action)
+                    eval_actions_env.append(eval_one_hot_action_env)
+                
+                eval_obs, eval_reward, eval_done, eval_infos, eval_available_actions = envs.step(eval_actions_env)
+
+                eval_masks = []
+                eval_bad_masks = []
+                for i in range(num_agents):
+                    mask = []
+                    bad_mask = []
+                    for done_ in done:  
+                        if done_:              
+                            mask.append([0.0])
+                            bad_mask.append([1.0])
+                        else:
+                            mask.append([1.0])
+                            bad_mask.append([1.0])
+                    eval_masks.append(torch.FloatTensor(mask))
+                    eval_bad_masks.append(torch.FloatTensor(bad_mask))
+                                
+                for i in range(num_agents):
+                    eval_rollouts[i].insert(torch.tensor(eval_obs.reshape(args.n_rollout_threads, -1)), 
+                                            torch.tensor(eval_obs[:,i,:]), 
+                                            eval_recurrent_hidden_statess[i], 
+                                            eval_recurrent_hidden_statess_critic[i],
+                                            eval_recurrent_c_statess[i], 
+                                            eval_recurrent_c_statess_critic[i], 
+                                            eval_actions[i],
+                                            eval_action_log_probs[i], 
+                                            eval_values[i], 
+                                            torch.tensor(eval_reward[:, i].reshape(-1,1)), 
+                                            eval_masks[i], 
+                                            eval_bad_masks[i])
+                                            
+            if args.env_name == "StarCraft2":
+                battles_won = []
+                battles_game = []
+                battles_draw = []
+                win_rate = []
+                for i,info in enumerate(eval_infos):
+                    if 'battles_won' in info.keys():
+                        battles_won.append(info['battles_won'])                         
+                    if 'battles_game' in info.keys():
+                        battles_game.append(info['battles_game'])                        
+                        if info['battles_game'] == 0:
+                            win_rate.append(0)
+                        else:
+                            win_rate.append(info['battles_won']/info['battles_game'])                            
+                    if 'battles_draw' in info.keys():
+                        battles_draw.append(info['battles_draw'])
+                        
+                    logger.add_scalars('eval_battles_won',
+                                        {'eval_battles_won': np.mean(battles_won)},
+                                        total_num_steps)
+                    logger.add_scalars('eval_battles_game',
+                                        {'eval_battles_game': np.mean(battles_game)},
+                                        total_num_steps)
+                    logger.add_scalars('eval_win_rate',
+                                        {'eval_win_rate': np.mean(win_rate)},
+                                        total_num_steps)
+                    logger.add_scalars('eval_battles_draw',
+                                        {'eval_battles_draw': np.mean(battles_draw)},
+                                        total_num_steps)     
         
         # clean the buffer and reset
         obs, available_actions = envs.reset()
@@ -374,131 +497,6 @@ def main():
                     logger.add_scalars('battles_draw',
                                         {'battles_draw': np.mean(battles_draw)},
                                         total_num_steps)
-
-        if episode % args.eval_interval == 0:
-            eval_env = make_parallel_env(args)
-            eval_rollouts = []
-            for agent_id in range(num_agents):
-                ro = RolloutStorage(num_agents,
-                            agent_id,
-                            args.episode_length, 
-                            args.n_rollout_threads,
-                            eval_env.observation_space[agent_id], 
-                            eval_env.action_space[agent_id],
-                            actor_critic[agent_id].recurrent_hidden_size)
-                eval_rollouts.append(ro)
-            # reset env 
-            eval_obs, eval_available_actions = eval_env.reset()
-            
-            for i in range(num_agents):
-                eval_rollouts[i].share_obs[0].copy_(torch.tensor(eval_obs.reshape(args.n_rollout_threads, -1)))
-                eval_rollouts[i].obs[0].copy_(torch.tensor(eval_obs[:,i,:]))
-                eval_rollouts[i].recurrent_hidden_states.zero_()
-                eval_rollouts[i].recurrent_hidden_states_critic.zero_()
-                eval_rollouts[i].recurrent_c_states.zero_()
-                eval_rollouts[i].recurrent_c_states_critic.zero_()
-                eval_rollouts[i].to(device)            
-
-            for step in range(args.episode_length):
-                eval_values = []
-                eval_actions= []
-                eval_action_log_probs = []
-                eval_recurrent_hidden_statess = []
-                eval_recurrent_hidden_statess_critic = []
-                eval_recurrent_c_statess = []
-                eval_recurrent_c_statess_critic = []
-                
-                for i in range(num_agents):
-                    value, eval_action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic ,recurrent_c_states, recurrent_c_states_critic = actor_critic[i].act(i,
-                    eval_rollouts[i].share_obs[step], 
-                    eval_rollouts[i].obs[step], 
-                    eval_rollouts[i].recurrent_hidden_states[step], 
-                    eval_rollouts[i].recurrent_hidden_states_critic[step],
-                    eval_rollouts[i].recurrent_c_states[step], 
-                    eval_rollouts[i].recurrent_c_states_critic[step], 
-                    eval_rollouts[i].masks[step],
-                    eval_available_actions[:,i,:],
-                    deterministic=True)
-
-                    eval_values.append(value)
-                    eval_actions.append(eval_action)
-                    eval_action_log_probs.append(action_log_prob)
-                    eval_recurrent_hidden_statess.append(recurrent_hidden_states)
-                    eval_recurrent_hidden_statess_critic.append(recurrent_hidden_states_critic)
-                    eval_recurrent_c_statess.append(recurrent_c_states)
-                    eval_recurrent_c_statess_critic.append(recurrent_c_states_critic)
-                
-                # rearrange action           
-                eval_actions_env = []
-                for i in range(args.n_rollout_threads):
-                    eval_one_hot_action_env = []
-                    for k in range(num_agents):
-                        eval_one_hot_action = np.zeros(eval_env.action_space[0].n)
-                        eval_one_hot_action[eval_actions[k][i]] = 1
-                        eval_one_hot_action_env.append(eval_one_hot_action)
-                    eval_actions_env.append(eval_one_hot_action_env)
-                
-                eval_obs, eval_reward, eval_done, eval_infos, eval_available_actions = eval_env.step(eval_actions_env)
-
-                eval_masks = []
-                eval_bad_masks = []
-                for i in range(num_agents):
-                    mask = []
-                    bad_mask = []
-                    for done_ in done:  
-                        if done_:              
-                            mask.append([0.0])
-                            bad_mask.append([1.0])
-                        else:
-                            mask.append([1.0])
-                            bad_mask.append([1.0])
-                    eval_masks.append(torch.FloatTensor(mask))
-                    eval_bad_masks.append(torch.FloatTensor(bad_mask))
-                                
-                for i in range(num_agents):
-                    eval_rollouts[i].insert(torch.tensor(eval_obs.reshape(args.n_rollout_threads, -1)), 
-                                            torch.tensor(eval_obs[:,i,:]), 
-                                            eval_recurrent_hidden_statess[i], 
-                                            eval_recurrent_hidden_statess_critic[i],
-                                            eval_recurrent_c_statess[i], 
-                                            eval_recurrent_c_statess_critic[i], 
-                                            eval_actions[i],
-                                            eval_action_log_probs[i], 
-                                            eval_values[i], 
-                                            torch.tensor(eval_reward[:, i].reshape(-1,1)), 
-                                            eval_masks[i], 
-                                            eval_bad_masks[i])
-                                            
-            if args.env_name == "StarCraft2":
-                battles_won = []
-                battles_game = []
-                battles_draw = []
-                win_rate = []
-                for i,info in enumerate(eval_infos):
-                    if 'battles_won' in info.keys():
-                        battles_won.append(info['battles_won'])                         
-                    if 'battles_game' in info.keys():
-                        battles_game.append(info['battles_game'])                        
-                        if info['battles_game'] == 0:
-                            win_rate.append(0)
-                        else:
-                            win_rate.append(info['battles_won']/info['battles_game'])                            
-                    if 'battles_draw' in info.keys():
-                        battles_draw.append(info['battles_draw'])
-                        
-                    logger.add_scalars('eval_battles_won',
-                                        {'eval_battles_won': np.mean(battles_won)},
-                                        total_num_steps)
-                    logger.add_scalars('eval_battles_game',
-                                        {'eval_battles_game': np.mean(battles_game)},
-                                        total_num_steps)
-                    logger.add_scalars('eval_win_rate',
-                                        {'eval_win_rate': np.mean(win_rate)},
-                                        total_num_steps)
-                    logger.add_scalars('eval_battles_draw',
-                                        {'eval_battles_draw': np.mean(battles_draw)},
-                                        total_num_steps)
-            eval_env.close()
 
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()
