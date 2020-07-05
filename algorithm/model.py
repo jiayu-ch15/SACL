@@ -92,7 +92,7 @@ class Policy(nn.Module):
 
 
 class NNBase(nn.Module):
-    def __init__(self, obs_shape, num_agents, lstm=False, naive_recurrent=False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, average_pool=True):
+    def __init__(self, obs_shape, num_agents, lstm=False, naive_recurrent=False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, average_pool=True, common_layer=True):
         super(NNBase, self).__init__()
 
         self._hidden_size = hidden_size
@@ -100,6 +100,7 @@ class NNBase(nn.Module):
         self._naive_recurrent = naive_recurrent
         self._lstm=lstm
         self._attn=attn
+        self.common_layer = common_layer
                 
         if self._attn:
             self.encoder_actor = Encoder(obs_shape[0], obs_shape[1:], attn_size, attn_N, attn_heads, average_pool)
@@ -108,31 +109,33 @@ class NNBase(nn.Module):
         assert (self._lstm and (self._recurrent or self._naive_recurrent))==False, ("LSTM and GRU can not be set True simultaneously.")
 
         if self._lstm:
-            self.lstm = nn.LSTM(hidden_size, hidden_size)
-            self.lstm_critic = nn.LSTM(hidden_size, hidden_size)
+            self.lstm = nn.LSTM(hidden_size, hidden_size)           
             for name, param in self.lstm.named_parameters():
                 if 'bias' in name:
                     nn.init.constant_(param, 0)
                 elif 'weight' in name:
                     nn.init.orthogonal_(param)
-            for name, param in self.lstm_critic.named_parameters():
-                if 'bias' in name:
-                    nn.init.constant_(param, 0)
-                elif 'weight' in name:
-                    nn.init.orthogonal_(param)
+            if not self.common_layer:
+                self.lstm_critic = nn.LSTM(hidden_size, hidden_size)
+                for name, param in self.lstm_critic.named_parameters():
+                    if 'bias' in name:
+                        nn.init.constant_(param, 0)
+                    elif 'weight' in name:
+                        nn.init.orthogonal_(param)
         if self._recurrent or self._naive_recurrent:
-            self.gru = nn.GRU(hidden_size, hidden_size)
-            self.gru_critic = nn.GRU(hidden_size, hidden_size)
+            self.gru = nn.GRU(hidden_size, hidden_size)           
             for name, param in self.gru.named_parameters():
                 if 'bias' in name:
                     nn.init.constant_(param, 0)
                 elif 'weight' in name:
                     nn.init.orthogonal_(param)
-            for name, param in self.gru_critic.named_parameters():
-                if 'bias' in name:
-                    nn.init.constant_(param, 0)
-                elif 'weight' in name:
-                    nn.init.orthogonal_(param)
+            if not self.common_layer:
+                self.gru_critic = nn.GRU(hidden_size, hidden_size)
+                for name, param in self.gru_critic.named_parameters():
+                    if 'bias' in name:
+                        nn.init.constant_(param, 0)
+                    elif 'weight' in name:
+                        nn.init.orthogonal_(param)
 
     @property
     def is_recurrent(self):
@@ -395,9 +398,10 @@ class NNBase(nn.Module):
         return x, hxs, c
 
 class MLPBase(NNBase):
-    def __init__(self, obs_shape, num_agents, lstm = False, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, average_pool=True):
-        super(MLPBase, self).__init__(obs_shape, num_agents, lstm, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, average_pool)
+    def __init__(self, obs_shape, num_agents, lstm = False, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, average_pool=True, common_layer=True):
+        super(MLPBase, self).__init__(obs_shape, num_agents, lstm, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, average_pool,common_layer)
 
+        self.common_layer = common_layer
         if attn:           
             if average_pool == True:
                 num_inputs_actor = attn_size + obs_shape[-1][1]
@@ -417,11 +421,22 @@ class MLPBase(NNBase):
 
         self.actor = nn.Sequential(
             init_(nn.Linear(num_inputs_actor, hidden_size)), nn.Tanh(),
+            #init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh(),
             init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh())
 
         self.critic = nn.Sequential(
             init_(nn.Linear(num_inputs_critic, hidden_size)), nn.Tanh(),
+            #init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh(),
             init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh())
+            
+        if self.common_layer:
+            self.actor = nn.Sequential(
+                init_(nn.Linear(num_inputs_actor, hidden_size)), nn.Tanh())    
+            self.critic = nn.Sequential(
+                init_(nn.Linear(num_inputs_critic, hidden_size)), nn.Tanh())
+            self.common_linear = nn.Sequential(
+                init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh(),
+                init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh())
 
         self.critic_linear = init_(nn.Linear(hidden_size, 1))
 
@@ -434,22 +449,34 @@ class MLPBase(NNBase):
         if self.is_attn:
             x = self.encoder_actor(x)
             share_x = self.encoder_critic(share_x, agent_id)
-                
-        hidden_actor = self.actor(x)
-        hidden_critic = self.critic(share_x)
-
-        if self.is_recurrent or self.is_naive_recurrent:
-            hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
-            hidden_critic, rnn_hxs_critic = self._forward_gru_critic(hidden_critic, rnn_hxs_critic, masks)
+                            
+        if self.common_layer:
+            hidden_actor = self.actor(x)
+            hidden_critic = self.critic(share_x)
+            hidden_actor = self.common_linear(hidden_actor)
+            hidden_critic = self.common_linear(hidden_critic)
+            if self.is_recurrent or self.is_naive_recurrent:
+                hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
+                hidden_critic, rnn_hxs_critic = self._forward_gru(hidden_critic, rnn_hxs_critic, masks)
             
-        if self.is_lstm:
-            hidden_actor, rnn_hxs_actor, rnn_c_actor = self._forward_lstm(hidden_actor, rnn_hxs_actor, rnn_c_actor, masks)
-            hidden_critic, rnn_hxs_critic, rnn_c_critic = self._forward_lstm_critic(hidden_critic, rnn_hxs_critic, rnn_c_critic, masks)
+            if self.is_lstm:
+                hidden_actor, rnn_hxs_actor, rnn_c_actor = self._forward_lstm(hidden_actor, rnn_hxs_actor, rnn_c_actor, masks)
+                hidden_critic, rnn_hxs_critic, rnn_c_critic = self._forward_lstm(hidden_critic, rnn_hxs_critic, rnn_c_critic, masks)
+        else:
+            hidden_actor = self.actor(x)
+            hidden_critic = self.critic(share_x)
+            if self.is_recurrent or self.is_naive_recurrent:
+                hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
+                hidden_critic, rnn_hxs_critic = self._forward_gru_critic(hidden_critic, rnn_hxs_critic, masks)
+                
+            if self.is_lstm:
+                hidden_actor, rnn_hxs_actor, rnn_c_actor = self._forward_lstm(hidden_actor, rnn_hxs_actor, rnn_c_actor, masks)
+                hidden_critic, rnn_hxs_critic, rnn_c_critic = self._forward_lstm_critic(hidden_critic, rnn_hxs_critic, rnn_c_critic, masks)    
 
         return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic
 
 class FeedForward(nn.Module):
-    def __init__(self, d_model, d_ff=2048, dropout = 0.1):
+    def __init__(self, d_model, d_ff=128, dropout = 0.1):
         super(FeedForward, self).__init__() 
         # We set d_ff as a default to 2048
         init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))

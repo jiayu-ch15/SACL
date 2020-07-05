@@ -30,9 +30,9 @@ def get_config():
     
     # attn
     parser.add_argument("--attn", action='store_true', default=False)
-    parser.add_argument("--attn_N", type=int, default=1)
-    parser.add_argument("--attn_size", type=int, default=32)
-    parser.add_argument("--attn_heads", type=int, default=4)
+    parser.add_argument("--attn_N", type=int, default=3)
+    parser.add_argument("--attn_size", type=int, default=64)
+    parser.add_argument("--attn_heads", type=int, default=8)
     
     # ppo
     parser.add_argument("--ppo_epoch", type=int, default=4, help='number of ppo epochs (default: 4)')    
@@ -48,6 +48,7 @@ def get_config():
     parser.add_argument("--gamma", type=float, default=0.99, help='discount factor for rewards (default: 0.99)')
     parser.add_argument("--gae-lambda", type=float, default=0.95, help='gae lambda parameter (default: 0.95)')
     parser.add_argument("--use-proper-time-limits", action='store_true', default=False, help='compute returns taking into account time limits')
+    parser.add_argument("--use-max-grad-norm", action='store_false', default=True)
     
     # replay buffer
     parser.add_argument("--episode_length", type=int, default=200, help='number of forward steps in A2C (default: 5)')
@@ -60,7 +61,7 @@ def get_config():
     
     # log
     parser.add_argument("--log_interval", type=int, default=1)
-    parser.add_argument("--eval_interval", type=int, default=1)
+    parser.add_argument("--eval_interval", type=int, default=100)
     
     args = parser.parse_args()
 

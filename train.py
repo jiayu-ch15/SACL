@@ -130,6 +130,7 @@ def main():
                    lr=args.lr,
                    eps=args.eps,
                    max_grad_norm=args.max_grad_norm,
+                   use_max_grad_norm=args.use_max_grad_norm,
                    use_clipped_value_loss= args.use_clipped_value_loss)
 
         #replay buffer
@@ -170,6 +171,8 @@ def main():
     start = time.time()
     episodes = int(args.num_env_steps) // args.episode_length // args.n_rollout_threads
     timesteps = 0
+    last_battles_game = np.zeros(args.n_rollout_threads)
+    last_battles_won = np.zeros(args.n_rollout_threads)
 
     for episode in range(episodes):
 
@@ -444,6 +447,7 @@ def main():
                 battles_game = []
                 battles_draw = []
                 win_rate = []
+                incre_win_rate = []
                 for i,info in enumerate(infos):
                     if 'battles_won' in info.keys():
                         battles_won.append(info['battles_won'])                         
@@ -452,7 +456,8 @@ def main():
                         if info['battles_game'] == 0:
                             win_rate.append(0)
                         else:
-                            win_rate.append(info['battles_won']/info['battles_game'])                            
+                            win_rate.append(info['battles_won']/info['battles_game']) 
+                            incre_win_rate.append((info['battles_won']-last_battles_won[i])/(info['battles_game']-last_battles_game[i]))                           
                     if 'battles_draw' in info.keys():
                         battles_draw.append(info['battles_draw'])
                         
@@ -468,6 +473,12 @@ def main():
                 logger.add_scalars('battles_draw',
                                     {'battles_draw': np.mean(battles_draw)},
                                     total_num_steps)
+                logger.add_scalars('incre_win_rate',
+                                    {'incre_win_rate': np.mean(incre_win_rate)},
+                                    total_num_steps)
+                last_battles_game = battles_game
+                last_battles_won = battles_won
+                
                 eval_battles_won = []
                 eval_battles_game = []
                 eval_battles_draw = []
