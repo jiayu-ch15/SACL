@@ -20,7 +20,8 @@ class PPO():
                  eps=None,
                  max_grad_norm=None,
                  use_max_grad_norm=True,
-                 use_clipped_value_loss=True):
+                 use_clipped_value_loss=True,
+                 common_layer=False):
 
         self.agent_id = agent_id
         self.step = 0
@@ -38,6 +39,7 @@ class PPO():
         self.max_grad_norm = max_grad_norm
         self.use_max_grad_norm = use_max_grad_norm
         self.use_clipped_value_loss = use_clipped_value_loss
+        self.common_layer = common_layer
 
         self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
 
@@ -88,9 +90,13 @@ class PPO():
                 
                 self.optimizer.zero_grad()
                 
-                (value_loss * self.value_loss_coef).backward()
-                if turn_on == True:
-                    (action_loss - dist_entropy * self.entropy_coef).backward()
+                if self.common_layer:
+                    (value_loss * self.value_loss_coef + action_loss - dist_entropy * self.entropy_coef).backward()
+                else:              
+                    (value_loss * self.value_loss_coef).backward()
+                    if turn_on == True:
+                        (action_loss - dist_entropy * self.entropy_coef).backward()
+                        
                 if self.use_max_grad_norm:
                     nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
                     

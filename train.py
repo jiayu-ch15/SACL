@@ -135,7 +135,8 @@ def main():
                    eps=args.eps,
                    max_grad_norm=args.max_grad_norm,
                    use_max_grad_norm=args.use_max_grad_norm,
-                   use_clipped_value_loss= args.use_clipped_value_loss)
+                   use_clipped_value_loss= args.use_clipped_value_loss,
+                   common_layer=args.common_layer)
 
         #replay buffer
         ro = RolloutStorage(num_agents,
