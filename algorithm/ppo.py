@@ -82,16 +82,18 @@ class PPO():
                     value_losses = (values - return_batch).pow(2)
                     value_losses_clipped = (value_pred_clipped - return_batch).pow(2)
                     value_loss = 0.5 * torch.max(value_losses, value_losses_clipped).mean()
+                    
                 else:
                     value_loss = 0.5 * (return_batch - values).pow(2).mean()
-                    
+                print(value_loss)
                 self.optimizer.zero_grad()
                 
-                (value_loss * self.value_loss_coef + action_loss - dist_entropy * self.entropy_coef).backward()
-                #if turn_on == True:
-                #().backward()
+                (value_loss * self.value_loss_coef).backward()
+                if turn_on == True:
+                    (action_loss - dist_entropy * self.entropy_coef).backward()
                 if self.use_max_grad_norm:
                     nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
+                    print(self.actor_critic.parameters())
                 self.optimizer.step()
                 
                 if self.logger is not None:

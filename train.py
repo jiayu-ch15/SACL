@@ -92,7 +92,9 @@ def main():
                                  'attn': args.attn,                                 
                                  'attn_size': args.attn_size,
                                  'attn_N': args.attn_N,
-                                 'attn_heads': args.attn_heads
+                                 'attn_heads': args.attn_heads,
+                                 'average_pool': args.average_pool,
+                                 'common_layer':args.common_layer
                                  })
         ac.to(device)
         for agent_id in range(num_agents):
@@ -109,7 +111,9 @@ def main():
                                  'attn': args.attn,                                 
                                  'attn_size': args.attn_size,
                                  'attn_N': args.attn_N,
-                                 'attn_heads': args.attn_heads
+                                 'attn_heads': args.attn_heads,
+                                 'average_pool': args.average_pool,
+                                 'common_layer':args.common_layer
                                  })
             ac.to(device)
             actor_critic.append(ac) 
@@ -227,6 +231,7 @@ def main():
             
             # Obser reward and next obs
             obs, reward, done, infos, available_actions = envs.step(actions_env)
+            print(reward)
 
             # If done then clean the history of observations.
             # insert data in buffer

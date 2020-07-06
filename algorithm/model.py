@@ -92,7 +92,7 @@ class Policy(nn.Module):
 
 
 class NNBase(nn.Module):
-    def __init__(self, obs_shape, num_agents, lstm=False, naive_recurrent=False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, average_pool=True, common_layer=True):
+    def __init__(self, obs_shape, num_agents, lstm=False, naive_recurrent=False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, average_pool=True, common_layer=False):
         super(NNBase, self).__init__()
 
         self._hidden_size = hidden_size
@@ -398,7 +398,7 @@ class NNBase(nn.Module):
         return x, hxs, c
 
 class MLPBase(NNBase):
-    def __init__(self, obs_shape, num_agents, lstm = False, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, average_pool=True, common_layer=True):
+    def __init__(self, obs_shape, num_agents, lstm = False, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, average_pool=True, common_layer=False):
         super(MLPBase, self).__init__(obs_shape, num_agents, lstm, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, average_pool,common_layer)
 
         self.common_layer = common_layer
@@ -435,7 +435,7 @@ class MLPBase(NNBase):
             self.critic = nn.Sequential(
                 init_(nn.Linear(num_inputs_critic, hidden_size)), nn.Tanh())
             self.common_linear = nn.Sequential(
-                init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh(),
+                #init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh(),
                 init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh())
 
         self.critic_linear = init_(nn.Linear(hidden_size, 1))
