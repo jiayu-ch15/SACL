@@ -1017,7 +1017,7 @@ class StarCraft2Env(MultiAgentEnv):
                 ind += self.unit_type_bits
                 
             if self.obs_last_action:
-                ally_feats[ind:] = self.last_action[agent_id]
+                own_feats[ind:] = self.last_action[agent_id]
                 
         agent_obs = np.concatenate(
                                   (
