@@ -459,7 +459,11 @@ def main():
                         battles_game.append(info['battles_game'])                        
                         if info['battles_game'] == 0:
                             win_rate.append(0)
+<<<<<<< HEAD
                             incre_win_rate.append(0)  
+=======
+                            incre_win_rate.append(0)
+>>>>>>> 50222491e147f38242957e9c7259575b66a26097
                         else:
                             win_rate.append(info['battles_won']/info['battles_game']) 
                             incre_win_rate.append((info['battles_won']-last_battles_won[i])/(info['battles_game']-last_battles_game[i]))                           

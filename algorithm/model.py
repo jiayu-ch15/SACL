@@ -476,16 +476,20 @@ class MLPBase(NNBase):
         return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic
 
 class FeedForward(nn.Module):
-    def __init__(self, d_model, d_ff=64, dropout = 0.1):
+
+    def __init__(self, d_model, d_ff=512, dropout = 0.1):
+
         super(FeedForward, self).__init__() 
         # We set d_ff as a default to 2048
         init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
                                constant_(x, 0), np.sqrt(2))
-        self.linear_1 = init_(nn.Linear(d_model, d_ff))
+
+        self.linear_1 = nn.Sequential(init_(nn.Linear(d_model, d_ff)), nn.Tanh())
+
         self.dropout = nn.Dropout(dropout)
-        self.linear_2 = init_(nn.Linear(d_ff, d_model))
+        self.linear_2 = nn.Sequential(init_(nn.Linear(d_ff, d_model)), nn.Tanh())
     def forward(self, x):
-        x = self.dropout(F.relu(self.linear_1(x)))
+        x = self.dropout(self.linear_1(x))
         x = self.linear_2(x)
         return x
 
