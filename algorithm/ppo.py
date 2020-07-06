@@ -24,7 +24,8 @@ class PPO():
                  use_max_grad_norm=True,
                  use_clipped_value_loss=True,
                  common_layer=False,
-                 use_huber_loss = False):
+                 use_huber_loss = False,
+                 huber_delta=2):
 
         self.agent_id = agent_id
         self.step = 0
@@ -92,7 +93,7 @@ class PPO():
                 else:
                     if self.use_huber_loss:
                         error = return_batch - values
-                        value_loss = huber_loss(error,2).mean()
+                        value_loss = huber_loss(error,huber_delta).mean()
                     else:
                         value_loss = 0.5 * (return_batch - values).pow(2).mean()
                 

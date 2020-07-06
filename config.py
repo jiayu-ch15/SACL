@@ -22,6 +22,7 @@ def get_config():
     parser.add_argument("--hidden_size", type=int, default=64)
     parser.add_argument("--common_layer", action='store_true', default=False)
     
+    
     # lstm
     parser.add_argument("--naive_recurrent_policy", action='store_true', default=False, help='use a naive recurrent policy')
     parser.add_argument("--recurrent_policy", action='store_false', default=True, help='use a recurrent policy')
@@ -45,12 +46,15 @@ def get_config():
     parser.add_argument("--value_loss_coef", type=float, default=1, help='value loss coefficient (default: 0.5)')
     parser.add_argument("--lr", type=float, default=7e-4, help='learning rate (default: 7e-4)')
     parser.add_argument("--eps", type=float, default=1e-5, help='RMSprop optimizer epsilon (default: 1e-5)')
+    parser.add_argument("--use-max-grad-norm", action='store_false', default=True)
     parser.add_argument("--max-grad-norm", type=float, default=0.5, help='max norm of gradients (default: 0.5)')
     parser.add_argument("--use-gae", action='store_false', default=True, help='use generalized advantage estimation')
     parser.add_argument("--gamma", type=float, default=0.99, help='discount factor for rewards (default: 0.99)')
     parser.add_argument("--gae-lambda", type=float, default=0.95, help='gae lambda parameter (default: 0.95)')
     parser.add_argument("--use-proper-time-limits", action='store_true', default=False, help='compute returns taking into account time limits')
-    parser.add_argument("--use-max-grad-norm", action='store_false', default=True)
+    parser.add_argument("--use_huber_loss", action='store_true', default=False)
+    parser.add_argument("--huber_delta", type=float, default=2.0)
+    
     
     # replay buffer
     parser.add_argument("--episode_length", type=int, default=200, help='number of forward steps in A2C (default: 5)')
