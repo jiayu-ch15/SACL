@@ -103,7 +103,7 @@ class NNBase(nn.Module):
         self.common_layer = common_layer
                 
         if self._attn:
-            self.encoder_actor = Encoder(obs_shape[0], obs_shape[1:], attn_size, attn_N, attn_heads, average_pool)
+            self.encoder_actor = Encoder(obs_shape[0], obs_shape, attn_size, attn_N, attn_heads, average_pool)
             self.encoder_critic = Encoder(obs_shape[0]*num_agents, [[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, average_pool)
         
         assert (self._lstm and (self._recurrent or self._naive_recurrent))==False, ("LSTM and GRU can not be set True simultaneously.")
@@ -476,10 +476,11 @@ class MLPBase(NNBase):
         return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic
 
 class FeedForward(nn.Module):
-    def __init__(self, d_model, d_ff=128, dropout = 0.1):
+    def __init__(self, d_model, d_ff=64, dropout = 0.1):
         super(FeedForward, self).__init__() 
         # We set d_ff as a default to 2048
-        init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
+        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
+                               constant_(x, 0), np.sqrt(2))
         self.linear_1 = init_(nn.Linear(d_model, d_ff))
         self.dropout = nn.Dropout(dropout)
         self.linear_2 = init_(nn.Linear(d_ff, d_model))
@@ -506,7 +507,8 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, heads, d_model, dropout = 0.1):
         super(MultiHeadAttention, self).__init__()
         
-        init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0)) 
+        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
+                               constant_(x, 0), np.sqrt(2))
         
         self.d_model = d_model
         self.d_k = d_model // heads
@@ -575,16 +577,17 @@ def split_obs(obs, split_shape):
     
 class SelfEmbedding(nn.Module):
     def __init__(self, split_shape, d_model):
-        super(Embedding, self).__init__()
+        super(SelfEmbedding, self).__init__()
         self.split_shape = split_shape
                 
-        init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
+        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
+                               constant_(x, 0), np.sqrt(2))
 
         for i in range(len(split_shape)):
-            if i==(len(split_shape)-1):
-                setattr(self,'fc_'+str(i), init_(nn.Linear(split_shape[i][1], d_model)))
+            if i==(len(split_shape)-1):            
+                setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1], d_model)), nn.Tanh()))
             else:
-                setattr(self,'fc_'+str(i), init_(nn.Linear(split_shape[i][1]+split_shape[-1][1], d_model)))
+                setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1]+split_shape[-1][1], d_model)), nn.Tanh()))
                   
         
     def forward(self, x, self_idx=-1):
@@ -611,10 +614,11 @@ class Embedding(nn.Module):
         super(Embedding, self).__init__()
         self.split_shape = split_shape
                 
-        init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
+        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
+                               constant_(x, 0), np.sqrt(2))
 
         for i in range(len(split_shape)):
-            setattr(self,'fc_'+str(i), init_(nn.Linear(split_shape[i][1], d_model)))
+            setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1], d_model)), nn.Tanh()))
                   
         
     def forward(self, x, self_idx):
@@ -638,13 +642,14 @@ class Encoder(nn.Module):
     def __init__(self, input_size, split_shape=None, d_model=512, attn_N=2, heads=8, average_pool=True):
         super(Encoder, self).__init__()
         
-        init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
+        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
+                               constant_(x, 0), np.sqrt(2))
         self.attn_N = attn_N
         self.average_pool = average_pool
         if split_shape[0].__class__ == list:
             self.embedding = Embedding(split_shape, d_model)
         else:
-            self.embedding = SelfEmbedding(split_shape, d_model)
+            self.embedding = SelfEmbedding(split_shape[1:], d_model)
         self.layers = get_clones(EncoderLayer(d_model, heads), self.attn_N)
         self.norm = nn.LayerNorm(d_model)
         
