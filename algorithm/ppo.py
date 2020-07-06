@@ -45,6 +45,7 @@ class PPO():
         self.use_clipped_value_loss = use_clipped_value_loss
         self.common_layer = common_layer
         self.use_huber_loss = use_huber_loss
+        self.huber_delta = huber_delta
 
         self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
 
@@ -93,7 +94,7 @@ class PPO():
                 else:
                     if self.use_huber_loss:
                         error = return_batch - values
-                        value_loss = huber_loss(error,huber_delta).mean()
+                        value_loss = huber_loss(error,self.huber_delta).mean()
                     else:
                         value_loss = 0.5 * (return_batch - values).pow(2).mean()
                 
