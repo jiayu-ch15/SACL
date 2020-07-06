@@ -103,7 +103,7 @@ class NNBase(nn.Module):
         self.common_layer = common_layer
                 
         if self._attn:
-            self.encoder_actor = Encoder(obs_shape[0], obs_shape[1:], attn_size, attn_N, attn_heads, average_pool)
+            self.encoder_actor = Encoder(obs_shape[0], obs_shape, attn_size, attn_N, attn_heads, average_pool)
             self.encoder_critic = Encoder(obs_shape[0]*num_agents, [[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, average_pool)
         
         assert (self._lstm and (self._recurrent or self._naive_recurrent))==False, ("LSTM and GRU can not be set True simultaneously.")
@@ -571,11 +571,12 @@ def split_obs(obs, split_shape):
     for i in range(len(split_shape)):
         split_obs.append(obs[:,start_idx:(start_idx+split_shape[i][0]*split_shape[i][1])])
         start_idx += split_shape[i][0]*split_shape[i][1]
+    
     return split_obs
     
 class SelfEmbedding(nn.Module):
     def __init__(self, split_shape, d_model):
-        super(Embedding, self).__init__()
+        super(SelfEmbedding, self).__init__()
         self.split_shape = split_shape
                 
         init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
@@ -588,6 +589,7 @@ class SelfEmbedding(nn.Module):
                   
         
     def forward(self, x, self_idx=-1):
+        
         x = split_obs(x,self.split_shape)
         N = len(x)
         
@@ -598,6 +600,7 @@ class SelfEmbedding(nn.Module):
             L = self.split_shape[i][1]
             for j in range(K):
                 temp = torch.cat((x[i][:,L*j:(L*j+L)],self_x),dim=-1)
+                
                 exec('x1.append(self.fc_{}(temp))'.format(i))
         temp = x[self_idx]
         exec('x1.append(self.fc_{}(temp))'.format(N-1))
@@ -618,6 +621,7 @@ class Embedding(nn.Module):
                   
         
     def forward(self, x, self_idx):
+        
         x = split_obs(x,self.split_shape)
         N = len(x)
         
@@ -644,7 +648,7 @@ class Encoder(nn.Module):
         if split_shape[0].__class__ == list:
             self.embedding = Embedding(split_shape, d_model)
         else:
-            self.embedding = SelfEmbedding(split_shape, d_model)
+            self.embedding = SelfEmbedding(split_shape[1:], d_model)
         self.layers = get_clones(EncoderLayer(d_model, heads), self.attn_N)
         self.norm = nn.LayerNorm(d_model)
         

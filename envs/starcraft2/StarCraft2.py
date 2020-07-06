@@ -210,6 +210,7 @@ class StarCraft2Env(MultiAgentEnv):
         self.obs_all_health = obs_all_health
         self.obs_instead_of_state = obs_instead_of_state
         self.obs_last_action = obs_last_action
+        
         self.obs_pathing_grid = obs_pathing_grid
         self.obs_terrain_height = obs_terrain_height
         self.obs_timestep_number = obs_timestep_number
@@ -410,6 +411,7 @@ class StarCraft2Env(MultiAgentEnv):
         actions_int = [int(np.argmax(a)) for a in actions]
 
         self.last_action = np.eye(self.n_actions)[np.array(actions_int)]
+        
 
         # Collect individual actions
         sc_actions = []
@@ -992,9 +994,10 @@ class StarCraft2Env(MultiAgentEnv):
                         type_id = self.get_unit_type_id(al_unit, True)
                         ally_feats[i, ind + type_id] = 1
                         ind += self.unit_type_bits
-
+                    
                     if self.obs_last_action:
                         ally_feats[i, ind:] = self.last_action[al_id]
+                        
 
             # Own features
             ind = 0
@@ -1015,7 +1018,7 @@ class StarCraft2Env(MultiAgentEnv):
                 type_id = self.get_unit_type_id(unit, True)
                 own_feats[ind + type_id] = 1
                 ind += self.unit_type_bits
-                
+  
             if self.obs_last_action:
                 own_feats[ind:] = self.last_action[agent_id]
                 
