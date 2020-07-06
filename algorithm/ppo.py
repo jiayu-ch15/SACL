@@ -85,7 +85,7 @@ class PPO():
                     
                 else:
                     value_loss = 0.5 * (return_batch - values).pow(2).mean()
-                print(value_loss)
+                
                 self.optimizer.zero_grad()
                 
                 (value_loss * self.value_loss_coef).backward()
@@ -93,7 +93,7 @@ class PPO():
                     (action_loss - dist_entropy * self.entropy_coef).backward()
                 if self.use_max_grad_norm:
                     nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
-                    print(self.actor_critic.parameters())
+                    
                 self.optimizer.step()
                 
                 if self.logger is not None:

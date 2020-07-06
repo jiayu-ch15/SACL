@@ -231,7 +231,6 @@ def main():
             
             # Obser reward and next obs
             obs, reward, done, infos, available_actions = envs.step(actions_env)
-            print(reward)
 
             # If done then clean the history of observations.
             # insert data in buffer
