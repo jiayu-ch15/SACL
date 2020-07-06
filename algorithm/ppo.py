@@ -4,6 +4,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 
+def huber_loss(e, d):
+    return (abs(e)<=d)*e**2/2 + (e>d)*d*(abs(e)-d/2)
 
 class PPO():
     def __init__(self,                 
@@ -21,7 +23,8 @@ class PPO():
                  max_grad_norm=None,
                  use_max_grad_norm=True,
                  use_clipped_value_loss=True,
-                 common_layer=False):
+                 common_layer=False,
+                 use_huber_loss = False):
 
         self.agent_id = agent_id
         self.step = 0
@@ -40,6 +43,7 @@ class PPO():
         self.use_max_grad_norm = use_max_grad_norm
         self.use_clipped_value_loss = use_clipped_value_loss
         self.common_layer = common_layer
+        self.use_huber_loss = use_huber_loss
 
         self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
 
@@ -86,7 +90,11 @@ class PPO():
                     value_loss = 0.5 * torch.max(value_losses, value_losses_clipped).mean()
                     
                 else:
-                    value_loss = 0.5 * (return_batch - values).pow(2).mean()
+                    if self.use_huber_loss:
+                        error = return_batch - values
+                        value_loss = huber_loss(error,2).mean()
+                    else:
+                        value_loss = 0.5 * (return_batch - values).pow(2).mean()
                 
                 self.optimizer.zero_grad()
                 
