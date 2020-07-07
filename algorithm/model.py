@@ -481,13 +481,13 @@ class FeedForward(nn.Module):
 
         super(FeedForward, self).__init__() 
         # We set d_ff as a default to 2048
-        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
-                               constant_(x, 0), np.sqrt(2))
+        init_ = lambda m: init(m, nn.init.xaviar_uniform_, lambda x: nn.init.
+                               constant_(x, 0))
 
-        self.linear_1 = nn.Sequential(init_(nn.Linear(d_model, d_ff)), nn.Tanh())
+        self.linear_1 = nn.Sequential(init_(nn.Linear(d_model, d_ff)), nn.ReLU())
 
         self.dropout = nn.Dropout(dropout)
-        self.linear_2 = nn.Sequential(init_(nn.Linear(d_ff, d_model)), nn.Tanh())
+        self.linear_2 = init_(nn.Linear(d_ff, d_model))
     def forward(self, x):
         x = self.dropout(self.linear_1(x))
         x = self.linear_2(x)
@@ -511,8 +511,8 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, heads, d_model, dropout = 0.1):
         super(MultiHeadAttention, self).__init__()
         
-        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
-                               constant_(x, 0), np.sqrt(2))
+        init_ = lambda m: init(m, nn.init.xaviar_uniform_, lambda x: nn.init.
+                               constant_(x, 0))
         
         self.d_model = d_model
         self.d_k = d_model // heads

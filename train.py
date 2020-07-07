@@ -133,6 +133,7 @@ def main():
                    logger,
                    lr=args.lr,
                    eps=args.eps,
+                   weight_decay=args.weight_decay,
                    max_grad_norm=args.max_grad_norm,
                    use_max_grad_norm=args.use_max_grad_norm,
                    use_clipped_value_loss= args.use_clipped_value_loss,

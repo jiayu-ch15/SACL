@@ -20,6 +20,7 @@ class PPO():
                  logger = None,
                  lr=None,
                  eps=None,
+                 weight_decay=None,
                  max_grad_norm=None,
                  use_max_grad_norm=True,
                  use_clipped_value_loss=True,
@@ -47,7 +48,7 @@ class PPO():
         self.use_huber_loss = use_huber_loss
         self.huber_delta = huber_delta
 
-        self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
+        self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps, weight_decay=weight_decay)
 
     def update(self, rollouts, turn_on=True):
         advantages = rollouts.returns[:-1] - rollouts.value_preds[:-1]
