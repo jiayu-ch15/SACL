@@ -5,7 +5,9 @@ import torch.optim as optim
 import numpy as np
 
 def huber_loss(e, d):
-    return (abs(e)<=d)*e**2/2 + (e>d)*d*(abs(e)-d/2)
+    a = (abs(e)<=d).float()
+    b = (e>d).float()
+    return a*e**2/2 + b*d*(abs(e)-d/2)
 
 class PPO():
     def __init__(self,                 
