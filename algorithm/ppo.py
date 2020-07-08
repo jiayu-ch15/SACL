@@ -89,10 +89,18 @@ class PPO():
                 action_loss = -torch.min(surr1, surr2).mean()
 
                 if self.use_clipped_value_loss:
-                    value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
-                    value_losses = (values - return_batch).pow(2)
-                    value_losses_clipped = (value_pred_clipped - return_batch).pow(2)
-                    value_loss = 0.5 * torch.max(value_losses, value_losses_clipped).mean()
+                    if self.use_huber_loss:
+                        value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
+                        error_clipped = return_batch - value_pred_clipped
+                        value_losses_clipped = huber_loss(error_clipped,self.huber_delta)
+                        error = return_batch - values
+                        value_losses = huber_loss(error,self.huber_delta)
+                        value_loss = torch.max(value_losses, value_losses_clipped).mean()
+                    else:
+                        value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
+                        value_losses = (values - return_batch).pow(2)
+                        value_losses_clipped = (value_pred_clipped - return_batch).pow(2)
+                        value_loss = 0.5 * torch.max(value_losses, value_losses_clipped).mean()
                     
                 else:
                     if self.use_huber_loss:
