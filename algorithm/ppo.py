@@ -83,6 +83,9 @@ class PPO():
 
                 ratio = torch.exp(action_log_probs -
                                   old_action_log_probs_batch)
+                
+                KL_divloss = nn.KLDivLoss(reduction='batchmean')(old_action_log_probs_batch, torch.exp(action_log_probs))
+                
                 surr1 = ratio * adv_targ
                 surr2 = torch.clamp(ratio, 1.0 - self.clip_param,
                                     1.0 + self.clip_param) * adv_targ
@@ -126,7 +129,7 @@ class PPO():
                 if self.logger is not None:
                     rew = []
                     for i in range(rollouts.rewards.size()[1]):
-                        rew.append(rollouts.rewards[:,i,:].sum().cpu().numpy())
+                        rew.append(rollouts.rewards[:,i,:].mean().cpu().numpy())
                     self.logger.add_scalars('agent%i/mean_episode_reward' % self.agent_id,
                         {'mean_episode_reward': np.mean(np.array(rew))},
                         self.step)
@@ -139,6 +142,9 @@ class PPO():
                         self.step)
                     self.logger.add_scalars('agent%i/dist_entropy' % self.agent_id,
                         {'dist_entropy': dist_entropy},
+                        self.step)
+                    self.logger.add_scalars('agent%i/KL_divloss' % self.agent_id,
+                        {'KL_divloss': KL_divloss},
                         self.step)
 
                 value_loss_epoch += value_loss.item()

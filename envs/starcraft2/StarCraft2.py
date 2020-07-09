@@ -438,7 +438,13 @@ class StarCraft2Env(MultiAgentEnv):
             self._obs = self._controller.observe()
         except (protocol.ProtocolError, protocol.ConnectionError):
             self.full_restart()
-            return self.get_obs(),[0]*self.n_agents, True, {}, []
+            info = {
+                "battles_won": self.battles_won,
+                "battles_game": self.battles_game,
+                "battles_draw": self.timeouts,
+                "restarts": self.force_restarts,
+               }
+            return self.get_obs(),[0]*self.n_agents, True, info, []
 
         self._total_steps += 1
         self._episode_steps += 1

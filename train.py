@@ -77,7 +77,7 @@ def main():
 
     # env
     envs = make_parallel_env(args)
-    eval_envs = make_parallel_env(args)
+    #eval_envs = make_parallel_env(args)
     num_agents = get_map_params(args.map_name)["n_agents"]
     #Policy network
     actor_critic = []
@@ -312,7 +312,7 @@ def main():
             value_losses.append(value_loss)
             action_losses.append(action_loss)
             dist_entropies.append(dist_entropy)
-            
+        '''   
         if episode % args.eval_interval == 0:
             eval_rollouts = []
             for agent_id in range(num_agents):
@@ -405,7 +405,7 @@ def main():
                                             torch.tensor(eval_reward[:, i].reshape(-1,1)), 
                                             eval_masks[i], 
                                             eval_bad_masks[i])
-                                                    
+        '''                                           
         # clean the buffer and reset
         obs, available_actions = envs.reset()
         for i in range(num_agents):
@@ -469,25 +469,28 @@ def main():
                             incre_win_rate.append((info['battles_won']-last_battles_won[i])/(info['battles_game']-last_battles_game[i]))                           
                     if 'battles_draw' in info.keys():
                         battles_draw.append(info['battles_draw'])
-                        
+                '''       
                 logger.add_scalars('battles_won',
                                     {'battles_won': np.mean(battles_won)},
                                     total_num_steps)
                 logger.add_scalars('battles_game',
                                     {'battles_game': np.mean(battles_game)},
                                     total_num_steps)
+                '''
                 logger.add_scalars('win_rate',
                                     {'win_rate': np.mean(win_rate)},
                                     total_num_steps)
+                '''
                 logger.add_scalars('battles_draw',
                                     {'battles_draw': np.mean(battles_draw)},
                                     total_num_steps)
+                '''
                 logger.add_scalars('incre_win_rate',
                                     {'incre_win_rate': np.mean(incre_win_rate)},
                                     total_num_steps)
                 last_battles_game = battles_game
                 last_battles_won = battles_won
-                
+                '''
                 eval_battles_won = []
                 eval_battles_game = []
                 eval_battles_draw = []
@@ -517,7 +520,7 @@ def main():
                 logger.add_scalars('eval_battles_draw',
                                     {'eval_battles_draw': np.mean(eval_battles_draw)},
                                     total_num_steps)
-
+                '''
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()
     envs.close()
