@@ -129,9 +129,9 @@ class PPO():
                 if self.logger is not None:
                     rew = []
                     for i in range(rollouts.rewards.size()[1]):
-                        rew.append(rollouts.rewards[:,i,:].mean().cpu().numpy())
+                        rew.append(rollouts.rewards[:,i,:].sum().cpu().numpy())
                     self.logger.add_scalars('agent%i/mean_episode_reward' % self.agent_id,
-                        {'mean_episode_reward': np.mean(np.array(rew))},
+                        {'mean_episode_reward': np.mean(np.array(rew)/(rollouts.rewards.size()[0]))},
                         self.step)
 
                     self.logger.add_scalars('agent%i/value_loss' % self.agent_id,
