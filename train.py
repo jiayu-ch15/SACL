@@ -372,7 +372,10 @@ def main():
                             incre_win_rate.append(0) 
                         else:
                             win_rate.append(info['battles_won']/info['battles_game']) 
-                            incre_win_rate.append((info['battles_won']-last_battles_won[i])/(info['battles_game']-last_battles_game[i]))                           
+                            if info['battles_game']-last_battles_game[i]== 0 :
+                                incre_win_rate.append(0)
+                            else:
+                                incre_win_rate.append((info['battles_won']-last_battles_won[i])/(info['battles_game']-last_battles_game[i]))                           
                     if 'battles_draw' in info.keys():
                         battles_draw.append(info['battles_draw'])
                 logger.add_scalars('win_rate',

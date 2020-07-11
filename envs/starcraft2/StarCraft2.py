@@ -201,6 +201,7 @@ class StarCraft2Env(MultiAgentEnv):
         self.n_agents = map_params["n_agents"]
         self.n_enemies = map_params["n_enemies"]
         self.episode_limit = map_params["limit"]
+        print(self.episode_limit)
         self._move_amount = move_amount
         self._step_mul = step_mul
         self.difficulty = difficulty
