@@ -562,9 +562,10 @@ class EncoderLayer(nn.Module):
         
     def forward(self, x, mask):
         x2 = self.norm_1(x)
-        x = x + self.dropout_1(self.attn(x2,x2,x2,mask))
-        x2 = self.norm_2(x)
-        x = x + self.dropout_2(self.ff(x2))
+        #x = x + self.dropout_1(self.attn(x2,x2,x2,mask))
+        x = x + self.attn(x2,x2,x2,mask)
+        #x2 = self.norm_2(x)
+        #x = x + self.dropout_2(self.ff(x2))
         return x
         
 def get_clones(module, N):
@@ -578,7 +579,7 @@ def split_obs(obs, split_shape):
         split_obs.append(obs[:,start_idx:(start_idx+split_shape[i][0]*split_shape[i][1])])
         start_idx += split_shape[i][0]*split_shape[i][1]
     return split_obs
-    
+
 class SelfEmbedding(nn.Module):
     def __init__(self, split_shape, d_model):
         super(SelfEmbedding, self).__init__()
@@ -608,11 +609,11 @@ class SelfEmbedding(nn.Module):
                 exec('x1.append(self.fc_{}(temp))'.format(i))
         temp = x[self_idx]
         exec('x1.append(self.fc_{}(temp))'.format(N-1))
-
-        out = torch.stack(x1,1)        
-                            
-        return out, self_x
         
+        out = torch.stack(x1,1)        
+                 
+        return out, self_x
+  
 class Embedding(nn.Module):
     def __init__(self, split_shape, d_model):
         super(Embedding, self).__init__()
@@ -641,7 +642,7 @@ class Embedding(nn.Module):
         out = torch.stack(x1,1)        
                             
         return out, self_x
-    
+   
 class Encoder(nn.Module):
     def __init__(self, input_size, split_shape=None, d_model=512, attn_N=2, heads=8, average_pool=True):
         super(Encoder, self).__init__()

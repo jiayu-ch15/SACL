@@ -14,7 +14,7 @@ def get_config():
     parser.add_argument("--num_env_steps", type=int, default=10e6, help='number of environment steps to train (default: 10e6)') 
     
     # env
-    parser.add_argument("--env_name", type=str, default='StarCraft2')
+    parser.add_argument("--env_name", type=str, default='batch1')
     parser.add_argument("--map_name", type=str, default='5m_vs_6m')
     
     # network
