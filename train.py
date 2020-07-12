@@ -92,6 +92,7 @@ def main():
                                  'attn_size': args.attn_size,
                                  'attn_N': args.attn_N,
                                  'attn_heads': args.attn_heads,
+                                 'dropout': args.dropout,
                                  'average_pool': args.average_pool,
                                  'common_layer':args.common_layer
                                  })
@@ -111,6 +112,7 @@ def main():
                                  'attn_size': args.attn_size,
                                  'attn_N': args.attn_N,
                                  'attn_heads': args.attn_heads,
+                                 'dropout': args.dropout,
                                  'average_pool': args.average_pool,
                                  'common_layer':args.common_layer
                                  })

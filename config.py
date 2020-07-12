@@ -35,7 +35,8 @@ def get_config():
     parser.add_argument("--average_pool", action='store_false', default=True)
     parser.add_argument("--attn_N", type=int, default=3)
     parser.add_argument("--attn_size", type=int, default=64)
-    parser.add_argument("--attn_heads", type=int, default=8)    
+    parser.add_argument("--attn_heads", type=int, default=8)
+    parser.add_argument("--dropout", type=float, default=0.05)    
     
     # ppo
     parser.add_argument("--ppo_epoch", type=int, default=4, help='number of ppo epochs (default: 4)')    
