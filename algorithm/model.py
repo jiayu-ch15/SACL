@@ -399,7 +399,7 @@ class NNBase(nn.Module):
 
 class MLPBase(NNBase):
     def __init__(self, obs_shape, num_agents, lstm = False, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, average_pool=True, common_layer=False):
-        super(MLPBase, self).__init__(obs_shape, num_agents, lstm, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout=0.05, average_pool,common_layer)
+        super(MLPBase, self).__init__(obs_shape, num_agents, lstm, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, average_pool,common_layer)
 
         self.common_layer = common_layer
         if attn:           
