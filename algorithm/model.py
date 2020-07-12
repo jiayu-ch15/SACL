@@ -92,7 +92,7 @@ class Policy(nn.Module):
 
 
 class NNBase(nn.Module):
-    def __init__(self, obs_shape, num_agents, lstm=False, naive_recurrent=False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, average_pool=True, common_layer=False):
+    def __init__(self, obs_shape, num_agents, lstm=False, naive_recurrent=False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, average_pool=True, common_layer=False):
         super(NNBase, self).__init__()
 
         self._hidden_size = hidden_size
@@ -103,8 +103,8 @@ class NNBase(nn.Module):
         self.common_layer = common_layer
                 
         if self._attn:
-            self.encoder_actor = Encoder(obs_shape[0], obs_shape, attn_size, attn_N, attn_heads, average_pool)
-            self.encoder_critic = Encoder(obs_shape[0]*num_agents, [[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, average_pool)
+            self.encoder_actor = Encoder(obs_shape[0], obs_shape, attn_size, attn_N, attn_heads, dropout, average_pool)
+            self.encoder_critic = Encoder(obs_shape[0]*num_agents, [[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, dropout, average_pool)
         
         assert (self._lstm and (self._recurrent or self._naive_recurrent))==False, ("LSTM and GRU can not be set True simultaneously.")
 
@@ -551,19 +551,19 @@ class MultiHeadAttention(nn.Module):
         return output
         
 class EncoderLayer(nn.Module):
-    def __init__(self, d_model, heads, dropout = 0.1):
+    def __init__(self, d_model, heads, dropout = 0.02):
         super(EncoderLayer, self).__init__()
         self.norm_1 = nn.LayerNorm(d_model)
         self.norm_2 = nn.LayerNorm(d_model)
-        self.attn = MultiHeadAttention(heads, d_model)
+        self.attn = MultiHeadAttention(heads, d_model, dropout)
         self.ff = FeedForward(d_model)
         self.dropout_1 = nn.Dropout(dropout)
         self.dropout_2 = nn.Dropout(dropout)
         
     def forward(self, x, mask):
         x2 = self.norm_1(x)
-        #x = x + self.dropout_1(self.attn(x2,x2,x2,mask))
-        x = x + self.attn(x2,x2,x2,mask)
+        x = x + self.dropout_1(self.attn(x2,x2,x2,mask))
+        #x = x + self.attn(x2,x2,x2,mask)
         #x2 = self.norm_2(x)
         #x = x + self.dropout_2(self.ff(x2))
         return x
@@ -644,7 +644,7 @@ class Embedding(nn.Module):
         return out, self_x
    
 class Encoder(nn.Module):
-    def __init__(self, input_size, split_shape=None, d_model=512, attn_N=2, heads=8, average_pool=True):
+    def __init__(self, input_size, split_shape=None, d_model=512, attn_N=2, heads=8, dropout=0.05, average_pool=True):
         super(Encoder, self).__init__()
         
         init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
@@ -655,7 +655,7 @@ class Encoder(nn.Module):
             self.embedding = Embedding(split_shape, d_model)
         else:
             self.embedding = SelfEmbedding(split_shape[1:], d_model)
-        self.layers = get_clones(EncoderLayer(d_model, heads), self.attn_N)
+        self.layers = get_clones(EncoderLayer(d_model, heads, dropout), self.attn_N)
         self.norm = nn.LayerNorm(d_model)
         
     def forward(self, src, self_idx=-1, mask=None):
