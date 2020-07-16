@@ -21,6 +21,7 @@ def get_config():
     parser.add_argument("--share_policy", action='store_false', default=True, help='agent share the same policy')
     parser.add_argument("--hidden_size", type=int, default=64)
     parser.add_argument("--common_layer", action='store_true', default=False)
+    parser.add_argument("--use_popart", action='store_true', default=False)
     
     
     # lstm

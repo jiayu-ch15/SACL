@@ -230,8 +230,11 @@ class StarCraft2Env(MultiAgentEnv):
         self.reward_death_value = reward_death_value
         self.reward_win = reward_win
         self.reward_defeat = reward_defeat
-        self.reward_scale = reward_scale
-        self.reward_scale_rate = reward_scale_rate
+        if args.use_popart:
+            self.reward_scale = False
+        else:
+            self.reward_scale = reward_scale
+            self.reward_scale_rate = reward_scale_rate
 
         # Other
         self.game_version = game_version

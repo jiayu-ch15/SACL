@@ -17,8 +17,7 @@ class RolloutStorage(object):
         else:
             self.share_obs = torch.zeros(episode_length + 1, n_rollout_threads, obs_shape[0] * num_agents)
             self.obs = torch.zeros(episode_length + 1, n_rollout_threads, obs_shape[0])
-        
-        
+               
         self.recurrent_hidden_states = torch.zeros(
             episode_length + 1, n_rollout_threads, recurrent_hidden_state_size)
         self.recurrent_c_states = torch.zeros(
@@ -93,41 +92,56 @@ class RolloutStorage(object):
                         use_gae,
                         gamma,
                         gae_lambda,
-                        use_proper_time_limits=True):
+                        use_proper_time_limits=True,
+                        use_popart=True,
+                        value_normalizer=None):
         if use_proper_time_limits:
             if use_gae:
                 self.value_preds[-1] = next_value
                 gae = 0
                 for step in reversed(range(self.rewards.size(0))):
-                    delta = self.rewards[step] + gamma * self.value_preds[
-                        step + 1] * self.masks[step +
-                                               1] - self.value_preds[step]
-                    gae = delta + gamma * gae_lambda * self.masks[step +
-                                                                  1] * gae
-                    gae = gae * self.bad_masks[step + 1]
-                    self.returns[step] = gae + self.value_preds[step]
+                    if use_popart:
+                        delta = self.rewards[step] + gamma * value_normalizer.denormalize(self.value_preds[
+                        step + 1]) * self.masks[step + 1] - value_normalizer.denormalize(self.value_preds[step])
+                        gae = delta + gamma * gae_lambda * self.masks[step + 1] * gae
+                        gae = gae * self.bad_masks[step + 1]
+                        self.returns[step] = gae + value_normalizer.denormalize(self.value_preds[step])
+                    else:
+                        delta = self.rewards[step] + gamma * self.value_preds[
+                            step + 1] * self.masks[step + 1] - self.value_preds[step]
+                        gae = delta + gamma * gae_lambda * self.masks[step + 1] * gae
+                        gae = gae * self.bad_masks[step + 1]
+                        self.returns[step] = gae + self.value_preds[step]
             else:
                 self.returns[-1] = next_value
                 for step in reversed(range(self.rewards.size(0))):
-                    self.returns[step] = (self.returns[step + 1] * \
+                    if use_popart:
+                        self.returns[step] = (self.returns[step + 1] * \
                         gamma * self.masks[step + 1] + self.rewards[step]) * self.bad_masks[step + 1] \
-                        + (1 - self.bad_masks[step + 1]) * self.value_preds[step]
+                        + (1 - self.bad_masks[step + 1]) * value_normalizer.denormalize(self.value_preds[step])
+                    else:
+                        self.returns[step] = (self.returns[step + 1] * \
+                            gamma * self.masks[step + 1] + self.rewards[step]) * self.bad_masks[step + 1] \
+                            + (1 - self.bad_masks[step + 1]) * self.value_preds[step]
         else:
             if use_gae:
                 self.value_preds[-1] = next_value
                 gae = 0
                 for step in reversed(range(self.rewards.size(0))):
-                    delta = self.rewards[step] + gamma * self.value_preds[
-                        step + 1] * self.masks[step +
-                                               1] - self.value_preds[step]
-                    gae = delta + gamma * gae_lambda * self.masks[step +
-                                                                  1] * gae
-                    self.returns[step] = gae + self.value_preds[step]
+                    if use_popart:
+                        delta = self.rewards[step] + gamma * value_normalizer.denormalize(self.value_preds[
+                            step + 1]) * self.masks[step + 1] - value_normalizer.denormalize(self.value_preds[step])
+                        gae = delta + gamma * gae_lambda * self.masks[step + 1] * gae
+                        self.returns[step] = gae + value_normalizer.denormalize(self.value_preds[step])
+                    else:
+                        delta = self.rewards[step] + gamma * self.value_preds[step + 1] * self.masks[step + 1] - self.value_preds[step]
+                        gae = delta + gamma * gae_lambda * self.masks[step + 1] * gae
+                        self.returns[step] = gae + self.value_preds[step]
             else:
                 self.returns[-1] = next_value
                 for step in reversed(range(self.rewards.size(0))):
-                    self.returns[step] = self.returns[step + 1] * \
-                        gamma * self.masks[step + 1] + self.rewards[step]
+                        self.returns[step] = self.returns[step + 1] * \
+                            gamma * self.masks[step + 1] + self.rewards[step]
 
     def feed_forward_generator(self,
                                advantages,

@@ -58,7 +58,7 @@ def main():
         torch.set_num_threads(args.n_training_threads)
     
     # path
-    model_dir = Path('./results') / args.env_name / args.map_name/ args.algorithm_name
+    model_dir = Path('./results') / args.env_name / args.map_name / args.algorithm_name
     if not model_dir.exists():
         curr_run = 'run1'
     else:
@@ -140,7 +140,8 @@ def main():
                    use_clipped_value_loss= args.use_clipped_value_loss,
                    common_layer=args.common_layer,
                    use_huber_loss=args.use_huber_loss,
-                   huber_delta=args.huber_delta)
+                   huber_delta=args.huber_delta,
+                   use_popart=args.use_popart)
 
         #replay buffer
         ro = RolloutStorage(num_agents,
@@ -302,7 +303,9 @@ def main():
                                         args.use_gae, 
                                         args.gamma,
                                         args.gae_lambda, 
-                                        args.use_proper_time_limits)
+                                        args.use_proper_time_limits,
+                                        args.use_popart,
+                                        agents[i].value_normalizer)
 
         # update the network
         value_losses = []

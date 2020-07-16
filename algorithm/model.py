@@ -8,10 +8,17 @@ from utils.util import init
 import copy
 import math
 
-class Flatten(nn.Module):
-    def forward(self, x):
-        return x.view(x.size(0), -1)
+def get_clones(module, N):
+    return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
 
+# [L,[1,2],[1,2],[1,2]]   
+def split_obs(obs, split_shape):
+    start_idx = 0
+    split_obs = []
+    for i in range(len(split_shape)):
+        split_obs.append(obs[:,start_idx:(start_idx+split_shape[i][0]*split_shape[i][1])])
+        start_idx += split_shape[i][0]*split_shape[i][1]
+    return split_obs
 
 class Policy(nn.Module):
     def __init__(self, obs_shape, action_space, num_agents, base=None, base_kwargs=None):
@@ -49,10 +56,6 @@ class Policy(nn.Module):
     @property
     def is_attn(self):
         return self.base.is_attn
-        
-    @property
-    def is_attn_interactive(self):
-        return self.base.is_attn_interactive
 
     @property
     def recurrent_hidden_size(self):
@@ -98,8 +101,8 @@ class NNBase(nn.Module):
         self._hidden_size = hidden_size
         self._recurrent = recurrent
         self._naive_recurrent = naive_recurrent
-        self._lstm=lstm
-        self._attn=attn
+        self._lstm = lstm
+        self._attn = attn
         self.common_layer = common_layer
                 
         if self._attn:
@@ -153,10 +156,6 @@ class NNBase(nn.Module):
     def is_attn(self):
         return self._attn
         
-    @property
-    def is_attn_interactive(self):
-        return self._attn_interactive
-
     @property
     def recurrent_hidden_size(self):
         if self._recurrent or self._naive_recurrent or self._lstm:
@@ -421,12 +420,10 @@ class MLPBase(NNBase):
 
         self.actor = nn.Sequential(
             init_(nn.Linear(num_inputs_actor, hidden_size)), nn.Tanh(),
-            #init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh(),
             init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh())
 
         self.critic = nn.Sequential(
             init_(nn.Linear(num_inputs_critic, hidden_size)), nn.Tanh(),
-            #init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh(),
             init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh())
             
         if self.common_layer:
@@ -435,10 +432,11 @@ class MLPBase(NNBase):
             self.critic = nn.Sequential(
                 init_(nn.Linear(num_inputs_critic, hidden_size)), nn.Tanh())
             self.common_linear = nn.Sequential(
-                #init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh(),
+                init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh(),
                 init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh())
 
         self.critic_linear = init_(nn.Linear(hidden_size, 1))
+        
 
         self.train()
 
@@ -455,6 +453,7 @@ class MLPBase(NNBase):
             hidden_critic = self.critic(share_x)
             hidden_actor = self.common_linear(hidden_actor)
             hidden_critic = self.common_linear(hidden_critic)
+            
             if self.is_recurrent or self.is_naive_recurrent:
                 hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
                 hidden_critic, rnn_hxs_critic = self._forward_gru(hidden_critic, rnn_hxs_critic, masks)
@@ -465,6 +464,7 @@ class MLPBase(NNBase):
         else:
             hidden_actor = self.actor(x)
             hidden_critic = self.critic(share_x)
+
             if self.is_recurrent or self.is_naive_recurrent:
                 hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
                 hidden_critic, rnn_hxs_critic = self._forward_gru_critic(hidden_critic, rnn_hxs_critic, masks)
@@ -551,35 +551,24 @@ class MultiHeadAttention(nn.Module):
         return output
         
 class EncoderLayer(nn.Module):
-    def __init__(self, d_model, heads, dropout = 0.02):
+    def __init__(self, d_model, heads, dropout = 0.02, d_ff = 512, use_FF=False):
         super(EncoderLayer, self).__init__()
+        self.use_FF = use_FF
         self.norm_1 = nn.LayerNorm(d_model)
         self.norm_2 = nn.LayerNorm(d_model)
         self.attn = MultiHeadAttention(heads, d_model, dropout)
-        self.ff = FeedForward(d_model)
+        self.ff = FeedForward(d_model, d_ff, dropout)
         self.dropout_1 = nn.Dropout(dropout)
         self.dropout_2 = nn.Dropout(dropout)
         
     def forward(self, x, mask):
         x2 = self.norm_1(x)
         x = x + self.dropout_1(self.attn(x2,x2,x2,mask))
-        #x = x + self.attn(x2,x2,x2,mask)
-        #x2 = self.norm_2(x)
-        #x = x + self.dropout_2(self.ff(x2))
+        if self.use_FF:
+            x2 = self.norm_2(x)
+            x = x + self.dropout_2(self.ff(x2))
         return x
         
-def get_clones(module, N):
-    return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
-
-# [L,[1,2],[1,2],[1,2]]   
-def split_obs(obs, split_shape):
-    start_idx = 0
-    split_obs = []
-    for i in range(len(split_shape)):
-        split_obs.append(obs[:,start_idx:(start_idx+split_shape[i][0]*split_shape[i][1])])
-        start_idx += split_shape[i][0]*split_shape[i][1]
-    return split_obs
-
 class SelfEmbedding(nn.Module):
     def __init__(self, split_shape, d_model):
         super(SelfEmbedding, self).__init__()
@@ -596,7 +585,7 @@ class SelfEmbedding(nn.Module):
                   
         
     def forward(self, x, self_idx=-1):
-        x = split_obs(x,self.split_shape)
+        x = split_obs(x, self.split_shape)
         N = len(x)
         
         x1 = []  
@@ -605,7 +594,7 @@ class SelfEmbedding(nn.Module):
             K = self.split_shape[i][0]
             L = self.split_shape[i][1]
             for j in range(K):
-                temp = torch.cat((x[i][:,L*j:(L*j+L)],self_x),dim=-1)
+                temp = torch.cat((x[i][:, L*j:(L*j+L)], self_x), dim=-1)
                 exec('x1.append(self.fc_{}(temp))'.format(i))
         temp = x[self_idx]
         exec('x1.append(self.fc_{}(temp))'.format(N-1))
@@ -627,7 +616,7 @@ class Embedding(nn.Module):
                   
         
     def forward(self, x, self_idx):
-        x = split_obs(x,self.split_shape)
+        x = split_obs(x, self.split_shape)
         N = len(x)
         
         x1 = []   
@@ -636,10 +625,10 @@ class Embedding(nn.Module):
             K = self.split_shape[i][0]
             L = self.split_shape[i][1]
             for j in range(K):
-                temp = x[i][:,L*j:(L*j+L)]
+                temp = x[i][:, L*j:(L*j+L)]
                 exec('x1.append(self.fc_{}(temp))'.format(i))
 
-        out = torch.stack(x1,1)        
+        out = torch.stack(x1, 1)        
                             
         return out, self_x
    
@@ -664,9 +653,9 @@ class Encoder(nn.Module):
             x = self.layers[i](x, mask)
         x = self.norm(x)
         if self.average_pool:
-            x = torch.transpose(x,1,2) 
-            x = F.avg_pool1d(x, kernel_size=x.size(-1)).view(x.size(0),-1)
-            x = torch.cat((x, self_x),dim=-1)
-        x = x.view(x.size(0),-1)
+            x = torch.transpose(x, 1, 2) 
+            x = F.avg_pool1d(x, kernel_size=x.size(-1)).view(x.size(0), -1)
+            x = torch.cat((x, self_x), dim=-1)
+        x = x.view(x.size(0), -1)
         return x    
     
