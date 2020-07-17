@@ -191,9 +191,9 @@ class PPO():
                     if turn_on == True:
                         (action_loss - dist_entropy * self.entropy_coef).backward()
                 
-                grad_norm = 0
                 for name,param in self.actor_critic.named_parameters():
-                    grad_norm += param.grad.norm()
+                    if name == "dist.linear.weight":
+                        grad_norm = param.grad.norm()
                        
                 if self.use_max_grad_norm:
                     nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
