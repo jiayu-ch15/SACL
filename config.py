@@ -20,8 +20,10 @@ def get_config():
     # network
     parser.add_argument("--share_policy", action='store_false', default=True, help='agent share the same policy')
     parser.add_argument("--hidden_size", type=int, default=64)
-    parser.add_argument("--common_layer", action='store_true', default=False)
+    parser.add_argument("--use_common_layer", action='store_true', default=False)
     parser.add_argument("--use_popart", action='store_true', default=False)
+    parser.add_argument("--use_feature_normlization", action='store_true', default=False)
+    parser.add_argument("--use_average_pool", action='store_false', default=True)
     
     
     # lstm
@@ -32,8 +34,7 @@ def get_config():
     parser.add_argument("--critic_full_obs", action='store_true', default=False)
     
     # attn
-    parser.add_argument("--attn", action='store_true', default=False)
-    parser.add_argument("--average_pool", action='store_false', default=True)
+    parser.add_argument("--attn", action='store_true', default=False)    
     parser.add_argument("--attn_N", type=int, default=3)
     parser.add_argument("--attn_size", type=int, default=64)
     parser.add_argument("--attn_heads", type=int, default=8)

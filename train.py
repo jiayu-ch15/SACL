@@ -93,8 +93,9 @@ def main():
                                  'attn_N': args.attn_N,
                                  'attn_heads': args.attn_heads,
                                  'dropout': args.dropout,
-                                 'average_pool': args.average_pool,
-                                 'common_layer':args.common_layer
+                                 'use_average_pool': args.use_average_pool,
+                                 'use_common_layer':args.use_common_layer,
+                                 'use_feature_normlization':args.use_feature_normlization
                                  })
         ac.to(device)
         for agent_id in range(num_agents):
@@ -113,8 +114,9 @@ def main():
                                  'attn_N': args.attn_N,
                                  'attn_heads': args.attn_heads,
                                  'dropout': args.dropout,
-                                 'average_pool': args.average_pool,
-                                 'common_layer':args.common_layer
+                                 'use_average_pool': args.use_average_pool,
+                                 'use_common_layer':args.use_common_layer,
+                                 'use_feature_normlization':args.use_feature_normlization
                                  })
             ac.to(device)
             actor_critic.append(ac) 
@@ -138,7 +140,7 @@ def main():
                    max_grad_norm=args.max_grad_norm,
                    use_max_grad_norm=args.use_max_grad_norm,
                    use_clipped_value_loss= args.use_clipped_value_loss,
-                   common_layer=args.common_layer,
+                   use_common_layer=args.use_common_layer,
                    use_huber_loss=args.use_huber_loss,
                    huber_delta=args.huber_delta,
                    use_popart=args.use_popart)

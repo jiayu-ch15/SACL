@@ -86,7 +86,7 @@ class PPO():
                  max_grad_norm=None,
                  use_max_grad_norm=True,
                  use_clipped_value_loss=True,
-                 common_layer=False,
+                 use_common_layer=False,
                  use_huber_loss = False,
                  huber_delta=2,
                  use_popart = True):
@@ -107,7 +107,7 @@ class PPO():
         self.max_grad_norm = max_grad_norm
         self.use_max_grad_norm = use_max_grad_norm
         self.use_clipped_value_loss = use_clipped_value_loss
-        self.common_layer = common_layer
+        self.use_common_layer = use_common_layer
         self.use_huber_loss = use_huber_loss
         self.huber_delta = huber_delta
 
@@ -184,7 +184,7 @@ class PPO():
                 
                 self.optimizer.zero_grad()
                 
-                if self.common_layer:
+                if self.use_common_layer:
                     (value_loss * self.value_loss_coef + action_loss - dist_entropy * self.entropy_coef).backward()
                 else:              
                     (value_loss * self.value_loss_coef).backward()

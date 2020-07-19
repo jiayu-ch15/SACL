@@ -95,7 +95,7 @@ class Policy(nn.Module):
 
 
 class NNBase(nn.Module):
-    def __init__(self, obs_shape, num_agents, lstm=False, naive_recurrent=False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, average_pool=True, common_layer=False):
+    def __init__(self, obs_shape, num_agents, lstm=False, naive_recurrent=False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False):
         super(NNBase, self).__init__()
 
         self._hidden_size = hidden_size
@@ -103,11 +103,11 @@ class NNBase(nn.Module):
         self._naive_recurrent = naive_recurrent
         self._lstm = lstm
         self._attn = attn
-        self.common_layer = common_layer
+        self._use_common_layer = use_common_layer
                 
         if self._attn:
-            self.encoder_actor = Encoder(obs_shape[0], obs_shape, attn_size, attn_N, attn_heads, dropout, average_pool)
-            self.encoder_critic = Encoder(obs_shape[0]*num_agents, [[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, dropout, average_pool)
+            self.encoder_actor = Encoder(obs_shape[0], obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool)
+            self.encoder_critic = Encoder(obs_shape[0]*num_agents, [[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, dropout, use_average_pool)
         
         assert (self._lstm and (self._recurrent or self._naive_recurrent))==False, ("LSTM and GRU can not be set True simultaneously.")
 
@@ -118,7 +118,7 @@ class NNBase(nn.Module):
                     nn.init.constant_(param, 0)
                 elif 'weight' in name:
                     nn.init.orthogonal_(param)
-            if not self.common_layer:
+            if not self._use_common_layer:
                 self.lstm_critic = nn.LSTM(hidden_size, hidden_size)
                 for name, param in self.lstm_critic.named_parameters():
                     if 'bias' in name:
@@ -132,7 +132,7 @@ class NNBase(nn.Module):
                     nn.init.constant_(param, 0)
                 elif 'weight' in name:
                     nn.init.orthogonal_(param)
-            if not self.common_layer:
+            if not self._use_common_layer:
                 self.gru_critic = nn.GRU(hidden_size, hidden_size)
                 for name, param in self.gru_critic.named_parameters():
                     if 'bias' in name:
@@ -397,12 +397,18 @@ class NNBase(nn.Module):
         return x, hxs, c
 
 class MLPBase(NNBase):
-    def __init__(self, obs_shape, num_agents, lstm = False, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, average_pool=True, common_layer=False):
-        super(MLPBase, self).__init__(obs_shape, num_agents, lstm, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, average_pool,common_layer)
+    def __init__(self, obs_shape, num_agents, lstm = False, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_feature_normlization=True):
+        super(MLPBase, self).__init__(obs_shape, num_agents, lstm, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer)
 
-        self.common_layer = common_layer
+        self._use_common_layer = use_common_layer
+        self._use_feature_normlization = use_feature_normlization
+        
+        if self._use_feature_normlization:
+            self.actor_norm = nn.LayerNorm(obs_shape[0])
+            self.critic_norm = nn.LayerNorm(obs_shape[0]*num_agents)
+            
         if attn:           
-            if average_pool == True:
+            if use_average_pool == True:
                 num_inputs_actor = attn_size + obs_shape[-1][1]
                 num_inputs_critic = attn_size + obs_shape[0]
             else:
@@ -426,7 +432,7 @@ class MLPBase(NNBase):
             init_(nn.Linear(num_inputs_critic, hidden_size)), nn.Tanh(),
             init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh())
             
-        if self.common_layer:
+        if self._use_common_layer:
             self.actor = nn.Sequential(
                 init_(nn.Linear(num_inputs_actor, hidden_size)), nn.Tanh())    
             self.critic = nn.Sequential(
@@ -441,14 +447,18 @@ class MLPBase(NNBase):
         self.train()
 
     def forward(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks):
-        share_x = share_inputs
         x = inputs
+        share_x = share_inputs
         
+        if self._use_feature_normlization:
+            x = self.actor_norm(x)
+            share_x = self.critic_norm(share_x)
+                
         if self.is_attn:
             x = self.encoder_actor(x)
             share_x = self.encoder_critic(share_x, agent_id)
                             
-        if self.common_layer:
+        if self._use_common_layer:
             hidden_actor = self.actor(x)
             hidden_critic = self.critic(share_x)
             hidden_actor = self.common_linear(hidden_actor)
@@ -553,7 +563,7 @@ class MultiHeadAttention(nn.Module):
 class EncoderLayer(nn.Module):
     def __init__(self, d_model, heads, dropout = 0.02, d_ff = 512, use_FF=False):
         super(EncoderLayer, self).__init__()
-        self.use_FF = use_FF
+        self._use_FF = use_FF
         self.norm_1 = nn.LayerNorm(d_model)
         self.norm_2 = nn.LayerNorm(d_model)
         self.attn = MultiHeadAttention(heads, d_model, dropout)
@@ -564,7 +574,7 @@ class EncoderLayer(nn.Module):
     def forward(self, x, mask):
         x2 = self.norm_1(x)
         x = x + self.dropout_1(self.attn(x2,x2,x2,mask))
-        if self.use_FF:
+        if self._use_FF:
             x2 = self.norm_2(x)
             x = x + self.dropout_2(self.ff(x2))
         return x
@@ -633,26 +643,26 @@ class Embedding(nn.Module):
         return out, self_x
    
 class Encoder(nn.Module):
-    def __init__(self, input_size, split_shape=None, d_model=512, attn_N=2, heads=8, dropout=0.05, average_pool=True):
+    def __init__(self, input_size, split_shape=None, d_model=512, attn_N=2, heads=8, dropout=0.05, use_average_pool=True):
         super(Encoder, self).__init__()
         
         init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
                                constant_(x, 0), np.sqrt(2))
-        self.attn_N = attn_N
-        self.average_pool = average_pool
+        self._attn_N = attn_N
+        self._use_average_pool = use_average_pool
         if split_shape[0].__class__ == list:
             self.embedding = Embedding(split_shape, d_model)
         else:
             self.embedding = SelfEmbedding(split_shape[1:], d_model)
-        self.layers = get_clones(EncoderLayer(d_model, heads, dropout), self.attn_N)
+        self.layers = get_clones(EncoderLayer(d_model, heads, dropout), self._attn_N)
         self.norm = nn.LayerNorm(d_model)
         
     def forward(self, src, self_idx=-1, mask=None):
         x, self_x = self.embedding(src, self_idx)
-        for i in range(self.attn_N):
+        for i in range(self._attn_N):
             x = self.layers[i](x, mask)
         x = self.norm(x)
-        if self.average_pool:
+        if self._use_average_pool:
             x = torch.transpose(x, 1, 2) 
             x = F.avg_pool1d(x, kernel_size=x.size(-1)).view(x.size(0), -1)
             x = torch.cat((x, self_x), dim=-1)
