@@ -22,6 +22,7 @@ def get_config():
     parser.add_argument("--hidden_size", type=int, default=64)
     parser.add_argument("--use_common_layer", action='store_true', default=False)
     parser.add_argument("--use_popart", action='store_true', default=False)
+    parser.add_argument("--use_feature_popart", action='store_true', default=False)
     parser.add_argument("--use_feature_normlization", action='store_true', default=False)
     parser.add_argument("--use_average_pool", action='store_false', default=True)
     
