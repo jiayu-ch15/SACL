@@ -411,18 +411,6 @@ class CNNBase(NNBase):
         super(CNNBase, self).__init__(obs_shape, num_agents, lstm, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer)
         
         self._use_common_layer = use_common_layer
-        self._use_feature_normlization = use_feature_normlization
-        self._use_feature_popart = use_feature_popart
-        
-        assert (self._use_feature_normlization and self._use_feature_popart) == False, ("--use_feature_normlization and --use_feature_popart can not be set True simultaneously.")
-        
-        if self._use_feature_normlization:
-            self.actor_norm = nn.LayerNorm(obs_shape)
-            self.critic_norm = nn.LayerNorm([obs_shape[0]*num_agents,obs_shape[1],obs_shape[2]])
-            
-        if self._use_feature_popart:
-            self.actor_norm = PopArt(obs_shape)
-            self.critic_norm = PopArt([obs_shape[0]*num_agents,obs_shape[1],obs_shape[2]])
 
         init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
                                constant_(x, 0), nn.init.calculate_gain('relu'))
@@ -451,7 +439,7 @@ class CNNBase(NNBase):
         if self._use_common_layer:
             self.actor = nn.Sequential(init_(nn.Conv2d(num_inputs, 32, 3, stride=1)), nn.ReLU())
             self.critic = nn.Sequential(init_(nn.Conv2d(num_inputs * num_agents, 32, 3, stride=1)), nn.ReLU())
-            self.commom_layer = nn.Sequential(
+            self.common_linear = nn.Sequential(
                 Flatten(),
                 init_(nn.Linear(32 * (num_image-3+1) * (num_image-3+1), hidden_size)), nn.ReLU(),
                 init_(nn.Linear(hidden_size, hidden_size)), nn.ReLU())
@@ -464,10 +452,6 @@ class CNNBase(NNBase):
     def forward(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks):
         x = inputs / 255.0
         share_x = share_inputs / 255.0
-        
-        if self._use_feature_normlization or self._use_feature_popart:
-            x = self.actor_norm(x)
-            share_x = self.critic_norm(share_x)
             
         if self._use_common_layer:
             hidden_actor = self.actor(x)
