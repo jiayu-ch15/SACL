@@ -15,7 +15,13 @@ def get_config():
     
     # env
     parser.add_argument("--env_name", type=str, default='batch1')
+    # starcraft2
     parser.add_argument("--map_name", type=str, default='5m_vs_6m')
+    # ssd
+    parser.add_argument("--num_agents", type=int, default=5)
+    parser.add_argument("--share_reward", action='store_true', default=False)
+    parser.add_argument("--shape_reward", action='store_true', default=False)
+    parser.add_argument("--shape_beta", type=float, default=0.8, help='use how much global reward')
     
     # network
     parser.add_argument("--share_policy", action='store_false', default=True, help='agent share the same policy')
@@ -24,8 +30,7 @@ def get_config():
     parser.add_argument("--use_popart", action='store_true', default=False)
     parser.add_argument("--use_feature_popart", action='store_true', default=False)
     parser.add_argument("--use_feature_normlization", action='store_true', default=False)
-    parser.add_argument("--use_average_pool", action='store_false', default=True)
-    
+    parser.add_argument("--use_average_pool", action='store_false', default=True)    
     
     # lstm
     parser.add_argument("--naive_recurrent_policy", action='store_true', default=False, help='use a naive recurrent policy')

@@ -21,24 +21,32 @@ def split_obs(obs, split_shape):
         split_obs.append(obs[:,start_idx:(start_idx+split_shape[i][0]*split_shape[i][1])])
         start_idx += split_shape[i][0]*split_shape[i][1]
     return split_obs
+    
+class Flatten(nn.Module):
+    def forward(self, x):
+        return x.view(x.size(0), -1)
 
 class Policy(nn.Module):
     def __init__(self, obs_shape, action_space, num_agents, base=None, base_kwargs=None):
         super(Policy, self).__init__()
         if base_kwargs is None:
             base_kwargs = {}
+            
+        if len(obs_shape) == 3:
+            self.base = CNNBase(obs_shape, num_agents, **base_kwargs)
+        elif len(obs_shape) == 1:
+            self.base = MLPBase(obs_shape, num_agents, **base_kwargs)
+        else:# attn model, just support MLP model
+            self.base = MLPBase(obs_shape, num_agents, **base_kwargs)
 
         if action_space.__class__.__name__ == "Discrete":
-            num_actions = action_space.n
-            self.base = MLPBase(obs_shape, num_agents, **base_kwargs)
+            num_actions = action_space.n            
             self.dist = Categorical(self.base.output_size, num_actions)
         elif action_space.__class__.__name__ == "Box":
             num_actions = action_space.shape[0]
-            self.base = MLPBase(obs_shape, num_agents, **base_kwargs)
             self.dist = DiagGaussian(self.base.output_size, num_actions)
         elif action_space.__class__.__name__ == "MultiBinary":
             num_actions = action_space.shape[0]
-            self.base = MLPBase(obs_shape, num_agents, **base_kwargs)
             self.dist = Bernoulli(self.base.output_size, num_actions)
         else:
             raise NotImplementedError
@@ -397,6 +405,96 @@ class NNBase(nn.Module):
             c = c.squeeze(0)
 
         return x, hxs, c
+        
+class CNNBase(NNBase):
+    def __init__(self, obs_shape, num_agents, lstm = False, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_feature_normlization=False, use_feature_popart=False):
+        super(CNNBase, self).__init__(obs_shape, num_agents, lstm, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer)
+        
+        self._use_common_layer = use_common_layer
+        self._use_feature_normlization = use_feature_normlization
+        self._use_feature_popart = use_feature_popart
+        
+        assert (self._use_feature_normlization and self._use_feature_popart) == False, ("--use_feature_normlization and --use_feature_popart can not be set True simultaneously.")
+        
+        if self._use_feature_normlization:
+            self.actor_norm = nn.LayerNorm(obs_shape)
+            self.critic_norm = nn.LayerNorm([obs_shape[0]*num_agents,obs_shape[1],obs_shape[2]])
+            
+        if self._use_feature_popart:
+            self.actor_norm = PopArt(obs_shape)
+            self.critic_norm = PopArt([obs_shape[0]*num_agents,obs_shape[1],obs_shape[2]])
+
+        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
+                               constant_(x, 0), nn.init.calculate_gain('relu'))
+                               
+        
+        num_inputs = obs_shape[0]
+        num_image = obs_shape[1]
+
+        self.actor = nn.Sequential(
+            init_(nn.Conv2d(num_inputs, 32, 3, stride=1)), nn.ReLU(),
+            #init_(nn.Conv2d(32, 64, 3, stride=1)), nn.ReLU(),
+            #init_(nn.Conv2d(64, 32, 3, stride=1)), nn.ReLU(), 
+            Flatten(),
+            init_(nn.Linear(32 * (num_image-3+1) * (num_image-3+1), hidden_size)), nn.ReLU(),
+            init_(nn.Linear(hidden_size, hidden_size)), nn.ReLU())
+
+        self.critic = nn.Sequential(
+            init_(nn.Conv2d(num_inputs * num_agents, 32, 3, stride=1)), nn.ReLU(),
+            #init_(nn.Conv2d(32, 64, 4, stride=2)), nn.ReLU(),
+            #init_(nn.Conv2d(64, 32, 3, stride=1)), nn.ReLU(), 
+            Flatten(),
+            init_(nn.Linear(32 * (num_image-3+1) * (num_image-3+1), hidden_size)), nn.ReLU(),
+            init_(nn.Linear(hidden_size, hidden_size)), nn.ReLU(),
+            )
+            
+        if self._use_common_layer:
+            self.actor = nn.Sequential(init_(nn.Conv2d(num_inputs, 32, 3, stride=1)), nn.ReLU())
+            self.critic = nn.Sequential(init_(nn.Conv2d(num_inputs * num_agents, 32, 3, stride=1)), nn.ReLU())
+            self.commom_layer = nn.Sequential(
+                Flatten(),
+                init_(nn.Linear(32 * (num_image-3+1) * (num_image-3+1), hidden_size)), nn.ReLU(),
+                init_(nn.Linear(hidden_size, hidden_size)), nn.ReLU())
+
+        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
+                               constant_(x, 0))
+
+        self.critic_linear = init_(nn.Linear(hidden_size, 1))
+
+    def forward(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks):
+        x = inputs / 255.0
+        share_x = share_inputs / 255.0
+        
+        if self._use_feature_normlization or self._use_feature_popart:
+            x = self.actor_norm(x)
+            share_x = self.critic_norm(share_x)
+            
+        if self._use_common_layer:
+            hidden_actor = self.actor(x)
+            hidden_critic = self.critic(share_x)
+            hidden_actor = self.common_linear(hidden_actor)
+            hidden_critic = self.common_linear(hidden_critic)
+            
+            if self.is_recurrent or self.is_naive_recurrent:
+                hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
+                hidden_critic, rnn_hxs_critic = self._forward_gru(hidden_critic, rnn_hxs_critic, masks)
+            
+            if self.is_lstm:
+                hidden_actor, rnn_hxs_actor, rnn_c_actor = self._forward_lstm(hidden_actor, rnn_hxs_actor, rnn_c_actor, masks)
+                hidden_critic, rnn_hxs_critic, rnn_c_critic = self._forward_lstm(hidden_critic, rnn_hxs_critic, rnn_c_critic, masks)
+        else:
+            hidden_actor = self.actor(x)
+            hidden_critic = self.critic(share_x)
+
+            if self.is_recurrent or self.is_naive_recurrent:
+                hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
+                hidden_critic, rnn_hxs_critic = self._forward_gru_critic(hidden_critic, rnn_hxs_critic, masks)
+                
+            if self.is_lstm:
+                hidden_actor, rnn_hxs_actor, rnn_c_actor = self._forward_lstm(hidden_actor, rnn_hxs_actor, rnn_c_actor, masks)
+                hidden_critic, rnn_hxs_critic, rnn_c_critic = self._forward_lstm_critic(hidden_critic, rnn_hxs_critic, rnn_c_critic, masks)
+        
+        return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic
 
 class MLPBase(NNBase):
     def __init__(self, obs_shape, num_agents, lstm = False, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_feature_normlization=True, use_feature_popart=True):
