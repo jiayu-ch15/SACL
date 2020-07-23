@@ -770,7 +770,7 @@ class MapEnv(object):
             # del self.agents['agent-' + str(i)].grid
             self.agents['agent-' + str(i)].grid = self.get_map_with_agents()
             observations.append(self.get_obs_agent(i))
-            reward = self.agents['agent-' + str(i)].compute_reward()*0.1
+            reward = self.agents['agent-' + str(i)].compute_reward()
             rewards.append(reward)
             if reward > 0:
                 self.agents['agent-' + str(i)].sustainability += 1
