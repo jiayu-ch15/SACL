@@ -735,7 +735,7 @@ class MapEnv(object):
 
     def step(self, actions): #action [1,2,4,3,7]
         """A single environment step. Returns reward, terminated, info."""
-        actions = [np.argmax(actions) for a in actions]
+        actions = [np.argmax(a) for a in actions]
         actions_ssd={'agent-{}'.format(i):actions[i] for i in range(self.num_agents)}
         
         self.beam_pos = []
