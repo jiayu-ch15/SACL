@@ -780,10 +780,13 @@ class MapEnv(object):
         collective_return = 0
         sustainability = 0
         fire = 0
+        apple_consumption = 0
         for i in range(self.num_agents):
             collective_return += self.agents['agent-' + str(i)].collective_return
             sustainability += self.agents['agent-' + str(i)].sustainability
             fire += self.agents['agent-' + str(i)].fire
+            if self.env_name == "Harvest":
+                apple_consumption += self.agents['agent-' + str(i)].apple_consumption
         
         infos['collective_return'] = collective_return
         infos['sustainability'] = sustainability
@@ -792,7 +795,7 @@ class MapEnv(object):
         if self.env_name == "Cleanup":
             infos['waste_cleared'] = self.waste_cleared
         if self.env_name == "Harvest":
-            infos['apple_consumption'] = self.apple_consumption
+            infos['apple_consumption'] = apple_consumption
             
         global_reward = np.sum(rewards)  
         if self.share_reward:

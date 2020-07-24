@@ -165,7 +165,7 @@ class HarvestAgent(Agent):
         super().__init__(agent_id, start_pos, start_orientation, grid, view_len, view_len)
         self.update_agent_pos(start_pos) #initialize agent's (pos,rot)
         self.update_agent_rot(start_orientation)
-        # self.apple_consumption = 0
+        self.apple_consumption = 0
 
     @property
     def action_space(self):
@@ -200,6 +200,7 @@ class HarvestAgent(Agent):
         """Defines how an agent interacts with the char it is standing on"""
         if char == 'A': # Apple
             self.reward_this_turn += 1
+            self.apple_consumption += 1
             return ' '
         else:
             return char

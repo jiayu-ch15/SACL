@@ -21,7 +21,6 @@ class HarvestEnv(MapEnv):
             for col in range(self.base_map.shape[1]):
                 if self.base_map[row, col] == 'A':
                     self.apple_points.append([row, col])
-        self.apple_consumption = self.count_apples(self.world_map)
 
     @property
     def action_space(self):
@@ -55,7 +54,6 @@ class HarvestEnv(MapEnv):
         """Initialize the walls and the apples"""
         for apple_point in self.apple_points:
             self.world_map[apple_point[0], apple_point[1]] = 'A'
-        self.apple_consumption = self.count_apples(self.world_map)
 
     def custom_action(self, agent, action):
         agent.fire_beam('F')
@@ -69,8 +67,7 @@ class HarvestEnv(MapEnv):
         "See parent class"
         # spawn the apples
         new_apples = self.spawn_apples()
-        self.update_map(new_apples)
-        self.apple_consumption = self.count_apples(self.world_map)        
+        self.update_map(new_apples)        
 
     def spawn_apples(self):
         """Construct the apples spawned in this step.
