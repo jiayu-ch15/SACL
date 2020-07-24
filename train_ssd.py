@@ -407,7 +407,7 @@ def main():
                         apple_consumption.append(info['apple_consumption'])
                     if 'fire' in info.keys():
                         fire.append(info['fire'])
-           )
+           
                 logger.add_scalars('collective_return',
                                     {'collective_return': np.mean(collective_return)},
                                     total_num_steps)
