@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tensorboardX import SummaryWriter
 
-from envs import CleanupEnv, HarvestEnv
+from envs import AgarEnv
 from algorithm.ppo import PPO
 from algorithm.model import Policy
 
@@ -25,10 +25,8 @@ import shutil
 def make_parallel_env(args):
     def get_env_fn(rank):
         def init_env():
-            if args.env_name == "Cleanup":
-                env = CleanupEnv(args)
-            elif args.env_name == "Harvest":
-                env = HarvestEnv(args)
+            if args.env_name == "Agar":
+                env = AgarEnv(args)
             else:
                 print("Can not support the " + args.env_name + "environment." )
                 raise NotImplementedError
@@ -168,7 +166,7 @@ def main():
     # rollout
     for i in range(num_agents):
         if len(envs.observation_space[0]) == 3:
-            rollouts[i].share_obs[0].copy_(torch.tensor(obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])))
+            rollouts[i].share_obs[0].copy_(torch.tensor(obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2] )))
             rollouts[i].obs[0].copy_(torch.tensor(obs[:,i,:,:,:]))
             rollouts[i].recurrent_hidden_states.zero_()
             rollouts[i].recurrent_hidden_states_critic.zero_()
@@ -187,6 +185,8 @@ def main():
     start = time.time()
     episodes = int(args.num_env_steps) // args.episode_length // args.n_rollout_threads
     timesteps = 0
+    last_battles_game = np.zeros(args.n_rollout_threads)
+    last_battles_won = np.zeros(args.n_rollout_threads)
 
     for episode in range(episodes):
 
@@ -209,7 +209,7 @@ def main():
             recurrent_c_statess_critic = []
 
             with torch.no_grad():
-                for i in range(num_agents):  
+                for i in range(num_agents):
                     value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic ,recurrent_c_states, recurrent_c_states_critic = actor_critic[i].act(i,
                     rollouts[i].share_obs[step], 
                     rollouts[i].obs[step], 
@@ -250,7 +250,7 @@ def main():
                 mask = []
                 bad_mask = []
                 for done_ in done:  
-                    if done_[i]:              
+                    if done_:              
                         mask.append([0.0])
                         bad_mask.append([1.0])
                     else:
@@ -365,62 +365,36 @@ def main():
             for i in range(num_agents):
                 print("value loss of agent%i: " %i + str(value_losses[i]))
 
-            if args.env_name == "Cleanup":                
-                collective_return = []
-                sustainability = []
-                waste_cleared = []
-                fire = []
+            if args.env_name == "Agar":                
+                battles_won = []
+                battles_game = []
+                battles_draw = []
+                win_rate = []
+                incre_win_rate = []
                 for i,info in enumerate(infos):
-                    if 'collective_return' in info.keys():
-                        collective_return.append(info['collective_return'])                         
-                    if 'sustainability' in info.keys():
-                        sustainability.append(info['sustainability'])                        
-                    if 'waste_cleared' in info.keys():
-                        waste_cleared.append(info['waste_cleared'])
-                    if 'fire' in info.keys():
-                        fire.append(info['fire'])
-           
-                logger.add_scalars('collective_return',
-                                    {'collective_return': np.mean(collective_return)},
+                    if 'battles_won' in info.keys():
+                        battles_won.append(info['battles_won'])                         
+                    if 'battles_game' in info.keys():
+                        battles_game.append(info['battles_game'])                        
+                        if info['battles_game'] == 0:
+                            win_rate.append(0)
+                            incre_win_rate.append(0) 
+                        else:
+                            win_rate.append(info['battles_won']/info['battles_game']) 
+                            if info['battles_game']-last_battles_game[i]== 0 :
+                                incre_win_rate.append(0)
+                            else:
+                                incre_win_rate.append((info['battles_won']-last_battles_won[i])/(info['battles_game']-last_battles_game[i]))                           
+                    if 'battles_draw' in info.keys():
+                        battles_draw.append(info['battles_draw'])
+                logger.add_scalars('win_rate',
+                                    {'win_rate': np.mean(win_rate)},
                                     total_num_steps)
-                logger.add_scalars('sustainability',
-                                    {'sustainability': np.mean(sustainability)},
+                logger.add_scalars('incre_win_rate',
+                                    {'incre_win_rate': np.mean(incre_win_rate)},
                                     total_num_steps)
-                logger.add_scalars('waste_cleared',
-                                    {'waste_cleared': np.mean(waste_cleared)},
-                                    total_num_steps)
-                logger.add_scalars('fire',
-                                    {'fire': np.mean(fire)},
-                                    total_num_steps)
-                                    
-            elif args.env_name == "Harvest":                
-                collective_return = []
-                sustainability = []
-                apple_consumption = []
-                fire = []
-                for i,info in enumerate(infos):
-                    if 'collective_return' in info.keys():
-                        collective_return.append(info['collective_return'])                         
-                    if 'sustainability' in info.keys():
-                        sustainability.append(info['sustainability'])                        
-                    if 'apple_consumption' in info.keys():
-                        apple_consumption.append(info['apple_consumption'])
-                    if 'fire' in info.keys():
-                        fire.append(info['fire'])
-           )
-                logger.add_scalars('collective_return',
-                                    {'collective_return': np.mean(collective_return)},
-                                    total_num_steps)
-                logger.add_scalars('sustainability',
-                                    {'sustainability': np.mean(sustainability)},
-                                    total_num_steps)
-                logger.add_scalars('apple_consumption',
-                                    {'apple_consumption': np.mean(apple_consumption)},
-                                    total_num_steps)
-                logger.add_scalars('fire',
-                                    {'fire': np.mean(fire)},
-                                    total_num_steps)
-
+                last_battles_game = battles_game
+                last_battles_won = battles_won
                 
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()

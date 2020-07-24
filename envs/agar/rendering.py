@@ -59,7 +59,8 @@ class Viewer(object):
 
         self.width = width
         self.height = height
-        self.window = pyglet.window.Window(width=width, height=height, display=display)
+        self.window = pyglet.window.Window(width=width, height=height, display=display, fullscreen = False)#, style = WINDOW_STYLE_BORDERLESS)
+        #self.window.set_location(500,500)
         self.window.on_close = self.window_closed_by_user
         self.isopen = True
         self.geoms = []
@@ -73,8 +74,7 @@ class Viewer(object):
     def close(self):
         if self.his_graph is not []:
             l_g = [Im.fromarray(self.his_graph[i]).resize((640, 360)) for i in range(len(self.his_graph))]
-            print('here in rendering', len(l_g))
-            l_g[0].save('game_'+self.name_str+'.gif', save_all = True, append_images = l_g[1:], loop = 100, duration = 100)
+            l_g[0].save(self.name_str+'.gif', save_all = True, append_images = l_g[1:], loop = 100, duration = 100)
             for i in range(len(l_g)):
                 l_g[i].close()
             self.his_graph = []

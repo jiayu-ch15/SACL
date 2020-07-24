@@ -18,8 +18,6 @@ class Bot(Player):
             self.isRemoved = True
         if self.isRemoved:
             return
-        #self.action = [0,0,0] # 11.19 TCH
-        #return # 11.19 TCH
         if self.actionCooldown:
             self.action[2] = 2
             self.actionCooldown -= 1
@@ -59,14 +57,14 @@ class Bot(Player):
                     has_enemy = True
             elif cell.cellType ==2:
                 visible_virus.append(cell)
-        if not has_enemy and random.random() < 0.05:          
+        if not has_enemy and random.random() < 0.05:
             action[2] = 0
 
         if visible_food and self.cells:
             mincell = self.mincell()
             maxcell = self.maxcell()
             if len(self.cells) >= 14 and self.maxradius > self.gameServer.config.virusMinRadius * 1.15 and visible_virus:
-                target = sorted(visible_virus, key=lambda c: (abs(c.position.x - maxcell.position.x) + abs(c.position.y - maxcell.position.y)) / c.mass + 10000 * (self.maxradius <= c.radius * 1.15))[0] 
+                target = sorted(visible_virus, key=lambda c: (abs(c.position.x - maxcell.position.x) + abs(c.position.y - maxcell.position.y)) / c.mass + 10000 * (self.maxradius <= c.radius * 1.15))[0] # 吃最大cell 1.15倍以下的最近最大virus(when i have >= 14 cells)
                 relative_position = target.position.clone().sub(maxcell.position)
                 action[2] = 2
             elif len(self.cells) >= 4 and self.maxradius > self.gameServer.config.virusMinRadius * 1.15 and visible_virus and not has_enemy:
@@ -96,7 +94,7 @@ class Bot(Player):
         b = 0
         for j in range(10):
             theta = b + 2 * np.pi / 10 * j
-            next_pos = pos + np.array([np.cos(theta), np.sin(theta)]) * cell.getMoveR() #! 3.12 for action_repeat = 5
+            next_pos = pos + np.array([np.cos(theta), np.sin(theta)]) * cell.getMoveR()
             next_pos = self.gameServer.limit_pos(next_pos)
             mi = 1e10
             ok = True
@@ -106,13 +104,10 @@ class Bot(Player):
                 if dis + (cell.getMoveR() - c.getMoveR()) * (2 - deep) < opt[0]:
                     ok = False
                     break
-            #if deep == 2:
-            #    print(np.cos(theta), np.sin(theta), mi)
             if mi > 0 and ok:
                 n_p_list.append([next_pos, mi])
         if len(n_p_list) == 0:
-            if deep == 0:
-                #print('cannot escape in dfs BOt')
+            if deep == 0: #'cannot escape in dfs Bot'
                 return -1, [0., 0.]
             return -1
         n_p_list = sorted(n_p_list, key=lambda x: -x[1])
@@ -124,7 +119,6 @@ class Bot(Player):
         for x in n_p_list:
             old_opt = opt[0]
             result = self.dfs(cell, d_list, deep + 1, x[0], opt)
-            #print(result)
             ma = max(ma, result)
             if deep == 0:
                 if old_opt != opt[0]:
@@ -139,8 +133,6 @@ class Bot(Player):
 
         action = np.zeros(3)
         action[2] = 2. # now all agents try to keep their size
-        #if self.pID % 2 == 0:
-        #    action[2] = 0
         
         ab_x = cell.position.x / (self.config.borderWidth - cell.radius) + 0.5
         ab_y = cell.position.y / (self.config.borderHeight - cell.radius) + 0.5
@@ -175,7 +167,6 @@ class Bot(Player):
             self.viewNodes.append(Cell(self.gameServer, None, Vec2( gamma * self.config.borderWidth / 2,  gamma * self.config.borderHeight / 2), cell.radius))
         
         for check in self.viewNodes:
-            #print(check.position)
             if check.owner == self:
                 continue
 
@@ -268,10 +259,6 @@ class Bot(Player):
         
         ab_x = cell.position.x / (self.config.borderWidth - cell.radius) + 0.5
         ab_y = cell.position.y / (self.config.borderHeight - cell.radius) + 0.5
-        '''if ab_x <= 1e-4:result.x = 0.3
-        if ab_x >= 1 - 1e-4:result.x = -0.3
-        if ab_y <= 1e-4:result.y = 0.3
-        if ab_y >= 1 - 1e-4:result.y = -0.3'''
         
         def sigmoid(x):
 

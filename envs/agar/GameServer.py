@@ -5,7 +5,6 @@ from .modules import *
 from .entity import *
 from .gamemodes import *
 from .players import Player, Bot
-from .gv import *
 import numpy as np
 
 # noinspection PyAttributeOutsideInit
@@ -121,7 +120,7 @@ class GameServer:
                     pass
                     #self.players.insert(i, Player(self, id = id))
                     #self.env.players[i] = self.players[i]
-                    #self.env.agents[i] = self.players[i]
+                    #self.env.agents[i] = self.players[i] # reborn of outside agent
                 else:self.players.append(Bot(self, id = id))
             else:
                 i += 1
@@ -130,11 +129,6 @@ class GameServer:
             if not player:
                 continue
             player.updateView()
-
-        # for player in self.players:
-        #     if not player:
-        #         continue
-        #     player.playerTracker.sendUpdate()
 
     def Update(self):
         # Loop main functions
@@ -153,7 +147,6 @@ class GameServer:
                     if cell.cellType == 3 and check.cellType == 3 and not self.config.mobilePhysics:
                         self.resolveRigidCollision(collision)
                     else:
-                        print('solve virus eat foodww')
                         self.resolveCollision(collision)
 
                 self.quadTree.find(cell.quadItem.bound, callback_fun)
@@ -179,7 +172,6 @@ class GameServer:
                 self.autoSplit(cell, cell.owner)
                 self.updateNodeQuad(cell)
                 self.quadTree.find(cell.quadItem.bound, callback_fun)
-                # self.updateNodeQuad(cell)
                 # Decay player cells once per second
                 if ((self.tickCounter + 3) % 25) == 0:
                     # print('decay')
@@ -231,9 +223,7 @@ class GameServer:
         cell.position.add(d, move)
         self.limit_cell(cell)
         # self.updateNodeQuad(cell)
-
-        # print('movePlayer', d.sqDist() * move, cell.position)
-
+        
         # update remerge
         time = self.config.playerRecombineTime
         base = max(time, cell.radius * 0.2) * 25
@@ -294,7 +284,6 @@ class GameServer:
 
     def updateNodeQuad(self, node):
         # update quad tree
-
         item = node.quadItem.bound
         item.minx = node.position.x - node.radius
         item.miny = node.position.y - node.radius
@@ -328,8 +317,6 @@ class GameServer:
     # Resolves rigid body collisions
 
     def resolveRigidCollision(self, m):
-        # if m.d == 0:
-        #     return
         if m.d == 0:
             rand_angle = random.random() * math.pi * 2
             m.p = Vec2(math.cos(rand_angle) * 1, math.sin(rand_angle) * 1)
@@ -348,9 +335,6 @@ class GameServer:
             # apply extrusion force
             m.cell.position.sub2(m.p, r2)
             m.check.position.add(m.p, r1)
-
-            # print('resolvecollision add', m.p.sqDist() * r1,  m.check.position)
-            # print('resolvecollision sub', m.p.sqDist() * r2, m.cell.position)
 
     # Resolves non-rigid body collision
     def resolveCollision(self, m):
@@ -378,7 +362,6 @@ class GameServer:
             return  # Cannot eat or cell refuses to be eaten
 
         # Consume effect
-        # print(cell, 'eaten by', check)
         check.onEat(cell)
         cell.onEaten(check)
         cell.killedBy = check
@@ -395,7 +378,6 @@ class GameServer:
             return
 
         # Remove radius from parent cell
-        # print('splitPlayerCell!', radius1)
         parent.setRadius(radius1)
 
         # Create cell and add it to node list
@@ -444,7 +426,7 @@ class GameServer:
         # Check for special starting radius
         if player.name == 'dummy':
             radius = self.config.playerStartRadius * (0.6 + 0.6 * random.random())
-            p_c = 50 + random.random() * 100
+            p_c = 70 + player.pID * 70 # outside agent are all grey or black
             player.color = Color(p_c, p_c, p_c)
         else:radius = self.config.playerStartRadius * (0.4 + 0.2 * random.random())
 

@@ -1,11 +1,6 @@
 from pyglet.window import key
 import numpy as np
-from gv import *
-gv_init()
-set_v('user_name', 'tzg')
-set_v('obs_size', 1)
-set_v('render', True)
-from Env import AgarEnv
+from Agar_env.Env import AgarEnv
 import time
 
 render = True
@@ -19,8 +14,9 @@ class Args():
         self.action_repeat = 1
         self.total_step = 1e8
         self.gamma = 0.99
+        self.eval = True
         
-env = AgarEnv(Args(), eval = {'alpha':1.,'beta':0.})
+env = AgarEnv(Args())
 env.seed(0)
 
 step = 1
@@ -38,9 +34,11 @@ def on_key_press(k, modifiers):
         action[0][2] = 0
 
 start = time.time()
+ca = 100
 for episode in range(1):
     observation = env.reset()
-    while True:
+    while ca:
+        ca -= 1
         time.sleep(0.05)
         if step % 40 == 0:
             print('step', step)
@@ -53,7 +51,7 @@ for episode in range(1):
                 window.on_mouse_motion = on_mouse_motion
         a = action.reshape(-1)
         observations, rewards, done, info = env.step(a)
-        print(step, rewards)
+        #print(step, rewards)
         action[0][2] = 0
         step+=1
 env.close()
