@@ -65,7 +65,7 @@ import gym
 from gym import spaces
 from .GameServer import GameServer
 from .players import Player, Bot
-from . import rendering
+#from . import rendering
 import numpy as np
 from copy import deepcopy
 import random
@@ -78,7 +78,7 @@ def rand(a, b):
     return random.random() * (b - a) + a
 
 class AgarEnv(gym.Env):
-    def __init__(self, args, obs_size = 578, action_repeat = 1, gamemode = 0, alpha = 1, beta = 0, gamma=0.99, reward_settings = "std", eval=True):
+    def __init__(self, args, obs_size = 578, action_repeat = 5, gamemode = 0, alpha = 0, beta = 1, reward_settings = "std", eval=False):
         super(AgarEnv, self).__init__()
         self.args = args
         # factors for reward
@@ -86,33 +86,48 @@ class AgarEnv(gym.Env):
         self.gamemode = gamemode # We only implemented FFA (gamemode = 0)
         self.alpha = alpha
         self.beta = beta
-        self.g = gamma # discount rate of RL (gamma)
+        self.g = args.gamma # discount rate of RL (gamma)
         self.reward_settings = reward_settings       
         #if args.total_step is None:args.total_step = 0
         self.total_step = 0
         self.eval = eval       
         self.num_agents = args.num_agents # number of agents controlled outside
-        self.action_space = spaces.Box(low = -1, high = 1, shape=(3,)) # action = [x(real), y(real), split(bool)]
-        self.observation_space = spaces.Dict( {'agent-'+str(i):spaces.Box(low=-100, high=100, shape=(obs_size,)) for i in range(self.num_agents)}  )
+        #self.action_space = spaces.Box(low = -1, high = 1, shape=(3,)) # action = [x(real), y(real), split(bool)]
+        #self.observation_space = spaces.Dict( {'agent-'+str(i):spaces.Box(low=-100, high=100, shape=(obs_size,)) for i in range(self.num_agents)}  )
+        
+        self.action_space = []
+        self.observation_space = []
+        for i in range(self.num_agents):
+            self.action_space.append(spaces.Box(low = -1, high = 1, shape=(3,)))
+            self.observation_space.append([obs_size])
+            
         self.viewer = None
         
         self.last_mass = [None for i in range(self.num_agents)]
         self.sum_r = np.zeros((self.num_agents, )) # summation or reward
         self.sum_r_g = np.zeros((self.num_agents, )) # summation of discounted reward
         self.sum_r_g_i = np.zeros((self.num_agents, )) # summation of discounted reward using standard reward settings (alpha = 1, beta = 0)
-        self.dir = []        
+        self.dir = [] 
+        
+        self.share_reward = args.share_reward         
 
-    def step(self, actions_):       
+    def step(self, actions_):    
         actions = deepcopy(actions_)
         reward = np.zeros((self.num_agents, ))
         done = np.zeros((self.num_agents, ))
         info = [{} for i in range(self.num_agents)]
+        
         first = True
         for i in range(self.action_repeat):        
             if not first:
                 for j in range(self.num_agents):
-                    actions[j * 3 + 2] = -1.
+                    actions[j][2] = -1.
             first = False
+            for action in actions:
+                if action[-1] > 0.5:
+                   action[-1] = 0
+                else:
+                   action[-1] = 2
             o,r = self.step_(actions)
             reward += r
         
@@ -124,6 +139,7 @@ class AgarEnv(gym.Env):
         for i in range(self.num_agents):         
             info[i]['high_masks'] = True
             info[i]['bad_transition'] = False
+            info[i]['collective_return'] = self.sum_r[i]
             if self.killed[i] >= 1:
                 done[i] = True
                 info[i]['high_masks'] = False
@@ -140,17 +156,23 @@ class AgarEnv(gym.Env):
                 if self.killed[i] == 0 and self.s_n >= self.stop_step:info[i]['bad_transition']=True
                 elif self.killed[i] == 1:info[i]['bad_transition'] = False
                 else:info[i]['bad_transition'] = True
+                
+        global_reward = np.sum(reward)  
+        if self.share_reward:
+            reward = [global_reward] * self.num_agents
         
         return o, reward, done, info, [[None]]*self.num_agents
     
     def step_(self, actions_):
         actions = deepcopy(actions_)
+        '''
         act = []
         for i in range(self.num_agents):
             act.extend([actions[i * 3 + 0], actions[i * 3 + 1], actions[i * 3 + 2]])
             if actions[i * 3 + 2] > 0.5:act[-1] = 0
             else:act[-1] = 2
         actions = np.array(act).reshape(-1,3)
+        '''
         for action, agent in zip(actions, self.agents):
             agent.step(deepcopy(action))
         for i in range(self.num_agents, len(self.server.players)):
@@ -181,10 +203,10 @@ class AgarEnv(gym.Env):
         self.sum_r += rewards
         self.sum_r_g += rewards * self.m_g
         self.sum_r_g_i += t_rewards2 * self.m_g
-        observations = np.array(observations)
+        #observations = np.array(observations)
         self.s_n += 1
          
-        observations = {'agent-'+str(i): observations[i] for i in range(self.num_agents)}
+        #observations = {'agent-'+str(i): observations[i] for i in range(self.num_agents)}
         return observations, rewards
 
     def reset(self):       
@@ -231,8 +253,8 @@ class AgarEnv(gym.Env):
             for i in range(self.num_agents):
                 if np.sum(observations[i]) == 0.: # sometimes the agent dies just after initialization, we should avoid this.
                     success = False
-            observations = np.array(observations)
-            observations = {'agent-'+str(i): observations[i] for i in range(self.num_agents)}
+            #observations = np.array(observations)
+            #observations = {'agent-'+str(i): observations[i] for i in range(self.num_agents)}
             if success:break
         return observations, [[None]]*self.num_agents
 

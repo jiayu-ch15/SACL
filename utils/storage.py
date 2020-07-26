@@ -42,6 +42,7 @@ class RolloutStorage(object):
         # Masks that indicate whether it's a true terminal state
         # or time limit end state
         self.bad_masks = torch.ones(episode_length + 1, n_rollout_threads, 1)
+        self.high_masks = torch.ones(episode_length + 1, n_rollout_threads, 1)
 
         self.episode_length = episode_length
         self.step = 0
@@ -60,9 +61,10 @@ class RolloutStorage(object):
         self.actions = self.actions.to(device)
         self.masks = self.masks.to(device)
         self.bad_masks = self.bad_masks.to(device)
+        self.high_masks = self.high_masks.to(device)
 
     def insert(self, share_obs, obs, recurrent_hidden_states, recurrent_hidden_states_critic, recurrent_c_states, recurrent_c_states_critic, actions, action_log_probs,
-               value_preds, rewards, masks, bad_masks):
+               value_preds, rewards, masks, bad_masks, high_masks=None):
         self.share_obs[self.step + 1].copy_(share_obs)
         self.obs[self.step + 1].copy_(obs)
         self.recurrent_hidden_states[self.step + 1].copy_(recurrent_hidden_states)
@@ -75,6 +77,8 @@ class RolloutStorage(object):
         self.rewards[self.step].copy_(rewards)
         self.masks[self.step + 1].copy_(masks)
         self.bad_masks[self.step + 1].copy_(bad_masks)
+        if high_masks is not None:
+            self.high_masks[self.step + 1].copy_(high_masks)
 
         self.step = (self.step + 1) % self.episode_length
 
@@ -86,6 +90,7 @@ class RolloutStorage(object):
         self.recurrent_c_states_critic[0].copy_(self.recurrent_c_states_critic[-1])
         self.masks[0].copy_(self.masks[-1])
         self.bad_masks[0].copy_(self.bad_masks[-1])
+        self.high_masks[0].copy_(self.high_masks[-1])
 
     def compute_returns(self,
                         next_value,
@@ -131,7 +136,7 @@ class RolloutStorage(object):
                     if use_popart:
                         delta = self.rewards[step] + gamma * value_normalizer.denormalize(self.value_preds[
                             step + 1]) * self.masks[step + 1] - value_normalizer.denormalize(self.value_preds[step])
-                        gae = delta + gamma * gae_lambda * self.masks[step + 1] * gae
+                        gae = delta + gamma * gae_lambda * self.masks[step + 1] * gae                       
                         self.returns[step] = gae + value_normalizer.denormalize(self.value_preds[step])
                     else:
                         delta = self.rewards[step] + gamma * self.value_preds[step + 1] * self.masks[step + 1] - self.value_preds[step]
@@ -179,6 +184,7 @@ class RolloutStorage(object):
             value_preds_batch = self.value_preds[:-1].view(-1, 1)[indices]
             return_batch = self.returns[:-1].view(-1, 1)[indices]
             masks_batch = self.masks[:-1].view(-1, 1)[indices]
+            high_masks_batch = self.high_masks[:-1].view(-1, 1)[indices]
             old_action_log_probs_batch = self.action_log_probs.view(-1,
                                                                     1)[indices]
             if advantages is None:
@@ -186,7 +192,7 @@ class RolloutStorage(object):
             else:
                 adv_targ = advantages.view(-1, 1)[indices]
 
-            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, recurrent_c_states_batch, recurrent_c_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ
+            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, recurrent_c_states_batch, recurrent_c_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks, old_action_log_probs_batch, adv_targ
 
     def naive_recurrent_generator(self, advantages, num_mini_batch):
         n_rollout_threads = self.rewards.size(1)
@@ -207,6 +213,7 @@ class RolloutStorage(object):
             value_preds_batch = []
             return_batch = []
             masks_batch = []
+            high_masks_batch = []
             old_action_log_probs_batch = []
             adv_targ = []
 
@@ -226,6 +233,7 @@ class RolloutStorage(object):
                 value_preds_batch.append(self.value_preds[:-1, ind])
                 return_batch.append(self.returns[:-1, ind])
                 masks_batch.append(self.masks[:-1, ind])
+                high_masks_batch.append(self.high_masks[:-1, ind])
                 old_action_log_probs_batch.append(
                     self.action_log_probs[:, ind])
                 adv_targ.append(advantages[:, ind])
@@ -238,6 +246,7 @@ class RolloutStorage(object):
             value_preds_batch = torch.stack(value_preds_batch, 1)
             return_batch = torch.stack(return_batch, 1)
             masks_batch = torch.stack(masks_batch, 1)
+            high_masks_batch = torch.stack(high_masks_batch, 1)
             old_action_log_probs_batch = torch.stack(
                 old_action_log_probs_batch, 1)
             adv_targ = torch.stack(adv_targ, 1)
@@ -259,12 +268,13 @@ class RolloutStorage(object):
             value_preds_batch = _flatten_helper(T, N, value_preds_batch)
             return_batch = _flatten_helper(T, N, return_batch)
             masks_batch = _flatten_helper(T, N, masks_batch)
+            high_masks_batch = _flatten_helper(T, N, high_masks_batch)
             old_action_log_probs_batch = _flatten_helper(T, N, \
                     old_action_log_probs_batch)
             adv_targ = _flatten_helper(T, N, adv_targ)
             
 
-            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, recurrent_c_states_batch, recurrent_c_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ
+            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, recurrent_c_states_batch, recurrent_c_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, adv_targ
                 
                 
     def recurrent_generator(self, advantages, num_mini_batch, data_chunk_length):
@@ -289,6 +299,7 @@ class RolloutStorage(object):
             value_preds_batch = []
             return_batch = []
             masks_batch = []
+            high_masks_batch = []
             old_action_log_probs_batch = []
             adv_targ = []
             
@@ -301,6 +312,7 @@ class RolloutStorage(object):
                 value_preds_batch.append(torch.transpose(self.value_preds[:-1],0,1).reshape(-1, 1)[ind:ind+data_chunk_length])
                 return_batch.append(torch.transpose(self.returns[:-1],0,1).reshape(-1, 1)[ind:ind+data_chunk_length])
                 masks_batch.append(torch.transpose(self.masks[:-1],0,1).reshape(-1, 1)[ind:ind+data_chunk_length])
+                high_masks_batch.append(torch.transpose(self.high_masks[:-1],0,1).reshape(-1, 1)[ind:ind+data_chunk_length])
                 old_action_log_probs_batch.append(torch.transpose(self.action_log_probs,0,1).reshape(-1, 1)[ind:ind+data_chunk_length])
                 adv_targ.append(torch.transpose(advantages,0,1).reshape(-1, 1)[ind:ind+data_chunk_length])
                 # size [T+1 N Dim]-->[T N Dim]-->[T*N,Dim]-->[1,Dim]
@@ -323,6 +335,7 @@ class RolloutStorage(object):
             value_preds_batch = torch.stack(value_preds_batch)
             return_batch = torch.stack(return_batch)
             masks_batch = torch.stack(masks_batch)
+            high_masks_batch = torch.stack(high_masks_batch)
             old_action_log_probs_batch = torch.stack(
                 old_action_log_probs_batch)
             adv_targ = torch.stack(adv_targ)
@@ -345,9 +358,10 @@ class RolloutStorage(object):
             value_preds_batch = _flatten_helper(L, N, value_preds_batch)
             return_batch = _flatten_helper(L, N, return_batch)
             masks_batch = _flatten_helper(L, N, masks_batch)
+            high_masks_batch = _flatten_helper(L, N, high_masks_batch)
             old_action_log_probs_batch = _flatten_helper(L, N, \
                     old_action_log_probs_batch)
             adv_targ = _flatten_helper(L, N, adv_targ)
             
-            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, recurrent_c_states_batch, recurrent_c_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ
+            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, recurrent_c_states_batch, recurrent_c_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, adv_targ
             

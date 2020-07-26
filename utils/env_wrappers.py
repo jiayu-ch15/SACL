@@ -13,9 +13,12 @@ def worker(remote, parent_remote, env_fn_wrapper):
         cmd, data = remote.recv()
         if cmd == 'step':
             ob, reward, done, info, available_actions = env.step(data)
-            if all(done):
-                print("reset")
-                ob, available_actions = env.reset()
+            if done.__class__.__name__=='bool':
+                if done:
+                    ob, available_actions = env.reset()
+            else:
+                if all(done):
+                    ob, available_actions = env.reset()
             remote.send((ob, reward, done, info, available_actions))
         elif cmd == 'reset':
             ob, available_actions = env.reset()           
@@ -107,9 +110,14 @@ class DummyVecEnv(VecEnv):
         self.ts += 1
         
         for (i, done) in enumerate(dones):
-            if all(done):
-                obs[i], available_actions[i] = self.envs[i].reset()
-                self.ts[i] = 0
+            if done.__class__.__name__=='bool':
+                if done:
+                    obs[i], available_actions[i] = self.envs[i].reset()
+                    self.ts[i] = 0
+            else:
+                if all(done):
+                    obs[i], available_actions[i] = self.envs[i].reset()
+                    self.ts[i] = 0
         self.actions = None
         return np.array(obs), np.array(rews), np.array(dones), infos, np.array(available_actions)
 

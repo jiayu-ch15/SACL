@@ -178,8 +178,8 @@ def main():
             rollouts[i].recurrent_hidden_states.zero_()
             rollouts[i].recurrent_hidden_states_critic.zero_()
             rollouts[i].recurrent_c_states.zero_()
-            rollouts[i].recurrent_c_states_critic.zero_()
-        rollouts[i].to(device) 
+            rollouts[i].recurrent_c_states_critic.zero_() 
+        rollouts[i].to(device)
     
     # run
     start = time.time()
@@ -228,16 +228,11 @@ def main():
                     recurrent_c_statess.append(recurrent_c_states)
                     recurrent_c_statess_critic.append(recurrent_c_states_critic)
             
-            # rearrange action           
+            # rearrange action
             actions_env = []
-            for i in range(args.n_rollout_threads):
-                one_hot_action_env = []
-                for k in range(num_agents):
-                    one_hot_action = np.zeros(envs.action_space[0].n)
-                    one_hot_action[actions[k][i]] = 1
-                    one_hot_action_env.append(one_hot_action)
-                actions_env.append(one_hot_action_env)
-            
+            for i in range(num_agents):
+                actions_env.append(actions[i].cpu().tolist())           
+            actions_env = np.array(actions_env).transpose(1, 0, 2)
             
             # Obser reward and next obs
             obs, reward, done, infos, available_actions = envs.step(actions_env)
@@ -246,18 +241,30 @@ def main():
             # insert data in buffer
             masks = []
             bad_masks = []
+            high_masks = []
             for i in range(num_agents):
-                mask = []
-                bad_mask = []
-                for done_ in done:  
-                    if done_:              
+                mask = []               
+                for done_ in done: 
+                    if done_[i]:              
                         mask.append([0.0])
-                        bad_mask.append([1.0])
                     else:
                         mask.append([1.0])
-                        bad_mask.append([1.0])
                 masks.append(torch.FloatTensor(mask))
+                     
+                bad_mask = []
+                high_mask = []
+                for info_ in infos:
+                    if info_[i]['bad_transition']:
+                        bad_mask.append([0.0])
+                    else:
+                        bad_mask.append([1.0])  
+                        
+                    if info_[i]['high_masks']:
+                        high_mask.append([1.0])
+                    else:
+                        high_mask.append([0.0])              
                 bad_masks.append(torch.FloatTensor(bad_mask))
+                high_masks.append(torch.FloatTensor(high_mask))
                             
             for i in range(num_agents):
                 if len(envs.observation_space[0]) == 3:
@@ -272,7 +279,8 @@ def main():
                                         values[i], 
                                         torch.tensor(reward[:, i].reshape(-1,1)), 
                                         masks[i], 
-                                        bad_masks[i])
+                                        bad_masks[i],
+                                        high_masks[i])
                 else:
                     rollouts[i].insert(torch.tensor(obs.reshape(args.n_rollout_threads, -1)), 
                                         torch.tensor(obs[:,i,:]), 
@@ -285,7 +293,8 @@ def main():
                                         values[i], 
                                         torch.tensor(reward[:, i].reshape(-1,1)), 
                                         masks[i], 
-                                        bad_masks[i])
+                                        bad_masks[i],
+                                        high_masks[i])
                                         
             
                                         
@@ -366,36 +375,18 @@ def main():
                 print("value loss of agent%i: " %i + str(value_losses[i]))
 
             if args.env_name == "Agar":                
-                battles_won = []
-                battles_game = []
-                battles_draw = []
-                win_rate = []
-                incre_win_rate = []
-                for i,info in enumerate(infos):
-                    if 'battles_won' in info.keys():
-                        battles_won.append(info['battles_won'])                         
-                    if 'battles_game' in info.keys():
-                        battles_game.append(info['battles_game'])                        
-                        if info['battles_game'] == 0:
-                            win_rate.append(0)
-                            incre_win_rate.append(0) 
-                        else:
-                            win_rate.append(info['battles_won']/info['battles_game']) 
-                            if info['battles_game']-last_battles_game[i]== 0 :
-                                incre_win_rate.append(0)
-                            else:
-                                incre_win_rate.append((info['battles_won']-last_battles_won[i])/(info['battles_game']-last_battles_game[i]))                           
-                    if 'battles_draw' in info.keys():
-                        battles_draw.append(info['battles_draw'])
-                logger.add_scalars('win_rate',
-                                    {'win_rate': np.mean(win_rate)},
-                                    total_num_steps)
-                logger.add_scalars('incre_win_rate',
-                                    {'incre_win_rate': np.mean(incre_win_rate)},
-                                    total_num_steps)
-                last_battles_game = battles_game
-                last_battles_won = battles_won
-                
+                for agent_id in range(num_agents):
+                    collective_return = []
+                    high_masks = []
+                    bad_transition = []
+                    for i,info in enumerate(infos):                    
+                        if 'collective_return' in info[agent_id].keys():
+                            collective_return.append(info[agent_id]['collective_return'])                         
+
+                        logger.add_scalars('agent%i/collective_return' % agent_id,
+                                            {'collective_return': np.mean(collective_return)},
+                                            total_num_steps)
+               
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()
     envs.close()

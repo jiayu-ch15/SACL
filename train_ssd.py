@@ -181,7 +181,7 @@ def main():
             rollouts[i].recurrent_hidden_states_critic.zero_()
             rollouts[i].recurrent_c_states.zero_()
             rollouts[i].recurrent_c_states_critic.zero_()
-        rollouts[i].to(device) 
+        #rollouts[i].to(device) 
     
     # run
     start = time.time()

@@ -39,7 +39,7 @@ class PopArt(nn.Module):
 
     def forward(self, input_vector):
         # Make sure input is float32
-        input_vector = input_vector.to(torch.float)
+        input_vector = input_vector.to(torch.float).cuda()
 
         if self.train:
             # Detach input before adding it to running means to avoid backpropping through it on
@@ -59,15 +59,16 @@ class PopArt(nn.Module):
             self.debiasing_term.mul_(weight).add_(1.0 * (1.0 - weight))
 
         mean, var = self.running_mean_var()
-        return (input_vector - mean[(None,) * self.norm_axes]) / torch.sqrt(var)[(None,) * self.norm_axes]
+        out = (input_vector - mean[(None,) * self.norm_axes]) / torch.sqrt(var)[(None,) * self.norm_axes]
+        return out
 
     def denormalize(self, input_vector):
         """ Transform normalized data back into original distribution """
+        input_vector = input_vector.cuda()
 
         mean, var = self.running_mean_var()
         out = input_vector * torch.sqrt(var)[(None,) * self.norm_axes] + mean[(None,) * self.norm_axes]
-
-        return input_vector * torch.sqrt(var)[(None,) * self.norm_axes] + mean[(None,) * self.norm_axes]
+        return out
 
 class PPO():
     def __init__(self,                 
@@ -140,12 +141,12 @@ class PPO():
 
             for sample in data_generator:
                 share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, recurrent_c_states_batch, recurrent_c_states_critic_batch, actions_batch, \
-                   value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, \
+                   value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, \
                         adv_targ = sample
                 
                 # Reshape to do in a single forward pass for all steps
                 values, action_log_probs, dist_entropy, _, _, _, _ = self.actor_critic.evaluate_actions(self.agent_id, share_obs_batch, 
-                obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, recurrent_c_states_batch, recurrent_c_states_critic_batch, masks_batch, actions_batch)
+                obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, recurrent_c_states_batch, recurrent_c_states_critic_batch, masks_batch, high_masks_batch, actions_batch)
 
                 ratio = torch.exp(action_log_probs - old_action_log_probs_batch)
                 
@@ -153,7 +154,7 @@ class PPO():
                 
                 surr1 = ratio * adv_targ
                 surr2 = torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param) * adv_targ
-                action_loss = -torch.min(surr1, surr2).mean()
+                action_loss = (-torch.min(surr1, surr2)* high_masks_batch).mean()
 
                 if self.use_clipped_value_loss:
                     if self.use_huber_loss:
@@ -192,7 +193,7 @@ class PPO():
                         (action_loss - dist_entropy * self.entropy_coef).backward()
                 
                 for name,param in self.actor_critic.named_parameters():
-                    if name == "dist.linear.weight":
+                    if name == "dist.linear.weight" or name == "dist.fc_mean.weight":
                         grad_norm = param.grad.norm()
                        
                 if self.use_max_grad_norm:
