@@ -83,7 +83,6 @@ class AgarEnv(gym.Env):
         self.args = args
         self.action_repeat = action_repeat
         self.gamemode = gamemode # We only implemented FFA (gamemode = 0)
-        self.beta = beta
         self.g = args.gamma # discount rate of RL (gamma)
         self.reward_settings = reward_settings       
         self.total_step = 0
