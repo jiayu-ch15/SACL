@@ -78,23 +78,25 @@ def rand(a, b):
     return random.random() * (b - a) + a
 
 class AgarEnv(gym.Env):
-    def __init__(self, args, obs_size = 578, action_repeat = 5, gamemode = 0, alpha = 0, beta = 1, reward_settings = "std", eval=False):
+    def __init__(self, args, obs_size = 578, action_repeat = 5, gamemode = 0, kill_reward_eps = 1, coop_eps = 0, reward_settings = "std", curriculum_learning = False):
         super(AgarEnv, self).__init__()
         self.args = args
-        # factors for reward
         self.action_repeat = action_repeat
         self.gamemode = gamemode # We only implemented FFA (gamemode = 0)
         self.alpha = alpha
         self.beta = beta
         self.g = args.gamma # discount rate of RL (gamma)
         self.reward_settings = reward_settings       
-        #if args.total_step is None:args.total_step = 0
         self.total_step = 0
-        self.eval = eval       
-        self.num_agents = args.num_agents # number of agents controlled outside
-        #self.action_space = spaces.Box(low = -1, high = 1, shape=(3,)) # action = [x(real), y(real), split(bool)]
-        #self.observation_space = spaces.Dict( {'agent-'+str(i):spaces.Box(low=-100, high=100, shape=(obs_size,)) for i in range(self.num_agents)}  )
+        #total_step > up_step,up = [0,1] total_step = 10e6, up = 1
+        #total_step > low_step, low = [0,1] total_step = 15e6, low=1
+        self.up_step = 5e6
+        self.low_step = 10e6
+        self.curriculum_learning = curriculum_learning    
+        self.num_bots = 5   
+        self.num_agents = args.num_agents
         
+        #self.observation_space = spaces.Dict( {'agent-'+str(i):spaces.Box(low=-100, high=100, shape=(obs_size,)) for i in range(self.num_agents)}  )        
         self.action_space = []
         self.observation_space = []
         for i in range(self.num_agents):
@@ -109,7 +111,13 @@ class AgarEnv(gym.Env):
         self.sum_r_g_i = np.zeros((self.num_agents, )) # summation of discounted reward using standard reward settings (alpha = 1, beta = 0)
         self.dir = [] 
         
-        self.share_reward = args.share_reward         
+        self.mass_reward_eps = 0.33
+        self.killed_reward_eps = 0.
+        self.kill_reward_eps = np.ones(self.num_agents) * 0.33 * kill_reward_eps
+        self.coop_eps = np.ones(self.num_agents) * coop_eps
+        self.share_reward = args.share_reward
+        if self.share_reward:
+            self.coop_eps = np.zeros(self.num_agents)
 
     def step(self, actions_):    
         actions = deepcopy(actions_)
@@ -165,14 +173,6 @@ class AgarEnv(gym.Env):
     
     def step_(self, actions_):
         actions = deepcopy(actions_)
-        '''
-        act = []
-        for i in range(self.num_agents):
-            act.extend([actions[i * 3 + 0], actions[i * 3 + 1], actions[i * 3 + 2]])
-            if actions[i * 3 + 2] > 0.5:act[-1] = 0
-            else:act[-1] = 2
-        actions = np.array(act).reshape(-1,3)
-        '''
         for action, agent in zip(actions, self.agents):
             agent.step(deepcopy(action))
         for i in range(self.num_agents, len(self.server.players)):
@@ -203,15 +203,12 @@ class AgarEnv(gym.Env):
         self.sum_r += rewards
         self.sum_r_g += rewards * self.m_g
         self.sum_r_g_i += t_rewards2 * self.m_g
-        #observations = np.array(observations)
         self.s_n += 1
-         
-        #observations = {'agent-'+str(i): observations[i] for i in range(self.num_agents)}
+
         return observations, rewards
 
     def reset(self):       
-        while True:
-            self.num_bots = 5
+        while True:           
             self.num_players = self.num_bots +self.num_agents
             self.rewards_forced = [0 for i in range(self.num_agents)]
             self.stop_step = 2000 - random.randint(0, 100) * self.action_repeat
@@ -225,21 +222,17 @@ class AgarEnv(gym.Env):
             self.m_g = 1.
             self.last_action = [0 for i in range(3 * self.num_players)]
             self.s_n = 0
-            self.kill_reward_eps = np.ones(self.num_agents) * 0.33 * (1 - self.alpha)
-            self.coop_eps = np.ones(self.num_agents) * self.beta
-            self.mass_reward_eps = 0.33
-            self.killed_reward_eps = 0.
+            
             self.split = np.zeros(self.num_agents)
             self.hit = np.zeros((self.num_agents, 4))
             self.near = False
-            if self.eval:
-                self.kill_reward_eps = np.zeros(self.num_agents)
-                self.coop_eps = np.zeros(self.num_agents)
-                self.bot_speed = 1.0
-            else:
-                up  = min(1.0, max(0.0, (self.total_step - 5e6) / 5e6)) # script agent speed curriculum is set here.
-                low = min(1.0, max(0.0, (self.total_step - 1e7) / 5e6))
+            if self.curriculum_learning:
+                up  = min(1.0, max(0.0, (self.total_step - self.up_step) / self.up_step)) # script agent speed curriculum is set here.
+                low = min(1.0, max(0.0, (self.total_step - self.low_step) / self.up_step))
                 self.bot_speed = rand(low, up)
+            else:
+                self.bot_speed = 1.0
+              
             self.server = GameServer(self)
             self.server.start(self.gamemode)
             self.agents = [Player(self.server) for _ in range(self.num_agents)]
