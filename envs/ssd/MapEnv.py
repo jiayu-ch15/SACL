@@ -789,7 +789,7 @@ class MapEnv(object):
                 apple_consumption += self.agents['agent-' + str(i)].apple_consumption
         
         infos['collective_return'] = collective_return
-        infos['sustainability'] = sustainability
+        infos['sustainability'] = sustainability/self.num_agents
         infos['fire'] = fire
                 
         if self.env_name == "Cleanup":
