@@ -61,7 +61,7 @@ def get_config():
     parser.add_argument("--use-gae", action='store_false', default=True, help='use generalized advantage estimation')
     parser.add_argument("--gamma", type=float, default=0.99, help='discount factor for rewards (default: 0.99)')
     parser.add_argument("--gae-lambda", type=float, default=0.95, help='gae lambda parameter (default: 0.95)')
-    parser.add_argument("--use-proper-time-limits", action='store_true', default=False, help='compute returns taking into account time limits')
+    parser.add_argument("--use-proper-time-limits", action='store_false', default=True, help='compute returns taking into account time limits')
     parser.add_argument("--use_huber_loss", action='store_true', default=False)
     parser.add_argument("--huber_delta", type=float, default=20.0)
     
