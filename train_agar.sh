@@ -1,6 +1,6 @@
 #!/bin/sh
 env="Agar"
-algo="zg-rollout16-batch4-length500"
+algo="zg-rollout8-batch8-length500"
 seed_max=1
 
 echo "env is ${env}, algo is ${algo}, seed is ${seed_max}"
@@ -8,6 +8,6 @@ echo "env is ${env}, algo is ${algo}, seed is ${seed_max}"
 for seed in `seq ${seed_max}`;
 do
     echo "seed is ${seed}:"
-    CUDA_VISIBLE_DEVICES=0 python train_agar.py --env_name ${env} --algorithm_name ${algo} --seed ${seed} --n_rollout_threads 16 --num_mini_batch 4 --ppo_epoch 4 --use_popart --num_agents 2 --episode_length 500 --lr 2e-4 --value_loss_coef 1 --num_env_steps 40000000 --data_chunk_length 10 --use_huber_loss --huber_delta 10 --entropy_coef 0.005 --use-max-grad-norm --max-grad-norm 20.0 --clip_param 0.1
+    CUDA_VISIBLE_DEVICES=0 python train_agar.py --env_name ${env} --algorithm_name ${algo} --seed ${seed} --n_rollout_threads 8 --num_mini_batch 8 --ppo_epoch 4 --use_popart --num_agents 2 --episode_length 500 --lr 2e-4 --value_loss_coef 1 --num_env_steps 40000000 --data_chunk_length 10 --use_huber_loss --huber_delta 10 --entropy_coef 0.005 --use-max-grad-norm --max-grad-norm 20.0 --clip_param 0.1
     echo "training is done!"
 done
