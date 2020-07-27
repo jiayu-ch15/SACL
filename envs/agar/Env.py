@@ -78,7 +78,7 @@ def rand(a, b):
     return random.random() * (b - a) + a
 
 class AgarEnv(gym.Env):
-    def __init__(self, args, obs_size = 538, action_repeat = 5, gamemode = 0, kill_reward_eps = 1, coop_eps = 0, reward_settings = "std", curriculum_learning = False):
+    def __init__(self, args, obs_size = 538, action_repeat = 5, gamemode = 0, kill_reward_eps = 1, coop_eps = 0, reward_settings = "std", curriculum_learning = True):
         super(AgarEnv, self).__init__()
         self.args = args
         self.action_repeat = action_repeat
