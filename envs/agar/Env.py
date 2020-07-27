@@ -78,7 +78,7 @@ def rand(a, b):
     return random.random() * (b - a) + a
 
 class AgarEnv(gym.Env):
-    def __init__(self, args, obs_size = 578, action_repeat = 5, gamemode = 0, kill_reward_eps = 1, coop_eps = 0, reward_settings = "std", curriculum_learning = False):
+    def __init__(self, args, obs_size = 538, action_repeat = 5, gamemode = 0, kill_reward_eps = 1, coop_eps = 0, reward_settings = "std", curriculum_learning = False):
         super(AgarEnv, self).__init__()
         self.args = args
         self.action_repeat = action_repeat
@@ -99,7 +99,7 @@ class AgarEnv(gym.Env):
         self.observation_space = []
         for i in range(self.num_agents):
             self.action_space.append(spaces.Box(low = -1, high = 1, shape=(3,)))
-            self.observation_space.append([obs_size])
+            self.observation_space.append([obs_size, [10,15], [5,7], [5,5], [10,15], [10,15], [1,28]])
             
         self.viewer = None
         
@@ -256,9 +256,9 @@ class AgarEnv(gym.Env):
         obs_id is a 578D array, first 560D is information of all entities around agent_id, last 28D is global information
 
         '''
-        n = [10, 5, 5, 10, 10, 10, 5, 5, 10, 10] # the agent can observe at most 10 self-cells, 5 foods, 5 virus, 10 other script agent cells, 10 other outside agent cells
+        n = [10, 5, 5, 10, 10]#, 10, 5, 5, 10, 10] # the agent can observe at most 10 self-cells, 5 foods, 5 virus, 10 other script agent cells, 10 other outside agent cells
         s_glo = 28 # global information size
-        s_size_i = [15, 7, 5, 15, 15, 1, 1, 1, 1, 1] # information size of self-cell, food, virus, script agent cell and other outside agent cells.
+        s_size_i = [15, 7, 5, 15, 15]#, 1, 1, 1, 1, 1] # information size of self-cell, food, virus, script agent cell and other outside agent cells.
         s_size = np.sum(np.array(n) * np.array(s_size_i)) + s_glo
         if len(player.cells) == 0:return np.zeros(s_size)
         obs = [[], [], [], [], []]
@@ -273,7 +273,7 @@ class AgarEnv(gym.Env):
         b_x = (bound[1] - bound[0]) / self.server.config.serverViewBaseX
         b_y = (bound[3] - bound[2]) / self.server.config.serverViewBaseY
         base = 0
-        for j in range(10):
+        for j in range(5):
             lim = min(len(obs[j % 5]), n[j % 5])
             if j >= 5:
                 for i in range(lim):
