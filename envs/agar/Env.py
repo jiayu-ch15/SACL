@@ -145,16 +145,17 @@ class AgarEnv(gym.Env):
         for i in range(self.num_agents):         
             info[i]['high_masks'] = True
             info[i]['bad_transition'] = False
-            info[i]['collective_return'] = self.sum_r[i]
-            info[i]['behavior'] = self.hit[i]
+            info[i]['collective_return'] = self.sum_r[i]            
             if self.killed[i] >= 1:
                 done[i] = True
                 info[i]['high_masks'] = False
                 if self.killed[i] == 1:
+                    info[i]['behavior'] = self.hit[i]
                     info[i]['episode'] = {'r':self.sum_r[i], 'r_g': self.sum_r_g[i], 'r_g_i': self.sum_r_g_i[i], 'hit':self.hit[i], 'dis': self.sum_dis / self.s_n}
                 else:info[i]['bad_transition'] = True
             elif self.s_n >= self.stop_step:
                 done[i] = True
+                info[i]['behavior'] = self.hit[i]
                 info[i]['episode'] = {'r':self.sum_r[i], 'r_g': self.sum_r_g[i], 'r_g_i':self.sum_r_g_i[i], 'hit':self.hit[i], 'dis': self.sum_dis / self.s_n}
 
         if np.sum(done) == self.num_agents:
