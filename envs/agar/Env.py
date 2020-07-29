@@ -146,6 +146,7 @@ class AgarEnv(gym.Env):
             info[i]['high_masks'] = True
             info[i]['bad_transition'] = False
             info[i]['collective_return'] = self.sum_r[i]
+            info[i]['behavior'] = self.hit[i]
             if self.killed[i] >= 1:
                 done[i] = True
                 info[i]['high_masks'] = False

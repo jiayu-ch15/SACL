@@ -377,15 +377,36 @@ def main():
             if args.env_name == "Agar":                
                 for agent_id in range(num_agents):
                     collective_return = []
+                    split = []
+                    hunt = []
+                    attack = []
+                    cooperate = []
                     high_masks = []
                     bad_transition = []
                     for i,info in enumerate(infos):                    
                         if 'collective_return' in info[agent_id].keys():
-                            collective_return.append(info[agent_id]['collective_return'])                         
+                            collective_return.append(info[agent_id]['collective_return']) 
+                        if 'behavior' in info[agent_id].keys():
+                            split.append(info[agent_id]['behavior'][0])
+                            hunt.append(info[agent_id]['behavior'][1])
+                            attack.append(info[agent_id]['behavior'][2])
+                            cooperate.append(info[agent_id]['behavior'][3])                                                     
 
-                        logger.add_scalars('agent%i/collective_return' % agent_id,
-                                            {'collective_return': np.mean(collective_return)},
-                                            total_num_steps)
+                    logger.add_scalars('agent%i/collective_return' % agent_id,
+                                        {'collective_return': np.mean(collective_return)},
+                                        total_num_steps)
+                    logger.add_scalars('agent%i/split' % agent_id,
+                                        {'split': np.mean(split)},
+                                        total_num_steps)
+                    logger.add_scalars('agent%i/hunt' % agent_id,
+                                        {'hunt': np.mean(hunt)},
+                                        total_num_steps)
+                    logger.add_scalars('agent%i/attack' % agent_id,
+                                        {'attack': np.mean(attack)},
+                                        total_num_steps)
+                    logger.add_scalars('agent%i/cooperate' % agent_id,
+                                        {'cooperate': np.mean(cooperate)},
+                                        total_num_steps)
                
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()
