@@ -7,7 +7,6 @@ import gym
 from gym import spaces
 from .GameServer import GameServer
 from .players import Player, Bot
-#from . import rendering
 import numpy as np
 from copy import deepcopy
 
