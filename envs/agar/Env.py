@@ -23,7 +23,7 @@ def onehot(d, ndim):
     return v
 
 class AgarEnv(gym.Env):
-    def __init__(self, args, obs_size = 538, action_repeat = 5, gamemode = 0, kill_reward_eps = 1, coop_eps = 0, reward_settings = "std", curriculum_learning = True):
+    def __init__(self, args, obs_size = 538, action_repeat = 5, gamemode = 0, kill_reward_eps = 0, coop_eps = 1, reward_settings = "std", curriculum_learning = False):
         super(AgarEnv, self).__init__()
         self.args = args
         self.action_repeat = action_repeat
@@ -59,8 +59,8 @@ class AgarEnv(gym.Env):
         self.kill_reward_eps = np.ones(self.num_agents) * 0.33 * kill_reward_eps
         self.coop_eps = np.ones(self.num_agents) * coop_eps
         self.share_reward = args.share_reward
-        if self.share_reward:
-            self.coop_eps = np.zeros(self.num_agents)
+        #if self.share_reward:
+            #self.coop_eps = np.zeros(self.num_agents)
 
     def step(self, actions_):    
         actions = deepcopy(actions_)
