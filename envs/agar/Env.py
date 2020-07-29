@@ -353,7 +353,7 @@ class AgarEnv(gym.Env):
         self.dir = deepcopy(a)
 
     def render(self, playeridx, mode = 'human', name = ""):
-    
+        from . import rendering
         if self.viewer is None:
             self.viewer = rendering.Viewer(self.server.config.serverViewBaseX, self.server.config.serverViewBaseY)
             self.render_border()
@@ -374,6 +374,7 @@ class AgarEnv(gym.Env):
         return self.viewer.render(return_rgb_array=mode == 'rgb_array', name = name)
 
     def render_border(self):
+        from . import rendering
         map_left = - self.server.config.borderWidth / 2
         map_right = self.server.config.borderWidth / 2
         map_top = - self.server.config.borderHeight / 2
@@ -395,6 +396,7 @@ class AgarEnv(gym.Env):
         self.viewer.add_geom(cellwall)
 
     def render_grid(self):
+        from . import rendering
         map_left = - self.server.config.borderWidth / 2
         map_right = self.server.config.borderWidth / 2
         map_top = - self.server.config.borderHeight / 2
@@ -416,6 +418,7 @@ class AgarEnv(gym.Env):
             self.viewer.add_geom(line)
 
     def render_dir(self, center):
+        from . import rendering
         for i in range(len(self.dir)):
             line = rendering.Line((0, 0), (self.dir[i][0] * 500, self.dir[i][1] * 500))
             line.set_color((len(self.dir) - i) / len(self.dir), i / len(self.dir), 0)
@@ -426,6 +429,7 @@ class AgarEnv(gym.Env):
             self.geoms_to_render.append(line)
 
     def add_cell_geom(self, cell):
+        from . import rendering
         if cell.cellType == 0:
             cellwall = rendering.make_circle(radius=cell.radius)
             cellwall.set_color(cell.color.r * 0.75 / 255.0, cell.color.g * 0.75 / 255.0 , cell.color.b * 0.75 / 255.0)
