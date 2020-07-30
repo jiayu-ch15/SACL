@@ -129,8 +129,6 @@ class Policy(nn.Module):
                 dist[i] = self.dist[i](actor_features)
                 action_log_probs[i] = dist[i].log_probs(action[i])
                 if high_masks is not None:
-                    print(dist[i].entropy())
-                    print(high_masks)
                     dist_entropy[i] = (dist[i].entropy()* high_masks).sum() / (high_masks.sum()*dist[i].entropy().size(-1))
                 else:
                     dist_entropy[i] = dist[i].entropy().mean()

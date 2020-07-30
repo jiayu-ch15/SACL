@@ -23,7 +23,7 @@ def onehot(d, ndim):
     return v
 
 class AgarEnv(gym.Env):
-    def __init__(self, args, obs_size = 538, action_repeat = 5, gamemode = 0, kill_reward_eps = 0, coop_eps = 1, reward_settings = "std", curriculum_learning = False):
+    def __init__(self, args, obs_size = 531, action_repeat = 5, gamemode = 0, kill_reward_eps = 0, coop_eps = 1, reward_settings = "std", curriculum_learning = False):
         super(AgarEnv, self).__init__()
         self.args = args
         self.action_repeat = action_repeat
@@ -44,7 +44,7 @@ class AgarEnv(gym.Env):
         self.observation_space = []
         for i in range(self.num_agents):
             self.action_space.append(spaces.Tuple([spaces.Box(low = -1, high = 1, shape=(2,)), spaces.Discrete(2)]))
-            self.observation_space.append([obs_size, [10,15], [5,7], [5,5], [10,15], [10,15], [1,28]])
+            self.observation_space.append([obs_size, [10,15], [5,7], [5,5], [10,15], [10,15], [1,21]])
             
         self.viewer = None
         
@@ -198,7 +198,7 @@ class AgarEnv(gym.Env):
 
         '''
         n = [10, 5, 5, 10, 10]#, 10, 5, 5, 10, 10] # the agent can observe at most 10 self-cells, 5 foods, 5 virus, 10 other script agent cells, 10 other outside agent cells
-        s_glo = 28 # global information size
+        s_glo = 21 # global information size
         s_size_i = [15, 7, 5, 15, 15]#, 1, 1, 1, 1, 1] # information size of self-cell, food, virus, script agent cell and other outside agent cells.
         s_size = np.sum(np.array(n) * np.array(s_size_i)) + s_glo
         if len(player.cells) == 0:return np.zeros(s_size)
@@ -226,33 +226,25 @@ class AgarEnv(gym.Env):
 
         position_x = (player.centerPos.x) / self.server.config.borderWidth * 2 # [-1, 1]
         position_y = (player.centerPos.y) / self.server.config.borderHeight * 2 # [-1, 1]
-        #obs_f[-28:] are global information
-        obs_f[-1] = 0 # all zeros are reserved bit
-        obs_f[-2] = 0
-        obs_f[-4] = position_x
-        obs_f[-3] = position_y
-        obs_f[-5] = 0
-        obs_f[-6] = 0
-        obs_f[-7] = player.centerPos.sqDist() / self.server.config.r
-        obs_f[-8] = b_x
-        obs_f[-9] = b_y
-        obs_f[-10] = len(obs[0])
-        obs_f[-11] = len(obs[1])
-        obs_f[-12] = len(obs[2])
-        obs_f[-13] = len(obs[3])
-        obs_f[-14] = len(obs[4])
-        obs_f[-15] = player.maxcell().radius / 400
-        obs_f[-16] = player.mincell().radius / 400
-        obs_f[-19:-16] = self.last_action[id * 3 : id * 3 + 3]
-        obs_f[-20] = self.bot_speed
-        obs_f[-21] = (self.killed[id] != 0)
-        obs_f[-22] = (self.killed[1 - id] != 0)
-        obs_f[-23] = sum([c.mass for c in player.cells]) / 50
-        obs_f[-24] = sum([c.mass for c in self.agents[1 - id].cells]) / 50
-        obs_f[-25] = 0
-        obs_f[-26] = 0
-        obs_f[-27] = 0
-        obs_f[-28] = 0
+        #obs_f[-21:] are global information
+        obs_f[-1] = position_x
+        obs_f[-2] = position_y
+        obs_f[-3] = player.centerPos.sqDist() / self.server.config.r
+        obs_f[-4] = b_x
+        obs_f[-5] = b_y
+        obs_f[-6] = len(obs[0])
+        obs_f[-7] = len(obs[1])
+        obs_f[-8] = len(obs[2])
+        obs_f[-9] = len(obs[3])
+        obs_f[-10] = len(obs[4])
+        obs_f[-11] = player.maxcell().radius / 400
+        obs_f[-12] = player.mincell().radius / 400
+        obs_f[-16:-13] = self.last_action[id * 3 : id * 3 + 3]
+        obs_f[-17] = self.bot_speed
+        obs_f[-18] = (self.killed[id] != 0)
+        obs_f[-19] = (self.killed[1 - id] != 0)
+        obs_f[-20] = sum([c.mass for c in player.cells]) / 50
+        obs_f[-21] = sum([c.mass for c in self.agents[1 - id].cells]) / 50
                 
         return deepcopy(obs_f)
 
