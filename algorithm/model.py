@@ -29,6 +29,7 @@ class Flatten(nn.Module):
 class Policy(nn.Module):
     def __init__(self, obs_shape, action_space, num_agents, base=None, base_kwargs=None):
         super(Policy, self).__init__()
+        self.multi_action = False
         if base_kwargs is None:
             base_kwargs = {}
             
@@ -48,8 +49,11 @@ class Policy(nn.Module):
         elif action_space.__class__.__name__ == "MultiBinary":
             num_actions = action_space.shape[0]
             self.dist = Bernoulli(self.base.output_size, num_actions)
-        else:
-            raise NotImplementedError
+        else:# agar
+            self.multi_action = True
+            continous = action_space[0].shape[0]
+            discrete = action_space[1].n
+            self.dist = nn.ModuleList([DiagGaussian(self.base.output_size, continous), Categorical(self.base.output_size, discrete)])
 
     @property
     def is_recurrent(self):
@@ -79,17 +83,32 @@ class Policy(nn.Module):
         
         value, actor_features, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
         
-        dist = self.dist(actor_features, available_actions)
-
-        if deterministic:
-            action = dist.mode()
-        else:
-            action = dist.sample()
-
-        action_log_probs = dist.log_probs(action)
-        dist_entropy = dist.entropy().mean()
+        if self.multi_action:
+            dist, action, action_log_probs = [None, None], [None, None], [None, None]
+            for i in range(2):
+                dist[i] = self.dist[i](actor_features, available_actions)
+    
+                if deterministic:
+                    action[i] = dist[i].mode().float()
+                else:
+                    action[i] = dist[i].sample().float()
         
-        return value, action, action_log_probs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic
+                action_log_probs[i] = dist[i].log_probs(action[i])
+            action_out = torch.cat(action,-1)
+            action_log_probs_out = torch.sum(torch.cat(action_log_probs, -1), -1, keepdim = True)
+        else:
+            dist = self.dist(actor_features, available_actions)
+    
+            if deterministic:
+                action = dist.mode()
+            else:
+                action = dist.sample()
+    
+            action_log_probs = dist.log_probs(action)
+            action_out = action
+            action_log_probs_out = action_log_probs
+            
+        return value, action_out, action_log_probs_out, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic
 
     def get_value(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks):
         
@@ -100,13 +119,31 @@ class Policy(nn.Module):
     def evaluate_actions(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks, high_masks, action):
         
         value, actor_features, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
-        dist = self.dist(actor_features)
+        
+        if self.multi_action:
+            a, b = action.split((2, 1), -1)
+            b = b.long()
+            action = [a, b]
+            dist, action_log_probs, dist_entropy = [None, None], [None, None], [None, None]
+            for i in range(2):
+                dist[i] = self.dist[i](actor_features)
+                action_log_probs[i] = dist[i].log_probs(action[i])
+                if high_masks is not None:
+                    print(dist[i].entropy())
+                    print(high_masks)
+                    dist_entropy[i] = (dist[i].entropy()* high_masks).sum() / (high_masks.sum()*dist[i].entropy().size(-1))
+                else:
+                    dist_entropy[i] = dist[i].entropy().mean()
+            action_log_probs_out = torch.sum(torch.cat(action_log_probs, -1), -1, keepdim = True)
+            dist_entropy_out = dist_entropy[0] / 2.0 + dist_entropy[1] / 0.98
+        else:
+            dist = self.dist(actor_features)
+            action_log_probs = dist.log_probs(action)    
+            dist_entropy = (dist.entropy()*high_masks).sum()/(high_masks.sum()*dist.entropy().size(-1))
+            action_log_probs_out = action_log_probs
+            dist_entropy_out = dist_entropy
 
-        action_log_probs = dist.log_probs(action)
-
-        dist_entropy = (dist.entropy()*high_masks).sum()/(high_masks.sum()*dist.entropy().size(-1))
-
-        return value, action_log_probs, dist_entropy, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic
+        return value, action_log_probs_out, dist_entropy_out, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic
 
 
 class NNBase(nn.Module):

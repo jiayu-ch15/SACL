@@ -43,7 +43,7 @@ class AgarEnv(gym.Env):
         self.action_space = []
         self.observation_space = []
         for i in range(self.num_agents):
-            self.action_space.append(spaces.Box(low = -1, high = 1, shape=(3,)))
+            self.action_space.append(spaces.Tuple([spaces.Box(low = -1, high = 1, shape=(2,)), spaces.Discrete(2)]))
             self.observation_space.append([obs_size, [10,15], [5,7], [5,5], [10,15], [10,15], [1,28]])
             
         self.viewer = None
@@ -69,16 +69,11 @@ class AgarEnv(gym.Env):
         info = [{} for i in range(self.num_agents)]
         
         first = True
-        for i in range(self.action_repeat):        
-            if not first:
-                for j in range(self.num_agents):
-                    actions[j][2] = -1.
-            first = False
-            for action in actions:
-                if action[-1] > 0.5:
-                   action[-1] = 0
-                else:
-                   action[-1] = 2
+        for i in range(self.action_repeat): 
+            for j in range(self.num_agents):
+                if not first:
+                    actions[j][2] = 1
+                first = False                
             o,r = self.step_(actions)
             reward += r
         

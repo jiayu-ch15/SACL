@@ -30,10 +30,15 @@ class RolloutStorage(object):
         self.value_preds = torch.zeros(episode_length + 1, n_rollout_threads, 1)
         self.returns = torch.zeros(episode_length + 1, n_rollout_threads, 1)
         self.action_log_probs = torch.zeros(episode_length, n_rollout_threads, 1)
+        
         if action_space.__class__.__name__ == 'Discrete':
             action_shape = 1
-        else:
+        elif action_space.__class__.__name__ == "Box":
             action_shape = action_space.shape[0]
+        elif action_space.__class__.__name__ == "MultiBinary":
+            action_shape = action_space.shape[0]
+        else:#agar
+            action_shape = action_space[0].shape[0] + 1
         self.actions = torch.zeros(episode_length, n_rollout_threads, action_shape)
         if action_space.__class__.__name__ == 'Discrete':
             self.actions = self.actions.long()

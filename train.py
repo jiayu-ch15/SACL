@@ -234,6 +234,7 @@ def main():
                 one_hot_action_env = []
                 for k in range(num_agents):
                     one_hot_action = np.zeros(envs.action_space[0].n)
+                    print(actions)
                     one_hot_action[actions[k][i]] = 1
                     one_hot_action_env.append(one_hot_action)
                 actions_env.append(one_hot_action_env)

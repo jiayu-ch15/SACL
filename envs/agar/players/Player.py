@@ -51,9 +51,10 @@ class Player:
         # assert np.sum(action[2:]) == 1
         if action[2] == 0:
             self.pressSpace()
-        elif action[2] == 1:
-            self.pressW()
-        elif action[2] == 2:
+        #elif action[2] == 1:
+        #    self.pressW()
+        #elif action[2] == 2:
+        else:
             pass
 
         # self.updateView()

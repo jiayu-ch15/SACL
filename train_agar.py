@@ -152,7 +152,7 @@ def main():
                             agent_id,
                             args.episode_length, 
                             args.n_rollout_threads,
-                            envs.observation_space[agent_id], 
+                            envs.observation_space[agent_id],
                             envs.action_space[agent_id],
                             actor_critic[agent_id].recurrent_hidden_size)
                        
