@@ -70,10 +70,10 @@ class AgarEnv(gym.Env):
         
         first = True
         for i in range(self.action_repeat): 
-            for j in range(self.num_agents):
-                if not first:
+            if not first:
+                for j in range(self.num_agents):
                     actions[j][2] = 1
-                first = False                
+            first = False                
             o,r = self.step_(actions)
             reward += r
         
