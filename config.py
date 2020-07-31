@@ -27,7 +27,7 @@ def get_config():
     parser.add_argument("--share_policy", action='store_false', default=True, help='agent share the same policy')
     parser.add_argument("--hidden_size", type=int, default=64)
     parser.add_argument("--use_common_layer", action='store_true', default=False)
-    parser.add_argument("--use_popart", action='store_true', default=False)
+    parser.add_argument("--use_popart", action='store_false', default=True)
     parser.add_argument("--use_feature_popart", action='store_true', default=False)
     parser.add_argument("--use_feature_normlization", action='store_true', default=False)
     parser.add_argument("--use_average_pool", action='store_false', default=True)    
@@ -41,10 +41,10 @@ def get_config():
     
     # attn
     parser.add_argument("--attn", action='store_true', default=False)    
-    parser.add_argument("--attn_N", type=int, default=3)
+    parser.add_argument("--attn_N", type=int, default=1)
     parser.add_argument("--attn_size", type=int, default=64)
     parser.add_argument("--attn_heads", type=int, default=8)
-    parser.add_argument("--dropout", type=float, default=0.05)    
+    parser.add_argument("--dropout", type=float, default=0.0)    
     
     # ppo
     parser.add_argument("--ppo_epoch", type=int, default=4, help='number of ppo epochs (default: 4)')    
@@ -53,17 +53,17 @@ def get_config():
     parser.add_argument("--num_mini_batch", type=int, default=32, help='number of batches for ppo (default: 32)')   
     parser.add_argument("--entropy_coef", type=float, default=0.01, help='entropy term coefficient (default: 0.01)')
     parser.add_argument("--value_loss_coef", type=float, default=1, help='value loss coefficient (default: 0.5)')
-    parser.add_argument("--lr", type=float, default=3e-4, help='learning rate (default: 7e-4)')
+    parser.add_argument("--lr", type=float, default=5e-4, help='learning rate (default: 7e-4)')
     parser.add_argument("--eps", type=float, default=1e-5, help='RMSprop optimizer epsilon (default: 1e-5)')
     parser.add_argument("--weight_decay", type=float, default=1e-8)
-    parser.add_argument("--use-max-grad-norm", action='store_true', default=False)
-    parser.add_argument("--max-grad-norm", type=float, default=0.5, help='max norm of gradients (default: 0.5)')
+    parser.add_argument("--use-max-grad-norm", action='store_false', default=True)
+    parser.add_argument("--max-grad-norm", type=float, default=20.0, help='max norm of gradients (default: 0.5)')
     parser.add_argument("--use-gae", action='store_false', default=True, help='use generalized advantage estimation')
     parser.add_argument("--gamma", type=float, default=0.99, help='discount factor for rewards (default: 0.99)')
     parser.add_argument("--gae-lambda", type=float, default=0.95, help='gae lambda parameter (default: 0.95)')
     parser.add_argument("--use-proper-time-limits", action='store_false', default=True, help='compute returns taking into account time limits')
-    parser.add_argument("--use_huber_loss", action='store_true', default=False)
-    parser.add_argument("--huber_delta", type=float, default=20.0)
+    parser.add_argument("--use_huber_loss", action='store_false', default=True)
+    parser.add_argument("--huber_delta", type=float, default=10.0)
     
     
     # replay buffer
