@@ -24,7 +24,7 @@ def get_p_and_g_mean_norm(it):
 class PopArt(nn.Module):
     """ Normalize a vector of observations - across the first norm_axes dimensions"""
 
-    def __init__(self, input_shape, norm_axes=1, beta=0.99999, per_element_update=False, epsilon=1e-5):
+    def __init__(self, input_shape, norm_axes=1, beta=0.99999, per_element_update=False, epsilon=1e-5, device=torch.device("cpu")):
         super(PopArt, self).__init__()
 
         self.input_shape = input_shape
@@ -34,9 +34,9 @@ class PopArt(nn.Module):
         self.per_element_update = per_element_update
         self.train = True
 
-        self.running_mean = nn.Parameter(torch.zeros(input_shape, dtype=torch.float), requires_grad=False).cuda()
-        self.running_mean_sq = nn.Parameter(torch.zeros(input_shape, dtype=torch.float), requires_grad=False).cuda()
-        self.debiasing_term = nn.Parameter(torch.tensor(0.0, dtype=torch.float), requires_grad=False).cuda()
+        self.running_mean = nn.Parameter(torch.zeros(input_shape, dtype=torch.float), requires_grad=False).to(device)
+        self.running_mean_sq = nn.Parameter(torch.zeros(input_shape, dtype=torch.float), requires_grad=False).to(device)
+        self.debiasing_term = nn.Parameter(torch.tensor(0.0, dtype=torch.float), requires_grad=False).to(device)
 
     def reset_parameters(self):
         self.running_mean.zero_()
@@ -51,7 +51,7 @@ class PopArt(nn.Module):
 
     def forward(self, input_vector):
         # Make sure input is float32
-        input_vector = input_vector.to(torch.float).cuda()
+        input_vector = input_vector.to(torch.float)
 
         if self.train:
             # Detach input before adding it to running means to avoid backpropping through it on
@@ -76,7 +76,7 @@ class PopArt(nn.Module):
 
     def denormalize(self, input_vector):
         """ Transform normalized data back into original distribution """
-        input_vector = input_vector.cuda()
+        input_vector = input_vector
 
         mean, var = self.running_mean_var()
         out = input_vector * torch.sqrt(var)[(None,) * self.norm_axes] + mean[(None,) * self.norm_axes]
@@ -102,7 +102,8 @@ class PPO():
                  use_common_layer=False,
                  use_huber_loss = False,
                  huber_delta=2,
-                 use_popart = True):
+                 use_popart = True,
+                 device = torch.device("cpu")):
 
         self.agent_id = agent_id
         self.step = 0
@@ -126,7 +127,7 @@ class PPO():
 
         self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps, weight_decay=weight_decay)
         self.use_popart = use_popart
-        self.value_normalizer = PopArt(1)
+        self.value_normalizer = PopArt(1, device=device)
 
     def update(self, rollouts, turn_on=True):
         if self.use_popart:

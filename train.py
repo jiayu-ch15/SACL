@@ -145,7 +145,8 @@ def main():
                    use_common_layer=args.use_common_layer,
                    use_huber_loss=args.use_huber_loss,
                    huber_delta=args.huber_delta,
-                   use_popart=args.use_popart)
+                   use_popart=args.use_popart,
+                   device=device)
 
         #replay buffer
         ro = RolloutStorage(num_agents,
@@ -197,7 +198,7 @@ def main():
                                        episode, 
                                        episodes, 
                                        args.lr)           
-
+        star_epistep = time.time()
         for step in range(args.episode_length):
             # Sample actions
             values = []
@@ -207,7 +208,9 @@ def main():
             recurrent_hidden_statess_critic = []
             recurrent_c_statess = []
             recurrent_c_statess_critic = []
-
+            
+            start_act = time.time()
+            
             with torch.no_grad():
                 for i in range(num_agents):
                     value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic ,recurrent_c_states, recurrent_c_states_critic = actor_critic[i].act(i,
@@ -227,7 +230,8 @@ def main():
                     recurrent_hidden_statess_critic.append(recurrent_hidden_states_critic)
                     recurrent_c_statess.append(recurrent_c_states)
                     recurrent_c_statess_critic.append(recurrent_c_states_critic)
-            
+            end_act = time.time()
+            print("time of agents act is %i: " %(end_act-start_act))
             # rearrange action           
             actions_env = []
             for i in range(args.n_rollout_threads):
@@ -240,7 +244,10 @@ def main():
             
             
             # Obser reward and next obs
+            star_envstep = time.time()
             obs, reward, done, infos, available_actions = envs.step(actions_env)
+            end_envstep = time.time()
+            print("time of env step is %i: " %(end_envstep-star_envstep))
 
             # If done then clean the history of observations.
             # insert data in buffer
@@ -288,7 +295,9 @@ def main():
                                         bad_masks[i])
                                         
             
-                                        
+        end_epistep = time.time()  
+        print("time of one epi step is %i: " %(end_epistep-star_epistep)) 
+        start_value = time.time()                            
         with torch.no_grad():
             next_values = []
             for i in range(num_agents):
@@ -301,7 +310,9 @@ def main():
                                                        rollouts[i].recurrent_c_states_critic[-1],
                                                        rollouts[i].masks[-1]).detach()
                 next_values.append(next_value)
-
+        end_value = time.time()
+        print("time of get value is %i: " %(end_value-star_value))
+        start_return = time.time() 
         for i in range(num_agents):
             rollouts[i].compute_returns(next_values[i], 
                                         args.use_gae, 
@@ -310,17 +321,20 @@ def main():
                                         args.use_proper_time_limits,
                                         args.use_popart,
                                         agents[i].value_normalizer)
-
+        end_return = time.time() 
+        print("time of return is %i: " %(end_return-star_return))  
         # update the network
         value_losses = []
         action_losses = []
         dist_entropies = []
+        start_update = time.time() 
         for i in range(num_agents):
             value_loss, action_loss, dist_entropy = agents[i].update(rollouts[i])
             value_losses.append(value_loss)
             action_losses.append(action_loss)
             dist_entropies.append(dist_entropy)
-                                                 
+        end_update = time.time()     
+        print("time of update is %i: " %(end_update-star_update))                                         
         # clean the buffer and reset
         obs, available_actions = envs.reset()
         for i in range(num_agents):

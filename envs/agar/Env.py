@@ -23,7 +23,7 @@ def onehot(d, ndim):
     return v
 
 class AgarEnv(gym.Env):
-    def __init__(self, args, obs_size = 531, action_repeat = 5, gamemode = 0, kill_reward_eps = 0, coop_eps = 1, reward_settings = "std", curriculum_learning = False):
+    def __init__(self, args, obs_size = 531, action_repeat = 5, gamemode = 0, kill_reward_eps = 0, coop_eps = 1, reward_settings = "std", curriculum_learning = True):
         super(AgarEnv, self).__init__()
         self.args = args
         self.action_repeat = action_repeat
@@ -34,7 +34,7 @@ class AgarEnv(gym.Env):
         #total_step > up_step,up = [0,1] total_step = 10e6, up = 1
         #total_step > low_step, low = [0,1] total_step = 15e6, low=1
         self.up_step = 5e6
-        self.low_step = 10e6
+        self.low_step = 15e6
         self.curriculum_learning = curriculum_learning    
         self.num_bots = 5   
         self.num_agents = args.num_agents

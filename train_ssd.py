@@ -147,7 +147,8 @@ def main():
                    use_common_layer=args.use_common_layer,
                    use_huber_loss=args.use_huber_loss,
                    huber_delta=args.huber_delta,
-                   use_popart=args.use_popart)
+                   use_popart=args.use_popart,
+                   device=device)
 
         #replay buffer
         ro = RolloutStorage(num_agents,
