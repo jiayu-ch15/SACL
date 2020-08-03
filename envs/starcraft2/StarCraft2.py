@@ -412,6 +412,9 @@ class StarCraft2Env(MultiAgentEnv):
 
     def step(self, actions):
         """A single environment step. Returns reward, terminated, info."""
+        terminated = False
+        bad_transition = False
+        
         actions_int = [int(np.argmax(a)) for a in actions]
 
         self.last_action = np.eye(self.n_actions)[np.array(actions_int)]
@@ -442,13 +445,16 @@ class StarCraft2Env(MultiAgentEnv):
             self._obs = self._controller.observe()
         except (protocol.ProtocolError, protocol.ConnectionError):
             self.full_restart()
+            terminated = True
+            bad_transition = True
             info = {
                 "battles_won": self.battles_won,
                 "battles_game": self.battles_game,
                 "battles_draw": self.timeouts,
                 "restarts": self.force_restarts,
+                "bad_transition":bad_transition
                }
-            return self.get_obs(),[[0]]*self.n_agents, True, info, []
+            return self.get_obs(),[[0]]*self.n_agents, [[terminated]]*self.n_agents, info, []
 
         self._total_steps += 1
         self._episode_steps += 1
@@ -456,23 +462,21 @@ class StarCraft2Env(MultiAgentEnv):
         # Update units
         game_end_code = self.update_units()
 
-        terminated = False
+        
         reward = self.reward_battle()
         
         available_actions = []
         for i in range(self.n_agents):
             available_actions.append(self.get_avail_agent_actions(i))
             
-        info = {"battle_won": False}
-
         if game_end_code is not None:
             # Battle is over
             terminated = True
+            bad_transition = True
             self.battles_game += 1
             if game_end_code == 1 and not self.win_counted:
                 self.battles_won += 1
                 self.win_counted = True
-                #info["battle_won"] = True
                 if not self.reward_sparse:
                     reward += self.reward_win
                 else:
@@ -487,6 +491,7 @@ class StarCraft2Env(MultiAgentEnv):
         elif self._episode_steps >= self.episode_limit:
             # Episode limit reached
             terminated = True
+            self.bad_transition = True
             if self.continuing_episode:
                 info["episode_limit"] = True
             self.battles_game += 1
@@ -497,6 +502,7 @@ class StarCraft2Env(MultiAgentEnv):
                 "battles_game": self.battles_game,
                 "battles_draw": self.timeouts,
                 "restarts": self.force_restarts,
+                "bad_transition":bad_transition
                }
 
         if self.debug:
@@ -508,7 +514,7 @@ class StarCraft2Env(MultiAgentEnv):
         if self.reward_scale:
             reward /= self.max_reward / self.reward_scale_rate
 
-        return self.get_obs(), [[reward]]*self.n_agents, terminated, info, available_actions
+        return self.get_obs(), [[reward]]*self.n_agents, [[terminated]]*self.n_agents, info, available_actions
 
     def get_agent_action(self, a_id, action):
         """Construct the action for agent a_id."""

@@ -262,18 +262,23 @@ def main():
             # If done then clean the history of observations.
             # insert data in buffer
             masks = []
-            bad_masks = []
             for done_ in done: 
-                mask = []
-                bad_mask = []               
+                mask = []               
                 for i in range(num_agents): 
-                    if done_:              
+                    if done_[i]:              
                         mask.append([0.0])
-                        bad_mask.append([1.0])
                     else:
                         mask.append([1.0])
-                        bad_mask.append([1.0])
                 masks.append(torch.FloatTensor(mask))
+                
+            bad_masks = []
+            for info in infos: 
+                bad_mask = []               
+                for i in range(num_agents): 
+                    if info['bad_transition']:              
+                        bad_mask.append([0.0])
+                    else:
+                        bad_mask.append([1.0])
                 bad_masks.append(torch.FloatTensor(bad_mask))
                             
             if len(envs.observation_space[0]) == 3:

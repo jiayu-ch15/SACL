@@ -428,7 +428,6 @@ class RolloutStorage(object):
                 recurrent_hidden_states_critic_batch).view(N, -1)
 
             # Flatten the (L, N, ...) tensors to (L * N, ...)
-            print(share_obs_batch.size())
             share_obs_batch = _flatten_helper(L, N, share_obs_batch)
             obs_batch = _flatten_helper(L, N, obs_batch)
             actions_batch = _flatten_helper(L, N, actions_batch)
