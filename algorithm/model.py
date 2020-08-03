@@ -64,10 +64,6 @@ class Policy(nn.Module):
         return self.base.is_naive_recurrent
         
     @property
-    def is_lstm(self):
-        return self.base.is_lstm
-        
-    @property
     def is_attn(self):
         return self.base.is_attn
 
@@ -79,9 +75,9 @@ class Policy(nn.Module):
     def forward(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks):
         raise NotImplementedError
 
-    def act(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks, available_actions=None, deterministic=False):
+    def act(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks, available_actions=None, deterministic=False):
         
-        value, actor_features, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
+        value, actor_features, rnn_hxs_actor, rnn_hxs_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)
         
         if self.multi_action:
             dist, action, action_log_probs = [None, None], [None, None], [None, None]
@@ -108,17 +104,17 @@ class Policy(nn.Module):
             action_out = action
             action_log_probs_out = action_log_probs
             
-        return value, action_out, action_log_probs_out, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic
+        return value, action_out, action_log_probs_out, rnn_hxs_actor, rnn_hxs_critic
 
-    def get_value(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks):
+    def get_value(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks):
         
-        value, _, _, _,_ ,_ = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
+        value, _, _, _ = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)
         
         return value
 
-    def evaluate_actions(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks, high_masks, action):
+    def evaluate_actions(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks, high_masks, action):
         
-        value, actor_features, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks)
+        value, actor_features, rnn_hxs_actor, rnn_hxs_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)
         
         if self.multi_action:
             a, b = action.split((2, 1), -1)
@@ -141,17 +137,16 @@ class Policy(nn.Module):
             action_log_probs_out = action_log_probs
             dist_entropy_out = dist_entropy
 
-        return value, action_log_probs_out, dist_entropy_out, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic
+        return value, action_log_probs_out, dist_entropy_out, rnn_hxs_actor, rnn_hxs_critic
 
 
 class NNBase(nn.Module):
-    def __init__(self, obs_shape, num_agents, lstm=False, naive_recurrent=False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False):
+    def __init__(self, obs_shape, num_agents, naive_recurrent=False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False):
         super(NNBase, self).__init__()
 
         self._hidden_size = hidden_size
         self._recurrent = recurrent
         self._naive_recurrent = naive_recurrent
-        self._lstm = lstm
         self._attn = attn
         self._use_common_layer = use_common_layer
                 
@@ -159,22 +154,6 @@ class NNBase(nn.Module):
             self.encoder_actor = Encoder(obs_shape[0], obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool)
             self.encoder_critic = Encoder(obs_shape[0]*num_agents, [[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, dropout, use_average_pool)
         
-        assert (self._lstm and (self._recurrent or self._naive_recurrent))==False, ("LSTM and GRU can not be set True simultaneously.")
-
-        if self._lstm:
-            self.lstm = nn.LSTM(hidden_size, hidden_size)           
-            for name, param in self.lstm.named_parameters():
-                if 'bias' in name:
-                    nn.init.constant_(param, 0)
-                elif 'weight' in name:
-                    nn.init.orthogonal_(param)
-            if not self._use_common_layer:
-                self.lstm_critic = nn.LSTM(hidden_size, hidden_size)
-                for name, param in self.lstm_critic.named_parameters():
-                    if 'bias' in name:
-                        nn.init.constant_(param, 0)
-                    elif 'weight' in name:
-                        nn.init.orthogonal_(param)
         if self._recurrent or self._naive_recurrent:
             self.gru = nn.GRU(hidden_size, hidden_size)           
             for name, param in self.gru.named_parameters():
@@ -197,11 +176,7 @@ class NNBase(nn.Module):
     @property
     def is_naive_recurrent(self):
         return self._naive_recurrent
-        
-    @property
-    def is_lstm(self):
-        return self._lstm
-        
+                
     @property
     def is_attn(self):
         return self._attn
@@ -329,126 +304,10 @@ class NNBase(nn.Module):
             hxs = hxs.squeeze(0)
 
         return x, hxs
-        
-    def _forward_lstm(self, x, hxs, c, masks):
-        if x.size(0) == hxs.size(0):
-            x, (hxs,c) = self.lstm(x.unsqueeze(0), ((hxs * masks).unsqueeze(0), c.unsqueeze(0)))
-            x = x.squeeze(0)
-            hxs = hxs.squeeze(0)
-            c = c.squeeze(0)           
-        else:
-            # x is a (T, N, -1) tensor that has been flatten to (T * N, -1)
-            N = hxs.size(0)
-            T = int(x.size(0) / N)
-
-            # unflatten
-            x = torch.transpose(x.view(N, T, x.size(1)),0,1)
-
-            # Same deal with masks
-            masks = masks.view(T, N)
-
-            # Let's figure out which steps in the sequence have a zero for any agent
-            # We will always assume t=0 has a zero in it as that makes the logic cleaner
-            has_zeros = ((masks[1:] == 0.0) \
-                            .any(dim=-1)
-                            .nonzero()
-                            .squeeze()
-                            .cpu())
-
-            # +1 to correct the masks[1:]
-            if has_zeros.dim() == 0:
-                # Deal with scalar
-                has_zeros = [has_zeros.item() + 1]
-            else:
-                has_zeros = (has_zeros + 1).numpy().tolist()
-
-            # add t=0 and t=T to the list
-            has_zeros = [0] + has_zeros + [T]
-
-            hxs = hxs.unsqueeze(0)
-            c = c.unsqueeze(0)
-            outputs = []
-            for i in range(len(has_zeros) - 1):
-                # This is much faster
-                start_idx = has_zeros[i]
-                end_idx = has_zeros[i + 1]
-                #rnn_scores, hxs = self.gru( x[start_idx:end_idx],hxs * masks[start_idx].view(1, -1, 1))                  
-                rnn_scores, (hxs, c) = self.lstm(x[start_idx:end_idx], (hxs * masks[start_idx].view(1, -1, 1),c))
-
-                outputs.append(rnn_scores)
-
-            # assert len(outputs) == T
-            # x is a (T, N, -1) tensor
-            x = torch.cat(outputs, dim=0)
-            x= torch.transpose(x,0,1)
-            # flatten
-            x = x.reshape(T * N, -1)
-            hxs = hxs.squeeze(0)
-            c.squeeze(0)
-
-        return x, hxs, c
-        
-    def _forward_lstm_critic(self, x, hxs, c, masks):
-        if x.size(0) == hxs.size(0):
-            x, (hxs, c) = self.lstm_critic(x.unsqueeze(0), ((hxs * masks).unsqueeze(0), c.unsqueeze(0)))
-            x = x.squeeze(0)
-            hxs = hxs.squeeze(0)
-            c = c.squeeze(0)
-        else:
-            # x is a (T, N, -1) tensor that has been flatten to (T * N, -1)
-            N = hxs.size(0)
-            T = int(x.size(0) / N)
-
-            # unflatten
-            x = torch.transpose(x.view(N, T, x.size(1)),0,1)
-
-            # Same deal with masks
-            masks = masks.view(T, N)
-
-            # Let's figure out which steps in the sequence have a zero for any agent
-            # We will always assume t=0 has a zero in it as that makes the logic cleaner
-            has_zeros = ((masks[1:] == 0.0) \
-                            .any(dim=-1)
-                            .nonzero()
-                            .squeeze()
-                            .cpu())
-
-            # +1 to correct the masks[1:]
-            if has_zeros.dim() == 0:
-                # Deal with scalar
-                has_zeros = [has_zeros.item() + 1]
-            else:
-                has_zeros = (has_zeros + 1).numpy().tolist()
-
-            # add t=0 and t=T to the list
-            has_zeros = [0] + has_zeros + [T]
-
-            hxs = hxs.unsqueeze(0)
-            c = c.unsqueeze(0)
-            outputs = []
-            for i in range(len(has_zeros) - 1):
-                # We can now process steps that don't have any zeros in masks together!
-                # This is much faster
-                start_idx = has_zeros[i]
-                end_idx = has_zeros[i + 1]
-                rnn_scores, (hxs,c) = self.lstm_critic(x[start_idx:end_idx], (hxs * masks[start_idx].view(1, -1, 1),c))
-
-                outputs.append(rnn_scores)
-
-            # assert len(outputs) == T
-            # x is a (T, N, -1) tensor
-            x = torch.cat(outputs, dim=0)
-            x= torch.transpose(x,0,1)
-            # flatten
-            x = x.view(T * N, -1)
-            hxs = hxs.squeeze(0)
-            c = c.squeeze(0)
-
-        return x, hxs, c
-        
+               
 class CNNBase(NNBase):
-    def __init__(self, obs_shape, num_agents, lstm = False, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_feature_normlization=False, use_feature_popart=False):
-        super(CNNBase, self).__init__(obs_shape, num_agents, lstm, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer)
+    def __init__(self, obs_shape, num_agents, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_feature_normlization=False, use_feature_popart=False):
+        super(CNNBase, self).__init__(obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer)
         
         self._use_common_layer = use_common_layer
 
@@ -503,9 +362,6 @@ class CNNBase(NNBase):
                 hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
                 hidden_critic, rnn_hxs_critic = self._forward_gru(hidden_critic, rnn_hxs_critic, masks)
             
-            if self.is_lstm:
-                hidden_actor, rnn_hxs_actor, rnn_c_actor = self._forward_lstm(hidden_actor, rnn_hxs_actor, rnn_c_actor, masks)
-                hidden_critic, rnn_hxs_critic, rnn_c_critic = self._forward_lstm(hidden_critic, rnn_hxs_critic, rnn_c_critic, masks)
         else:
             hidden_actor = self.actor(x)
             hidden_critic = self.critic(share_x)
@@ -513,16 +369,12 @@ class CNNBase(NNBase):
             if self.is_recurrent or self.is_naive_recurrent:
                 hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
                 hidden_critic, rnn_hxs_critic = self._forward_gru_critic(hidden_critic, rnn_hxs_critic, masks)
-                
-            if self.is_lstm:
-                hidden_actor, rnn_hxs_actor, rnn_c_actor = self._forward_lstm(hidden_actor, rnn_hxs_actor, rnn_c_actor, masks)
-                hidden_critic, rnn_hxs_critic, rnn_c_critic = self._forward_lstm_critic(hidden_critic, rnn_hxs_critic, rnn_c_critic, masks)
-        
-        return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic
+                        
+        return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs_actor, rnn_hxs_critic
 
 class MLPBase(NNBase):
-    def __init__(self, obs_shape, num_agents, lstm = False, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_feature_normlization=True, use_feature_popart=True):
-        super(MLPBase, self).__init__(obs_shape, num_agents, lstm, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer)
+    def __init__(self, obs_shape, num_agents, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_feature_normlization=True, use_feature_popart=True):
+        super(MLPBase, self).__init__(obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer)
 
         self._use_common_layer = use_common_layer
         self._use_feature_normlization = use_feature_normlization
@@ -574,7 +426,7 @@ class MLPBase(NNBase):
 
         self.critic_linear = init_(nn.Linear(hidden_size, 1))
 
-    def forward(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic, masks):
+    def forward(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks):
         x = inputs
         share_x = share_inputs
         
@@ -595,23 +447,16 @@ class MLPBase(NNBase):
             if self.is_recurrent or self.is_naive_recurrent:
                 hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
                 hidden_critic, rnn_hxs_critic = self._forward_gru(hidden_critic, rnn_hxs_critic, masks)
-            
-            if self.is_lstm:
-                hidden_actor, rnn_hxs_actor, rnn_c_actor = self._forward_lstm(hidden_actor, rnn_hxs_actor, rnn_c_actor, masks)
-                hidden_critic, rnn_hxs_critic, rnn_c_critic = self._forward_lstm(hidden_critic, rnn_hxs_critic, rnn_c_critic, masks)
+
         else:
             hidden_actor = self.actor(x)
             hidden_critic = self.critic(share_x)
 
             if self.is_recurrent or self.is_naive_recurrent:
                 hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
-                hidden_critic, rnn_hxs_critic = self._forward_gru_critic(hidden_critic, rnn_hxs_critic, masks)
-                
-            if self.is_lstm:
-                hidden_actor, rnn_hxs_actor, rnn_c_actor = self._forward_lstm(hidden_actor, rnn_hxs_actor, rnn_c_actor, masks)
-                hidden_critic, rnn_hxs_critic, rnn_c_critic = self._forward_lstm_critic(hidden_critic, rnn_hxs_critic, rnn_c_critic, masks)    
+                hidden_critic, rnn_hxs_critic = self._forward_gru_critic(hidden_critic, rnn_hxs_critic, masks)  
 
-        return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs_actor, rnn_hxs_critic, rnn_c_actor, rnn_c_critic
+        return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs_actor, rnn_hxs_critic
 
 class FeedForward(nn.Module):
 

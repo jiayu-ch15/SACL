@@ -448,7 +448,7 @@ class StarCraft2Env(MultiAgentEnv):
                 "battles_draw": self.timeouts,
                 "restarts": self.force_restarts,
                }
-            return self.get_obs(),[0]*self.n_agents, True, info, []
+            return self.get_obs(),[[0]]*self.n_agents, True, info, []
 
         self._total_steps += 1
         self._episode_steps += 1
@@ -508,7 +508,7 @@ class StarCraft2Env(MultiAgentEnv):
         if self.reward_scale:
             reward /= self.max_reward / self.reward_scale_rate
 
-        return self.get_obs(), [reward]*self.n_agents, terminated, info, available_actions
+        return self.get_obs(), [[reward]]*self.n_agents, terminated, info, available_actions
 
     def get_agent_action(self, a_id, action):
         """Construct the action for agent a_id."""
