@@ -1,6 +1,7 @@
 #!/bin/sh
 env="Agar"
-algo="agar_rollout24_batch16_length600_kill0_coop1_hidden128_attn11284_15e6_lr25e-4curriculum"
+#algo="agar_rollout24_batch16_length600_kill0_coop1_hidden128_attn11284_15e6_lr25e-4curriculum"
+algo="test"
 seed_max=1
 
 echo "env is ${env}, algo is ${algo}, seed is ${seed_max}"

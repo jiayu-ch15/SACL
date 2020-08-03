@@ -104,9 +104,11 @@ class AgarEnv(gym.Env):
                 elif self.killed[i] == 1:info[i]['bad_transition'] = False
                 else:info[i]['bad_transition'] = True
                 
-        global_reward = np.sum(reward)  
+        reward = reward.reshape(-1,1)
+        global_reward = np.sum(reward) 
+
         if self.share_reward:
-            reward = [global_reward] * self.num_agents
+            reward = [[global_reward]] * self.num_agents
         
         return o, reward, done, info, [[None]]*self.num_agents
     
