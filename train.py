@@ -265,7 +265,7 @@ def main():
             for done_ in done: 
                 mask = []               
                 for i in range(num_agents): 
-                    if done_[i]:              
+                    if done_:              
                         mask.append([0.0])
                     else:
                         mask.append([1.0])
