@@ -435,21 +435,20 @@ def main():
                             win_rate.append(0)
                             incre_win_rate.append(0) 
                         else:
-                            win_rate.append(info['battles_won']/info['battles_game']) 
-                            if info['battles_game']-last_battles_game[i]== 0 :
-                                incre_win_rate.append(0)
-                            else:
-                                incre_win_rate.append((info['battles_won']-last_battles_won[i])/(info['battles_game']-last_battles_game[i]))                           
+                            win_rate.append(info['battles_won']/info['battles_game'])
+                            if info['battles_game']-last_battles_game[i] >= 100:
+                                incre_win_rate.append((info['battles_won']-last_battles_won[i])/(info['battles_game']-last_battles_game[i]))
+                                last_battles_game[i] = info['battles_game']
+                                last_battles_won[i] = info['battles_won']                          
                     if 'battles_draw' in info.keys():
                         battles_draw.append(info['battles_draw'])
                 logger.add_scalars('win_rate',
                                     {'win_rate': np.mean(win_rate)},
                                     total_num_steps)
-                logger.add_scalars('incre_win_rate',
+                if len(incre_win_rate)>0:
+                    logger.add_scalars('incre_win_rate',
                                     {'incre_win_rate': np.mean(incre_win_rate)},
                                     total_num_steps)
-                last_battles_game = battles_game
-                last_battles_won = battles_won
                 
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()
