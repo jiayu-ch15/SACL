@@ -201,7 +201,6 @@ class StarCraft2Env(MultiAgentEnv):
         self.n_agents = map_params["n_agents"]
         self.n_enemies = map_params["n_enemies"]
         self.episode_limit = map_params["limit"]
-        print(self.episode_limit)
         self._move_amount = move_amount
         self._step_mul = step_mul
         self.difficulty = difficulty
@@ -446,7 +445,6 @@ class StarCraft2Env(MultiAgentEnv):
         except (protocol.ProtocolError, protocol.ConnectionError):
             self.full_restart()
             terminated = True
-            bad_transition = True
             info = {
                 "battles_won": self.battles_won,
                 "battles_game": self.battles_game,
@@ -471,7 +469,6 @@ class StarCraft2Env(MultiAgentEnv):
         if game_end_code is not None:
             # Battle is over
             terminated = True
-            bad_transition = True
             self.battles_game += 1
             if game_end_code == 1 and not self.win_counted:
                 self.battles_won += 1
