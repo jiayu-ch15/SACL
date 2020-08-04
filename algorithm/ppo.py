@@ -295,7 +295,7 @@ class PPO():
                 ratio = torch.exp(action_log_probs - old_action_log_probs_batch)
                 
                 KL_divloss = nn.KLDivLoss(reduction='batchmean')(old_action_log_probs_batch, torch.exp(action_log_probs))
-                
+
                 surr1 = ratio * adv_targ
                 surr2 = torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param) * adv_targ
                 action_loss = (-torch.min(surr1, surr2)* high_masks_batch).mean()
@@ -358,6 +358,12 @@ class PPO():
                 self.optimizer.step()
                 
                 if self.logger is not None:
+                    self.logger.add_scalars('ratio',
+                        {'ratio': ratio.mean()},
+                        self.step)
+                    self.logger.add_scalars('adv',
+                        {'adv': adv_targ.mean()},
+                        self.step)
                     self.logger.add_scalars('value_loss',
                         {'value_loss': value_loss},
                         self.step)

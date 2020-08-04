@@ -58,7 +58,7 @@ def main():
         torch.set_num_threads(args.n_training_threads)
     
     # path
-    model_dir = Path('./results') / args.env_name / args.map_name / args.algorithm_name
+    model_dir = Path('./results') / args.env_name / args.algorithm_name
     if not model_dir.exists():
         curr_run = 'run1'
     else:
@@ -426,7 +426,7 @@ def main():
                 for i in range(num_agents):
                     print("value loss of agent%i: " %i + str(value_losses[i]))
 
-            if args.env_name == "StarCraft2":                
+            if args.env_name == "Agar":                
                 for agent_id in range(num_agents):
                     collective_return = []
                     split = []

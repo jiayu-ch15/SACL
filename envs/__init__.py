@@ -7,5 +7,5 @@ from .ssd.Harvest import HarvestEnv
 
 from absl import flags
 FLAGS = flags.FLAGS
-FLAGS(['train.py'])
+FLAGS(['train_sc.py'])
 

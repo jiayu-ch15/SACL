@@ -21,6 +21,7 @@ class RolloutStorage(object):
             episode_length + 1, n_rollout_threads, num_agents, recurrent_hidden_state_size)
         self.recurrent_hidden_states_critic = torch.zeros(
             episode_length + 1, n_rollout_threads, num_agents, recurrent_hidden_state_size)
+            
         self.rewards = torch.zeros(episode_length, n_rollout_threads, num_agents, 1)
         self.value_preds = torch.zeros(episode_length + 1, n_rollout_threads, num_agents, 1)
         self.returns = torch.zeros(episode_length + 1, n_rollout_threads, num_agents, 1)
@@ -42,6 +43,7 @@ class RolloutStorage(object):
         # Masks that indicate whether it's a true terminal state
         # or time limit end state
         self.bad_masks = torch.ones(episode_length + 1, n_rollout_threads, num_agents, 1)
+        
         self.high_masks = torch.ones(episode_length + 1, n_rollout_threads, num_agents, 1)
 
         self.episode_length = episode_length
@@ -62,7 +64,7 @@ class RolloutStorage(object):
         self.high_masks = self.high_masks.to(device)
 
     def insert(self, share_obs, obs, recurrent_hidden_states, recurrent_hidden_states_critic, actions, action_log_probs,
-               value_preds, rewards, masks, bad_masks, high_masks=None):
+               value_preds, rewards, masks, bad_masks=None, high_masks=None):
         self.share_obs[self.step + 1].copy_(share_obs)
         self.obs[self.step + 1].copy_(obs)
         self.recurrent_hidden_states[self.step + 1].copy_(recurrent_hidden_states)
@@ -72,19 +74,12 @@ class RolloutStorage(object):
         self.value_preds[self.step].copy_(value_preds)
         self.rewards[self.step].copy_(rewards)
         self.masks[self.step + 1].copy_(masks)
-        self.bad_masks[self.step + 1].copy_(bad_masks)
+        if high_masks is not None:
+            self.bad_masks[self.step + 1].copy_(bad_masks)
         if high_masks is not None:
             self.high_masks[self.step + 1].copy_(high_masks)
 
         self.step = (self.step + 1) % self.episode_length
-
-    def after_update(self):
-        self.obs[0].copy_(self.obs[-1])
-        self.recurrent_hidden_states[0].copy_(self.recurrent_hidden_states[-1])
-        self.recurrent_hidden_states_critic[0].copy_(self.recurrent_hidden_states_critic[-1])
-        self.masks[0].copy_(self.masks[-1])
-        self.bad_masks[0].copy_(self.bad_masks[-1])
-        self.high_masks[0].copy_(self.high_masks[-1])
 
     def compute_returns(self,
                         agent_id,
@@ -140,7 +135,7 @@ class RolloutStorage(object):
             else:
                 self.returns[-1,:,agent_id] = next_value
                 for step in reversed(range(self.rewards.size(0))):
-                        self.returns[step,:,agent_id] = self.returns[step + 1,:,agent_id] * \
+                    self.returns[step,:,agent_id] = self.returns[step + 1,:,agent_id] * \
                             gamma * self.masks[step + 1,:,agent_id] + self.rewards[step,:,agent_id]
 
     def feed_forward_generator(self, agent_id, advantages, num_mini_batch=None, mini_batch_size=None):

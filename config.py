@@ -2,21 +2,21 @@ import argparse
 
 def get_config():
     # get the parameters
-    parser = argparse.ArgumentParser(description='StarCraft2.')
+    parser = argparse.ArgumentParser(description='MAPPO-sc.')
 
     # prepare
     parser.add_argument("--algorithm_name", type=str, default='mappo')
     parser.add_argument("--seed", type=int, default=1)
-    parser.add_argument("--cuda", action='store_false', default=True)
+    parser.add_argument("--cuda", action='store_true', default=False)
     parser.add_argument("--cuda_deterministic", action='store_false', default=True)
-    parser.add_argument("--n_training_threads", type=int, default=6)
+    parser.add_argument("--n_training_threads", type=int, default=12)
     parser.add_argument("--n_rollout_threads", type=int, default=32)
     parser.add_argument("--num_env_steps", type=int, default=10e6, help='number of environment steps to train (default: 10e6)') 
     
     # env
     parser.add_argument("--env_name", type=str, default='batch1')
     # starcraft2
-    parser.add_argument("--map_name", type=str, default='5m_vs_6m')
+    parser.add_argument("--map_name", type=str, default='3m')
     # ssd
     parser.add_argument("--num_agents", type=int, default=5)
     parser.add_argument("--share_reward", action='store_true', default=False)
@@ -61,7 +61,7 @@ def get_config():
     parser.add_argument("--use-gae", action='store_false', default=True, help='use generalized advantage estimation')
     parser.add_argument("--gamma", type=float, default=0.99, help='discount factor for rewards (default: 0.99)')
     parser.add_argument("--gae-lambda", type=float, default=0.95, help='gae lambda parameter (default: 0.95)')
-    parser.add_argument("--use-proper-time-limits", action='store_false', default=True, help='compute returns taking into account time limits')
+    parser.add_argument("--use-proper-time-limits", action='store_true', default=False, help='compute returns taking into account time limits')
     parser.add_argument("--use_huber_loss", action='store_false', default=True)
     parser.add_argument("--huber_delta", type=float, default=10.0)
     

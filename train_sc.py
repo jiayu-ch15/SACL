@@ -297,6 +297,7 @@ def main():
             else:
                 share_obs = obs.reshape(args.n_rollout_threads, -1)
                 share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
+        
                 rollouts.insert(torch.tensor(share_obs), 
                                     torch.tensor(obs), 
                                     torch.stack(recurrent_hidden_statess).permute(1,0,2), 

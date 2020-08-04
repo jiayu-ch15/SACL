@@ -461,7 +461,6 @@ class StarCraft2Env(MultiAgentEnv):
 
         # Update units
         game_end_code = self.update_units()
-
         
         reward = self.reward_battle()
         
