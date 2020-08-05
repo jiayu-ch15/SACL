@@ -1,8 +1,8 @@
 #!/bin/sh
 env="StarCraft2"
 map="3m"
-algo="new_3m"
-#algo="test"
+#algo="new_3m"
+algo="test"
 seed_max=1
 
 echo "env is ${env}, map is ${map}, algo is ${algo}, seed is ${seed_max}"

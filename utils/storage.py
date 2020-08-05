@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
-
+import time
 
 def _flatten_helper(T, N, _tensor):
     return _tensor.view(T * N, *_tensor.size()[2:])
@@ -155,24 +155,35 @@ class RolloutStorage(object):
             SubsetRandomSampler(range(batch_size)),
             mini_batch_size,
             drop_last=True)
+            
+        share_obs = self.share_obs[:-1,:,agent_id].view(-1, *self.share_obs.shape[3:])
+        obs = self.obs[:-1,:,agent_id].view(-1, *self.obs.shape[3:])
+        recurrent_hidden_states = self.recurrent_hidden_states[:-1,:,agent_id].view(-1, self.recurrent_hidden_states.shape[-1])
+        recurrent_hidden_states_critic = self.recurrent_hidden_states_critic[:-1,:,agent_id].view(-1, self.recurrent_hidden_states_critic.shape[-1])
+        actions = self.actions[:,:,agent_id].view(-1, self.actions.shape[-1])
+        value_preds = self.value_preds[:-1,:,agent_id].view(-1, 1)
+        returns = self.returns[:-1,:,agent_id].view(-1, 1)
+        masks = self.masks[:-1,:,agent_id].view(-1, 1)
+        high_masks = self.high_masks[:-1,:,agent_id].view(-1, 1)
+        action_log_probs = self.action_log_probs[:,:,agent_id].view(-1, 1)
+        advantages = advantages.view(-1, 1)
+        
         for indices in sampler:
             # obs size [T+1 N Dim]-->[T N Dim]-->[T*N,Dim]-->[index,Dim]
-            share_obs_batch = torch.tensor(self.share_obs[:-1,:,agent_id].view(-1, *self.share_obs.shape[3:])[indices])
-            obs_batch = torch.tensor(self.obs[:-1,:,agent_id].view(-1, *self.obs.shape[3:])[indices])
-            recurrent_hidden_states_batch = torch.tensor(self.recurrent_hidden_states[:-1,:,agent_id].view(
-                -1, self.recurrent_hidden_states.shape[-1])[indices])
-            recurrent_hidden_states_critic_batch = torch.tensor(self.recurrent_hidden_states_critic[:-1,:,agent_id].view(
-                -1, self.recurrent_hidden_states_critic.shape[-1])[indices])
-            actions_batch = torch.tensor(self.actions[:,:,agent_id].view(-1, self.actions.shape[-1])[indices])
-            value_preds_batch = torch.tensor(self.value_preds[:-1,:,agent_id].view(-1, 1)[indices])
-            return_batch = torch.tensor(self.returns[:-1,:,agent_id].view(-1, 1)[indices])
-            masks_batch = torch.tensor(self.masks[:-1,:,agent_id].view(-1, 1)[indices])
-            high_masks_batch = torch.tensor(self.high_masks[:-1,:,agent_id].view(-1, 1)[indices])
-            old_action_log_probs_batch = torch.tensor(self.action_log_probs[:,:,agent_id].view(-1, 1)[indices])
+            share_obs_batch = torch.tensor(share_obs[indices])
+            obs_batch = torch.tensor(obs[indices])
+            recurrent_hidden_states_batch = torch.tensor(recurrent_hidden_states[indices])
+            recurrent_hidden_states_critic_batch = torch.tensor(recurrent_hidden_states_critic[indices])
+            actions_batch = torch.tensor(actions[indices])
+            value_preds_batch = torch.tensor(value_preds[indices])
+            return_batch = torch.tensor(returns[indices])
+            masks_batch = torch.tensor(masks[indices])
+            high_masks_batch = torch.tensor(high_masks[indices])
+            old_action_log_probs_batch = torch.tensor(action_log_probs[indices])
             if advantages is None:
                 adv_targ = None
             else:
-                adv_targ = torch.tensor(advantages.view(-1, 1)[indices])
+                adv_targ = torch.tensor(advantages[indices])
 
             yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks, old_action_log_probs_batch, adv_targ
             
@@ -192,24 +203,35 @@ class RolloutStorage(object):
             SubsetRandomSampler(range(batch_size)),
             mini_batch_size,
             drop_last=True)
+            
+        share_obs = self.share_obs[:-1].view(-1, *self.share_obs.shape[3:])
+        obs = self.obs[:-1].view(-1, *self.obs.shape[3:])
+        recurrent_hidden_states = self.recurrent_hidden_states[:-1].view(-1, self.recurrent_hidden_states.shape[-1])
+        recurrent_hidden_states_critic = self.recurrent_hidden_states_critic[:-1].view(-1, self.recurrent_hidden_states_critic.shape[-1])
+        actions = self.actions.view(-1, self.actions.shape[-1])
+        value_preds = self.value_preds[:-1].view(-1, 1)
+        returns = self.returns[:-1].view(-1, 1)
+        masks = self.masks[:-1].view(-1, 1)
+        high_masks = self.high_masks[:-1].view(-1, 1)
+        action_log_probs = self.action_log_probs.view(-1, 1)
+        advantages = advantages.view(-1, 1)
+        
         for indices in sampler:
             # obs size [T+1 N M Dim]-->[T N M Dim]-->[T*N*M,Dim]-->[index,Dim]           
-            share_obs_batch = torch.tensor(self.share_obs[:-1].view(-1, *self.share_obs.shape[3:])[indices])           
-            obs_batch = torch.tensor(self.obs[:-1].view(-1, *self.obs.shape[3:])[indices])
-            recurrent_hidden_states_batch = torch.tensor(self.recurrent_hidden_states[:-1].view(
-                -1, self.recurrent_hidden_states.shape[-1])[indices])
-            recurrent_hidden_states_critic_batch = torch.tensor(self.recurrent_hidden_states_critic[:-1].view(
-                -1, self.recurrent_hidden_states_critic.shape[-1])[indices])
-            actions_batch = torch.tensor(self.actions.view(-1, self.actions.shape[-1])[indices])
-            value_preds_batch = torch.tensor(self.value_preds[:-1].view(-1, 1)[indices])
-            return_batch = torch.tensor(self.returns[:-1].view(-1, 1)[indices])
-            masks_batch = torch.tensor(self.masks[:-1].view(-1, 1)[indices])
-            high_masks_batch = torch.tensor(self.high_masks[:-1].view(-1, 1)[indices])
-            old_action_log_probs_batch = torch.tensor(self.action_log_probs.view(-1, 1)[indices])
+            share_obs_batch = torch.tensor(share_obs[indices])           
+            obs_batch = torch.tensor(obs[indices])
+            recurrent_hidden_states_batch = torch.tensor(recurrent_hidden_states[indices])
+            recurrent_hidden_states_critic_batch = torch.tensor(recurrent_hidden_states_critic[indices])
+            actions_batch = torch.tensor(actions[indices])
+            value_preds_batch = torch.tensor(value_preds[indices])
+            return_batch = torch.tensor(returns[indices])
+            masks_batch = torch.tensor(masks[indices])
+            high_masks_batch = torch.tensor(high_masks[indices])
+            old_action_log_probs_batch = torch.tensor(action_log_probs[indices])
             if advantages is None:
                 adv_targ = None
             else:
-                adv_targ = torch.tensor(advantages.view(-1, 1)[indices])
+                adv_targ = torch.tensor(advantages[indices])
 
             yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks, old_action_log_probs_batch, adv_targ
 
@@ -294,6 +316,19 @@ class RolloutStorage(object):
             "PPO mini batches ({}).".format(n_rollout_threads, num_agents, num_mini_batch))
         num_envs_per_batch = batch_size // num_mini_batch
         perm = torch.randperm(batch_size)
+        
+        share_obs = self.share_obs.view(-1, batch_size, *self.share_obs.shape[3:])
+        obs = self.obs.view(-1, batch_size, *self.obs.shape[3:])
+        recurrent_hidden_states = self.recurrent_hidden_states.view(-1, batch_size, self.recurrent_hidden_states.shape[-1])
+        recurrent_hidden_states_critic = self.recurrent_hidden_states_critic.view(-1, batch_size, self.recurrent_hidden_states_critic.shape[-1])
+        actions = self.actions.view(-1, batch_size, self.actions.shape[-1])
+        value_preds = self.value_preds.view(-1, batch_size, 1)
+        returns = self.returns.view(-1, batch_size, 1)
+        masks = self.masks.view(-1, batch_size, 1)
+        high_masks = self.high_masks.view(-1, batch_size, 1)
+        action_log_probs = self.action_log_probs.view(-1, batch_size, 1)
+        advantages = advantages.view(-1, batch_size, 1)
+        
         for start_ind in range(0, batch_size, num_envs_per_batch):
             share_obs_batch = []
             obs_batch = []
@@ -309,20 +344,19 @@ class RolloutStorage(object):
 
             for offset in range(num_envs_per_batch):
                 ind = perm[start_ind + offset]
-                share_obs_batch.append(torch.tensor(self.share_obs.view(-1, batch_size, *self.share_obs.shape[3:])[:-1, ind]))
-                obs_batch.append(torch.tensor(self.obs.view(-1, batch_size, *self.obs.shape[3:])[:-1, ind]))
+                share_obs_batch.append(torch.tensor(share_obs[:-1, ind]))
+                obs_batch.append(torch.tensor(obs[:-1, ind]))
                 recurrent_hidden_states_batch.append(
-                    torch.tensor(self.recurrent_hidden_states.view(-1, batch_size, self.recurrent_hidden_states.shape[-1])[0:1, ind]))
+                    torch.tensor(recurrent_hidden_states[0:1, ind]))
                 recurrent_hidden_states_critic_batch.append(
-                    torch.tensor(self.recurrent_hidden_states_critic.view(-1, batch_size, self.recurrent_hidden_states_critic.shape[-1])[0:1, ind]))
-                actions_batch.append(torch.tensor(self.actions.view(-1, batch_size, self.actions.shape[-1])[:, ind]))
-                value_preds_batch.append(torch.tensor(self.value_preds.view(-1, batch_size, 1)[:-1, ind]))
-                return_batch.append(torch.tensor(self.returns.view(-1, batch_size, 1)[:-1, ind]))
-                masks_batch.append(torch.tensor(self.masks.view(-1, batch_size, 1)[:-1, ind]))
-                high_masks_batch.append(torch.tensor(self.high_masks.view(-1, batch_size, 1)[:-1, ind]))
-                old_action_log_probs_batch.append(
-                    torch.tensor(self.action_log_probs.view(-1, batch_size, 1)[:, ind]))
-                adv_targ.append(torch.tensor(advantages.view(-1, batch_size, 1)[:, ind]))
+                    torch.tensor(recurrent_hidden_states_critic[0:1, ind]))
+                actions_batch.append(torch.tensor(actions[:, ind]))
+                value_preds_batch.append(torch.tensor(value_preds[:-1, ind]))
+                return_batch.append(torch.tensor(returns[:-1, ind]))
+                masks_batch.append(torch.tensor(masks[:-1, ind]))
+                high_masks_batch.append(torch.tensor(high_masks[:-1, ind]))
+                old_action_log_probs_batch.append(torch.tensor(action_log_probs[:, ind]))
+                adv_targ.append(torch.tensor(advantages[:, ind]))
 
             T, N = self.episode_length, num_envs_per_batch
             # These are all tensors of size (T, N, -1)
@@ -369,6 +403,23 @@ class RolloutStorage(object):
             SubsetRandomSampler(range(data_chunks)),
             mini_batch_size,
             drop_last=True)
+            
+        if len(self.share_obs.shape) > 4:
+            share_obs = self.share_obs[:-1,:,agent_id].transpose(1,0,2,3,4).reshape(-1, *self.share_obs.shape[3:])
+            obs = self.obs[:-1,:,agent_id].transpose(1,0,2,3,4).reshape(-1, *self.obs.shape[3:])
+        else:
+            share_obs = self.share_obs[:-1,:,agent_id].transpose(1,0,2).reshape(-1, *self.share_obs.shape[3:])
+            obs = self.obs[:-1,:,agent_id].transpose(1,0,2).reshape(-1, *self.obs.shape[3:])
+            
+        actions = self.actions[:,:,agent_id].transpose(1,0,2).reshape(-1, self.actions.shape[-1])
+        value_preds = self.value_preds[:-1,:,agent_id].transpose(1,0,2).reshape(-1, 1)
+        returns = self.returns[:-1,:,agent_id].transpose(1,0,2).reshape(-1, 1)
+        masks = self.masks[:-1,:,agent_id].transpose(1,0,2).reshape(-1, 1)
+        high_masks = self.high_masks[:-1,:,agent_id].transpose(1,0,2).reshape(-1, 1)
+        action_log_probs = self.action_log_probs[:,:,agent_id].transpose(1,0,2).reshape(-1, 1)
+        advantages = advantages.transpose(1,0,2).reshape(-1, 1)
+        recurrent_hidden_states = self.recurrent_hidden_states[:-1,:,agent_id].transpose(1,0,2).reshape(-1, self.recurrent_hidden_states.shape[-1])
+        recurrent_hidden_states_critic = self.recurrent_hidden_states_critic[:-1,:,agent_id].transpose(1,0,2).reshape(-1, self.recurrent_hidden_states_critic.shape[-1])
 
         for indices in sampler:
             share_obs_batch = []
@@ -386,24 +437,18 @@ class RolloutStorage(object):
             for index in indices:
                 ind = index * data_chunk_length
                 # size [T+1 N M Dim]-->[T N Dim]-->[N T Dim]-->[T*N,Dim]-->[L,Dim]
-                if len(self.share_obs.shape) > 4:
-                    share_obs_batch.append(torch.tensor(self.share_obs[:-1,:,agent_id].transpose(1,0,2,3,4).reshape(-1, *self.share_obs.shape[3:])[ind:ind+data_chunk_length]))
-                    obs_batch.append(torch.tensor(self.obs[:-1,:,agent_id].transpose(1,0,2,3,4).reshape(-1, *self.obs.shape[3:])[ind:ind+data_chunk_length]))
-                else:                
-                    share_obs_batch.append(torch.tensor(self.share_obs[:-1,:,agent_id].transpose(1,0,2).reshape(-1, *self.share_obs.shape[3:])[ind:ind+data_chunk_length]))
-                    obs_batch.append(torch.tensor(self.obs[:-1,:,agent_id].transpose(1,0,2).reshape(-1, *self.obs.shape[3:])[ind:ind+data_chunk_length]))
-                actions_batch.append(torch.tensor(self.actions[:,:,agent_id].transpose(1,0,2).reshape(-1, self.actions.shape[-1])[ind:ind+data_chunk_length]))
-                value_preds_batch.append(torch.tensor(self.value_preds[:-1,:,agent_id].transpose(1,0,2).reshape(-1, 1)[ind:ind+data_chunk_length]))
-                return_batch.append(torch.tensor(self.returns[:-1,:,agent_id].transpose(1,0,2).reshape(-1, 1)[ind:ind+data_chunk_length]))
-                masks_batch.append(torch.tensor(self.masks[:-1,:,agent_id].transpose(1,0,2).reshape(-1, 1)[ind:ind+data_chunk_length]))
-                high_masks_batch.append(torch.tensor(self.high_masks[:-1,:,agent_id].transpose(1,0,2).reshape(-1, 1)[ind:ind+data_chunk_length]))
-                old_action_log_probs_batch.append(torch.tensor(self.action_log_probs[:,:,agent_id].transpose(1,0,2).reshape(-1, 1)[ind:ind+data_chunk_length]))
-                adv_targ.append(torch.tensor(advantages.transpose(1,0,2).reshape(-1, 1)[ind:ind+data_chunk_length]))
+                share_obs_batch.append(torch.tensor(share_obs[ind:ind+data_chunk_length]))
+                obs_batch.append(torch.tensor(obs[ind:ind+data_chunk_length]))
+                actions_batch.append(torch.tensor(actions[ind:ind+data_chunk_length]))
+                value_preds_batch.append(torch.tensor(value_preds[ind:ind+data_chunk_length]))
+                return_batch.append(torch.tensor(returns[ind:ind+data_chunk_length]))
+                masks_batch.append(torch.tensor(masks[ind:ind+data_chunk_length]))
+                high_masks_batch.append(torch.tensor(high_masks[ind:ind+data_chunk_length]))
+                old_action_log_probs_batch.append(torch.tensor(action_log_probs[ind:ind+data_chunk_length]))
+                adv_targ.append(torch.tensor(advantages[ind:ind+data_chunk_length]))
                 # size [T+1 N Dim]-->[T N Dim]-->[T*N,Dim]-->[1,Dim]
-                recurrent_hidden_states_batch.append(torch.tensor(self.recurrent_hidden_states[:-1,:,agent_id].transpose(1,0,2).reshape(
-                      -1, self.recurrent_hidden_states.shape[-1])[ind]))
-                recurrent_hidden_states_critic_batch.append(torch.tensor(self.recurrent_hidden_states_critic[:-1,:,agent_id].transpose(1,0,2).reshape(
-                      -1, self.recurrent_hidden_states_critic.shape[-1])[ind]))
+                recurrent_hidden_states_batch.append(torch.tensor(recurrent_hidden_states[ind]))
+                recurrent_hidden_states_critic_batch.append(torch.tensor(recurrent_hidden_states_critic[ind]))
                       
             L, N =  data_chunk_length, mini_batch_size
                         
@@ -452,6 +497,22 @@ class RolloutStorage(object):
             SubsetRandomSampler(range(data_chunks)),
             mini_batch_size,
             drop_last=True)
+        if len(self.share_obs.shape) > 4:    
+            share_obs = self.share_obs[:-1].transpose(1,2,0,3,4,5).reshape(-1, *self.share_obs.shape[3:])
+            obs = self.obs[:-1].transpose(1,2,0,3,4,5).reshape(-1, *self.obs.shape[3:])
+        else:
+            share_obs = self.share_obs[:-1].transpose(1,2,0,3).reshape(-1, *self.share_obs.shape[3:])
+            obs = self.obs[:-1].transpose(1,2,0,3).reshape(-1, *self.obs.shape[3:])
+        
+        actions = self.actions.transpose(1,2,0,3).reshape(-1, self.actions.shape[-1])
+        value_preds = self.value_preds[:-1].transpose(1,2,0,3).reshape(-1, 1)
+        returns = self.returns[:-1].transpose(1,2,0,3).reshape(-1, 1)
+        masks = self.masks[:-1].transpose(1,2,0,3).reshape(-1, 1)
+        high_masks = self.high_masks[:-1].transpose(1,2,0,3).reshape(-1, 1)
+        action_log_probs = self.action_log_probs.transpose(1,2,0,3).reshape(-1, 1)
+        advantages = advantages.transpose(1,2,0,3).reshape(-1, 1)
+        recurrent_hidden_states = self.recurrent_hidden_states[:-1].transpose(1,2,0,3).reshape(-1, self.recurrent_hidden_states.shape[-1])
+        recurrent_hidden_states_critic = self.recurrent_hidden_states_critic[:-1].transpose(1,2,0,3).reshape(-1, self.recurrent_hidden_states_critic.shape[-1])
 
         for indices in sampler:
             share_obs_batch = []
@@ -467,28 +528,22 @@ class RolloutStorage(object):
             adv_targ = []
             
             for index in indices:
-                ind = index * data_chunk_length
-                # size [T+1 N M Dim]-->[T N M Dim]-->[N T M Dim]-->[N,M,T,Dim]-->[N*M*T,Dim]-->[L,Dim] 
-                if len(self.share_obs.shape) > 4: 
-                    share_obs_batch.append(torch.tensor(self.share_obs[:-1].transpose(1,2,0,3,4,5).reshape(-1, *self.share_obs.shape[3:])[ind:ind+data_chunk_length]))
-                    obs_batch.append(torch.tensor(self.obs[:-1].transpose(1,2,0,3,4,5).reshape(-1, *self.obs.shape[3:])[ind:ind+data_chunk_length]))
-                else:            
-                    share_obs_batch.append(torch.tensor(self.share_obs[:-1].transpose(1,2,0,3).reshape(-1, *self.share_obs.shape[3:])[ind:ind+data_chunk_length]))
-                    obs_batch.append(torch.tensor(self.obs[:-1].transpose(1,2,0,3).reshape(-1, *self.obs.shape[3:])[ind:ind+data_chunk_length]))
                 
-                actions_batch.append(torch.tensor(self.actions.transpose(1,2,0,3).reshape(-1, self.actions.shape[-1])[ind:ind+data_chunk_length]))
-                value_preds_batch.append(torch.tensor(self.value_preds[:-1].transpose(1,2,0,3).reshape(-1, 1)[ind:ind+data_chunk_length]))
-                return_batch.append(torch.tensor(self.returns[:-1].transpose(1,2,0,3).reshape(-1, 1)[ind:ind+data_chunk_length]))
-                masks_batch.append(torch.tensor(self.masks[:-1].transpose(1,2,0,3).reshape(-1, 1)[ind:ind+data_chunk_length]))
-                high_masks_batch.append(torch.tensor(self.high_masks[:-1].transpose(1,2,0,3).reshape(-1, 1)[ind:ind+data_chunk_length]))
-                old_action_log_probs_batch.append(torch.tensor(self.action_log_probs.transpose(1,2,0,3).reshape(-1, 1)[ind:ind+data_chunk_length]))
-                adv_targ.append(torch.tensor(advantages.transpose(1,2,0,3).reshape(-1, 1)[ind:ind+data_chunk_length]))
+                ind = index * data_chunk_length
+                # size [T+1 N M Dim]-->[T N M Dim]-->[N T M Dim]-->[N,M,T,Dim]-->[N*M*T,Dim]-->[L,Dim]             
+                share_obs_batch.append(torch.tensor(share_obs[ind:ind+data_chunk_length]))
+                obs_batch.append(torch.tensor(obs[ind:ind+data_chunk_length]))
+                actions_batch.append(torch.tensor(actions[ind:ind+data_chunk_length]))
+                value_preds_batch.append(torch.tensor(value_preds[ind:ind+data_chunk_length]))
+                return_batch.append(torch.tensor(returns[ind:ind+data_chunk_length]))
+                masks_batch.append(torch.tensor(masks[ind:ind+data_chunk_length]))
+                high_masks_batch.append(torch.tensor(high_masks[ind:ind+data_chunk_length]))
+                old_action_log_probs_batch.append(torch.tensor(action_log_probs[ind:ind+data_chunk_length]))
+                adv_targ.append(torch.tensor(advantages[ind:ind+data_chunk_length]))
                 # size [T+1 N M Dim]-->[T N M Dim]-->[N M T Dim]-->[N*M*T,Dim]-->[1,Dim]
-                recurrent_hidden_states_batch.append(torch.tensor(self.recurrent_hidden_states[:-1].transpose(1,2,0,3).reshape(
-                      -1, self.recurrent_hidden_states.shape[-1])[ind]))
-                recurrent_hidden_states_critic_batch.append(torch.tensor(self.recurrent_hidden_states_critic[:-1].transpose(1,2,0,3).reshape(
-                      -1, self.recurrent_hidden_states_critic.shape[-1])[ind]))
-                      
+                recurrent_hidden_states_batch.append(torch.tensor(recurrent_hidden_states[ind]))
+                recurrent_hidden_states_critic_batch.append(torch.tensor(recurrent_hidden_states_critic[ind]))
+   
             L, N =  data_chunk_length, mini_batch_size
             
             # These are all tensors of size (N, L, Dim)

@@ -345,7 +345,10 @@ def main():
          
         # update the network
         if args.share_policy:
+            update_start = time.time() 
             value_loss, action_loss, dist_entropy = agents.update_share(num_agents, rollouts)
+            update_end = time.time()
+            print(update_end-update_start)
             rew = []
             for j in range(rollouts.rewards.shape[1]):
                 rew.append(rollouts.rewards[:,j,:])

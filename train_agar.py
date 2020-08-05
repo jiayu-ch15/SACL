@@ -245,7 +245,7 @@ def main():
             # rearrange action           
             actions_env = []
             for i in range(num_agents):
-                actions_env.append(actions[i].cpu().tolist())           
+                actions_env.append(actions[i].tolist())           
             actions_env = np.array(actions_env).transpose(1, 0, 2)
                        
             # Obser reward and next obs
