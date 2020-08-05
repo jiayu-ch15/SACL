@@ -82,7 +82,7 @@ def main():
     num_agents = get_map_params(args.map_name)["n_agents"]
     #Policy network
 
-    if args.share_policy:
+       if args.share_policy:
         actor_critic = Policy(envs.observation_space[0], 
                     envs.action_space[0],
                     num_agents = num_agents,
@@ -98,7 +98,8 @@ def main():
                                  'use_common_layer':args.use_common_layer,
                                  'use_feature_normlization':args.use_feature_normlization,
                                  'use_feature_popart':args.use_feature_popart
-                                 })
+                                 },
+                    device = device)
         actor_critic.to(device)
         # algorithm
         agents = PPO(actor_critic,
@@ -147,7 +148,8 @@ def main():
                                  'use_common_layer':args.use_common_layer,
                                  'use_feature_normlization':args.use_feature_normlization,
                                  'use_feature_popart':args.use_feature_popart
-                                 })
+                                 },
+                      device = device)
             ac.to(device)
             # algorithm
             agent = PPO(ac,
@@ -186,26 +188,20 @@ def main():
     
     # replay buffer  
     if len(envs.observation_space[0]) == 3:
-        share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])
-        share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
-        rollouts.share_obs[0].copy_(torch.tensor(share_obs))
+        share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])        
     else:
         share_obs = obs.reshape(args.n_rollout_threads, -1)
-        share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
-        rollouts.share_obs[0].copy_(torch.tensor(share_obs))
         
-    rollouts.obs[0].copy_(torch.tensor(obs))                
-    rollouts.recurrent_hidden_states.zero_()
-    rollouts.recurrent_hidden_states_critic.zero_()
-               
-    rollouts.to(device) 
+    share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)    
+    rollouts.share_obs[0] = share_obs.copy() 
+    rollouts.obs[0] = obs.copy()                
+    rollouts.recurrent_hidden_states = np.zeros(rollouts.recurrent_hidden_states.shape).astype(np.float32)
+    rollouts.recurrent_hidden_states_critic = np.zeros(rollouts.recurrent_hidden_states_critic.shape).astype(np.float32)
     
     # run
     start = time.time()
     episodes = int(args.num_env_steps) // args.episode_length // args.n_rollout_threads
     timesteps = 0
-    last_battles_game = np.zeros(args.n_rollout_threads)
-    last_battles_won = np.zeros(args.n_rollout_threads)
 
     for episode in range(episodes):
         if args.use_linear_lr_decay:# decrease learning rate linearly
@@ -227,26 +223,26 @@ def main():
                 for i in range(num_agents):
                     if args.share_policy:
                         value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(i,
-                        rollouts.share_obs[step,:,i], 
-                        rollouts.obs[step,:,i], 
-                        rollouts.recurrent_hidden_states[step,:,i], 
-                        rollouts.recurrent_hidden_states_critic[step,:,i],
-                        rollouts.masks[step,:,i],
+                        torch.tensor(rollouts.share_obs[step,:,i]), 
+                        torch.tensor(rollouts.obs[step,:,i]), 
+                        torch.tensor(rollouts.recurrent_hidden_states[step,:,i]), 
+                        torch.tensor(rollouts.recurrent_hidden_states_critic[step,:,i]),
+                        torch.tensor(rollouts.masks[step,:,i]),
                         available_actions[:,i,:])
                     else:
                         value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic[i].act(i,
-                        rollouts.share_obs[step,:,i], 
-                        rollouts.obs[step,:,i], 
-                        rollouts.recurrent_hidden_states[step,:,i], 
-                        rollouts.recurrent_hidden_states_critic[step,:,i],
-                        rollouts.masks[step,:,i],
+                        torch.tensor(rollouts.share_obs[step,:,i]), 
+                        torch.tensor(rollouts.obs[step,:,i]), 
+                        torch.tensor(rollouts.recurrent_hidden_states[step,:,i]), 
+                        torch.tensor(rollouts.recurrent_hidden_states_critic[step,:,i]),
+                        torch.tensor(rollouts.masks[step,:,i]),
                         available_actions[:,i,:])
                         
-                    values.append(value)
-                    actions.append(action)
-                    action_log_probs.append(action_log_prob)
-                    recurrent_hidden_statess.append(recurrent_hidden_states)
-                    recurrent_hidden_statess_critic.append(recurrent_hidden_states_critic)
+                    values.append(value.detach().cpu().numpy())
+                    actions.append(action.detach().cpu().numpy())
+                    action_log_probs.append(action_log_prob.detach().cpu().numpy())
+                    recurrent_hidden_statess.append(recurrent_hidden_states.detach().cpu().numpy())
+                    recurrent_hidden_statess_critic.append(recurrent_hidden_states_critic.detach().cpu().numpy())
             
             # rearrange action           
             actions_env = []
@@ -276,38 +272,39 @@ def main():
             if len(envs.observation_space[0]) == 3:
                 share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])
                 share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
-                rollouts.insert(torch.tensor(share_obs), 
-                                    torch.tensor(obs), 
-                                    torch.stack(recurrent_hidden_statess).permute(1,0,2), 
-                                    torch.stack(recurrent_hidden_statess_critic).permute(1,0,2), 
-                                    torch.stack(actions).permute(1,0,2),
-                                    torch.stack(action_log_probs).permute(1,0,2), 
-                                    torch.stack(values).permute(1,0,2),
-                                    torch.tensor(reward), 
-                                    torch.stack(masks))
+                
+                rollouts.insert(share_obs, 
+                                obs, 
+                                recurrent_hidden_statess.transpose(1,0,2), 
+                                recurrent_hidden_statess_critic.transpose(1,0,2), 
+                                actions.transpose(1,0,2),
+                                action_log_probs.transpose(1,0,2), 
+                                values.transpose(1,0,2),
+                                reward, 
+                                masks)
             else:
                 share_obs = obs.reshape(args.n_rollout_threads, -1)
                 share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
         
-                rollouts.insert(torch.tensor(share_obs), 
-                                    torch.tensor(obs), 
-                                    torch.stack(recurrent_hidden_statess).permute(1,0,2), 
-                                    torch.stack(recurrent_hidden_statess_critic).permute(1,0,2), 
-                                    torch.stack(actions).permute(1,0,2),
-                                    torch.stack(action_log_probs).permute(1,0,2), 
-                                    torch.stack(values).permute(1,0,2), 
-                                    torch.tensor(reward), 
-                                    torch.stack(masks))
+                rollouts.insert(share_obs, 
+                                obs, 
+                                np.array(recurrent_hidden_statess).transpose(1,0,2), 
+                                np.array(recurrent_hidden_statess_critic).transpose(1,0,2), 
+                                np.array(actions).transpose(1,0,2),
+                                np.array(action_log_probs).transpose(1,0,2), 
+                                np.array(values).transpose(1,0,2),
+                                reward, 
+                                masks)
                            
         with torch.no_grad(): 
             for i in range(num_agents):         
                 if args.share_policy:                 
                     next_value = actor_critic.get_value(i,
-                                                   rollouts.share_obs[-1,:,i], 
-                                                   rollouts.obs[-1,:,i], 
-                                                   rollouts.recurrent_hidden_states[-1,:,i],
-                                                   rollouts.recurrent_hidden_states_critic[-1,:,i],
-                                                   rollouts.masks[-1,:,i]).detach()
+                                                   torch.tensor(rollouts.share_obs[-1,:,i]), 
+                                                   torch.tensor(rollouts.obs[-1,:,i]), 
+                                                   torch.tensor(rollouts.recurrent_hidden_states[-1,:,i]),
+                                                   torch.tensor(rollouts.recurrent_hidden_states_critic[-1,:,i]),
+                                                   torch.tensor(rollouts.masks[-1,:,i])).detach().cpu().numpy()
                     rollouts.compute_returns(i,
                                     next_value, 
                                     args.use_gae, 
@@ -318,11 +315,11 @@ def main():
                                     agents.value_normalizer)
                 else:
                     next_value = actor_critic[i].get_value(i,
-                                                   rollouts.share_obs[-1,:,i], 
-                                                   rollouts.obs[-1,:,i], 
-                                                   rollouts.recurrent_hidden_states[-1,:,i],
-                                                   rollouts.recurrent_hidden_states_critic[-1,:,i],
-                                                   rollouts.masks[-1,:,i]).detach()
+                                                   torch.tensor(rollouts.share_obs[-1,:,i]), 
+                                                   torch.tensor(rollouts.obs[-1,:,i]), 
+                                                   torch.tensor(rollouts.recurrent_hidden_states[-1,:,i]),
+                                                   torch.tensor(rollouts.recurrent_hidden_states_critic[-1,:,i]),
+                                                   torch.tensor(rollouts.masks[-1,:,i])).detach().cpu().numpy()
                     rollouts.compute_returns(i,
                                     next_value, 
                                     args.use_gae, 
@@ -337,11 +334,11 @@ def main():
         if args.share_policy:
             value_loss, action_loss, dist_entropy = agents.update_share(num_agents, rollouts)
             rew = []
-            for j in range(rollouts.rewards.size()[1]):
-                rew.append(rollouts.rewards[:,j,:].sum().cpu().numpy())
+            for j in range(rollouts.rewards.shape[1]):
+                rew.append(rollouts.rewards[:,j,:])
                 
             logger.add_scalars('reward',
-                {'reward': np.mean(np.array(rew)/(rollouts.rewards.size()[0])/num_agents)},
+                {'reward': np.mean(np.array(rew)/(rollouts.rewards.shape[0])/num_agents)},
                 (episode + 1) * args.episode_length * args.n_rollout_threads)
         else:
             value_losses = []
@@ -355,11 +352,11 @@ def main():
                 dist_entropies.append(dist_entropy)
                 
                 rew = []
-                for j in range(rollouts.rewards.size()[1]):
-                    rew.append(rollouts.rewards[:,j,i].sum().cpu().numpy())
+                for j in range(rollouts.rewards.shape[1]):
+                    rew.append(rollouts.rewards[:,j,i].sum())
                     
                 logger.add_scalars('agent%i/reward' % i,
-                    {'reward': np.mean(np.array(rew)/(rollouts.rewards.size()[0]))},
+                    {'reward': np.mean(np.array(rew)/(rollouts.rewards.shape[0]))},
                     (episode + 1) * args.episode_length * args.n_rollout_threads)
                                                                      
         # clean the buffer and reset
@@ -367,20 +364,16 @@ def main():
         
         if len(envs.observation_space[0]) == 3:
             share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])
-            share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
-            rollouts.share_obs[0].copy_(torch.tensor(share_obs))
         else:
             share_obs = obs.reshape(args.n_rollout_threads, -1)
-            share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
-            rollouts.share_obs[0].copy_(torch.tensor(share_obs))
             
-        rollouts.obs[0].copy_(torch.tensor(obs))  
-        rollouts.recurrent_hidden_states.zero_()
-        rollouts.recurrent_hidden_states_critic.zero_()
-        rollouts.masks[0].copy_(torch.ones(args.n_rollout_threads, num_agents, 1))
-        rollouts.bad_masks[0].copy_(torch.ones(args.n_rollout_threads, num_agents, 1))
-        
-        rollouts.to(device)
+        share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)    
+        rollouts.share_obs[0] = share_obs.copy() 
+        rollouts.obs[0] = obs.copy()  
+        rollouts.recurrent_hidden_states[0] = np.zeros(rollouts.recurrent_hidden_states.shape[1:]).copy()
+        rollouts.recurrent_hidden_states_critic[0] = np.zeros(rollouts.recurrent_hidden_states_critic.shape[1:]).copy()
+        rollouts.masks[0] = np.ones(rollouts.masks.shape[1:]).copy()
+        rollouts.bad_masks[0] = np.ones(rollouts.bad_masks.shape[1:]).copy()
 
         if (episode % args.save_interval == 0 or episode == episodes - 1):# save for every interval-th episode or for the last epoch
             if args.share_policy:
