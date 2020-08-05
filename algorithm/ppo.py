@@ -33,10 +33,11 @@ class PopArt(nn.Module):
         self.beta = beta
         self.per_element_update = per_element_update
         self.train = True
+        self.device = device
 
-        self.running_mean = nn.Parameter(torch.zeros(input_shape, dtype=torch.float), requires_grad=False).to(device)
-        self.running_mean_sq = nn.Parameter(torch.zeros(input_shape, dtype=torch.float), requires_grad=False).to(device)
-        self.debiasing_term = nn.Parameter(torch.tensor(0.0, dtype=torch.float), requires_grad=False).to(device)
+        self.running_mean = nn.Parameter(torch.zeros(input_shape, dtype=torch.float), requires_grad=False).to(self.device)
+        self.running_mean_sq = nn.Parameter(torch.zeros(input_shape, dtype=torch.float), requires_grad=False).to(self.device)
+        self.debiasing_term = nn.Parameter(torch.tensor(0.0, dtype=torch.float), requires_grad=False).to(self.device)
 
     def reset_parameters(self):
         self.running_mean.zero_()
@@ -51,7 +52,7 @@ class PopArt(nn.Module):
 
     def forward(self, input_vector):
         # Make sure input is float32
-        input_vector = input_vector.to(torch.float)
+        input_vector = input_vector.to(torch.float).to(self.device)
 
         if self.train:
             # Detach input before adding it to running means to avoid backpropping through it on
@@ -76,7 +77,7 @@ class PopArt(nn.Module):
 
     def denormalize(self, input_vector):
         """ Transform normalized data back into original distribution """
-        input_vector = input_vector
+        input_vector = input_vector.to(torch.float).to(self.device)
 
         mean, var = self.running_mean_var()
         out = input_vector * torch.sqrt(var)[(None,) * self.norm_axes] + mean[(None,) * self.norm_axes]
@@ -105,6 +106,7 @@ class PPO():
                  device = torch.device("cpu")):
 
         self.step=0
+        self.device = device
         self.logger = logger
         self.actor_critic = actor_critic
 
@@ -126,7 +128,7 @@ class PPO():
         self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps, weight_decay=weight_decay)
         self.use_popart = use_popart
         if self.use_popart:
-            self.value_normalizer = PopArt(1, device=device)
+            self.value_normalizer = PopArt(1, device=self.device)
 
     def update(self, agent_id, rollouts, turn_on=True):
         if self.use_popart:
@@ -155,6 +157,12 @@ class PPO():
                 share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, \
                    value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, \
                         adv_targ = sample
+                        
+                old_action_log_probs_batch = old_action_log_probs_batch.to(self.device)
+                adv_targ = adv_targ.to(self.device)
+                value_preds_batch = value_preds_batch.to(self.device)
+                return_batch = return_batch.to(self.device)
+                high_masks_batch = high_masks_batch.to(self.device)
                 
                 # Reshape to do in a single forward pass for all steps
                 values, action_log_probs, dist_entropy, _, _ = self.actor_critic.evaluate_actions(agent_id, share_obs_batch, 
@@ -259,14 +267,14 @@ class PPO():
         advantages = []
         for agent_id in range(num_agents):
             if self.use_popart:
-                advantage = rollouts.returns[:-1,:,agent_id] - self.value_normalizer.denormalize(rollouts.value_preds[:-1,:,agent_id])
+                advantage = rollouts.returns[:-1,:,agent_id] - self.value_normalizer.denormalize(torch.tensor(rollouts.value_preds[:-1,:,agent_id])).cpu().numpy()
             else:
                 advantage = rollouts.returns[:-1,:,agent_id] - rollouts.value_preds[:-1,:,agent_id]
             advantage = (advantage - advantage.mean()) / (
                 advantage.std() + 1e-5)
             advantages.append(advantage)
         #agent ,step, parallel,1
-        advantages = torch.stack(advantages).permute(1,2,0,3)
+        advantages = np.array(advantages).transpose(1,2,0,3)
 
         value_loss_epoch = 0
         action_loss_epoch = 0
@@ -287,6 +295,12 @@ class PPO():
                 share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, \
                    value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, \
                         adv_targ = sample
+                        
+                old_action_log_probs_batch = old_action_log_probs_batch.to(self.device)
+                adv_targ = adv_targ.to(self.device)
+                value_preds_batch = value_preds_batch.to(self.device)
+                return_batch = return_batch.to(self.device)
+                high_masks_batch = high_masks_batch.to(self.device)
                 
                 # Reshape to do in a single forward pass for all steps
                 values, action_log_probs, dist_entropy, _, _ = self.actor_critic.evaluate_actions(agent_id, share_obs_batch, 

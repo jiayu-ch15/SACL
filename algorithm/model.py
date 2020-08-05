@@ -27,9 +27,10 @@ class Flatten(nn.Module):
         return x.view(x.size(0), -1)
 
 class Policy(nn.Module):
-    def __init__(self, obs_shape, action_space, num_agents, base=None, base_kwargs=None):
+    def __init__(self, obs_shape, action_space, num_agents, base=None, base_kwargs=None, device=torch.device("cpu")):
         super(Policy, self).__init__()
         self.multi_action = False
+        self.device = device
         if base_kwargs is None:
             base_kwargs = {}
             
@@ -77,6 +78,12 @@ class Policy(nn.Module):
 
     def act(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks, available_actions=None, deterministic=False):
         
+        share_inputs = share_inputs.to(self.device)
+        inputs = inputs.to(self.device)
+        rnn_hxs_actor = rnn_hxs_actor.to(self.device)
+        rnn_hxs_critic = rnn_hxs_critic.to(self.device)
+        masks = masks.to(self.device)
+        
         value, actor_features, rnn_hxs_actor, rnn_hxs_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)
         
         if self.multi_action:
@@ -107,12 +114,26 @@ class Policy(nn.Module):
         return value, action_out, action_log_probs_out, rnn_hxs_actor, rnn_hxs_critic
 
     def get_value(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks):
+    
+        share_inputs = share_inputs.to(self.device)
+        inputs = inputs.to(self.device)
+        rnn_hxs_actor = rnn_hxs_actor.to(self.device)
+        rnn_hxs_critic = rnn_hxs_critic.to(self.device)
+        masks = masks.to(self.device)
         
         value, _, _, _ = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)
         
         return value
 
     def evaluate_actions(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks, high_masks, action):
+    
+        share_inputs = share_inputs.to(self.device)
+        inputs = inputs.to(self.device)
+        rnn_hxs_actor = rnn_hxs_actor.to(self.device)
+        rnn_hxs_critic = rnn_hxs_critic.to(self.device)
+        masks = masks.to(self.device)
+        high_masks = high_masks.to(self.device)
+        action = action.to(self.device)
         
         value, actor_features, rnn_hxs_actor, rnn_hxs_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)
         
