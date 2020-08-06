@@ -346,12 +346,9 @@ def main():
         # update the network
         if args.share_policy:
             value_loss, action_loss, dist_entropy = agents.update_share(num_agents, rollouts)
-            rew = []
-            for j in range(rollouts.rewards.shape[1]):
-                rew.append(rollouts.rewards[:,j,:])
-                
+                           
             logger.add_scalars('reward',
-                {'reward': np.mean(np.array(rew)/(rollouts.rewards.shape[0])/num_agents)},
+                {'reward': np.mean(rollouts.rewards)},
                 (episode + 1) * args.episode_length * args.n_rollout_threads)
         else:
             value_losses = []
