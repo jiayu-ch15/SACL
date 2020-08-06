@@ -53,6 +53,8 @@ pip install -r requirements.txt
 
    ```Bash
    ps -ef | grep StarCraftII | grep -v grep | cut -c 9-15 | xargs kill -9
+   #clear zombie process
+ps -A -ostat,ppid,pid,cmd | grep -e'^[Zz]' |awk '{print $2}' | xargs kill -9 
    ```
-
+   
    
