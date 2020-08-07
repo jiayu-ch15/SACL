@@ -1,7 +1,7 @@
 #!/bin/sh
 env="StarCraft2"
-map="3m"
-algo="new_3m_ppo7_attn"
+map="2s3z"
+algo="new_2s3z_ppo15_clipped_attn"
 #algo="test"
 seed_max=1
 
@@ -10,6 +10,6 @@ echo "env is ${env}, map is ${map}, algo is ${algo}, seed is ${seed_max}"
 for seed in `seq ${seed_max}`;
 do
     echo "seed is ${seed}:"
-    CUDA_VISIBLE_DEVICES=6 python train_sc.py --env_name ${env} --algorithm_name ${algo} --map_name ${map} --seed ${seed} --n_rollout_threads 8 --num_mini_batch 1 --episode_length 400 --num_env_steps 10000000 --cuda --ppo_epoch 7 --attn
+    CUDA_VISIBLE_DEVICES=7 python train_sc.py --env_name ${env} --algorithm_name ${algo} --map_name ${map} --seed ${seed} --n_rollout_threads 8 --num_mini_batch 1 --episode_length 400 --num_env_steps 10000000 --ppo_epoch 15 --attn --use_clipped_value_loss --cuda
     echo "training is done!"
 done

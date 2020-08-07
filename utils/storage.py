@@ -151,11 +151,10 @@ class RolloutStorage(object):
                 "".format(n_rollout_threads, episode_length, n_rollout_threads * episode_length,
                           num_mini_batch))
             mini_batch_size = batch_size // num_mini_batch
-        sampler = BatchSampler(
-            SubsetRandomSampler(range(batch_size)),
-            mini_batch_size,
-            drop_last=True)
             
+        rand = torch.randperm(batch_size).numpy()
+        sampler = [rand[i*mini_batch_size:(i+1)*mini_batch_size] for i in range(num_mini_batch)]
+        
         share_obs = self.share_obs[:-1,:,agent_id].view(-1, *self.share_obs.shape[3:])
         obs = self.obs[:-1,:,agent_id].view(-1, *self.obs.shape[3:])
         recurrent_hidden_states = self.recurrent_hidden_states[:-1,:,agent_id].view(-1, self.recurrent_hidden_states.shape[-1])
@@ -199,10 +198,9 @@ class RolloutStorage(object):
                 "".format(n_rollout_threads, episode_length, num_agents, n_rollout_threads * episode_length* num_agents,
                           num_mini_batch))
             mini_batch_size = batch_size // num_mini_batch
-        sampler = BatchSampler(
-            SubsetRandomSampler(range(batch_size)),
-            mini_batch_size,
-            drop_last=True)
+            
+        rand = torch.randperm(batch_size).numpy()
+        sampler = [rand[i*mini_batch_size:(i+1)*mini_batch_size] for i in range(num_mini_batch)]
             
         share_obs = self.share_obs[:-1].view(-1, *self.share_obs.shape[3:])
         obs = self.obs[:-1].view(-1, *self.obs.shape[3:])
@@ -242,7 +240,7 @@ class RolloutStorage(object):
             "to be greater than or equal to the number of "
             "PPO mini batches ({}).".format(n_rollout_threads, num_mini_batch))
         num_envs_per_batch = n_rollout_threads // num_mini_batch
-        perm = torch.randperm(n_rollout_threads)
+        perm = torch.randperm(n_rollout_threads).numpy()
         for start_ind in range(0, n_rollout_threads, num_envs_per_batch):
             share_obs_batch = []
             obs_batch = []
@@ -315,7 +313,7 @@ class RolloutStorage(object):
             "to be greater than or equal to the number of "
             "PPO mini batches ({}).".format(n_rollout_threads, num_agents, num_mini_batch))
         num_envs_per_batch = batch_size // num_mini_batch
-        perm = torch.randperm(batch_size)
+        perm = torch.randperm(batch_size).numpy()
         
         share_obs = self.share_obs.view(-1, batch_size, *self.share_obs.shape[3:])
         obs = self.obs.view(-1, batch_size, *self.obs.shape[3:])
@@ -398,11 +396,9 @@ class RolloutStorage(object):
         batch_size = n_rollout_threads * episode_length
         data_chunks = batch_size // data_chunk_length #[C=r*T/L]
         mini_batch_size = data_chunks // num_mini_batch
-
-        sampler = BatchSampler(
-            SubsetRandomSampler(range(data_chunks)),
-            mini_batch_size,
-            drop_last=True)
+            
+        rand = torch.randperm(data_chunks).numpy()
+        sampler = [rand[i*mini_batch_size:(i+1)*mini_batch_size] for i in range(num_mini_batch)]
             
         if len(self.share_obs.shape) > 4:
             share_obs = self.share_obs[:-1,:,agent_id].transpose(1,0,2,3,4).reshape(-1, *self.share_obs.shape[3:])
@@ -492,11 +488,10 @@ class RolloutStorage(object):
         batch_size = n_rollout_threads * episode_length * num_agents
         data_chunks = batch_size // data_chunk_length #[C=r*T*M/L]
         mini_batch_size = data_chunks // num_mini_batch
-
-        sampler = BatchSampler(
-            SubsetRandomSampler(range(data_chunks)),
-            mini_batch_size,
-            drop_last=True)
+            
+        rand = torch.randperm(data_chunks).numpy()
+        sampler = [rand[i*mini_batch_size:(i+1)*mini_batch_size] for i in range(num_mini_batch)]
+            
         if len(self.share_obs.shape) > 4:    
             share_obs = self.share_obs[:-1].transpose(1,2,0,3,4,5).reshape(-1, *self.share_obs.shape[3:])
             obs = self.obs[:-1].transpose(1,2,0,3,4,5).reshape(-1, *self.obs.shape[3:])
