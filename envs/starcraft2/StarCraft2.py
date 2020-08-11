@@ -450,7 +450,8 @@ class StarCraft2Env(MultiAgentEnv):
                 "battles_game": self.battles_game,
                 "battles_draw": self.timeouts,
                 "restarts": self.force_restarts,
-                "bad_transition":bad_transition
+                "bad_transition":bad_transition,
+                "won":self.win_counted
                }
             return self.get_obs(),[[0]]*self.n_agents, terminated, info, []
 
@@ -498,7 +499,8 @@ class StarCraft2Env(MultiAgentEnv):
                 "battles_game": self.battles_game,
                 "battles_draw": self.timeouts,
                 "restarts": self.force_restarts,
-                "bad_transition":bad_transition
+                "bad_transition":bad_transition,
+                "won":self.win_counted
                }
 
         if self.debug:

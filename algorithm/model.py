@@ -425,6 +425,8 @@ class MLPBase(NNBase):
         else:
             num_inputs_actor = obs_shape[0]
             num_inputs_critic = obs_shape[0]*num_agents
+            
+        
         init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
                                constant_(x, 0), np.sqrt(2))
 

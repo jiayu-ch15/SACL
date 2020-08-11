@@ -77,13 +77,13 @@ def get_config():
     
     # log
     parser.add_argument("--log_interval", type=int, default=1)
-    parser.add_argument("--eval_interval", type=int, default=100)
+    parser.add_argument("--eval_interval", type=int, default=10)
     
     #eval
     parser.add_argument("--eval", action='store_true', default=False)
     parser.add_argument("--save_gifs", action='store_true', default=False)
     parser.add_argument("--ifi", type=float, default=0.333333)
-    parser.add_argument("--eval_episodes", type=int, default=100)
+    parser.add_argument("--eval_episodes", type=int, default=32)
     parser.add_argument("--model_dir", type=str, default='/home/yuchao/project/mappo-ssd/results/single_navigation/lstm-60/run1/models/')
     
     args = parser.parse_args()
