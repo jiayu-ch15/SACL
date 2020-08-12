@@ -52,7 +52,7 @@ def make_test_env(args):
             # np.random.seed(args.seed + rank * 1000)
             return env
         return init_env
-    return DummyVecEnv([get_env_fn(0)])
+    return SubprocVecEnv([get_env_fn(0)])
 
 def main():
     args = get_config()
@@ -286,14 +286,22 @@ def main():
                 masks.append(mask)
                 
             bad_masks = []
+            high_masks = []
             for info in infos: 
-                bad_mask = []               
+                bad_mask = []  
+                high_mask = []             
                 for i in range(num_agents): 
-                    if info['bad_transition']:              
+                    if info[i]['bad_transition']:              
                         bad_mask.append([0.0])
                     else:
                         bad_mask.append([1.0])
+                        
+                    if info[i]['high_masks']:              
+                        high_mask.append([1.0])
+                    else:
+                        high_mask.append([0.0])
                 bad_masks.append(bad_mask)
+                high_masks.append(high_mask)
                             
             if len(envs.observation_space[0]) == 3:
                 share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])
@@ -308,7 +316,8 @@ def main():
                                 values.transpose(1,0,2),
                                 reward, 
                                 masks, 
-                                bad_masks)
+                                bad_masks,
+                                high_masks)
             else:
                 share_obs = obs.reshape(args.n_rollout_threads, -1)
                 share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
@@ -322,7 +331,8 @@ def main():
                                 np.array(values).transpose(1,0,2),
                                 reward, 
                                 masks, 
-                                bad_masks)
+                                bad_masks,
+                                high_masks)
                            
         with torch.no_grad(): 
             for i in range(num_agents):         
@@ -438,22 +448,20 @@ def main():
                 win_rate = []
                 incre_win_rate = []
                 for i,info in enumerate(infos):
-                    if 'battles_won' in info.keys():
-                        battles_won.append(info['battles_won'])                         
-                    if 'battles_game' in info.keys():
-                        battles_game.append(info['battles_game'])                        
-                        if info['battles_game'] == 0:
+                    if 'battles_won' in info[0].keys():
+                        battles_won.append(info[0]['battles_won'])                         
+                    if 'battles_game' in info[0].keys():
+                        battles_game.append(info[0]['battles_game'])                        
+                        if info[0]['battles_game'] == 0:
                             win_rate.append(0)
                             incre_win_rate.append(0) 
                         else:
-                            win_rate.append(info['battles_won']/info['battles_game'])
-                            if info['battles_game']-last_battles_game[i] == 0:
+                            win_rate.append(info[0]['battles_won']/info[0]['battles_game'])
+                            if info[0]['battles_game']-last_battles_game[i] == 0:
                                 incre_win_rate.append(0)
                             else:
-                                incre_win_rate.append((info['battles_won']-last_battles_won[i])/(info['battles_game']-last_battles_game[i]))
+                                incre_win_rate.append((info[0]['battles_won']-last_battles_won[i])/(info[0]['battles_game']-last_battles_game[i]))
                           
-                    if 'battles_draw' in info.keys():
-                        battles_draw.append(info['battles_draw'])
                 logger.add_scalars('win_rate',
                                     {'win_rate': np.mean(win_rate)},
                                     total_num_steps)
@@ -500,8 +508,8 @@ def main():
                     # If done then clean the history of observations.
                     # insert data in buffer
                     if eval_done[0]:
-                        if eval_infos[0]['won']:
-                            eval_battles_won += eval_infos[0]['won']
+                        if eval_infos[0][0]['won']:
+                            eval_battles_won += 1
                         break
             logger.add_scalars('eval_win_rate',
                                     {'eval_win_rate': eval_battles_won/args.eval_episodes},

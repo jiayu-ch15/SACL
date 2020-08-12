@@ -413,6 +413,7 @@ class StarCraft2Env(MultiAgentEnv):
         """A single environment step. Returns reward, terminated, info."""
         terminated = False
         bad_transition = False
+        info = [{} for i in range(self.n_agents)]
         
         actions_int = [int(np.argmax(a)) for a in actions]
 
@@ -445,14 +446,19 @@ class StarCraft2Env(MultiAgentEnv):
         except (protocol.ProtocolError, protocol.ConnectionError):
             self.full_restart()
             terminated = True
-            info = {
-                "battles_won": self.battles_won,
-                "battles_game": self.battles_game,
-                "battles_draw": self.timeouts,
-                "restarts": self.force_restarts,
-                "bad_transition":bad_transition,
-                "won":self.win_counted
-               }
+            for i in range(self.n_agents):
+                info[i] = {
+                    "battles_won": self.battles_won,
+                    "battles_game": self.battles_game,
+                    "battles_draw": self.timeouts,
+                    "restarts": self.force_restarts,
+                    "bad_transition":bad_transition,
+                    "won":self.win_counted
+                   }
+                if self.death_tracker_ally[i]:
+                    info[i]["high_masks"] = False
+                else:
+                    info[i]["high_masks"] = True
             return self.get_obs(),[[0]]*self.n_agents, terminated, info, []
 
         self._total_steps += 1
@@ -494,7 +500,8 @@ class StarCraft2Env(MultiAgentEnv):
             self.battles_game += 1
             self.timeouts += 1
             
-        info = {
+        for i in range(self.n_agents):
+            info[i] = {
                 "battles_won": self.battles_won,
                 "battles_game": self.battles_game,
                 "battles_draw": self.timeouts,
@@ -502,6 +509,10 @@ class StarCraft2Env(MultiAgentEnv):
                 "bad_transition":bad_transition,
                 "won":self.win_counted
                }
+            if self.death_tracker_ally[i]:
+                info[i]["high_masks"] = False
+            else:
+                info[i]["high_masks"] = True
 
         if self.debug:
             logging.debug("Reward = {}".format(reward).center(60, '-'))

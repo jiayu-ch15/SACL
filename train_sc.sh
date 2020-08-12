@@ -1,6 +1,6 @@
 #!/bin/sh
 env="StarCraft2"
-map="3m"
+map="2s_vs_1sc"
 algo="test"
 #algo="test"
 seed_max=1

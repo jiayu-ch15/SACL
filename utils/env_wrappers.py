@@ -113,12 +113,14 @@ class DummyVecEnv(VecEnv):
             if done.__class__.__name__=='bool' or done.__class__.__name__=='bool_':
                 if done:
                     obs[i], available_actions[i] = self.envs[i].reset()
+                    print(obs[i], available_actions[i])                    
                     self.ts[i] = 0
             else:
                 if all(done):
                     obs[i], available_actions[i] = self.envs[i].reset()
                     self.ts[i] = 0
         self.actions = None
+
         return np.array(obs), np.array(rews), np.array(dones), infos, np.array(available_actions)
 
     def reset(self):  
