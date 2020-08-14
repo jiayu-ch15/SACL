@@ -217,6 +217,7 @@ def main():
     start = time.time()
     episodes = int(args.num_env_steps) // args.episode_length // args.n_rollout_threads
     timesteps = 0
+    
 
     for episode in range(episodes):
         if args.use_linear_lr_decay:# decrease learning rate linearly
@@ -224,8 +225,8 @@ def main():
                 update_linear_schedule(agents.optimizer, episode, episodes, args.lr)  
             else:     
                 for i in range(num_agents):
-                    update_linear_schedule(agents[i].optimizer, episode, episodes, args.lr)           
-
+                    update_linear_schedule(agents[i].optimizer, episode, episodes, args.lr)          
+        scores = []          
         for step in range(args.episode_length):
             # Sample actions
             values = []
@@ -278,7 +279,12 @@ def main():
             # If done then clean the history of observations.
             # insert data in buffer
             masks = []
-            for done_ in done: 
+            
+            for k,done_ in enumerate(done):                
+                if done_:
+                    if 'score' in infos[k][0].keys():
+                        score = infos[k][0]['score']
+                        scores.append(score)                        
                 mask = []               
                 for i in range(num_agents): 
                     if done_:              
@@ -286,7 +292,7 @@ def main():
                     else:
                         mask.append([1.0])
                 masks.append(mask)
-                
+                                             
             bad_masks = []
             high_masks = []
             for info in infos: 
@@ -300,7 +306,8 @@ def main():
                     else:
                         high_mask.append([0.0])
                 bad_masks.append(bad_mask)
-                high_masks.append(high_mask)             
+                high_masks.append(high_mask)
+                             
             if len(envs.observation_space[0]) == 3:
                 share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])
                 share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
@@ -441,16 +448,8 @@ def main():
             else:
                 for i in range(num_agents):
                     print("value loss of agent%i: " %i + str(value_losses[i]))
-
-            if args.env_name == "Hanabi":                
-                score = []
-                for i,info in enumerate(infos):
-                    if 'score' in info[0].keys():
-                        score.append(info[0]['score'])
-                          
-                logger.add_scalars('score',
-                                    {'score': np.mean(score)},
-                                    total_num_steps)
+            if args.env_name == "Hanabi":        
+                logger.add_scalars('score',{'score': np.mean(scores)},total_num_steps)
                 
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()

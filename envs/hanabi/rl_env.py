@@ -401,7 +401,6 @@ class HanabiEnv(Environment):
       AssertionError: When an illegal action is provided.
     """
     action = int(action[self.state.cur_player()][0])
-    #print(action)
     if isinstance(action, dict):
       # Convert dict action HanabiMove
       action = self._build_move(action)
@@ -438,6 +437,7 @@ class HanabiEnv(Environment):
         else:
             info['high_masks'] = False
         infos.append(info)
+    
     return obs, rewards, done, infos, available_actions
 
   def _make_observation_all_players(self):
