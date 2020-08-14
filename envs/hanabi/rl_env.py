@@ -102,7 +102,7 @@ class HanabiEnv(Environment):
           - seed: int, Random seed.
           - random_start_player: bool, Random start player.
     """
-    if (args.hanabi_name == "Hanabi-Full" or args.hanabi_name == "Hanabi-Full-CardKnowledge"): # max:action 48 obs=1380 min:action=20 obs=783
+    if (args.hanabi_name == "Hanabi-Full" or args.hanabi_name == "Hanabi-Full-CardKnowledge"): # max:action 48 obs=1380 min:action=20 obs=783 score=25
       config={
               "colors":5,
               "ranks":5,
@@ -112,7 +112,7 @@ class HanabiEnv(Environment):
               "observation_type":pyhanabi.AgentObservationType.CARD_KNOWLEDGE.value,
               "seed":args.seed
           }
-    elif args.hanabi_name == "Hanabi-Full-Minimal":# max:action 48 obs=680 min:action=20 obs=433
+    elif args.hanabi_name == "Hanabi-Full-Minimal":# max:action 48 obs=680 min:action=20 obs=433 score=25 use memory
       config={
               "colors": 5,
               "ranks": 5,
@@ -122,7 +122,7 @@ class HanabiEnv(Environment):
               "observation_type": pyhanabi.AgentObservationType.MINIMAL.value,
               "seed":args.seed
           }
-    elif args.hanabi_name == "Hanabi-Small": # max:action=32 obs=356 min:action=11 obs=191
+    elif args.hanabi_name == "Hanabi-Small": # max:action=32 obs=356 min:action=11 obs=191 score=10
       config={
               "colors":2,
               "ranks":5,
@@ -133,7 +133,7 @@ class HanabiEnv(Environment):
               "observation_type":pyhanabi.AgentObservationType.CARD_KNOWLEDGE.value,
               "seed":args.seed
           }
-    elif args.hanabi_name == "Hanabi-Very-Small": # max:action=28 obs=215 min:action=10 obs=116
+    elif args.hanabi_name == "Hanabi-Very-Small": # max:action=28 obs=215 min:action=10 obs=116 score=5
       config={
               "colors":1,
               "ranks":5,
