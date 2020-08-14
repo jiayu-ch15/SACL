@@ -30,12 +30,15 @@ namespace hanabi_learning_env {
 // Agent observation of a HanabiState
 class HanabiObservation {
  public:
-  HanabiObservation(const HanabiState& state, int observing_player);
+  HanabiObservation(const HanabiState& state, int observing_player, bool show_cards=false);
 
   std::string ToString() const;
 
   // offset of current player from observing player.
   int CurPlayerOffset() const { return cur_player_offset_; }
+
+  int ObservingPlayer() const { return observing_player_; }
+
   // observed hands are in relative order, with index 1 being the
   // first player clock-wise from observing_player. hands[0][] has
   // invalid cards as players don't see their own cards.
@@ -64,6 +67,7 @@ class HanabiObservation {
 
  private:
   int cur_player_offset_;  // offset of current_player from observing_player
+  int observing_player_;
   std::vector<HanabiHand> hands_;         // observing player is element 0
   std::vector<HanabiCard> discard_pile_;  // back is most recent discard
   std::vector<int> fireworks_;

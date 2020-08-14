@@ -4,6 +4,7 @@ from .starcraft2.smac_maps import get_map_params
 from .agar.Env import AgarEnv
 from .ssd.Cleanup import CleanupEnv
 from .ssd.Harvest import HarvestEnv
+from .hanabi.rl_env import HanabiEnv
 
 from absl import flags
 FLAGS = flags.FLAGS

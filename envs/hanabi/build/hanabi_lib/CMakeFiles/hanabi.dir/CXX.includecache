@@ -165,6 +165,10 @@ hanabi_history_item.h
 /home/yuchao/project/mappo-sc/envs/hanabi/hanabi_lib/hanabi_history_item.h
 hanabi_move.h
 /home/yuchao/project/mappo-sc/envs/hanabi/hanabi_lib/hanabi_move.h
+iostream
+-
+sstream
+-
 
 /home/yuchao/project/mappo-sc/envs/hanabi/hanabi_lib/observation_encoder.h
 vector

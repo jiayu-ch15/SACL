@@ -71,10 +71,15 @@ class Categorical(nn.Module):
     def forward(self, x, available_actions=None):
         x = self.linear(x)
         if available_actions is not None:
-          for i in range(available_actions.shape[0]):
-              for j in range(available_actions.shape[1]):
-                  if available_actions[i][j] == 0:
-                      x[i,j] = -float("inf")
+            if len(available_actions.size()) == 1:
+                for i in range(available_actions.size(0)):
+                    if available_actions[i]==0:
+                        x[i]=float('-inf')
+            else:
+                for i in range(available_actions.size(0)):
+                    for j in range(available_actions.size(1)):
+                        if available_actions[i][j]==0:
+                            x[i][j]=float('-inf')
         return FixedCategorical(logits=x)
 
 

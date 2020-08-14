@@ -16,8 +16,10 @@
 from __future__ import absolute_import
 from __future__ import division
 
-from hanabi_learning_environment import pyhanabi
-from hanabi_learning_environment.pyhanabi import color_char_to_idx
+from . import pyhanabi
+from .pyhanabi import color_char_to_idx
+from gym.spaces import Discrete
+import numpy as np
 
 MOVE_TYPES = [_.name for _ in pyhanabi.HanabiMoveType]
 
@@ -34,7 +36,7 @@ class Environment(object):
   """
 
   def reset(self, config):
-    """Reset the environment with a new config.
+    r"""Reset the environment with a new config.
 
     Signals environment handlers to reset and restart the environment using
     a config dict.
@@ -82,7 +84,7 @@ class HanabiEnv(Environment):
   ```
   """
 
-  def __init__(self, config):
+  def __init__(self, args):
     r"""Creates an environment with the given game configuration.
 
     Args:
@@ -100,15 +102,66 @@ class HanabiEnv(Environment):
           - seed: int, Random seed.
           - random_start_player: bool, Random start player.
     """
+    if (args.hanabi_name == "Hanabi-Full" or args.hanabi_name == "Hanabi-Full-CardKnowledge"): # max:action 48 obs=1380 min:action=20 obs=783
+      config={
+              "colors":5,
+              "ranks":5,
+              "players":args.num_agents,
+              "max_information_tokens":8,
+              "max_life_tokens":3,
+              "observation_type":pyhanabi.AgentObservationType.CARD_KNOWLEDGE.value,
+              "seed":args.seed
+          }
+    elif args.hanabi_name == "Hanabi-Full-Minimal":# max:action 48 obs=680 min:action=20 obs=433
+      config={
+              "colors": 5,
+              "ranks": 5,
+              "players": args.num_agents,
+              "max_information_tokens": 8,
+              "max_life_tokens": 3,
+              "observation_type": pyhanabi.AgentObservationType.MINIMAL.value,
+              "seed":args.seed
+          }
+    elif args.hanabi_name == "Hanabi-Small": # max:action=32 obs=356 min:action=11 obs=191
+      config={
+              "colors":2,
+              "ranks":5,
+              "players":args.num_agents,
+              "hand_size":2,
+              "max_information_tokens":3,
+              "max_life_tokens":1,
+              "observation_type":pyhanabi.AgentObservationType.CARD_KNOWLEDGE.value,
+              "seed":args.seed
+          }
+    elif args.hanabi_name == "Hanabi-Very-Small": # max:action=28 obs=215 min:action=10 obs=116
+      config={
+              "colors":1,
+              "ranks":5,
+              "players":args.num_agents,
+              "hand_size":2,
+              "max_information_tokens":3,
+              "max_life_tokens":1,
+              "observation_type":pyhanabi.AgentObservationType.CARD_KNOWLEDGE.value,
+              "seed":args.seed
+          }
+    else:
+      raise ValueError("Unknown environment {}".format(args.hanabi_name))
+        
     assert isinstance(config, dict), "Expected config to be of type dict."
+    
     self.game = pyhanabi.HanabiGame(config)
 
     self.observation_encoder = pyhanabi.ObservationEncoder(
         self.game, pyhanabi.ObservationEncoderType.CANONICAL)
     self.players = self.game.num_players()
-
+    self.action_space = []
+    self.observation_space = []
+    for i in range(self.players):
+        self.action_space.append(Discrete(self.num_moves()))
+        self.observation_space.append(self.vectorized_observation_shape())
+           
   def reset(self):
-    r"""Resets the environment for a new game.
+    """Resets the environment for a new game.
 
     Returns:
       observation: dict, containing the full observation about the game at the
@@ -212,9 +265,16 @@ class HanabiEnv(Environment):
     while self.state.cur_player() == pyhanabi.CHANCE_PLAYER_ID:
       self.state.deal_random_card()
 
-    obs = self._make_observation_all_players()
-    obs["current_player"] = self.state.cur_player()
-    return obs
+    observation = self._make_observation_all_players()
+    observation["current_player"] = self.state.cur_player()
+   
+    obs=[]
+    available_actions = np.zeros((self.players,self.num_moves())) 
+    for i in range(self.players):
+      obs.append(observation['player_observations'][i]['vectorized'])
+      available_actions[i][observation['player_observations'][i]['legal_moves_as_int']]=1.0
+
+    return obs, available_actions
 
   def vectorized_observation_shape(self):
     """Returns the shape of the vectorized observation.
@@ -340,6 +400,8 @@ class HanabiEnv(Environment):
     Raises:
       AssertionError: When an illegal action is provided.
     """
+    action = int(action[self.state.cur_player()][0])
+    #print(action)
     if isinstance(action, dict):
       # Convert dict action HanabiMove
       action = self._build_move(action)
@@ -358,12 +420,25 @@ class HanabiEnv(Environment):
       self.state.deal_random_card()
 
     observation = self._make_observation_all_players()
+    obs=[]
+    available_actions = np.zeros((self.players,self.num_moves())) 
+    for i in range(self.players):
+      obs.append(observation['player_observations'][i]['vectorized'])
+      available_actions[i][observation['player_observations'][i]['legal_moves_as_int']]=1.0
+      
     done = self.state.is_terminal()
     # Reward is score differential. May be large and negative at game end.
-    reward = self.state.score() - last_score
-    info = {}
-
-    return (observation, reward, done, info)
+    reward = self.state.score() - last_score   
+    rewards = [[reward]]* self.players
+    infos = []
+    for i in range(self.players):
+        info = {'score':self.state.score()}
+        if i == self.state.cur_player():
+            info['high_masks'] = True
+        else:
+            info['high_masks'] = False
+        infos.append(info)
+    return obs, rewards, done, infos, available_actions
 
   def _make_observation_all_players(self):
     """Make observation for all players.

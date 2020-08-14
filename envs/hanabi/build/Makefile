@@ -56,30 +56,6 @@ CMAKE_BINARY_DIR = /home/yuchao/project/mappo-sc/envs/hanabi/build
 #=============================================================================
 # Targets provided globally by CMake.
 
-# Special rule for the target install/strip
-install/strip: preinstall
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
-	/usr/local/bin/cmake -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
-.PHONY : install/strip
-
-# Special rule for the target install/strip
-install/strip/fast: preinstall/fast
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
-	/usr/local/bin/cmake -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
-.PHONY : install/strip/fast
-
-# Special rule for the target install/local
-install/local: preinstall
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
-	/usr/local/bin/cmake -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
-.PHONY : install/local
-
-# Special rule for the target install/local
-install/local/fast: preinstall/fast
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
-	/usr/local/bin/cmake -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
-.PHONY : install/local/fast
-
 # Special rule for the target edit_cache
 edit_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake cache editor..."
@@ -101,28 +77,6 @@ rebuild_cache:
 rebuild_cache/fast: rebuild_cache
 
 .PHONY : rebuild_cache/fast
-
-# Special rule for the target list_install_components
-list_install_components:
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Available install components are: \"Unspecified\""
-.PHONY : list_install_components
-
-# Special rule for the target list_install_components
-list_install_components/fast: list_install_components
-
-.PHONY : list_install_components/fast
-
-# Special rule for the target install
-install: preinstall
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Install the project..."
-	/usr/local/bin/cmake -P cmake_install.cmake
-.PHONY : install
-
-# Special rule for the target install
-install/fast: preinstall/fast
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Install the project..."
-	/usr/local/bin/cmake -P cmake_install.cmake
-.PHONY : install/fast
 
 # The main all target
 all: cmake_check_build_system
@@ -170,6 +124,19 @@ pyhanabi/fast:
 .PHONY : pyhanabi/fast
 
 #=============================================================================
+# Target rules for targets named game_example
+
+# Build rule for target.
+game_example: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 game_example
+.PHONY : game_example
+
+# fast build rule for target.
+game_example/fast:
+	$(MAKE) -f CMakeFiles/game_example.dir/build.make CMakeFiles/game_example.dir/build
+.PHONY : game_example/fast
+
+#=============================================================================
 # Target rules for targets named hanabi
 
 # Build rule for target.
@@ -181,6 +148,33 @@ hanabi: cmake_check_build_system
 hanabi/fast:
 	$(MAKE) -f hanabi_lib/CMakeFiles/hanabi.dir/build.make hanabi_lib/CMakeFiles/hanabi.dir/build
 .PHONY : hanabi/fast
+
+examples/game_example.o: examples/game_example.cc.o
+
+.PHONY : examples/game_example.o
+
+# target to build an object file
+examples/game_example.cc.o:
+	$(MAKE) -f CMakeFiles/game_example.dir/build.make CMakeFiles/game_example.dir/examples/game_example.cc.o
+.PHONY : examples/game_example.cc.o
+
+examples/game_example.i: examples/game_example.cc.i
+
+.PHONY : examples/game_example.i
+
+# target to preprocess a source file
+examples/game_example.cc.i:
+	$(MAKE) -f CMakeFiles/game_example.dir/build.make CMakeFiles/game_example.dir/examples/game_example.cc.i
+.PHONY : examples/game_example.cc.i
+
+examples/game_example.s: examples/game_example.cc.s
+
+.PHONY : examples/game_example.s
+
+# target to generate assembly for a file
+examples/game_example.cc.s:
+	$(MAKE) -f CMakeFiles/game_example.dir/build.make CMakeFiles/game_example.dir/examples/game_example.cc.s
+.PHONY : examples/game_example.cc.s
 
 pyhanabi.o: pyhanabi.cc.o
 
@@ -215,14 +209,14 @@ help:
 	@echo "... all (the default if no target is provided)"
 	@echo "... clean"
 	@echo "... depend"
-	@echo "... install/strip"
-	@echo "... install/local"
 	@echo "... edit_cache"
-	@echo "... pyhanabi"
 	@echo "... rebuild_cache"
-	@echo "... list_install_components"
-	@echo "... install"
+	@echo "... pyhanabi"
+	@echo "... game_example"
 	@echo "... hanabi"
+	@echo "... examples/game_example.o"
+	@echo "... examples/game_example.i"
+	@echo "... examples/game_example.s"
 	@echo "... pyhanabi.o"
 	@echo "... pyhanabi.i"
 	@echo "... pyhanabi.s"

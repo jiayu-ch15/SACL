@@ -846,7 +846,8 @@ char* EncodeObservation(pyhanabi_observation_encoder_t* encoder,
       encoder->encoder);
   auto obs = reinterpret_cast<hanabi_learning_env::HanabiObservation*>(
       observation->observation);
-  std::vector<int> encoding = obs_enc->Encode(*obs);
+  // TODO: this is changed to float, making str repr not accurate
+  std::vector<float> encoding = obs_enc->Encode(*obs);
   std::string obs_str = "";
   for (int i = 0; i < encoding.size(); i++) {
     obs_str += (encoding[i] ? "1" : "0");

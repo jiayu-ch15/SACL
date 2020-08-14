@@ -14,10 +14,8 @@ below
 (see [Tensorflow instructions](https://www.tensorflow.org/install/install_linux)
 for details).
 
-This assumes you already installed the learning environment as detailed in the root README.
-
 ```
-pip install absl-py gin-config tensorflow-gpu==1.15.0 numpy
+pip install absl-py gin-config tensorflow-gpu cffi
 ```
 
 If you would prefer to not use the GPU, you may install tensorflow instead
@@ -25,15 +23,17 @@ of tensorflow-gpu and set `RainbowAgent.tf_device = '/cpu:*'` in
 `configs/hanabi_rainbow.gin`.
 
 The entry point to run a Rainbow agent on the Hanabi environment is `train.py`.
-Assuming you are running from the agent directory `hanabi_learning_environment/agents/rainbow`,
+Assuming you are running from the agent directory `agents/rainbow`,
 
 ```
+PYTHONPATH=${PYTHONPATH}:../..
 python -um train \
   --base_dir=/tmp/hanabi_rainbow \
   --gin_files='configs/hanabi_rainbow.gin'
 ```
 
-The `--base_dir` argument must be provided.
+The `PYTHONPATH` fix exposes `rl_env.py`, the main entry point to the Hanabi
+Learning Environment. The `--base_dir` argument must be provided.
 
 To get finer-grained information about the training process, you can adjust the
 experiment parameters in `configs/hanabi_rainbow.gin` in particular by reducing

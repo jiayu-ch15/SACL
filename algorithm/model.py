@@ -77,14 +77,15 @@ class Policy(nn.Module):
         raise NotImplementedError
 
     def act(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks, available_actions=None, deterministic=False):
-        
         share_inputs = share_inputs.to(self.device)
         inputs = inputs.to(self.device)
         rnn_hxs_actor = rnn_hxs_actor.to(self.device)
         rnn_hxs_critic = rnn_hxs_critic.to(self.device)
         masks = masks.to(self.device)
+        if available_actions is not None:
+            available_actions = available_actions.to(self.device)
         
-        value, actor_features, rnn_hxs_actor, rnn_hxs_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)
+        value, actor_features, rnn_hxs_actor, rnn_hxs_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)        
         
         if self.multi_action:
             dist, action, action_log_probs = [None, None], [None, None], [None, None]
@@ -106,11 +107,62 @@ class Policy(nn.Module):
                 action = dist.mode()
             else:
                 action = dist.sample()
-    
+  
             action_log_probs = dist.log_probs(action)
             action_out = action
-            action_log_probs_out = action_log_probs
+            action_log_probs_out = action_log_probs   
+        return value, action_out, action_log_probs_out, rnn_hxs_actor, rnn_hxs_critic
+        
+    def act_hanabi(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks, available_actions=None, replace_actions=None, replace_action_log_probs=None, deterministic=False):
+        share_inputs = share_inputs.to(self.device)
+        inputs = inputs.to(self.device)
+        rnn_hxs_actor = rnn_hxs_actor.to(self.device)
+        rnn_hxs_critic = rnn_hxs_critic.to(self.device)
+        masks = masks.to(self.device)
+        if available_actions is not None:
+            available_actions = available_actions.to(self.device)
+        if replace_actions is not None:
+            replace_actions = replace_actions.to(self.device)
+        if replace_action_log_probs is not None:
+            replace_action_log_probs = replace_action_log_probs.to(self.device)
+        
+        value, actor_features, rnn_hxs_actor, rnn_hxs_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)        
+        
+        if self.multi_action:
+            dist, action, action_log_probs = [None, None], [None, None], [None, None]
+            for i in range(2):
+                dist[i] = self.dist[i](actor_features, available_actions)
+    
+                if deterministic:
+                    action[i] = dist[i].mode().float()
+                else:
+                    action[i] = dist[i].sample().float()
+        
+                action_log_probs[i] = dist[i].log_probs(action[i])
+            action_out = torch.cat(action,-1)
+            action_log_probs_out = torch.sum(torch.cat(action_log_probs, -1), -1, keepdim = True)
+        else:
+            action_out = []
+            action_log_probs_out = []
+            for i in range(available_actions.size(0)):
+                if torch.all(available_actions[i]==0):
+                    action = replace_actions[i]
+                    action_log_probs = replace_action_log_probs[i]
+                else:                            
+                    dist = self.dist(actor_features[i], available_actions[i])
             
+                    if deterministic:
+                        action = dist.mode().float()
+                    else:
+                        action = dist.sample().float()      
+                    action_log_probs = dist.log_probs(action)[0]
+                    
+                action_out.append(action)
+                action_log_probs_out.append(action_log_probs) 
+                          
+            action_out = torch.stack(action_out)
+            action_log_probs_out = torch.stack(action_log_probs_out) 
+      
         return value, action_out, action_log_probs_out, rnn_hxs_actor, rnn_hxs_critic
 
     def get_value(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks):
@@ -121,9 +173,9 @@ class Policy(nn.Module):
         rnn_hxs_critic = rnn_hxs_critic.to(self.device)
         masks = masks.to(self.device)
         
-        value, _, _, _ = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)
+        value, _, rnn_hxs_actor, rnn_hxs_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)
         
-        return value
+        return value, rnn_hxs_actor, rnn_hxs_critic
 
     def evaluate_actions(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks, high_masks, action):
     
@@ -176,7 +228,7 @@ class NNBase(nn.Module):
             self.encoder_critic = Encoder(obs_shape[0]*num_agents, [[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, dropout, use_average_pool)
         
         if self._recurrent or self._naive_recurrent:
-            self.gru = nn.GRU(hidden_size, hidden_size)           
+            self.gru = nn.GRU(hidden_size, hidden_size)         
             for name, param in self.gru.named_parameters():
                 if 'bias' in name:
                     nn.init.constant_(param, 0)
@@ -332,8 +384,7 @@ class CNNBase(NNBase):
         
         self._use_common_layer = use_common_layer
 
-        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
-                               constant_(x, 0), nn.init.calculate_gain('relu'))
+        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), nn.init.calculate_gain('relu'))
                                
         
         num_inputs = obs_shape[0]
@@ -364,8 +415,7 @@ class CNNBase(NNBase):
                 init_(nn.Linear(32 * (num_image-3+1) * (num_image-3+1), hidden_size)), nn.ReLU(),
                 init_(nn.Linear(hidden_size, hidden_size)), nn.ReLU())
 
-        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
-                               constant_(x, 0))
+        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
 
         self.critic_linear = init_(nn.Linear(hidden_size, 1))
 
@@ -427,8 +477,9 @@ class MLPBase(NNBase):
             num_inputs_critic = obs_shape[0]*num_agents
             
         
-        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
-                               constant_(x, 0), np.sqrt(2))
+        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
+        #init_ = lambda m: init(m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
+        #init_ = lambda m: init(m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0))
 
         self.actor = nn.Sequential(
             init_(nn.Linear(num_inputs_actor, hidden_size)), nn.Tanh(),
@@ -478,7 +529,7 @@ class MLPBase(NNBase):
             if self.is_recurrent or self.is_naive_recurrent:
                 hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
                 hidden_critic, rnn_hxs_critic = self._forward_gru_critic(hidden_critic, rnn_hxs_critic, masks)  
-
+                
         return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs_actor, rnn_hxs_critic
 
 class FeedForward(nn.Module):
@@ -487,9 +538,9 @@ class FeedForward(nn.Module):
 
         super(FeedForward, self).__init__() 
         # We set d_ff as a default to 2048
-        init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.
-                               constant_(x, 0))
-
+        init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
+        
+        
         self.linear_1 = nn.Sequential(init_(nn.Linear(d_model, d_ff)), nn.ReLU())
 
         self.dropout = nn.Dropout(dropout)
@@ -517,8 +568,9 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, heads, d_model, dropout = 0.1):
         super(MultiHeadAttention, self).__init__()
         
-        init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.
-                               constant_(x, 0))
+        init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
+        #init_ = lambda m: init(m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0))
+        #init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
         
         self.d_model = d_model
         self.d_k = d_model // heads
@@ -580,8 +632,10 @@ class SelfEmbedding(nn.Module):
         super(SelfEmbedding, self).__init__()
         self.split_shape = split_shape
                 
-        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
-                               constant_(x, 0), np.sqrt(2))
+        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
+        #init_ = lambda m: init(m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
+        #init_ = lambda m: init(m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0))
+        #init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
 
         for i in range(len(split_shape)):
             if i==(len(split_shape)-1):            
@@ -600,7 +654,7 @@ class SelfEmbedding(nn.Module):
             K = self.split_shape[i][0]
             L = self.split_shape[i][1]
             for j in range(K):
-                temp = torch.cat((x[i][:, L*j:(L*j+L)], self_x), dim=-1)
+                temp = torch.cat((x[i][:, (L*j):(L*j+L)], self_x), dim=-1)
                 exec('x1.append(self.fc_{}(temp))'.format(i))
         temp = x[self_idx]
         exec('x1.append(self.fc_{}(temp))'.format(N-1))
@@ -614,8 +668,10 @@ class Embedding(nn.Module):
         super(Embedding, self).__init__()
         self.split_shape = split_shape
                 
-        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
-                               constant_(x, 0), np.sqrt(2))
+        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
+        #init_ = lambda m: init(m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
+        #init_ = lambda m: init(m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0))
+        #init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
 
         for i in range(len(split_shape)):
             setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1], d_model)), nn.Tanh()))
@@ -631,7 +687,7 @@ class Embedding(nn.Module):
             K = self.split_shape[i][0]
             L = self.split_shape[i][1]
             for j in range(K):
-                temp = x[i][:, L*j:(L*j+L)]
+                temp = x[i][:, (L*j):(L*j+L)]
                 exec('x1.append(self.fc_{}(temp))'.format(i))
 
         out = torch.stack(x1, 1)        
@@ -641,9 +697,7 @@ class Embedding(nn.Module):
 class Encoder(nn.Module):
     def __init__(self, input_size, split_shape=None, d_model=512, attn_N=2, heads=8, dropout=0.05, use_average_pool=True):
         super(Encoder, self).__init__()
-        
-        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
-                               constant_(x, 0), np.sqrt(2))
+                                       
         self._attn_N = attn_N
         self._use_average_pool = use_average_pool
         if split_shape[0].__class__ == list:

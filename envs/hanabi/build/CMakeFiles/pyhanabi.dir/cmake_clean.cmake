@@ -1,7 +1,7 @@
 file(REMOVE_RECURSE
   "CMakeFiles/pyhanabi.dir/pyhanabi.cc.o"
-  "libpyhanabi.pdb"
-  "libpyhanabi.so"
+  "../libpyhanabi.pdb"
+  "../libpyhanabi.so"
 )
 
 # Per-language clean rules from dependency scanning.

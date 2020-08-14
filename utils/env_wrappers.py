@@ -112,8 +112,7 @@ class DummyVecEnv(VecEnv):
         for (i, done) in enumerate(dones):
             if done.__class__.__name__=='bool' or done.__class__.__name__=='bool_':
                 if done:
-                    obs[i], available_actions[i] = self.envs[i].reset()
-                    print(obs[i], available_actions[i])                    
+                    obs[i], available_actions[i] = self.envs[i].reset()                   
                     self.ts[i] = 0
             else:
                 if all(done):

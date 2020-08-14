@@ -1,0 +1,1 @@
+/usr/bin/c++  -O2 -std=c++11 -Wall -Wextra -fPIC -Wno-sign-compare  -rdynamic CMakeFiles/game_example.dir/examples/game_example.cc.o  -o ../examples/game_example hanabi_lib/libhanabi.a 

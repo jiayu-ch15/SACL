@@ -11,22 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Random Agent."""
 
-import random
-from rl_env import Agent
+# Clean-up script to bring the repository back to a pre-cmake state.
 
+#!/bin/sh
+if [ -f Makefile ]
+then
+  make clean
+fi
 
-class RandomAgent(Agent):
-  """Agent that takes random legal actions."""
-
-  def __init__(self, config, *args, **kwargs):
-    """Initialize the agent."""
-    self.config = config
-
-  def act(self, observation):
-    """Act based on an observation."""
-    if observation['current_player_offset'] == 0:
-      return random.choice(observation['legal_moves'])
-    else:
-      return None
+rm -rf *.pyc agents/*.pyc __pycache__ agents/__pycache__ CMakeCache.txt CMakeFiles Makefile cmake_install.cmake  hanabi_lib/CMakeFiles hanabi_lib/Makefile hanabi_lib/cmake_install.cmake
