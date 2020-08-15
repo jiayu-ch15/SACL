@@ -111,7 +111,8 @@ def main():
                                  'use_average_pool': args.use_average_pool,
                                  'use_common_layer':args.use_common_layer,
                                  'use_feature_normlization':args.use_feature_normlization,
-                                 'use_feature_popart':args.use_feature_popart
+                                 'use_feature_popart':args.use_feature_popart,
+                                 'use_orthogonal':args.use_orthogonal
                                  },
                     device = device)
         actor_critic.to(device)
@@ -161,7 +162,8 @@ def main():
                                  'use_average_pool': args.use_average_pool,
                                  'use_common_layer':args.use_common_layer,
                                  'use_feature_normlization':args.use_feature_normlization,
-                                 'use_feature_popart':args.use_feature_popart
+                                 'use_feature_popart':args.use_feature_popart,
+                                 'use_orthogonal':args.use_orthogonal
                                  },
                       device = device)
             ac.to(device)

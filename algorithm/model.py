@@ -214,7 +214,7 @@ class Policy(nn.Module):
 
 
 class NNBase(nn.Module):
-    def __init__(self, obs_shape, num_agents, naive_recurrent=False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False):
+    def __init__(self, obs_shape, num_agents, naive_recurrent=False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_orthogonal=True):
         super(NNBase, self).__init__()
 
         self._hidden_size = hidden_size
@@ -233,14 +233,20 @@ class NNBase(nn.Module):
                 if 'bias' in name:
                     nn.init.constant_(param, 0)
                 elif 'weight' in name:
-                    nn.init.orthogonal_(param)
+                    if use_orthogonal:
+                        nn.init.orthogonal_(param)
+                    else:
+                        nn.init.xavier_uniform_(param)
             if not self._use_common_layer:
                 self.gru_critic = nn.GRU(hidden_size, hidden_size)
                 for name, param in self.gru_critic.named_parameters():
                     if 'bias' in name:
                         nn.init.constant_(param, 0)
                     elif 'weight' in name:
-                        nn.init.orthogonal_(param)
+                        if use_orthogonal:
+                            nn.init.orthogonal_(param)
+                        else:
+                            nn.init.xavier_uniform_(param)
 
     @property
     def is_recurrent(self):
@@ -379,12 +385,14 @@ class NNBase(nn.Module):
         return x, hxs
                
 class CNNBase(NNBase):
-    def __init__(self, obs_shape, num_agents, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_feature_normlization=False, use_feature_popart=False):
-        super(CNNBase, self).__init__(obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer)
+    def __init__(self, obs_shape, num_agents, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_feature_normlization=False, use_feature_popart=False, use_orthogonal=True):
+        super(CNNBase, self).__init__(obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer, use_orthogonal)
         
         self._use_common_layer = use_common_layer
-
-        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), nn.init.calculate_gain('relu'))
+        if use_orthogonal:
+            init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), nn.init.calculate_gain('relu'))
+        else:
+            init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('relu'))
                                
         
         num_inputs = obs_shape[0]
@@ -444,8 +452,8 @@ class CNNBase(NNBase):
         return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs_actor, rnn_hxs_critic
 
 class MLPBase(NNBase):
-    def __init__(self, obs_shape, num_agents, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_feature_normlization=True, use_feature_popart=True):
-        super(MLPBase, self).__init__(obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer)
+    def __init__(self, obs_shape, num_agents, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_feature_normlization=True, use_feature_popart=True, use_orthogonal=True):
+        super(MLPBase, self).__init__(obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer, use_orthogonal)
 
         self._use_common_layer = use_common_layer
         self._use_feature_normlization = use_feature_normlization
@@ -476,10 +484,11 @@ class MLPBase(NNBase):
             num_inputs_actor = obs_shape[0]
             num_inputs_critic = obs_shape[0]*num_agents
             
+        if use_orthogonal:
+            init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
+        else:
+            init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
         
-        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
-        #init_ = lambda m: init(m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
-        #init_ = lambda m: init(m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0))
 
         self.actor = nn.Sequential(
             init_(nn.Linear(num_inputs_actor, hidden_size)), nn.Tanh(),
@@ -628,14 +637,13 @@ class EncoderLayer(nn.Module):
         return x
         
 class SelfEmbedding(nn.Module):
-    def __init__(self, split_shape, d_model):
+    def __init__(self, split_shape, d_model, use_orthogonal=True):
         super(SelfEmbedding, self).__init__()
         self.split_shape = split_shape
-                
-        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
-        #init_ = lambda m: init(m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
-        #init_ = lambda m: init(m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0))
-        #init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
+        if use_orthogonal:        
+            init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
+        else:
+            init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
 
         for i in range(len(split_shape)):
             if i==(len(split_shape)-1):            
@@ -664,14 +672,14 @@ class SelfEmbedding(nn.Module):
         return out, self_x
   
 class Embedding(nn.Module):
-    def __init__(self, split_shape, d_model):
+    def __init__(self, split_shape, d_model,use_orthogonal=True):
         super(Embedding, self).__init__()
         self.split_shape = split_shape
-                
-        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
-        #init_ = lambda m: init(m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
-        #init_ = lambda m: init(m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0))
-        #init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
+        
+        if use_orthogonal:        
+            init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
+        else:
+            init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
 
         for i in range(len(split_shape)):
             setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1], d_model)), nn.Tanh()))
@@ -695,15 +703,15 @@ class Embedding(nn.Module):
         return out, self_x
    
 class Encoder(nn.Module):
-    def __init__(self, input_size, split_shape=None, d_model=512, attn_N=2, heads=8, dropout=0.05, use_average_pool=True):
+    def __init__(self, input_size, split_shape=None, d_model=512, attn_N=2, heads=8, dropout=0.05, use_average_pool=True, use_orthogonal=True):
         super(Encoder, self).__init__()
                                        
         self._attn_N = attn_N
         self._use_average_pool = use_average_pool
         if split_shape[0].__class__ == list:
-            self.embedding = Embedding(split_shape, d_model)
+            self.embedding = Embedding(split_shape, d_model, use_orthogonal)
         else:
-            self.embedding = SelfEmbedding(split_shape[1:], d_model)
+            self.embedding = SelfEmbedding(split_shape[1:], d_model, use_orthogonal)
         self.layers = get_clones(EncoderLayer(d_model, heads, dropout), self._attn_N)
         self.norm = nn.LayerNorm(d_model)
         
