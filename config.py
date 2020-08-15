@@ -75,7 +75,7 @@ def get_config():
     parser.add_argument("--use-linear-lr-decay", action='store_true', default=False, help='use a linear schedule on the learning rate')
     
     # save
-    parser.add_argument("--save_interval", type=int, default=10000)
+    parser.add_argument("--save_interval", type=int, default=1)
     
     # log
     parser.add_argument("--log_interval", type=int, default=1)
