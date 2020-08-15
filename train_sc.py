@@ -497,8 +497,7 @@ def main():
                             torch.tensor(eval_recurrent_hidden_states[:,i]), 
                             torch.tensor(eval_recurrent_hidden_states_critic[:,i]),
                             torch.tensor(eval_masks[:,i]),
-                            torch.tensor(eval_available_actions[:,i,:]),
-                            deterministic=True)
+                            torch.tensor(eval_available_actions[:,i,:]))
 
                         eval_actions.append(action.detach().cpu().numpy())
                         eval_recurrent_hidden_states[:,i] = recurrent_hidden_states.detach().cpu().numpy()
