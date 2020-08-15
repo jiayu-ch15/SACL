@@ -239,6 +239,7 @@ def main():
             with torch.no_grad():                
                 for i in range(num_agents):
                     if args.share_policy:
+                        actor_critic.eval()
                         value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(i,
                         torch.tensor(rollouts.share_obs[step,:,i]), 
                         torch.tensor(rollouts.obs[step,:,i]), 
@@ -247,6 +248,7 @@ def main():
                         torch.tensor(rollouts.masks[step,:,i]),
                         torch.tensor(rollouts.available_actions[step,:,i]))
                     else:
+                        actor_critic[i].eval()
                         value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic[i].act(i,
                         torch.tensor(rollouts.share_obs[step,:,i]), 
                         torch.tensor(rollouts.obs[step,:,i]), 
@@ -277,10 +279,12 @@ def main():
             # If done then clean the history of observations.
             # insert data in buffer
             masks = []
-            for done_ in done: 
+            for k, done_ in enumerate(done): 
                 mask = []               
                 for i in range(num_agents): 
-                    if done_:              
+                    if done_:    
+                        recurrent_hidden_statess[i][k] = np.zeros(args.hidden_size).astype(np.float32)
+                        recurrent_hidden_statess_critic[i][k] = np.zeros(args.hidden_size).astype(np.float32)    
                         mask.append([0.0])
                     else:
                         mask.append([1.0])
@@ -310,11 +314,11 @@ def main():
                 
                 rollouts.insert(share_obs, 
                                 obs, 
-                                recurrent_hidden_statess.transpose(1,0,2), 
-                                recurrent_hidden_statess_critic.transpose(1,0,2), 
-                                actions.transpose(1,0,2),
-                                action_log_probs.transpose(1,0,2), 
-                                values.transpose(1,0,2),
+                                np.array(recurrent_hidden_statess).transpose(1,0,2), 
+                                np.array(recurrent_hidden_statess_critic).transpose(1,0,2), 
+                                np.array(actions).transpose(1,0,2),
+                                np.array(action_log_probs).transpose(1,0,2), 
+                                np.array(values).transpose(1,0,2),
                                 reward, 
                                 masks, 
                                 bad_masks,
@@ -375,6 +379,7 @@ def main():
          
         # update the network
         if args.share_policy:
+            actor_critic.train()
             value_loss, action_loss, dist_entropy = agents.update_share(num_agents, rollouts)
                            
             logger.add_scalars('reward',
@@ -386,6 +391,7 @@ def main():
             dist_entropies = [] 
             
             for i in range(num_agents):
+                actor_critic[i].train()
                 value_loss, action_loss, dist_entropy = agents[i].update(i, rollouts)
                 value_losses.append(value_loss)
                 action_losses.append(action_loss)
@@ -451,29 +457,24 @@ def main():
             if args.env_name == "StarCraft2":                
                 battles_won = []
                 battles_game = []
-                battles_draw = []
-                win_rate = []
-                incre_win_rate = []
+                incre_battles_won = []
+                incre_battles_game = []
+
                 for i,info in enumerate(infos):
                     if 'battles_won' in info[0].keys():
-                        battles_won.append(info[0]['battles_won'])                         
+                        battles_won.append(info[0]['battles_won'])
+                        incre_battles_won.append(info[0]['battles_won']-last_battles_won[i])                         
                     if 'battles_game' in info[0].keys():
-                        battles_game.append(info[0]['battles_game'])                        
-                        if info[0]['battles_game'] == 0:
-                            win_rate.append(0)
-                            incre_win_rate.append(0) 
-                        else:
-                            win_rate.append(info[0]['battles_won']/info[0]['battles_game'])
-                            if info[0]['battles_game']-last_battles_game[i] == 0:
-                                incre_win_rate.append(0)
-                            else:
-                                incre_win_rate.append((info[0]['battles_won']-last_battles_won[i])/(info[0]['battles_game']-last_battles_game[i]))
-                          
-                logger.add_scalars('win_rate',
-                                    {'win_rate': np.mean(win_rate)},
+                        battles_game.append(info[0]['battles_game'])                                                
+                        incre_battles_game.append(info[0]['battles_game']-last_battles_game[i])
+
+                if np.sum(incre_battles_game)>0:
+                    logger.add_scalars('incre_win_rate',
+                                    {'incre_win_rate': np.sum(incre_battles_won)/np.sum(incre_battles_game)},
                                     total_num_steps)
-                logger.add_scalars('incre_win_rate',
-                                    {'incre_win_rate': np.mean(incre_win_rate)},
+                else:
+                    logger.add_scalars('incre_win_rate',
+                                    {'incre_win_rate': 0},
                                     total_num_steps)
                 last_battles_game = battles_game
                 last_battles_won = battles_won
