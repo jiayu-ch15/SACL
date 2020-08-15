@@ -343,7 +343,8 @@ def main():
                            
         with torch.no_grad(): 
             for i in range(num_agents):         
-                if args.share_policy:                 
+                if args.share_policy: 
+                    actor_critic.eval()                
                     next_value,_,_ = actor_critic.get_value(i,
                                                    torch.tensor(rollouts.share_obs[-1,:,i]), 
                                                    torch.tensor(rollouts.obs[-1,:,i]), 
@@ -360,6 +361,7 @@ def main():
                                     args.use_popart,
                                     agents.value_normalizer)
                 else:
+                    actor_critic[i].eval()
                     next_value,_,_ = actor_critic[i].get_value(i,
                                                    torch.tensor(rollouts.share_obs[-1,:,i]), 
                                                    torch.tensor(rollouts.obs[-1,:,i]), 
@@ -490,6 +492,7 @@ def main():
                 
                 while True:
                     eval_actions = []
+                    actor_critic.eval()
                     for i in range(num_agents):
                         _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(i,
                             torch.tensor(eval_share_obs), 
