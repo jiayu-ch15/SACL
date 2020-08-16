@@ -76,52 +76,55 @@ def main():
     eval_env = make_test_env(args)
     num_agents = get_map_params(args.map_name)["n_agents"]
 
-    for eval_episode in range(args.eval_episodes):
-        print(eval_episode)
-        eval_obs, eval_available_actions = eval_env.reset()
+    eval_battles_won = 0
+    eval_episode = 0
+    eval_obs, eval_available_actions = eval_env.reset()
+    eval_share_obs = eval_obs.reshape(1, -1)
+    eval_recurrent_hidden_states = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
+    eval_recurrent_hidden_states_critic = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
+    eval_masks = np.ones((1,num_agents,1)).astype(np.float32)
+    
+    while True:
+        eval_actions = []
+        actor_critic.eval()
+        for i in range(num_agents):
+            _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(i,
+                torch.tensor(eval_share_obs), 
+                torch.tensor(eval_obs[:,i]), 
+                torch.tensor(eval_recurrent_hidden_states[:,i]), 
+                torch.tensor(eval_recurrent_hidden_states_critic[:,i]),
+                torch.tensor(eval_masks[:,i]),
+                torch.tensor(eval_available_actions[:,i,:]))
+
+            eval_actions.append(action.detach().cpu().numpy())
+            eval_recurrent_hidden_states[:,i] = recurrent_hidden_states.detach().cpu().numpy()
+            eval_recurrent_hidden_states_critic[:,i] = recurrent_hidden_states_critic.detach().cpu().numpy()
+
+        # rearrange action           
+        eval_actions_env = []
+        for k in range(num_agents):
+            one_hot_action = np.zeros(eval_env.action_space[0].n)
+            one_hot_action[eval_actions[k][0]] = 1
+            eval_actions_env.append(one_hot_action)
+                
+        # Obser reward and next obs
+        eval_obs, eval_reward, eval_done, eval_infos, eval_available_actions = eval_env.step([eval_actions_env])
         eval_share_obs = eval_obs.reshape(1, -1)
-        eval_recurrent_hidden_states = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
-        eval_recurrent_hidden_states_critic = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
-        eval_masks = np.ones((1,num_agents,1)).astype(np.float32)
-        
-        while True:
-            eval_actions = []
+                                            
+        if eval_done[0]: 
+            eval_episode += 1
+            if eval_infos[0][0]['won']:
+                eval_battles_won += 1
+            for i in range(num_agents):    
+                eval_recurrent_hidden_states[0][i] = np.zeros(args.hidden_size).astype(np.float32)
+                eval_recurrent_hidden_states_critic[0][i] = np.zeros(args.hidden_size).astype(np.float32)    
+                eval_masks[0][i]=0.0
+        else:
             for i in range(num_agents):
-                actor_critic.eval()
-                _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(i,
-                    torch.tensor(eval_share_obs), 
-                    torch.tensor(eval_obs[:,i]), 
-                    torch.tensor(eval_recurrent_hidden_states[:,i]), 
-                    torch.tensor(eval_recurrent_hidden_states_critic[:,i]),
-                    torch.tensor(eval_masks[:,i]),
-                    torch.tensor(eval_available_actions[:,i,:]))
-
-                eval_actions.append(action.detach().cpu().numpy())
-                eval_recurrent_hidden_states[:,i] = recurrent_hidden_states.detach().cpu().numpy()
-                eval_recurrent_hidden_states_critic[:,i] = recurrent_hidden_states_critic.detach().cpu().numpy()
-
-            # rearrange action          
-            eval_actions_env = []
-            for k in range(num_agents):
-                one_hot_action = np.zeros(eval_env.action_space[0].n)
-                one_hot_action[eval_actions[k][0]] = 1.0
-                eval_actions_env.append(one_hot_action)
-                    
-            # Obser reward and next obs
-            print(eval_actions_env)
-            eval_obs, eval_reward, eval_done, eval_infos, eval_available_actions = eval_env.step([eval_actions_env])
-            eval_share_obs = eval_obs.reshape(1, -1)
-            # If done then clean the history of observations.
-            # insert data in buffer
-            if eval_done[0]:
-                break
-                
-    #logger.add_scalars('eval_win_rate',{'eval_win_rate': eval_battles_won/args.eval_episodes},total_num_steps)
-    print(eval_infos[0][0]['battles_won'], eval_infos[0][0]['battles_game'])
-    print(eval_infos[0][0]['battles_won']/eval_infos[0][0]['battles_game'])
-                
-    #logger.export_scalars_to_json(str(log_dir / 'summary.json'))
-    #logger.close()
-    #eval_env.close()
+                eval_masks[0][i]=1.0
+        
+        if eval_epsisode>=32:
+            print(eval_battles_won/eval_episode)
+            break
 if __name__ == "__main__":
     main()
