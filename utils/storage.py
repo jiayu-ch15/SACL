@@ -62,7 +62,7 @@ class RolloutStorage(object):
         self.value_preds[self.step] = value_preds.copy()
         self.rewards[self.step] = rewards.copy()
         self.masks[self.step + 1] = masks.copy()
-        if high_masks is not None:
+        if bad_masks is not None:
             self.bad_masks[self.step + 1] = bad_masks.copy()
         if high_masks is not None:
             self.high_masks[self.step + 1] = high_masks.copy()
@@ -70,7 +70,17 @@ class RolloutStorage(object):
             self.available_actions[self.step + 1] = available_actions.copy()
 
         self.step = (self.step + 1) % self.episode_length
-
+        
+    def after_update(self):
+        self.share_obs[0] = self.share_obs[-1].copy()
+        self.obs[0] = self.obs[-1].copy()
+        self.recurrent_hidden_states[0] = self.recurrent_hidden_states[-1].copy()
+        self.recurrent_hidden_states_critic[0] = self.recurrent_hidden_states_critic[-1].copy()
+        self.masks[0] = self.masks[-1].copy()
+        self.bad_masks[0] = self.bad_masks[-1].copy()
+        self.high_masks[0] = self.high_masks[-1].copy()
+        self.available_actions[0] = self.available_actions[-1].copy()        
+        
     def compute_returns(self,
                         agent_id,
                         next_value,

@@ -410,6 +410,8 @@ def main():
                     (episode + 1) * args.episode_length * args.n_rollout_threads)
                                                                      
         # clean the buffer and reset
+        rollouts.after_update()
+        '''
         obs, available_actions = envs.reset()
         
         if len(envs.observation_space[0]) == 3:
@@ -426,7 +428,7 @@ def main():
         rollouts.masks[0] = np.ones(rollouts.masks.shape[1:]).copy()
         rollouts.bad_masks[0] = np.ones(rollouts.bad_masks.shape[1:]).copy()
         rollouts.high_masks[0] = np.ones(rollouts.high_masks.shape[1:]).copy()
-        
+        '''
         total_num_steps = (episode + 1) * args.episode_length * args.n_rollout_threads
 
         if (episode % args.save_interval == 0 or episode == episodes - 1):# save for every interval-th episode or for the last epoch
