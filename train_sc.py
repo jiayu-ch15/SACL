@@ -411,24 +411,7 @@ def main():
                                                                      
         # clean the buffer and reset
         rollouts.after_update()
-        '''
-        obs, available_actions = envs.reset()
-        
-        if len(envs.observation_space[0]) == 3:
-            share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])
-        else:
-            share_obs = obs.reshape(args.n_rollout_threads, -1)
-            
-        share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)    
-        rollouts.share_obs[0] = share_obs.copy() 
-        rollouts.obs[0] = obs.copy()
-        rollouts.available_actions[0] = available_actions.copy()  
-        rollouts.recurrent_hidden_states[0] = np.zeros(rollouts.recurrent_hidden_states.shape[1:]).copy()
-        rollouts.recurrent_hidden_states_critic[0] = np.zeros(rollouts.recurrent_hidden_states_critic.shape[1:]).copy()
-        rollouts.masks[0] = np.ones(rollouts.masks.shape[1:]).copy()
-        rollouts.bad_masks[0] = np.ones(rollouts.bad_masks.shape[1:]).copy()
-        rollouts.high_masks[0] = np.ones(rollouts.high_masks.shape[1:]).copy()
-        '''
+
         total_num_steps = (episode + 1) * args.episode_length * args.n_rollout_threads
 
         if (episode % args.save_interval == 0 or episode == episodes - 1):# save for every interval-th episode or for the last epoch
@@ -447,8 +430,9 @@ def main():
         # log information
         if episode % args.log_interval == 0:
             end = time.time()
-            print("\n Map {} updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
+            print("\n Map {} Algo {} updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
                 .format(args.map_name,
+                        args.algorithm_name,
                         episode, 
                         episodes,
                         total_num_steps,
@@ -487,48 +471,57 @@ def main():
 
         if episode % args.eval_interval == 0:
             eval_battles_won = 0
-            for eval_episode in range(args.eval_episodes):
-                eval_obs, eval_available_actions = eval_env.reset()
+            eval_episode = 0
+            eval_obs, eval_available_actions = eval_env.reset()
+            eval_share_obs = eval_obs.reshape(1, -1)
+            eval_recurrent_hidden_states = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
+            eval_recurrent_hidden_states_critic = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
+            eval_masks = np.ones((1,num_agents,1)).astype(np.float32)
+            
+            while True:
+                eval_actions = []
+                actor_critic.eval()
+                for i in range(num_agents):
+                    _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(i,
+                        torch.tensor(eval_share_obs), 
+                        torch.tensor(eval_obs[:,i]), 
+                        torch.tensor(eval_recurrent_hidden_states[:,i]), 
+                        torch.tensor(eval_recurrent_hidden_states_critic[:,i]),
+                        torch.tensor(eval_masks[:,i]),
+                        torch.tensor(eval_available_actions[:,i,:]))
+
+                    eval_actions.append(action.detach().cpu().numpy())
+                    eval_recurrent_hidden_states[:,i] = recurrent_hidden_states.detach().cpu().numpy()
+                    eval_recurrent_hidden_states_critic[:,i] = recurrent_hidden_states_critic.detach().cpu().numpy()
+
+                # rearrange action           
+                eval_actions_env = []
+                for k in range(num_agents):
+                    one_hot_action = np.zeros(eval_env.action_space[0].n)
+                    one_hot_action[eval_actions[k][0]] = 1
+                    eval_actions_env.append(one_hot_action)
+                        
+                # Obser reward and next obs
+                eval_obs, eval_reward, eval_done, eval_infos, eval_available_actions = eval_env.step([eval_actions_env])
                 eval_share_obs = eval_obs.reshape(1, -1)
-                eval_recurrent_hidden_states = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
-                eval_recurrent_hidden_states_critic = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
-                eval_masks = np.ones((1,num_agents,1)).astype(np.float32)
-                
-                while True:
-                    eval_actions = []
-                    actor_critic.eval()
+                                                    
+                if eval_done[0]: 
+                    eval_episode += 1
+                    if eval_infos[0][0]['won']:
+                        eval_battles_won += 1
+                    for i in range(num_agents):    
+                        eval_recurrent_hidden_states[0][i] = np.zeros(args.hidden_size).astype(np.float32)
+                        eval_recurrent_hidden_states_critic[0][i] = np.zeros(args.hidden_size).astype(np.float32)    
+                        eval_masks[0][i]=0.0
+                else:
                     for i in range(num_agents):
-                        _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(i,
-                            torch.tensor(eval_share_obs), 
-                            torch.tensor(eval_obs[:,i]), 
-                            torch.tensor(eval_recurrent_hidden_states[:,i]), 
-                            torch.tensor(eval_recurrent_hidden_states_critic[:,i]),
-                            torch.tensor(eval_masks[:,i]),
-                            torch.tensor(eval_available_actions[:,i,:]))
-
-                        eval_actions.append(action.detach().cpu().numpy())
-                        eval_recurrent_hidden_states[:,i] = recurrent_hidden_states.detach().cpu().numpy()
-                        eval_recurrent_hidden_states_critic[:,i] = recurrent_hidden_states_critic.detach().cpu().numpy()
-
-                    # rearrange action           
-                    eval_actions_env = []
-                    for k in range(num_agents):
-                        one_hot_action = np.zeros(eval_env.action_space[0].n)
-                        one_hot_action[eval_actions[k][0]] = 1
-                        eval_actions_env.append(one_hot_action)
-                            
-                    # Obser reward and next obs
-                    eval_obs, eval_reward, eval_done, eval_infos, eval_available_actions = eval_env.step([eval_actions_env])
-                    eval_share_obs = eval_obs.reshape(1, -1)
-                    # If done then clean the history of observations.
-                    # insert data in buffer
-                    if eval_done[0]:
-                        if eval_infos[0][0]['won']:
-                            eval_battles_won += 1
-                        break
-            logger.add_scalars('eval_win_rate',
-                                    {'eval_win_rate': eval_battles_won/args.eval_episodes},
+                        eval_masks[0][i]=1.0
+                
+                if eval_epsisode>=32:
+                    logger.add_scalars('eval_win_rate',
+                                    {'eval_win_rate': eval_battles_won/eval_episode},
                                     total_num_steps)
+                    break
                 
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()
