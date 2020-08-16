@@ -517,7 +517,7 @@ def main():
                     for i in range(num_agents):
                         eval_masks[0][i]=1.0
                 
-                if eval_epsisode>=32:
+                if eval_episode>=32:
                     logger.add_scalars('eval_win_rate',
                                     {'eval_win_rate': eval_battles_won/eval_episode},
                                     total_num_steps)
