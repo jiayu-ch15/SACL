@@ -109,7 +109,8 @@ def main():
                                  'use_average_pool': args.use_average_pool,
                                  'use_common_layer':args.use_common_layer,
                                  'use_feature_normlization':args.use_feature_normlization,
-                                 'use_feature_popart':args.use_feature_popart
+                                 'use_feature_popart':args.use_feature_popart,
+                                 'use_orthogonal':args.use_orthogonal
                                  },
                     device = device)
         actor_critic.to(device)
@@ -159,7 +160,8 @@ def main():
                                  'use_average_pool': args.use_average_pool,
                                  'use_common_layer':args.use_common_layer,
                                  'use_feature_normlization':args.use_feature_normlization,
-                                 'use_feature_popart':args.use_feature_popart
+                                 'use_feature_popart':args.use_feature_popart,
+                                 'use_orthogonal':args.use_orthogonal
                                  },
                       device = device)
             ac.to(device)
@@ -197,8 +199,7 @@ def main():
     
     # reset env 
     obs, available_actions = envs.reset()
-    
-    
+        
     # replay buffer  
     if len(envs.observation_space[0]) == 3:
         share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])        
@@ -218,7 +219,6 @@ def main():
     episodes = int(args.num_env_steps) // args.episode_length // args.n_rollout_threads
     timesteps = 0
     
-
     for episode in range(episodes):
         if args.use_linear_lr_decay:# decrease learning rate linearly
             if args.share_policy:   
@@ -244,6 +244,7 @@ def main():
                         replace_actions = torch.tensor(rollouts.actions[step-1,:,i])  
                         replace_action_log_probs = torch.tensor(rollouts.action_log_probs[step-1,:,i])                        
                     if args.share_policy:
+                        actor_critic.eval()
                         value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act_hanabi(i,
                         torch.tensor(rollouts.share_obs[step,:,i]), 
                         torch.tensor(rollouts.obs[step,:,i]), 
@@ -254,6 +255,7 @@ def main():
                         replace_actions,
                         replace_action_log_probs)
                     else:
+                        actor_critic[i].eval()
                         value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic[i].act_hanabi(i,
                         torch.tensor(rollouts.share_obs[step,:,i]), 
                         torch.tensor(rollouts.obs[step,:,i]), 
@@ -287,7 +289,9 @@ def main():
                         scores.append(score)                        
                 mask = []               
                 for i in range(num_agents): 
-                    if done_:              
+                    if done_: 
+                        recurrent_hidden_statess[i][k] = np.zeros(args.hidden_size).astype(np.float32)
+                        recurrent_hidden_statess_critic[i][k] = np.zeros(args.hidden_size).astype(np.float32)              
                         mask.append([0.0])
                     else:
                         mask.append([1.0])
@@ -343,7 +347,8 @@ def main():
                         
         with torch.no_grad(): 
             for i in range(num_agents):         
-                if args.share_policy:                 
+                if args.share_policy:
+                    actor_critic.eval()                 
                     next_value,_,_ = actor_critic.get_value(i,
                                                    torch.tensor(rollouts.share_obs[-1,:,i]), 
                                                    torch.tensor(rollouts.obs[-1,:,i]), 
@@ -360,6 +365,7 @@ def main():
                                     args.use_popart,
                                     agents.value_normalizer)
                 else:
+                    actor_critic[i].eval()
                     next_value,_,_ = actor_critic[i].get_value(i,
                                                    torch.tensor(rollouts.share_obs[-1,:,i]), 
                                                    torch.tensor(rollouts.obs[-1,:,i]), 
@@ -379,6 +385,7 @@ def main():
         # remove useless data in buffer
         # update the network
         if args.share_policy:
+            actor_critic.train()
             value_loss, action_loss, dist_entropy = agents.update_share(num_agents, rollouts)
                            
             logger.add_scalars('reward',
@@ -390,6 +397,7 @@ def main():
             dist_entropies = [] 
             
             for i in range(num_agents):
+                actor_critic[i].train()
                 value_loss, action_loss, dist_entropy = agents[i].update(i, rollouts)
                 value_losses.append(value_loss)
                 action_losses.append(action_loss)
@@ -404,20 +412,7 @@ def main():
                     (episode + 1) * args.episode_length * args.n_rollout_threads)
                                                                      
         # clean the buffer and reset
-        obs, available_actions = envs.reset()
-        
-        if len(envs.observation_space[0]) == 3:
-            share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])
-        else:
-            share_obs = obs.reshape(args.n_rollout_threads, -1)
-            
-        share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)    
-        rollouts.share_obs[0] = share_obs.copy() 
-        rollouts.obs[0] = obs.copy()  
-        rollouts.available_actions[0] = available_actions.copy()  
-        rollouts.recurrent_hidden_states[0] = np.zeros(rollouts.recurrent_hidden_states.shape[1:]).copy()
-        rollouts.recurrent_hidden_states_critic[0] = np.zeros(rollouts.recurrent_hidden_states_critic.shape[1:]).copy()
-        rollouts.masks[0] = np.ones(rollouts.masks.shape[1:]).copy()
+        rollouts.after_update()
         
         total_num_steps = (episode + 1) * args.episode_length * args.n_rollout_threads
 
@@ -454,6 +449,5 @@ def main():
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()
     envs.close()
-    eval_env.close()
 if __name__ == "__main__":
     main()
