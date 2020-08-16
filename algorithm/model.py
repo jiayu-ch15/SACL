@@ -543,7 +543,7 @@ class MLPBase(NNBase):
 
 class FeedForward(nn.Module):
 
-    def __init__(self, d_model, d_ff=512, dropout = 0.1):
+    def __init__(self, d_model, d_ff=512, dropout = 0.0):
 
         super(FeedForward, self).__init__() 
         # We set d_ff as a default to 2048
@@ -574,12 +574,12 @@ def ScaledDotProductAttention(q, k, v, d_k, mask=None, dropout=None):
     return output
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, heads, d_model, dropout = 0.1):
+    def __init__(self, heads, d_model, dropout = 0.0):
         super(MultiHeadAttention, self).__init__()
         
         init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
         #init_ = lambda m: init(m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0))
-        #init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
+        #init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
         
         self.d_model = d_model
         self.d_k = d_model // heads
@@ -618,7 +618,7 @@ class MultiHeadAttention(nn.Module):
         return output
         
 class EncoderLayer(nn.Module):
-    def __init__(self, d_model, heads, dropout = 0.02, d_ff = 512, use_FF=False):
+    def __init__(self, d_model, heads, dropout = 0.0, d_ff = 512, use_FF=False):
         super(EncoderLayer, self).__init__()
         self._use_FF = use_FF
         self.norm_1 = nn.LayerNorm(d_model)
@@ -703,7 +703,7 @@ class Embedding(nn.Module):
         return out, self_x
    
 class Encoder(nn.Module):
-    def __init__(self, input_size, split_shape=None, d_model=512, attn_N=2, heads=8, dropout=0.05, use_average_pool=True, use_orthogonal=True):
+    def __init__(self, input_size, split_shape=None, d_model=512, attn_N=2, heads=8, dropout=0.0, use_average_pool=True, use_orthogonal=True):
         super(Encoder, self).__init__()
                                        
         self._attn_N = attn_N

@@ -87,6 +87,7 @@ def main():
         while True:
             eval_actions = []
             for i in range(num_agents):
+                actor_critic.eval()
                 _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(i,
                     torch.tensor(eval_share_obs), 
                     torch.tensor(eval_obs[:,i]), 
