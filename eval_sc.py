@@ -127,5 +127,6 @@ def main():
         if eval_episode>=32:
             print(eval_battles_won/eval_episode)
             break
+    eval_env.close()
 if __name__ == "__main__":
     main()
