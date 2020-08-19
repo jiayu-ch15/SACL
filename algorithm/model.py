@@ -472,7 +472,7 @@ class MLPBase(NNBase):
         if attn:           
             if use_average_pool == True:
                 num_inputs_actor = attn_size + obs_shape[-1][1]
-                num_inputs_critic = attn_size + obs_shape[0]
+                num_inputs_critic = attn_size #+ obs_shape[0]
             else:
                 num_inputs = 0
                 split_shape = obs_shape[1:]
@@ -708,9 +708,11 @@ class Encoder(nn.Module):
                                        
         self._attn_N = attn_N
         self._use_average_pool = use_average_pool
-        if split_shape[0].__class__ == list:
+        self.catself=False
+        if split_shape[0].__class__ == list:           
             self.embedding = Embedding(split_shape, d_model, use_orthogonal)
         else:
+            self.catself=True
             self.embedding = SelfEmbedding(split_shape[1:], d_model, use_orthogonal)
         self.layers = get_clones(EncoderLayer(d_model, heads, dropout), self._attn_N)
         self.norm = nn.LayerNorm(d_model)
@@ -723,7 +725,8 @@ class Encoder(nn.Module):
         if self._use_average_pool:
             x = torch.transpose(x, 1, 2) 
             x = F.avg_pool1d(x, kernel_size=x.size(-1)).view(x.size(0), -1)
-            x = torch.cat((x, self_x), dim=-1)
+            if self.catself:
+                x = torch.cat((x, self_x), dim=-1)
         x = x.view(x.size(0), -1)
         return x    
     
