@@ -19,6 +19,7 @@ def worker(remote, parent_remote, env_fn_wrapper):
             else:
                 if all(done):
                     ob, available_actions = env.reset()
+            
             remote.send((ob, reward, done, info, available_actions))
         elif cmd == 'reset':
             ob, available_actions = env.reset()           
@@ -91,6 +92,84 @@ class SubprocVecEnv(VecEnv):
             p.join()
         self.closed = True
 
+def chooseworker(remote, parent_remote, env_fn_wrapper):
+    parent_remote.close()
+    env = env_fn_wrapper.x()
+    while True:
+        cmd, data = remote.recv()
+        if cmd == 'step':
+            ob, reward, done, info, available_actions = env.step(data)            
+            remote.send((ob, reward, done, info, available_actions))
+        elif cmd == 'reset':
+            ob, available_actions = env.reset(data)           
+            remote.send((ob, available_actions))
+        elif cmd == 'reset_task':
+            ob = env.reset_task()
+            remote.send(ob)
+        elif cmd == 'close':
+            env.close()
+            remote.close()
+            break
+        elif cmd == 'get_spaces':
+            remote.send((env.observation_space, env.action_space))
+        else:
+            raise NotImplementedError
+
+class ChooseSubprocVecEnv(VecEnv):
+    def __init__(self, env_fns, spaces=None):
+        """
+        envs: list of gym environments to run in subprocesses
+        """
+        self.waiting = False
+        self.closed = False
+        nenvs = len(env_fns)
+        self.remotes, self.work_remotes = zip(*[Pipe() for _ in range(nenvs)])
+        self.ps = [Process(target=chooseworker, args=(work_remote, remote, CloudpickleWrapper(env_fn)))
+            for (work_remote, remote, env_fn) in zip(self.work_remotes, self.remotes, env_fns)]
+        for p in self.ps:
+            p.daemon = True # if the main process crashes, we should not cause things to hang
+            p.start()
+        for remote in self.work_remotes:
+            remote.close()
+        self.remotes[0].send(('get_spaces', None))
+        observation_space, action_space = self.remotes[0].recv()
+        VecEnv.__init__(self, len(env_fns), observation_space, action_space)
+
+    def step_async(self, actions):
+        for remote, action in zip(self.remotes, actions):
+            remote.send(('step', action))
+        self.waiting = True
+
+    def step_wait(self):
+        results = [remote.recv() for remote in self.remotes]
+        self.waiting = False
+        obs, rews, dones, infos, available_actions = zip(*results)
+        return np.stack(obs), np.stack(rews), np.stack(dones), infos, np.stack(available_actions)
+
+    def reset(self, reset_choose):
+        for remote, choose in zip(self.remotes,reset_choose):
+            remote.send(('reset', choose))
+        results = [remote.recv() for remote in self.remotes]
+        obs, available_actions = zip(*results)
+        return np.stack(obs), np.stack(available_actions)
+
+    def reset_task(self):
+        for remote in self.remotes:
+            remote.send(('reset_task', None))
+        return np.stack([remote.recv() for remote in self.remotes])
+
+    def close(self):
+        if self.closed:
+            return
+        if self.waiting:
+            for remote in self.remotes:            
+                remote.recv()
+        for remote in self.remotes:
+            remote.send(('close', None))
+        for p in self.ps:
+            p.join()
+        self.closed = True
+        
 class DummyVecEnv(VecEnv):
     def __init__(self, env_fns):
         self.envs = [fn() for fn in env_fns]
@@ -108,7 +187,7 @@ class DummyVecEnv(VecEnv):
         results = [env.step(a) for (a,env) in zip(self.actions, self.envs)]
         obs, rews, dones, infos, available_actions = map(np.array, zip(*results))
         self.ts += 1
-        
+        '''
         for (i, done) in enumerate(dones):
             if done.__class__.__name__=='bool' or done.__class__.__name__=='bool_':
                 if done:
@@ -118,6 +197,7 @@ class DummyVecEnv(VecEnv):
                 if all(done):
                     obs[i], available_actions[i] = self.envs[i].reset()
                     self.ts[i] = 0
+        '''
         self.actions = None
 
         return np.array(obs), np.array(rews), np.array(dones), infos, np.array(available_actions)

@@ -186,6 +186,7 @@ class PPO():
                             error = self.value_normalizer(return_batch) - values
                             value_losses = huber_loss(error,self.huber_delta)
                             value_loss = torch.max(value_losses, value_losses_clipped).mean()
+                            #value_loss = (torch.max(value_losses, value_losses_clipped) * high_masks_batch).sum() / high_masks_batch.sum()
                         else:
                             value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
                             error_clipped = (return_batch) - value_pred_clipped
@@ -296,9 +297,10 @@ class PPO():
             for sample in data_generator: 
                 share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, \
                    value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, \
-                        adv_targ = sample
+                        adv_targ = sample                
                   
                 old_action_log_probs_batch = old_action_log_probs_batch.to(self.device)
+                
                 adv_targ = adv_targ.to(self.device)
                 value_preds_batch = value_preds_batch.to(self.device)
                 return_batch = return_batch.to(self.device)
@@ -310,7 +312,6 @@ class PPO():
                 obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, masks_batch, high_masks_batch, actions_batch)
                 
                 ratio = torch.exp(action_log_probs - old_action_log_probs_batch)
-                
                 KL_divloss = nn.KLDivLoss(reduction='batchmean')(old_action_log_probs_batch, torch.exp(action_log_probs))
                 
 

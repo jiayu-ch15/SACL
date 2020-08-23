@@ -158,9 +158,9 @@ class HanabiEnv(Environment):
     self.observation_space = []
     for i in range(self.players):
         self.action_space.append(Discrete(self.num_moves()))
-        self.observation_space.append(self.vectorized_observation_shape())
+        self.observation_space.append([self.vectorized_observation_shape()[0]+self.players])
            
-  def reset(self):
+  def reset(self, choose=True):
     """Resets the environment for a new game.
 
     Returns:
@@ -260,20 +260,25 @@ class HanabiEnv(Environment):
                                   'num_players': 2,
                                   'vectorized': [ 0, 0, 1, ... ]}]}
     """
-    self.state = self.game.new_initial_state()
-
-    while self.state.cur_player() == pyhanabi.CHANCE_PLAYER_ID:
-      self.state.deal_random_card()
-
-    observation = self._make_observation_all_players()
-    observation["current_player"] = self.state.cur_player()
-   
-    obs=[]
-    available_actions = np.zeros((self.players,self.num_moves())) 
-    for i in range(self.players):
-      obs.append(observation['player_observations'][i]['vectorized'])
-      available_actions[i][observation['player_observations'][i]['legal_moves_as_int']]=1.0
-
+    if choose:
+        self.state = self.game.new_initial_state()
+    
+        while self.state.cur_player() == pyhanabi.CHANCE_PLAYER_ID:
+          self.state.deal_random_card()
+    
+        observation = self._make_observation_all_players()
+        observation["current_player"] = self.state.cur_player()
+        agent_turn=np.zeros(self.players).astype(np.int).tolist()
+        agent_turn[self.state.cur_player()]=1
+       
+        obs=[]
+        available_actions = np.zeros((self.players,self.num_moves())) 
+        for i in range(self.players): 
+          obs.append(observation['player_observations'][i]['vectorized']+agent_turn)
+          available_actions[i][observation['player_observations'][i]['legal_moves_as_int']]=1.0
+    else:
+        obs = np.zeros((self.players,self.vectorized_observation_shape()[0]+self.players))
+        available_actions = np.zeros((self.players,self.num_moves())) 
     return obs, available_actions
 
   def vectorized_observation_shape(self):
@@ -405,38 +410,41 @@ class HanabiEnv(Environment):
       # Convert dict action HanabiMove
       action = self._build_move(action)
     elif isinstance(action, int):
+      if action == -1:# invalid action
+        obs = np.zeros((self.players,self.vectorized_observation_shape()[0]+self.players))
+        rewards = np.zeros((self.players,1))
+        done = None
+        infos = {'score':self.state.score()}
+        available_actions = np.zeros((self.players,self.num_moves()))
+        return obs, rewards, done, infos, available_actions
       # Convert int action into a Hanabi move.
-      action = self.game.get_move(action)
+      action = self.game.get_move(action)     
     else:
       raise ValueError("Expected action as dict or int, got: {}".format(
           action))
 
     last_score = self.state.score()
-    # Apply the action to the state.
+    # Apply the action to the state.   
     self.state.apply_move(action)
+    
 
     while self.state.cur_player() == pyhanabi.CHANCE_PLAYER_ID:
       self.state.deal_random_card()
 
     observation = self._make_observation_all_players()
     obs=[]
-    available_actions = np.zeros((self.players,self.num_moves())) 
+    available_actions = np.zeros((self.players,self.num_moves()))
+    agent_turn=np.zeros(self.players).astype(np.int).tolist()
+    agent_turn[self.state.cur_player()]=1
     for i in range(self.players):
-      obs.append(observation['player_observations'][i]['vectorized'])
+      obs.append(observation['player_observations'][i]['vectorized'] + agent_turn)
       available_actions[i][observation['player_observations'][i]['legal_moves_as_int']]=1.0
       
     done = self.state.is_terminal()
     # Reward is score differential. May be large and negative at game end.
-    reward = self.state.score() - last_score   
-    rewards = [[reward]]* self.players
-    infos = []
-    for i in range(self.players):
-        info = {'score':self.state.score()}
-        if i == self.state.cur_player():
-            info['high_masks'] = True
-        else:
-            info['high_masks'] = False
-        infos.append(info)
+    reward = self.state.score() - last_score
+    rewards = [[reward]]*self.players
+    infos = {'score':self.state.score()}
     
     return obs, rewards, done, infos, available_actions
 

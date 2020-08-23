@@ -212,7 +212,7 @@ class Policy(nn.Module):
 
         return value, action_log_probs_out, dist_entropy_out, rnn_hxs_actor, rnn_hxs_critic
 
-
+#obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer, use_orthogonal
 class NNBase(nn.Module):
     def __init__(self, obs_shape, num_agents, naive_recurrent=False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_orthogonal=True):
         super(NNBase, self).__init__()
@@ -222,10 +222,10 @@ class NNBase(nn.Module):
         self._naive_recurrent = naive_recurrent
         self._attn = attn
         self._use_common_layer = use_common_layer
-                
+        #input_size, split_shape=None, d_model=512, attn_N=2, heads=8, dropout=0.0, use_average_pool=True, use_orthogonal=True    
         if self._attn:
-            self.encoder_actor = Encoder(obs_shape[0], obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool)
-            self.encoder_critic = Encoder(obs_shape[0]*num_agents, [[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, dropout, use_average_pool)
+            self.encoder_actor = Encoder(obs_shape[0], obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal)
+            self.encoder_critic = Encoder(obs_shape[0]*num_agents, [[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal)
         
         if self._recurrent or self._naive_recurrent:
             self.gru = nn.GRU(hidden_size, hidden_size)         
@@ -543,11 +543,14 @@ class MLPBase(NNBase):
 
 class FeedForward(nn.Module):
 
-    def __init__(self, d_model, d_ff=512, dropout = 0.0):
+    def __init__(self, d_model, d_ff=512, dropout = 0.0, use_orthogonal=True):
 
         super(FeedForward, self).__init__() 
         # We set d_ff as a default to 2048
-        init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
+        if use_orthogonal:
+            init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
+        else:
+            init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
         
         
         self.linear_1 = nn.Sequential(init_(nn.Linear(d_model, d_ff)), nn.ReLU())
@@ -574,13 +577,13 @@ def ScaledDotProductAttention(q, k, v, d_k, mask=None, dropout=None):
     return output
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, heads, d_model, dropout = 0.0):
+    def __init__(self, heads, d_model, dropout = 0.0, use_orthogonal=True):
         super(MultiHeadAttention, self).__init__()
-        
-        init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
-        #init_ = lambda m: init(m, nn.init.xavier_normal_, lambda x: nn.init.constant_(x, 0))
-        #init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
-        
+        if use_orthogonal:
+            init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
+        else:        
+            init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
+         
         self.d_model = d_model
         self.d_k = d_model // heads
         self.h = heads
@@ -618,13 +621,13 @@ class MultiHeadAttention(nn.Module):
         return output
         
 class EncoderLayer(nn.Module):
-    def __init__(self, d_model, heads, dropout = 0.0, d_ff = 512, use_FF=False):
+    def __init__(self, d_model, heads, dropout = 0.0, use_orthogonal=True, d_ff = 512, use_FF=False):
         super(EncoderLayer, self).__init__()
         self._use_FF = use_FF
         self.norm_1 = nn.LayerNorm(d_model)
         self.norm_2 = nn.LayerNorm(d_model)
-        self.attn = MultiHeadAttention(heads, d_model, dropout)
-        self.ff = FeedForward(d_model, d_ff, dropout)
+        self.attn = MultiHeadAttention(heads, d_model, dropout, use_orthogonal)
+        self.ff = FeedForward(d_model, d_ff, dropout, use_orthogonal)
         self.dropout_1 = nn.Dropout(dropout)
         self.dropout_2 = nn.Dropout(dropout)
         
@@ -672,7 +675,7 @@ class SelfEmbedding(nn.Module):
         return out, self_x
   
 class Embedding(nn.Module):
-    def __init__(self, split_shape, d_model,use_orthogonal=True):
+    def __init__(self, split_shape, d_model, use_orthogonal=True):
         super(Embedding, self).__init__()
         self.split_shape = split_shape
         
@@ -714,7 +717,8 @@ class Encoder(nn.Module):
         else:
             self.catself=True
             self.embedding = SelfEmbedding(split_shape[1:], d_model, use_orthogonal)
-        self.layers = get_clones(EncoderLayer(d_model, heads, dropout), self._attn_N)
+            #d_model, heads, dropout = 0.0, d_ff = 512, use_orthogonal=True, use_FF=False
+        self.layers = get_clones(EncoderLayer(d_model, heads, dropout, use_orthogonal), self._attn_N)
         self.norm = nn.LayerNorm(d_model)
         
     def forward(self, src, self_idx=-1, mask=None):
