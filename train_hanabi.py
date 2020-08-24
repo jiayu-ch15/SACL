@@ -195,9 +195,9 @@ def main():
 
     share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
        
-    use_obs = obs
-    use_share_obs = share_obs
-    use_available_actions = available_actions
+    use_obs = obs.copy()
+    use_share_obs = share_obs.copy()
+    use_available_actions = available_actions.copy()
     # run
     start = time.time()
     episodes = int(args.num_env_steps) // args.episode_length // args.n_rollout_threads
@@ -255,9 +255,9 @@ def main():
                             torch.FloatTensor(turn_masks[choose,current_agent_id]),
                             torch.FloatTensor(use_available_actions[choose,current_agent_id]))
                     
-                    turn_obs[choose,current_agent_id] = use_obs[choose,current_agent_id]
-                    turn_share_obs[choose,current_agent_id] = use_share_obs[choose,current_agent_id]
-                    turn_available_actions[choose,current_agent_id] = use_available_actions[choose,current_agent_id]
+                    turn_obs[choose,current_agent_id] = use_obs[choose,current_agent_id].copy()
+                    turn_share_obs[choose,current_agent_id] = use_share_obs[choose,current_agent_id].copy()
+                    turn_available_actions[choose,current_agent_id] = use_available_actions[choose,current_agent_id].copy()
                     turn_values[choose,current_agent_id] = value.detach().cpu().numpy()
                     turn_actions[choose,current_agent_id] = action.detach().cpu().numpy()
                     env_actions[choose,current_agent_id] = action.detach().cpu().numpy()
@@ -265,7 +265,6 @@ def main():
                     turn_recurrent_hidden_states[choose,current_agent_id] = recurrent_hidden_states.detach().cpu().numpy()
                     turn_recurrent_hidden_states_critic[choose,current_agent_id] = recurrent_hidden_states_critic.detach().cpu().numpy()
                     
-                    #obs, reward, done, infos, available_actions = envs.step_choose(turn_actions, choose)
                     obs, reward, done, infos, available_actions = envs.step(env_actions) #TODO
                     
                     if len(envs.observation_space[0]) == 3:
@@ -275,12 +274,12 @@ def main():
                        
                     share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
                     
-                    use_obs = obs
-                    use_share_obs = share_obs
-                    use_available_actions = available_actions
+                    use_obs = obs.copy()
+                    use_share_obs = share_obs.copy()
+                    use_available_actions = available_actions.copy()
                     
                     turn_rewards_since_last_action[choose] += reward[choose]                    
-                    turn_rewards[choose, current_agent_id] = turn_rewards_since_last_action[choose, current_agent_id]
+                    turn_rewards[choose, current_agent_id] = turn_rewards_since_last_action[choose, current_agent_id].copy()
                     turn_rewards_since_last_action[choose, current_agent_id] = 0.0
                     
                     for n_rollout_thread in range(args.n_rollout_threads):
@@ -448,8 +447,9 @@ def main():
         # log information
         if episode % args.log_interval == 0:
             end = time.time()
-            print("\n Updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
-                .format(episode, 
+            print("\n Algos {} Updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
+                .format(args.algorithm_name,
+                        episode, 
                         episodes,
                         total_num_steps,
                         args.num_env_steps,
