@@ -1,8 +1,8 @@
 #!/bin/sh
 env="Hanabi"
 hanabi="Hanabi-Small"
-num_agents=2
-algo="new_small_alleval_512"
+num_agents=3
+algo="small3_alleval_length40_512"
 seed_max=1
 
 echo "env is ${env}, algo is ${algo}, seed is ${seed_max}"
@@ -10,6 +10,6 @@ echo "env is ${env}, algo is ${algo}, seed is ${seed_max}"
 for seed in `seq ${seed_max}`;
 do
     echo "seed is ${seed}:"
-    CUDA_VISIBLE_DEVICES=0 python train_hanabi.py --env_name ${env} --algorithm_name ${algo} --hanabi_name ${hanabi} --num_agents ${num_agents} --seed ${seed} --n_rollout_threads 200 --num_mini_batch 1 --episode_length 80 --num_env_steps 10000000 --ppo_epoch 15 --hidden_size 512
+    CUDA_VISIBLE_DEVICES=4 python train_hanabi.py --env_name ${env} --algorithm_name ${algo} --hanabi_name ${hanabi} --num_agents ${num_agents} --seed ${seed} --n_rollout_threads 200 --num_mini_batch 1 --episode_length 40 --num_env_steps 10000000 --ppo_epoch 15 --hidden_size 512
     echo "training is done!"
 done
