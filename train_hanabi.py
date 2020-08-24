@@ -305,7 +305,7 @@ def main():
                                                             )
                                     else:
                                         actor_critic[left_agent_id].eval()
-                                        value, _, _ = actor_critic[left_age¡¤nt_id].get_value(left_agent_id,
+                                        value, _, _ = actor_critic[left_agent_id].get_value(left_agent_id,
                                                             torch.FloatTensor(use_share_obs[n_rollout_thread,left_agent_id]).unsqueeze(0), 
                                                             torch.FloatTensor(use_obs[n_rollout_thread,left_agent_id]).unsqueeze(0), 
                                                             torch.FloatTensor(turn_recurrent_hidden_states[n_rollout_thread,left_agent_id]).unsqueeze(0), 

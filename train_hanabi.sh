@@ -2,7 +2,7 @@
 env="Hanabi"
 hanabi="Hanabi-Small"
 num_agents=4
-algo="small4_alleval_parallel100_length50_512"
+algo="small4_oneeval_parallel100_length50_512"
 seed_max=1
 
 echo "env is ${env}, algo is ${algo}, seed is ${seed_max}"
