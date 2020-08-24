@@ -71,6 +71,26 @@ class RolloutStorage(object):
 
         self.step = (self.step + 1) % self.episode_length
         
+    def chooseinsert(self, share_obs, obs, recurrent_hidden_states, recurrent_hidden_states_critic, actions, action_log_probs,
+               value_preds, rewards, masks, bad_masks=None, high_masks=None, available_actions=None):
+        self.share_obs[self.step] = share_obs.copy()
+        self.obs[self.step] = obs.copy()
+        self.recurrent_hidden_states[self.step + 1] = recurrent_hidden_states.copy()
+        self.recurrent_hidden_states_critic[self.step + 1] = recurrent_hidden_states_critic.copy()
+        self.actions[self.step] = actions.copy()
+        self.action_log_probs[self.step] = action_log_probs.copy()
+        self.value_preds[self.step] = value_preds.copy()
+        self.rewards[self.step] = rewards.copy()
+        self.masks[self.step + 1] = masks.copy()
+        if bad_masks is not None:
+            self.bad_masks[self.step + 1] = bad_masks.copy()
+        if high_masks is not None:
+            self.high_masks[self.step + 1] = high_masks.copy()
+        if available_actions is not None:
+            self.available_actions[self.step] = available_actions.copy()
+
+        self.step = (self.step + 1) % self.episode_length
+        
     def after_update(self):
         self.share_obs[0] = self.share_obs[-1].copy()
         self.obs[0] = self.obs[-1].copy()
@@ -79,7 +99,14 @@ class RolloutStorage(object):
         self.masks[0] = self.masks[-1].copy()
         self.bad_masks[0] = self.bad_masks[-1].copy()
         self.high_masks[0] = self.high_masks[-1].copy()
-        self.available_actions[0] = self.available_actions[-1].copy()        
+        self.available_actions[0] = self.available_actions[-1].copy()
+    
+    def chooseafter_update(self):
+        self.recurrent_hidden_states[0] = self.recurrent_hidden_states[-1].copy()
+        self.recurrent_hidden_states_critic[0] = self.recurrent_hidden_states_critic[-1].copy()
+        self.masks[0] = self.masks[-1].copy()
+        self.bad_masks[0] = self.bad_masks[-1].copy()
+        self.high_masks[0] = self.high_masks[-1].copy()       
         
     def compute_returns(self,
                         agent_id,
@@ -154,17 +181,17 @@ class RolloutStorage(object):
         rand = torch.randperm(batch_size).numpy()
         sampler = [rand[i*mini_batch_size:(i+1)*mini_batch_size] for i in range(num_mini_batch)]
         
-        share_obs = self.share_obs[:-1,:,agent_id].view(-1, *self.share_obs.shape[3:])
-        obs = self.obs[:-1,:,agent_id].view(-1, *self.obs.shape[3:])
-        recurrent_hidden_states = self.recurrent_hidden_states[:-1,:,agent_id].view(-1, self.recurrent_hidden_states.shape[-1])
-        recurrent_hidden_states_critic = self.recurrent_hidden_states_critic[:-1,:,agent_id].view(-1, self.recurrent_hidden_states_critic.shape[-1])
-        actions = self.actions[:,:,agent_id].view(-1, self.actions.shape[-1])
-        value_preds = self.value_preds[:-1,:,agent_id].view(-1, 1)
-        returns = self.returns[:-1,:,agent_id].view(-1, 1)
-        masks = self.masks[:-1,:,agent_id].view(-1, 1)
-        high_masks = self.high_masks[:-1,:,agent_id].view(-1, 1)
-        action_log_probs = self.action_log_probs[:,:,agent_id].view(-1, 1)
-        advantages = advantages.view(-1, 1)
+        share_obs = self.share_obs[:-1,:,agent_id].reshape(-1, *self.share_obs.shape[3:])
+        obs = self.obs[:-1,:,agent_id].reshape(-1, *self.obs.shape[3:])
+        recurrent_hidden_states = self.recurrent_hidden_states[:-1,:,agent_id].reshape(-1, self.recurrent_hidden_states.shape[-1])
+        recurrent_hidden_states_critic = self.recurrent_hidden_states_critic[:-1,:,agent_id].reshape(-1, self.recurrent_hidden_states_critic.shape[-1])
+        actions = self.actions[:,:,agent_id].reshape(-1, self.actions.shape[-1])
+        value_preds = self.value_preds[:-1,:,agent_id].reshape(-1, 1)
+        returns = self.returns[:-1,:,agent_id].reshape(-1, 1)
+        masks = self.masks[:-1,:,agent_id].reshape(-1, 1)
+        high_masks = self.high_masks[:-1,:,agent_id].reshape(-1, 1)
+        action_log_probs = self.action_log_probs[:,:,agent_id].reshape(-1, 1)
+        advantages = advantages.reshape(-1, 1)
         
         for indices in sampler:
             # obs size [T+1 N Dim]-->[T N Dim]-->[T*N,Dim]-->[index,Dim]
@@ -201,18 +228,18 @@ class RolloutStorage(object):
             
         rand = torch.randperm(batch_size).numpy()
         sampler = [rand[i*mini_batch_size:(i+1)*mini_batch_size] for i in range(num_mini_batch)]
-            
-        share_obs = self.share_obs[:-1].view(-1, *self.share_obs.shape[3:])
-        obs = self.obs[:-1].view(-1, *self.obs.shape[3:])
-        recurrent_hidden_states = self.recurrent_hidden_states[:-1].view(-1, self.recurrent_hidden_states.shape[-1])
-        recurrent_hidden_states_critic = self.recurrent_hidden_states_critic[:-1].view(-1, self.recurrent_hidden_states_critic.shape[-1])
-        actions = self.actions.view(-1, self.actions.shape[-1])
-        value_preds = self.value_preds[:-1].view(-1, 1)
-        returns = self.returns[:-1].view(-1, 1)
-        masks = self.masks[:-1].view(-1, 1)
-        high_masks = self.high_masks[:-1].view(-1, 1)
-        action_log_probs = self.action_log_probs.view(-1, 1)
-        advantages = advantages.view(-1, 1)
+        
+        share_obs = self.share_obs[:-1].reshape(-1, *self.share_obs.shape[3:])
+        obs = self.obs[:-1].reshape(-1, *self.obs.shape[3:])
+        recurrent_hidden_states = self.recurrent_hidden_states[:-1].reshape(-1, self.recurrent_hidden_states.shape[-1])
+        recurrent_hidden_states_critic = self.recurrent_hidden_states_critic[:-1].reshape(-1, self.recurrent_hidden_states_critic.shape[-1])
+        actions = self.actions.reshape(-1, self.actions.shape[-1])
+        value_preds = self.value_preds[:-1].reshape(-1, 1)
+        returns = self.returns[:-1].reshape(-1, 1)
+        masks = self.masks[:-1].reshape(-1, 1)
+        high_masks = self.high_masks[:-1].reshape(-1, 1)
+        action_log_probs = self.action_log_probs.reshape(-1, 1)
+        advantages = advantages.reshape(-1, 1)
         
         for indices in sampler:
             # obs size [T+1 N M Dim]-->[T N M Dim]-->[T*N*M,Dim]-->[index,Dim]           
@@ -315,17 +342,17 @@ class RolloutStorage(object):
         num_envs_per_batch = batch_size // num_mini_batch
         perm = torch.randperm(batch_size).numpy()
         
-        share_obs = self.share_obs.view(-1, batch_size, *self.share_obs.shape[3:])
-        obs = self.obs.view(-1, batch_size, *self.obs.shape[3:])
-        recurrent_hidden_states = self.recurrent_hidden_states.view(-1, batch_size, self.recurrent_hidden_states.shape[-1])
-        recurrent_hidden_states_critic = self.recurrent_hidden_states_critic.view(-1, batch_size, self.recurrent_hidden_states_critic.shape[-1])
-        actions = self.actions.view(-1, batch_size, self.actions.shape[-1])
-        value_preds = self.value_preds.view(-1, batch_size, 1)
-        returns = self.returns.view(-1, batch_size, 1)
-        masks = self.masks.view(-1, batch_size, 1)
-        high_masks = self.high_masks.view(-1, batch_size, 1)
-        action_log_probs = self.action_log_probs.view(-1, batch_size, 1)
-        advantages = advantages.view(-1, batch_size, 1)
+        share_obs = self.share_obs.reshape(-1, batch_size, *self.share_obs.shape[3:])
+        obs = self.obs.reshape(-1, batch_size, *self.obs.shape[3:])
+        recurrent_hidden_states = self.recurrent_hidden_states.reshape(-1, batch_size, self.recurrent_hidden_states.shape[-1])
+        recurrent_hidden_states_critic = self.recurrent_hidden_states_critic.reshape(-1, batch_size, self.recurrent_hidden_states_critic.shape[-1])
+        actions = self.actions.reshape(-1, batch_size, self.actions.shape[-1])
+        value_preds = self.value_preds.reshape(-1, batch_size, 1)
+        returns = self.returns.reshape(-1, batch_size, 1)
+        masks = self.masks.reshape(-1, batch_size, 1)
+        high_masks = self.high_masks.reshape(-1, batch_size, 1)
+        action_log_probs = self.action_log_probs.reshape(-1, batch_size, 1)
+        advantages = advantages.reshape(-1, batch_size, 1)
         
         for start_ind in range(0, batch_size, num_envs_per_batch):
             share_obs_batch = []

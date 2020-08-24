@@ -130,6 +130,8 @@ class PPO():
         self.use_popart = use_popart
         if self.use_popart:
             self.value_normalizer = PopArt(1, device=self.device)
+        else:
+            self.value_normalizer = None
 
     def update(self, agent_id, rollouts, turn_on=True):
         if self.use_popart:

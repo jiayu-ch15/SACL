@@ -194,13 +194,7 @@ def main():
         share_obs = obs.reshape(args.n_rollout_threads, -1)
 
     share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
-   
-    rollouts.share_obs[0] = share_obs.copy() 
-    rollouts.obs[0] = obs.copy() 
-    rollouts.available_actions[0] = available_actions.copy()                
-    rollouts.recurrent_hidden_states = np.zeros(rollouts.recurrent_hidden_states.shape).astype(np.float32)
-    rollouts.recurrent_hidden_states_critic = np.zeros(rollouts.recurrent_hidden_states_critic.shape).astype(np.float32)
-    
+       
     use_obs = obs
     use_share_obs = share_obs
     use_available_actions = available_actions
@@ -299,7 +293,7 @@ def main():
                                 turn_rewards[n_rollout_thread, left_agent_id] = turn_rewards_since_last_action[n_rollout_thread, left_agent_id]
                                 turn_rewards_since_last_action[n_rollout_thread, left_agent_id] = 0.0
                                 # other variables use what at last time, action will be useless.
-                                if left_agent_id == (current_agent_id + 1):
+                                if args.share_policy:                            
                                     actor_critic.eval()
                                     value, _, _ = actor_critic.get_value(left_agent_id,
                                                         torch.FloatTensor(use_share_obs[n_rollout_thread,left_agent_id]).unsqueeze(0), 
@@ -308,8 +302,17 @@ def main():
                                                         torch.FloatTensor(turn_recurrent_hidden_states_critic[n_rollout_thread,left_agent_id]).unsqueeze(0),
                                                         torch.FloatTensor(turn_masks[n_rollout_thread,left_agent_id]).unsqueeze(0)
                                                         )
-                                    turn_obs[n_rollout_thread,left_agent_id] = use_obs[n_rollout_thread,left_agent_id]                                
-                                    turn_values[n_rollout_thread,left_agent_id] = value.detach().cpu().numpy()
+                                else:
+                                    actor_critic[left_agent_id].eval()
+                                    value, _, _ = actor_critic[left_agent_id].get_value(left_agent_id,
+                                                        torch.FloatTensor(use_share_obs[n_rollout_thread,left_agent_id]).unsqueeze(0), 
+                                                        torch.FloatTensor(use_obs[n_rollout_thread,left_agent_id]).unsqueeze(0), 
+                                                        torch.FloatTensor(turn_recurrent_hidden_states[n_rollout_thread,left_agent_id]).unsqueeze(0), 
+                                                        torch.FloatTensor(turn_recurrent_hidden_states_critic[n_rollout_thread,left_agent_id]).unsqueeze(0),
+                                                        torch.FloatTensor(turn_masks[n_rollout_thread,left_agent_id]).unsqueeze(0)
+                                                        )
+                                turn_obs[n_rollout_thread,left_agent_id] = use_obs[n_rollout_thread,left_agent_id]                                
+                                turn_values[n_rollout_thread,left_agent_id] = value.detach().cpu().numpy()                                
                                 turn_share_obs[n_rollout_thread,left_agent_id] = use_share_obs[n_rollout_thread,left_agent_id]                            
                             turn_masks[n_rollout_thread] = np.zeros((num_agents, 1)).astype(np.float32)
                             turn_recurrent_hidden_states[n_rollout_thread] = np.zeros((num_agents, *rollouts.recurrent_hidden_states.shape[3:])).astype(np.float32)
@@ -323,6 +326,21 @@ def main():
                         else:
                             turn_masks[n_rollout_thread,current_agent_id]=1.0
                             turn_high_masks[n_rollout_thread,current_agent_id] = 1.0
+            
+            # insert turn data into buffer
+            rollouts.chooseinsert(turn_share_obs, 
+                                  turn_obs, 
+                                  turn_recurrent_hidden_states, 
+                                  turn_recurrent_hidden_states_critic, 
+                                  turn_actions,
+                                  turn_action_log_probs, 
+                                  turn_values,
+                                  turn_rewards, 
+                                  turn_masks,
+                                  turn_bad_masks,
+                                  turn_high_masks,
+                                  turn_available_actions)
+                            
             # env reset
             obs, available_actions = envs.reset(reset_choose)          
 
@@ -336,21 +354,11 @@ def main():
             use_obs[reset_choose] = obs[reset_choose]
             use_share_obs[reset_choose] = share_obs[reset_choose]
             use_available_actions[reset_choose] = available_actions[reset_choose]
-
-            # insert turn data into buffer
-            rollouts.insert(turn_share_obs, 
-                            turn_obs, 
-                            turn_recurrent_hidden_states, 
-                            turn_recurrent_hidden_states_critic, 
-                            turn_actions,
-                            turn_action_log_probs, 
-                            turn_values,
-                            turn_rewards, 
-                            turn_masks,
-                            turn_bad_masks,
-                            turn_high_masks,
-                            turn_available_actions)
-                        
+                      
+        rollouts.share_obs[-1] = use_share_obs.copy()
+        rollouts.obs[-1] = use_obs.copy()
+        rollouts.available_actions[-1] = use_available_actions.copy()
+        
         with torch.no_grad(): 
             for i in range(num_agents):         
                 if args.share_policy:
@@ -419,7 +427,7 @@ def main():
                     (episode + 1) * args.episode_length * args.n_rollout_threads)
                                                                      
         # clean the buffer and reset
-        rollouts.after_update()
+        rollouts.chooseafter_update()
         
         total_num_steps = (episode + 1) * args.episode_length * args.n_rollout_threads
 
