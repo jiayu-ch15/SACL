@@ -182,12 +182,10 @@ class DummyVecEnv(VecEnv):
         self.actions = actions
 
     def step_wait(self):
-        #print(self.actions)
-        #print(len(self.envs))
         results = [env.step(a) for (a,env) in zip(self.actions, self.envs)]
         obs, rews, dones, infos, available_actions = map(np.array, zip(*results))
         self.ts += 1
-        '''
+        
         for (i, done) in enumerate(dones):
             if done.__class__.__name__=='bool' or done.__class__.__name__=='bool_':
                 if done:
@@ -197,7 +195,7 @@ class DummyVecEnv(VecEnv):
                 if all(done):
                     obs[i], available_actions[i] = self.envs[i].reset()
                     self.ts[i] = 0
-        '''
+        
         self.actions = None
 
         return np.array(obs), np.array(rews), np.array(dones), infos, np.array(available_actions)
