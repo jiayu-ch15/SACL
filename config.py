@@ -87,7 +87,7 @@ def get_config():
     parser.add_argument("--save_gifs", action='store_true', default=False)
     parser.add_argument("--ifi", type=float, default=0.333333)
     parser.add_argument("--eval_episodes", type=int, default=32)
-    parser.add_argument("--model_dir", type=str, default='/home/yuchao/project/mappo-ssd/results/single_navigation/lstm-60/run1/models/')
+    parser.add_argument("--model_dir", type=str, default='/home/tsing69/project/mappo-sc/results/Hanabi/Hanabi-Small/small2_oneeval_parallel200_length80_lr7e-4_512//run1/models')
     
     args = parser.parse_args()
 

@@ -81,7 +81,8 @@ def main():
     #Policy network
 
     if args.share_policy:
-        actor_critic = Policy(envs.observation_space[0], 
+        if args.model_dir==None:
+            actor_critic = Policy(envs.observation_space[0], 
                     envs.action_space[0],
                     num_agents = num_agents,
                     base_kwargs={'naive_recurrent': args.naive_recurrent_policy,
@@ -99,6 +100,9 @@ def main():
                                  'use_orthogonal':args.use_orthogonal
                                  },
                     device = device)
+        else:       
+            actor_critic = torch.load(str(args.model_dir) + "/agent_model.pt")['model']
+        
         actor_critic.to(device)
         # algorithm
         agents = PPO(actor_critic,

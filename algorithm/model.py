@@ -110,7 +110,7 @@ class Policy(nn.Module):
   
             action_log_probs = dist.log_probs(action)
             action_out = action
-            action_log_probs_out = action_log_probs   
+            action_log_probs_out = action_log_probs  
         return value, action_out, action_log_probs_out, rnn_hxs_actor, rnn_hxs_critic
         
     def act_hanabi(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks, available_actions=None, replace_actions=None, replace_action_log_probs=None, deterministic=False):
