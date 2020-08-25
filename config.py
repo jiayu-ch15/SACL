@@ -28,6 +28,8 @@ def get_config():
     # network
     parser.add_argument("--share_policy", action='store_false', default=True, help='agent share the same policy')
     parser.add_argument("--hidden_size", type=int, default=64)
+    parser.add_argument("--layer_N", type=int, default=1)
+    parser.add_argument("--use_ReLU", action='store_true', default=False)
     parser.add_argument("--use_common_layer", action='store_true', default=False)
     parser.add_argument("--use_popart", action='store_false', default=True)
     parser.add_argument("--use_feature_popart", action='store_true', default=False)
@@ -87,7 +89,7 @@ def get_config():
     parser.add_argument("--save_gifs", action='store_true', default=False)
     parser.add_argument("--ifi", type=float, default=0.333333)
     parser.add_argument("--eval_episodes", type=int, default=32)
-    parser.add_argument("--model_dir", type=str, default='/home/tsing69/project/mappo-sc/results/Hanabi/Hanabi-Small/small2_oneeval_parallel200_length80_lr7e-4_512//run1/models')
+    parser.add_argument("--model_dir", type=str, default=None)
     
     args = parser.parse_args()
 

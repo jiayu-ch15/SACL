@@ -35,7 +35,7 @@ def make_parallel_env(args):
             return env
         return init_env
     if args.n_rollout_threads == 1:
-        return DummyVecEnv([get_env_fn(0)])
+        return ChooseSubprocVecEnv([get_env_fn(0)])
     else:
         return ChooseSubprocVecEnv([get_env_fn(i) for i in range(args.n_rollout_threads)])
 
@@ -97,7 +97,9 @@ def main():
                                  'use_common_layer':args.use_common_layer,
                                  'use_feature_normlization':args.use_feature_normlization,
                                  'use_feature_popart':args.use_feature_popart,
-                                 'use_orthogonal':args.use_orthogonal
+                                 'use_orthogonal':args.use_orthogonal,
+                                 'layer_N':args.layer_N,
+                                 'use_ReLU':args.use_ReLU                                 
                                  },
                     device = device)
         else:       
@@ -151,7 +153,9 @@ def main():
                                  'use_common_layer':args.use_common_layer,
                                  'use_feature_normlization':args.use_feature_normlization,
                                  'use_feature_popart':args.use_feature_popart,
-                                 'use_orthogonal':args.use_orthogonal
+                                 'use_orthogonal':args.use_orthogonal,
+                                 'layer_N':args.layer_N,
+                                 'use_ReLU':args.use_ReLU
                                  },
                       device = device)
             ac.to(device)

@@ -214,7 +214,7 @@ class Policy(nn.Module):
 
 #obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer, use_orthogonal
 class NNBase(nn.Module):
-    def __init__(self, obs_shape, num_agents, naive_recurrent=False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_orthogonal=True):
+    def __init__(self, obs_shape, num_agents, naive_recurrent=False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_orthogonal=True, use_ReLU=False):
         super(NNBase, self).__init__()
 
         self._hidden_size = hidden_size
@@ -224,8 +224,8 @@ class NNBase(nn.Module):
         self._use_common_layer = use_common_layer
         #input_size, split_shape=None, d_model=512, attn_N=2, heads=8, dropout=0.0, use_average_pool=True, use_orthogonal=True    
         if self._attn:
-            self.encoder_actor = Encoder(obs_shape[0], obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal)
-            self.encoder_critic = Encoder(obs_shape[0]*num_agents, [[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal)
+            self.encoder_actor = Encoder(obs_shape[0], obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
+            self.encoder_critic = Encoder(obs_shape[0]*num_agents, [[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
         
         if self._recurrent or self._naive_recurrent:
             self.gru = nn.GRU(hidden_size, hidden_size)         
@@ -385,16 +385,17 @@ class NNBase(nn.Module):
         return x, hxs
                
 class CNNBase(NNBase):
-    def __init__(self, obs_shape, num_agents, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_feature_normlization=False, use_feature_popart=False, use_orthogonal=True):
+    def __init__(self, obs_shape, num_agents, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_feature_normlization=False, use_feature_popart=False, use_orthogonal=True, layer_N=1, use_ReLU=False):
         super(CNNBase, self).__init__(obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer, use_orthogonal)
         
         self._use_common_layer = use_common_layer
-        if use_orthogonal:
+        self._use_orthogonal = use_orthogonal
+        
+        if self._use_orthogonal:
             init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), nn.init.calculate_gain('relu'))
         else:
             init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('relu'))
-                               
-        
+                                       
         num_inputs = obs_shape[0]
         num_image = obs_shape[1]
 
@@ -423,7 +424,10 @@ class CNNBase(NNBase):
                 init_(nn.Linear(32 * (num_image-3+1) * (num_image-3+1), hidden_size)), nn.ReLU(),
                 init_(nn.Linear(hidden_size, hidden_size)), nn.ReLU())
 
-        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
+        if self._use_orthogonal:
+            init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
+        else:
+            init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
 
         self.critic_linear = init_(nn.Linear(hidden_size, 1))
 
@@ -452,12 +456,16 @@ class CNNBase(NNBase):
         return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs_actor, rnn_hxs_critic
 
 class MLPBase(NNBase):
-    def __init__(self, obs_shape, num_agents, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_feature_normlization=True, use_feature_popart=True, use_orthogonal=True):
-        super(MLPBase, self).__init__(obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer, use_orthogonal)
+    def __init__(self, obs_shape, num_agents, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_feature_normlization=True, use_feature_popart=True, use_orthogonal=True, layer_N=1, use_ReLU=False):
+        super(MLPBase, self).__init__(obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer, use_orthogonal,use_ReLU)
 
         self._use_common_layer = use_common_layer
         self._use_feature_normlization = use_feature_normlization
         self._use_feature_popart = use_feature_popart
+        self._use_orthogonal = use_orthogonal
+        self._layer_N = layer_N
+        self._use_ReLU = use_ReLU
+        self._attn = attn
         
         assert (self._use_feature_normlization and self._use_feature_popart) == False, ("--use_feature_normlization and --use_feature_popart can not be set True simultaneously.")
         
@@ -469,7 +477,7 @@ class MLPBase(NNBase):
             self.actor_norm = PopArt(obs_shape[0])
             self.critic_norm = PopArt(obs_shape[0]*num_agents)
             
-        if attn:           
+        if self._attn:           
             if use_average_pool == True:
                 num_inputs_actor = attn_size + obs_shape[-1][1]
                 num_inputs_critic = attn_size #+ obs_shape[0]
@@ -484,28 +492,45 @@ class MLPBase(NNBase):
             num_inputs_actor = obs_shape[0]
             num_inputs_critic = obs_shape[0]*num_agents
             
-        if use_orthogonal:
+        if self._use_orthogonal:
             init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
         else:
             init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
         
-
-        self.actor = nn.Sequential(
-            init_(nn.Linear(num_inputs_actor, hidden_size)), nn.Tanh(),
-            init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh())
-
-        self.critic = nn.Sequential(
-            init_(nn.Linear(num_inputs_critic, hidden_size)), nn.Tanh(),
-            init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh())
+        if self._use_ReLU:
+            active_func = nn.ReLU()
+        else:
+            active_func = nn.Tanh()
+        
+        if self._layer_N == 1:
+            self.actor = nn.Sequential(
+                init_(nn.Linear(num_inputs_actor, hidden_size)), active_func,
+                init_(nn.Linear(hidden_size, hidden_size)), active_func)
+    
+            self.critic = nn.Sequential(
+                init_(nn.Linear(num_inputs_critic, hidden_size)), active_func,
+                init_(nn.Linear(hidden_size, hidden_size)), active_func)
+        elif self._layer_N == 2:
+            self.actor = nn.Sequential(
+                init_(nn.Linear(num_inputs_actor, hidden_size)), active_func,
+                init_(nn.Linear(hidden_size, hidden_size)), active_func,
+                init_(nn.Linear(hidden_size, hidden_size)), active_func)
+    
+            self.critic = nn.Sequential(
+                init_(nn.Linear(num_inputs_critic, hidden_size)), active_func,
+                init_(nn.Linear(hidden_size, hidden_size)), active_func,
+                init_(nn.Linear(hidden_size, hidden_size)), active_func)
+        else:
+            raise NotImplementedError
             
         if self._use_common_layer:
             self.actor = nn.Sequential(
-                init_(nn.Linear(num_inputs_actor, hidden_size)), nn.Tanh())    
+                init_(nn.Linear(num_inputs_actor, hidden_size)), active_func)    
             self.critic = nn.Sequential(
-                init_(nn.Linear(num_inputs_critic, hidden_size)), nn.Tanh())
+                init_(nn.Linear(num_inputs_critic, hidden_size)), active_func)
             self.common_linear = nn.Sequential(
-                init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh(),
-                init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh())
+                init_(nn.Linear(hidden_size, hidden_size)), active_func,
+                init_(nn.Linear(hidden_size, hidden_size)), active_func)
 
         self.critic_linear = init_(nn.Linear(hidden_size, 1))
 
@@ -543,7 +568,7 @@ class MLPBase(NNBase):
 
 class FeedForward(nn.Module):
 
-    def __init__(self, d_model, d_ff=512, dropout = 0.0, use_orthogonal=True):
+    def __init__(self, d_model, d_ff=512, dropout = 0.0, use_orthogonal=True, use_ReLU=False):
 
         super(FeedForward, self).__init__() 
         # We set d_ff as a default to 2048
@@ -552,8 +577,12 @@ class FeedForward(nn.Module):
         else:
             init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
         
-        
-        self.linear_1 = nn.Sequential(init_(nn.Linear(d_model, d_ff)), nn.ReLU())
+        if use_ReLU:
+            active_func = nn.ReLU()
+        else:
+            active_func = nn.Tanh()
+            
+        self.linear_1 = nn.Sequential(init_(nn.Linear(d_model, d_ff)), active_func)
 
         self.dropout = nn.Dropout(dropout)
         self.linear_2 = init_(nn.Linear(d_ff, d_model))
@@ -621,13 +650,13 @@ class MultiHeadAttention(nn.Module):
         return output
         
 class EncoderLayer(nn.Module):
-    def __init__(self, d_model, heads, dropout = 0.0, use_orthogonal=True, d_ff = 512, use_FF=False):
+    def __init__(self, d_model, heads, dropout = 0.0, use_orthogonal=True, d_ff = 512, use_FF=False, use_ReLU=False):
         super(EncoderLayer, self).__init__()
         self._use_FF = use_FF
         self.norm_1 = nn.LayerNorm(d_model)
         self.norm_2 = nn.LayerNorm(d_model)
         self.attn = MultiHeadAttention(heads, d_model, dropout, use_orthogonal)
-        self.ff = FeedForward(d_model, d_ff, dropout, use_orthogonal)
+        self.ff = FeedForward(d_model, d_ff, dropout, use_orthogonal, use_ReLU)
         self.dropout_1 = nn.Dropout(dropout)
         self.dropout_2 = nn.Dropout(dropout)
         
@@ -640,19 +669,24 @@ class EncoderLayer(nn.Module):
         return x
         
 class SelfEmbedding(nn.Module):
-    def __init__(self, split_shape, d_model, use_orthogonal=True):
+    def __init__(self, split_shape, d_model, use_orthogonal=True, use_ReLU=False):
         super(SelfEmbedding, self).__init__()
         self.split_shape = split_shape
         if use_orthogonal:        
             init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
         else:
             init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
-
+        
+        if use_ReLU:
+            active_func = nn.ReLU()
+        else:
+            active_func = nn.Tanh()
+            
         for i in range(len(split_shape)):
             if i==(len(split_shape)-1):            
-                setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1], d_model)), nn.Tanh()))
+                setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1], d_model)), active_func))
             else:
-                setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1]+split_shape[-1][1], d_model)), nn.Tanh()))
+                setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1]+split_shape[-1][1], d_model)), active_func))
                   
         
     def forward(self, x, self_idx=-1):
@@ -675,7 +709,7 @@ class SelfEmbedding(nn.Module):
         return out, self_x
   
 class Embedding(nn.Module):
-    def __init__(self, split_shape, d_model, use_orthogonal=True):
+    def __init__(self, split_shape, d_model, use_orthogonal=True, use_ReLU=False):
         super(Embedding, self).__init__()
         self.split_shape = split_shape
         
@@ -683,9 +717,14 @@ class Embedding(nn.Module):
             init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
         else:
             init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
-
+        
+        if use_ReLU:
+            active_func = nn.ReLU()
+        else:
+            active_func = nn.Tanh()
+            
         for i in range(len(split_shape)):
-            setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1], d_model)), nn.Tanh()))
+            setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1], d_model)), active_func))
                   
         
     def forward(self, x, self_idx):
@@ -706,19 +745,19 @@ class Embedding(nn.Module):
         return out, self_x
    
 class Encoder(nn.Module):
-    def __init__(self, input_size, split_shape=None, d_model=512, attn_N=2, heads=8, dropout=0.0, use_average_pool=True, use_orthogonal=True):
+    def __init__(self, input_size, split_shape=None, d_model=512, attn_N=2, heads=8, dropout=0.0, use_average_pool=True, use_orthogonal=True, use_ReLU=False):
         super(Encoder, self).__init__()
                                        
         self._attn_N = attn_N
         self._use_average_pool = use_average_pool
         self.catself=False
         if split_shape[0].__class__ == list:           
-            self.embedding = Embedding(split_shape, d_model, use_orthogonal)
+            self.embedding = Embedding(split_shape, d_model, use_orthogonal,use_ReLU)
         else:
             self.catself=True
-            self.embedding = SelfEmbedding(split_shape[1:], d_model, use_orthogonal)
+            self.embedding = SelfEmbedding(split_shape[1:], d_model, use_orthogonal,use_ReLU)
             #d_model, heads, dropout = 0.0, d_ff = 512, use_orthogonal=True, use_FF=False
-        self.layers = get_clones(EncoderLayer(d_model, heads, dropout, use_orthogonal), self._attn_N)
+        self.layers = get_clones(EncoderLayer(d_model, heads, dropout, use_orthogonal,use_ReLU), self._attn_N)
         self.norm = nn.LayerNorm(d_model)
         
     def forward(self, src, self_idx=-1, mask=None):
