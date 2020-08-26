@@ -27,12 +27,18 @@ class Flatten(nn.Module):
         return x.view(x.size(0), -1)
 
 class Policy(nn.Module):
-    def __init__(self, obs_shape, action_space, num_agents, base=None, base_kwargs=None, device=torch.device("cpu")):
+    def __init__(self, obs_space, action_space, num_agents, base=None, base_kwargs=None, device=torch.device("cpu")):
         super(Policy, self).__init__()
-        self.multi_action = False
+        self.mixed_action = False
+        self.multi_discrete = False
         self.device = device
         if base_kwargs is None:
             base_kwargs = {}
+            
+        if obs_space.__class__.__name__ == "Box":
+            obs_shape = obs_space.shape
+        else:
+            obs_shape = obs_space
             
         if len(obs_shape) == 3:
             self.base = CNNBase(obs_shape, num_agents, **base_kwargs)
@@ -50,8 +56,16 @@ class Policy(nn.Module):
         elif action_space.__class__.__name__ == "MultiBinary":
             num_actions = action_space.shape[0]
             self.dist = Bernoulli(self.base.output_size, num_actions)
-        else:# agar
-            self.multi_action = True
+        elif action_space.__class__.__name__ == "MultiDiscrete":
+            self.multi_discrete = True
+            self.discrete_N = action_space.shape
+            action_size = action_space.high-action_space.low+1
+            self.dists = []
+            for i, num_actions in enumerate(action_size):
+                self.dists.append(Categorical(self.base.output_size, num_actions))
+            self.dists = nn.ModuleList(self.dists)
+        else:# discrete+continous
+            self.mixed_action = True
             continous = action_space[0].shape[0]
             discrete = action_space[1].n
             self.dist = nn.ModuleList([DiagGaussian(self.base.output_size, continous), Categorical(self.base.output_size, discrete)])
@@ -87,7 +101,7 @@ class Policy(nn.Module):
         
         value, actor_features, rnn_hxs_actor, rnn_hxs_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)        
         
-        if self.multi_action:
+        if self.mixed_action:
             dist, action, action_log_probs = [None, None], [None, None], [None, None]
             for i in range(2):
                 dist[i] = self.dist[i](actor_features, available_actions)
@@ -98,8 +112,29 @@ class Policy(nn.Module):
                     action[i] = dist[i].sample().float()
         
                 action_log_probs[i] = dist[i].log_probs(action[i])
+                
             action_out = torch.cat(action,-1)
             action_log_probs_out = torch.sum(torch.cat(action_log_probs, -1), -1, keepdim = True)
+            
+        elif self.multi_discrete:
+            action_out = []
+            action_log_probs_out = []
+            for i in range(self.discrete_N):
+                dist = self.dists[i](actor_features)
+                
+                if deterministic:
+                    action = dist.mode()
+                else:
+                    action = dist.sample()
+                    
+                action_log_probs = dist.log_probs(action)
+                
+                action_out.append(action)
+                action_log_probs_out.append(action_log_probs)
+                
+            action_out = torch.cat(action_out,-1)
+            action_log_probs_out = torch.sum(torch.cat(action_log_probs_out, -1), -1, keepdim = True)
+            
         else:
             dist = self.dist(actor_features, available_actions)
     
@@ -109,60 +144,9 @@ class Policy(nn.Module):
                 action = dist.sample()
   
             action_log_probs = dist.log_probs(action)
+            
             action_out = action
             action_log_probs_out = action_log_probs  
-        return value, action_out, action_log_probs_out, rnn_hxs_actor, rnn_hxs_critic
-        
-    def act_hanabi(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks, available_actions=None, replace_actions=None, replace_action_log_probs=None, deterministic=False):
-        share_inputs = share_inputs.to(self.device)
-        inputs = inputs.to(self.device)
-        rnn_hxs_actor = rnn_hxs_actor.to(self.device)
-        rnn_hxs_critic = rnn_hxs_critic.to(self.device)
-        masks = masks.to(self.device)
-        if available_actions is not None:
-            available_actions = available_actions.to(self.device)
-        if replace_actions is not None:
-            replace_actions = replace_actions.to(self.device)
-        if replace_action_log_probs is not None:
-            replace_action_log_probs = replace_action_log_probs.to(self.device)
-        
-        value, actor_features, rnn_hxs_actor, rnn_hxs_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)        
-        
-        if self.multi_action:
-            dist, action, action_log_probs = [None, None], [None, None], [None, None]
-            for i in range(2):
-                dist[i] = self.dist[i](actor_features, available_actions)
-    
-                if deterministic:
-                    action[i] = dist[i].mode().float()
-                else:
-                    action[i] = dist[i].sample().float()
-        
-                action_log_probs[i] = dist[i].log_probs(action[i])
-            action_out = torch.cat(action,-1)
-            action_log_probs_out = torch.sum(torch.cat(action_log_probs, -1), -1, keepdim = True)
-        else:
-            action_out = []
-            action_log_probs_out = []
-            for i in range(available_actions.size(0)):
-                if torch.all(available_actions[i]==0):
-                    action = replace_actions[i]
-                    action_log_probs = replace_action_log_probs[i]
-                else:                            
-                    dist = self.dist(actor_features[i], available_actions[i])
-            
-                    if deterministic:
-                        action = dist.mode().float()
-                    else:
-                        action = dist.sample().float()      
-                    action_log_probs = dist.log_probs(action)[0]
-                    
-                action_out.append(action)
-                action_log_probs_out.append(action_log_probs) 
-                          
-            action_out = torch.stack(action_out)
-            action_log_probs_out = torch.stack(action_log_probs_out) 
-      
         return value, action_out, action_log_probs_out, rnn_hxs_actor, rnn_hxs_critic
 
     def get_value(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks):
@@ -189,7 +173,7 @@ class Policy(nn.Module):
         
         value, actor_features, rnn_hxs_actor, rnn_hxs_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)
         
-        if self.multi_action:
+        if self.mixed_action:
             a, b = action.split((2, 1), -1)
             b = b.long()
             action = [a, b]
@@ -203,6 +187,20 @@ class Policy(nn.Module):
                     dist_entropy[i] = dist[i].entropy().mean()
             action_log_probs_out = torch.sum(torch.cat(action_log_probs, -1), -1, keepdim = True)
             dist_entropy_out = dist_entropy[0] / 2.0 + dist_entropy[1] / 0.98
+        elif self.multi_discrete:           
+            action = torch.transpose(action,0,1)
+            action_log_probs = []
+            dist_entropy = []
+            for i in range(self.discrete_N):
+                dist = self.dists[i](actor_features)
+                action_log_probs.append(dist.log_probs(action[i]))
+                if high_masks is not None:
+                    dist_entropy.append( (dist.entropy()* high_masks).sum() / (high_masks.sum()*dist.entropy().size(-1)) )
+                else:
+                    dist_entropy.append(dist.entropy().mean())
+                    
+            action_log_probs_out = torch.sum(torch.cat(action_log_probs, -1), -1, keepdim = True)
+            dist_entropy_out = torch.tensor(dist_entropy).mean()
         else:
             dist = self.dist(actor_features)
             action_log_probs = dist.log_probs(action)    

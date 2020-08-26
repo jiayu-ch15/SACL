@@ -74,6 +74,7 @@ There are 5 hanabi settings we can use:
 ### 2. Install
 
 ```Bash
+pip install cffi
 cd envs/hanabi
 mkdir build & cd build
 cmake ..

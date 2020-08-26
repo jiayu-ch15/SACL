@@ -39,20 +39,6 @@ def make_parallel_env(args):
         return DummyVecEnv([get_env_fn(0)])
     else:
         return SubprocVecEnv([get_env_fn(i) for i in range(args.n_rollout_threads)])
-        
-def make_test_env(args):
-    def get_env_fn(rank):
-        def init_env():
-            if args.env_name == "MPE":
-                env = MPEEnv(args)
-            else:
-                print("Can not support the " + args.env_name + "environment." )
-                raise NotImplementedError
-            env.seed(args.seed + rank * 1000)
-            # np.random.seed(args.seed + rank * 1000)
-            return env
-        return init_env
-    return SubprocVecEnv([get_env_fn(0)])
 
 def main():
     args = get_config()
@@ -92,12 +78,10 @@ def main():
 
     # env
     envs = make_parallel_env(args)
-    eval_env = make_test_env(args)
     num_agents = args.num_agents
     #Policy network
-
     if args.share_policy:
-        actor_critic = Policy(envs.observation_space[0].shape, 
+        actor_critic = Policy(envs.observation_space[0], 
                     envs.action_space[0],
                     num_agents = num_agents,
                     base_kwargs={'naive_recurrent': args.naive_recurrent_policy,
@@ -143,15 +127,15 @@ def main():
         rollouts = RolloutStorage(num_agents,
                     args.episode_length, 
                     args.n_rollout_threads,
-                    envs.observation_space[0].shape, 
+                    envs.observation_space[0], 
                     envs.action_space[0],
                     args.hidden_size)        
     else:
         actor_critic = []
         agents = []
         for agent_id in range(num_agents):
-            ac = Policy(envs.observation_space[0].shape, 
-                      envs.action_space[0],
+            ac = Policy(envs.observation_space[agent_id], 
+                      envs.action_space[agent_id],
                       num_agents = num_agents,
                       base_kwargs={'naive_recurrent': args.naive_recurrent_policy,
                                  'recurrent': args.recurrent_policy,
@@ -199,7 +183,7 @@ def main():
         rollouts = RolloutStorage(num_agents,
                     args.episode_length, 
                     args.n_rollout_threads,
-                    envs.observation_space[0].shape, 
+                    envs.observation_space[0], 
                     envs.action_space[0],
                     args.hidden_size)
     
@@ -207,11 +191,7 @@ def main():
     obs, _ = envs.reset()
     
     # replay buffer  
-    if len(envs.observation_space[0].shape) == 3:
-        share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0].shape[1], envs.observation_space[0].shape[2])        
-    else:
-        share_obs = obs.reshape(args.n_rollout_threads, -1)
-        
+    share_obs = obs.reshape(args.n_rollout_threads, -1)        
     share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)    
     rollouts.share_obs[0] = share_obs.copy() 
     rollouts.obs[0] = obs.copy()               
@@ -264,16 +244,28 @@ def main():
                     recurrent_hidden_statess.append(recurrent_hidden_states.detach().cpu().numpy())
                     recurrent_hidden_statess_critic.append(recurrent_hidden_states_critic.detach().cpu().numpy())
             
-            # rearrange action           
+            # rearrange action
             actions_env = []
             for i in range(args.n_rollout_threads):
                 one_hot_action_env = []
                 for k in range(num_agents):
-                    one_hot_action = np.zeros(envs.action_space[0].n)
-                    one_hot_action[actions[k][i]] = 1
-                    one_hot_action_env.append(one_hot_action)
+                    if envs.action_space[k].__class__.__name__ == 'MultiDiscrete':
+                        uc_action = []
+                        for j in range(envs.action_space[k].shape):
+                            uc_one_hot_action = np.zeros(envs.action_space[k].high[j]+1)
+                            uc_one_hot_action[actions[k][i][j]] = 1
+                            uc_action.append(uc_one_hot_action)
+                        uc_action = np.concatenate(uc_action)
+                        one_hot_action_env.append(uc_action)
+                            
+                    elif envs.action_space[k].__class__.__name__ == 'Discrete':    
+                        one_hot_action = np.zeros(envs.action_space[k].n)
+                        one_hot_action[actions[k][i]] = 1
+                        one_hot_action_env.append(one_hot_action)
+                    else:
+                        raise NotImplementedError
                 actions_env.append(one_hot_action_env)
-                       
+               
             # Obser reward and next obs
             obs, reward, done, infos, _ = envs.step(actions_env)
 
@@ -291,32 +283,18 @@ def main():
                         mask.append([1.0])
                 masks.append(mask)
                             
-            if len(envs.observation_space[0].shape) == 3:
-                share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0].shape[1], envs.observation_space[0].shape[2])
-                share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
-                
-                rollouts.insert(share_obs, 
-                                obs, 
-                                np.array(recurrent_hidden_statess).transpose(1,0,2), 
-                                np.array(recurrent_hidden_statess_critic).transpose(1,0,2), 
-                                np.array(actions).transpose(1,0,2),
-                                np.array(action_log_probs).transpose(1,0,2), 
-                                np.array(values).transpose(1,0,2),
-                                reward, 
-                                masks)
-            else:
-                share_obs = obs.reshape(args.n_rollout_threads, -1)
-                share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
-        
-                rollouts.insert(share_obs, 
-                                obs, 
-                                np.array(recurrent_hidden_statess).transpose(1,0,2), 
-                                np.array(recurrent_hidden_statess_critic).transpose(1,0,2), 
-                                np.array(actions).transpose(1,0,2),
-                                np.array(action_log_probs).transpose(1,0,2), 
-                                np.array(values).transpose(1,0,2),
-                                reward, 
-                                masks)
+            share_obs = obs.reshape(args.n_rollout_threads, -1)
+            share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
+    
+            rollouts.insert(share_obs, 
+                            obs, 
+                            np.array(recurrent_hidden_statess).transpose(1,0,2), 
+                            np.array(recurrent_hidden_statess_critic).transpose(1,0,2), 
+                            np.array(actions).transpose(1,0,2),
+                            np.array(action_log_probs).transpose(1,0,2), 
+                            np.array(values).transpose(1,0,2),
+                            reward, 
+                            masks)
                            
         with torch.no_grad(): 
             for i in range(num_agents):         
@@ -381,7 +359,7 @@ def main():
                     rew.append(rollouts.rewards[:,j,i].sum())
                     
                 logger.add_scalars('agent%i/reward' % i,
-                    {'reward': np.mean(np.array(rew)/(rollouts.rewards.shape[0]))},
+                    {'reward': np.sum(np.array(rew))/(rollouts.rewards.shape[0])},
                     (episode + 1) * args.episode_length * args.n_rollout_threads)
                                                                      
         # clean the buffer and reset
@@ -426,60 +404,9 @@ def main():
                         if 'reward' in info[i].keys():
                             rewards.append(info[i]['reward'])                    
                     logger.add_scalars('agent%i/rewards' % i, {'rewards': np.mean(rewards)}, total_num_steps)
-
-        if episode % args.eval_interval == 0 and args.eval==True:
-            eval_episode = 0
-            eval_obs, _ = eval_env.reset()
-            eval_share_obs = eval_obs.reshape(1, -1)
-            eval_recurrent_hidden_states = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
-            eval_recurrent_hidden_states_critic = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
-            eval_masks = np.ones((1,num_agents,1)).astype(np.float32)
-            
-            while True:
-                eval_actions = []
-                actor_critic.eval()
-                for i in range(num_agents):
-                    _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(i,
-                        torch.FloatTensor(eval_share_obs), 
-                        torch.FloatTensor(eval_obs[:,i]), 
-                        torch.FloatTensor(eval_recurrent_hidden_states[:,i]), 
-                        torch.FloatTensor(eval_recurrent_hidden_states_critic[:,i]),
-                        torch.FloatTensor(eval_masks[:,i]),
-                        available_actions = None,
-                        deterministic=True)
-
-                    eval_actions.append(action.detach().cpu().numpy())
-                    eval_recurrent_hidden_states[:,i] = recurrent_hidden_states.detach().cpu().numpy()
-                    eval_recurrent_hidden_states_critic[:,i] = recurrent_hidden_states_critic.detach().cpu().numpy()
-
-                # rearrange action           
-                eval_actions_env = []
-                for k in range(num_agents):
-                    one_hot_action = np.zeros(eval_env.action_space[0].n)
-                    one_hot_action[eval_actions[k][0]] = 1
-                    eval_actions_env.append(one_hot_action)
-                        
-                # Obser reward and next obs
-                eval_obs, eval_reward, eval_done, eval_infos, _ = eval_env.step([eval_actions_env])
-                eval_share_obs = eval_obs.reshape(1, -1)
-                                                    
-                if np.all(eval_done[0]):
-                    eval_episode += 1 
-                
-                for i in range(num_agents):
-                    if eval_done[0][i]:                                              
-                        eval_recurrent_hidden_states[0][i] = np.zeros(args.hidden_size).astype(np.float32)
-                        eval_recurrent_hidden_states_critic[0][i] = np.zeros(args.hidden_size).astype(np.float32)    
-                        eval_masks[0][i]=0.0
-                    else:
-                        eval_masks[0][i]=1.0
-                
-                if eval_episode>=args.eval_episodes:
-                    break
                 
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()
     envs.close()
-    eval_env.close()
 if __name__ == "__main__":
     main()

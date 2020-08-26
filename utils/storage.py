@@ -8,15 +8,27 @@ def _flatten_helper(T, N, _tensor):
 
 
 class RolloutStorage(object):
-    def __init__(self, num_agents, episode_length, n_rollout_threads, obs_shape, action_space,
+    def __init__(self, num_agents, episode_length, n_rollout_threads, obs_space, action_space,
                  recurrent_hidden_state_size):
         
-        if len(obs_shape) == 3:
-            self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0] * num_agents, obs_shape[1], obs_shape[2])).astype(np.float32)
-            self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, *obs_shape)).astype(np.float32)
+        if obs_space.__class__.__name__ == 'Box':
+            obs_shape = obs_space.shape
+            if len(obs_shape) == 3:
+                self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0] * num_agents, obs_shape[1], obs_shape[2])).astype(np.float32)
+                self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, *obs_shape)).astype(np.float32)
+            else:
+                self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0] * num_agents)).astype(np.float32)
+                self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0])).astype(np.float32)
+        elif obs_space.__class__.__name__ == 'list':
+            obs_shape = obs_space
+            if len(obs_shape) == 3:
+                self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0] * num_agents, obs_shape[1], obs_shape[2])).astype(np.float32)
+                self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, *obs_shape)).astype(np.float32)
+            else:
+                self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0] * num_agents)).astype(np.float32)
+                self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0])).astype(np.float32)
         else:
-            self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0] * num_agents)).astype(np.float32)
-            self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0])).astype(np.float32)
+            raise NotImplementedError
                
         self.recurrent_hidden_states = np.zeros((
             episode_length + 1, n_rollout_threads, num_agents, recurrent_hidden_state_size)).astype(np.float32)
@@ -28,9 +40,12 @@ class RolloutStorage(object):
         self.returns = np.zeros((episode_length + 1, n_rollout_threads, num_agents, 1)).astype(np.float32)
         self.action_log_probs = np.zeros((episode_length, n_rollout_threads, num_agents, 1)).astype(np.float32)
         
+        self.available_actions = None
         if action_space.__class__.__name__ == 'Discrete':
             self.available_actions = np.ones((episode_length + 1, n_rollout_threads, num_agents, action_space.n)).astype(np.float32)
             action_shape = 1
+        elif action_space.__class__.__name__ == "MultiDiscrete":
+            action_shape = action_space.shape
         elif action_space.__class__.__name__ == "Box":
             action_shape = action_space.shape[0]
         elif action_space.__class__.__name__ == "MultiBinary":
@@ -99,7 +114,8 @@ class RolloutStorage(object):
         self.masks[0] = self.masks[-1].copy()
         self.bad_masks[0] = self.bad_masks[-1].copy()
         self.high_masks[0] = self.high_masks[-1].copy()
-        self.available_actions[0] = self.available_actions[-1].copy()
+        if self.available_actions is not None:
+            self.available_actions[0] = self.available_actions[-1].copy()
     
     def chooseafter_update(self):
         self.recurrent_hidden_states[0] = self.recurrent_hidden_states[-1].copy()
