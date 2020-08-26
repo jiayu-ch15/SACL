@@ -18,7 +18,8 @@ class Scenario(BaseScenario):
             # agent.u_noise = 1e-1
             # agent.c_noise = 1e-1
         # add landmarks
-        world.landmarks = [Landmark() for i in range(3)]
+        num_landmarks = args.num_landmarks#3
+        world.landmarks = [Landmark() for i in range(num_landmarks)]
         for i, landmark in enumerate(world.landmarks):
             landmark.name = 'landmark %d' % i
             landmark.collide = False

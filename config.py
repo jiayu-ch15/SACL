@@ -15,7 +15,7 @@ def get_config():
     
     # env
     parser.add_argument("--env_name", type=str, default='batch1')
-    parser.add_argument("--num_agents", type=int, default=5)
+    parser.add_argument("--num_agents", type=int, default=3)
     
     # starcraft2
     parser.add_argument("--map_name", type=str, default='3m')
@@ -23,6 +23,7 @@ def get_config():
     parser.add_argument("--hanabi_name", type=str, default='Hanabi-Full-Minimal')
     # mpe
     parser.add_argument("--scenario_name", type=str, default='simple_spread')
+    parser.add_argument("--num_landmarks", type=int, default=3)
     parser.add_argument("--num_good_agents", type=int, default=3)
     parser.add_argument("--num_adversaries", type=int, default=1)
     # ssd    
