@@ -81,7 +81,7 @@ def main():
     #Policy network
 
     if args.share_policy:
-        if args.model_dir==None:
+        if args.model_dir==None or args.model_dir=="":
             actor_critic = Policy(envs.observation_space[0], 
                     envs.action_space[0],
                     num_agents = num_agents,
@@ -138,7 +138,8 @@ def main():
         actor_critic = []
         agents = []
         for agent_id in range(num_agents):
-            ac = Policy(envs.observation_space[0], 
+            if args.model_dir==None or args.model_dir=="":
+                ac = Policy(envs.observation_space[0], 
                       envs.action_space[0],
                       num_agents = num_agents,
                       base_kwargs={'naive_recurrent': args.naive_recurrent_policy,
@@ -158,6 +159,8 @@ def main():
                                  'use_ReLU':args.use_ReLU
                                  },
                       device = device)
+            else:       
+                ac = torch.load(str(args.model_dir) + "/agent"+ str(agent_id) + "_model.pt")['model']
             ac.to(device)
             # algorithm
             agent = PPO(ac,
@@ -327,7 +330,6 @@ def main():
                             turn_recurrent_hidden_states_critic[n_rollout_thread] = np.zeros((num_agents, *rollouts.recurrent_hidden_states_critic.shape[3:])).astype(np.float32)                            
                             
                             if 'score' in infos[n_rollout_thread].keys():
-                                print(infos[n_rollout_thread]['score'])
                                 scores.append(infos[n_rollout_thread]['score'])
                         elif done[n_rollout_thread] == None:
                             pass
@@ -469,6 +471,7 @@ def main():
                     print("value loss of agent%i: " %i + str(value_losses[i]))
             if args.env_name == "Hanabi":        
                 logger.add_scalars('score',{'score': np.mean(scores)},total_num_steps)
+                print("Mean score is {}.".format(np.mean(scores)))
                 
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()

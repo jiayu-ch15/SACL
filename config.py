@@ -15,12 +15,15 @@ def get_config():
     
     # env
     parser.add_argument("--env_name", type=str, default='batch1')
+    parser.add_argument("--num_agents", type=int, default=5)
+    
     # starcraft2
     parser.add_argument("--map_name", type=str, default='3m')
     # hanabi
     parser.add_argument("--hanabi_name", type=str, default='Hanabi-Full-Minimal')
-    # ssd
-    parser.add_argument("--num_agents", type=int, default=5)
+    # mpe
+    parser.add_argument("--scenario_name", type=str, default='simple_spread')
+    # ssd    
     parser.add_argument("--share_reward", action='store_true', default=False)
     parser.add_argument("--shape_reward", action='store_true', default=False)
     parser.add_argument("--shape_beta", type=float, default=0.8, help='use how much global reward')
@@ -33,8 +36,7 @@ def get_config():
     parser.add_argument("--use_common_layer", action='store_true', default=False)
     parser.add_argument("--use_popart", action='store_false', default=True)
     parser.add_argument("--use_feature_popart", action='store_true', default=False)
-    parser.add_argument("--use_feature_normlization", action='store_false', default=True)
-    parser.add_argument("--use_average_pool", action='store_false', default=True)  
+    parser.add_argument("--use_feature_normlization", action='store_false', default=True)   
     parser.add_argument("--use_orthogonal", action='store_false', default=True)  
     
     # lstm
@@ -49,7 +51,8 @@ def get_config():
     parser.add_argument("--attn_N", type=int, default=1)
     parser.add_argument("--attn_size", type=int, default=64)
     parser.add_argument("--attn_heads", type=int, default=4)
-    parser.add_argument("--dropout", type=float, default=0.0)    
+    parser.add_argument("--dropout", type=float, default=0.0)
+    parser.add_argument("--use_average_pool", action='store_false', default=True)      
     
     # ppo
     parser.add_argument("--ppo_epoch", type=int, default=15, help='number of ppo epochs (default: 4)')    
@@ -68,8 +71,7 @@ def get_config():
     parser.add_argument("--gae-lambda", type=float, default=0.95, help='gae lambda parameter (default: 0.95)')
     parser.add_argument("--use-proper-time-limits", action='store_true', default=False, help='compute returns taking into account time limits')
     parser.add_argument("--use_huber_loss", action='store_false', default=True)
-    parser.add_argument("--huber_delta", type=float, default=10.0)
-    
+    parser.add_argument("--huber_delta", type=float, default=10.0)   
     
     # replay buffer
     parser.add_argument("--episode_length", type=int, default=200, help='number of forward steps in A2C (default: 5)')
@@ -81,14 +83,16 @@ def get_config():
     parser.add_argument("--save_interval", type=int, default=10)
     
     # log
-    parser.add_argument("--log_interval", type=int, default=1)
-    parser.add_argument("--eval_interval", type=int, default=10)
+    parser.add_argument("--log_interval", type=int, default=1)    
     
     #eval
     parser.add_argument("--eval", action='store_true', default=False)
-    parser.add_argument("--save_gifs", action='store_true', default=False)
-    parser.add_argument("--ifi", type=float, default=0.333333)
+    parser.add_argument("--eval_interval", type=int, default=10)
     parser.add_argument("--eval_episodes", type=int, default=32)
+    
+    # render
+    parser.add_argument("--save_gifs", action='store_true', default=False)
+    parser.add_argument("--ifi", type=float, default=0.333333)    
     parser.add_argument("--model_dir", type=str, default=None)
     
     args = parser.parse_args()

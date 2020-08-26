@@ -112,7 +112,9 @@ def main():
                                  'use_common_layer':args.use_common_layer,
                                  'use_feature_normlization':args.use_feature_normlization,
                                  'use_feature_popart':args.use_feature_popart,
-                                 'use_orthogonal':args.use_orthogonal
+                                 'use_orthogonal':args.use_orthogonal,
+                                 'layer_N':args.layer_N,
+                                 'use_ReLU':args.use_ReLU
                                  },
                     device = device)
         actor_critic.to(device)
@@ -163,7 +165,9 @@ def main():
                                  'use_common_layer':args.use_common_layer,
                                  'use_feature_normlization':args.use_feature_normlization,
                                  'use_feature_popart':args.use_feature_popart,
-                                 'use_orthogonal':args.use_orthogonal
+                                 'use_orthogonal':args.use_orthogonal,
+                                 'layer_N':args.layer_N,
+                                 'use_ReLU':args.use_ReLU
                                  },
                       device = device)
             ac.to(device)
