@@ -1,5 +1,5 @@
 from .environment import MultiAgentEnv
-import .scenarios as scenarios
+from .scenarios import load
 
 def MPEEnv(args, benchmark=False):
     '''
@@ -21,9 +21,9 @@ def MPEEnv(args, benchmark=False):
     
 
     # load scenario from script
-    scenario = scenarios.load(args.scenario_name + ".py").Scenario()
+    scenario = load(args.scenario_name + ".py").Scenario()
     # create world
-    world = scenario.make_world()
+    world = scenario.make_world(args)
     # create multiagent environment
     if benchmark:        
         env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation, scenario.benchmark_data)

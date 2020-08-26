@@ -1,7 +1,6 @@
 #!/bin/sh
 env="StarCraft2"
 map="3m"
-#algo="win_2s3z_xavier_uniform_attn"
 algo="ablation_3m_mini8_ppo20"
 seed_max=1
 

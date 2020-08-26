@@ -120,7 +120,7 @@ class MultiAgentEnv(gym.Env):
         # all agents get total reward in cooperative case, if shared reward, all agents have the same reward, and reward is sum
         reward = np.sum(reward_n)  
         if self.shared_reward:
-            reward_n = [reward] * self.n
+            reward_n = [[reward]] * self.n
 
         if self.post_step_callback is not None:
             self.post_step_callback(self.world)
@@ -140,8 +140,10 @@ class MultiAgentEnv(gym.Env):
         
         for agent in self.agents:
             obs_n.append(self._get_obs(agent))
-
-        return obs_n
+        
+        available_action = [[None]] * self.n
+        
+        return obs_n, available_action
 
     # get info used for benchmarking
     def _get_info(self, agent):
@@ -318,9 +320,7 @@ class MultiAgentEnv(gym.Env):
                 geom.add_attr(xform)
                 self.render_geoms.append(geom)
                 self.render_geoms_xform.append(xform)
-
                 self.comm_geoms.append(entity_comm_geoms)
-¢ž
             for wall in self.world.walls:
                 corners = ((wall.axis_pos - 0.5 * wall.width, wall.endpoints[0]),
                            (wall.axis_pos - 0.5 * wall.width, wall.endpoints[1]),
@@ -361,7 +361,6 @@ class MultiAgentEnv(gym.Env):
             # update geometry positions
             for e, entity in enumerate(self.world.entities):
                 self.render_geoms_xform[e].set_translation(*entity.state.p_pos)
-¢ž
                 if 'agent' in entity.name:
                     self.render_geoms[e].set_color(*entity.color, alpha=0.5)
                     
