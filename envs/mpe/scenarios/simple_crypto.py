@@ -6,8 +6,8 @@ adversary to goal. Adversary is rewarded for its distance to the goal.
 
 
 import numpy as np
-from multiagent.core import World, Agent, Landmark
-from multiagent.scenario import BaseScenario
+from envs.mpe.core import World, Agent, Landmark
+from envs.mpe.scenario import BaseScenario
 import random
 
 
@@ -18,10 +18,10 @@ class CryptoAgent(Agent):
 
 class Scenario(BaseScenario):
 
-    def make_world(self):
+    def make_world(self,args):
         world = World()
         # set any world properties first
-        num_agents = 3
+        num_agents = args.num_agents#3
         num_adversaries = 1
         num_landmarks = 2
         world.dim_c = 4

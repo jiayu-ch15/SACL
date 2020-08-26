@@ -1,15 +1,17 @@
 import numpy as np
-from multiagent.core import World, Agent, Landmark
-from multiagent.scenario import BaseScenario
+from envs.mpe.core import World, Agent, Landmark
+from envs.mpe.scenario import BaseScenario
 
 class Scenario(BaseScenario):
-    def make_world(self):
+    def make_world(self, args):
         world = World()
         # set any world properties first
         world.dim_c = 10
         world.collaborative = True # whether agents share rewards        
         # add agents
-        world.agents = [Agent() for i in range(2)]
+        num_agents = args.num_agents #2
+        assert num_agents==2, ("only 2 agents is supported, check the config.py.")
+        world.agents = [Agent() for i in range(num_agents)]
         for i, agent in enumerate(world.agents):
             agent.name = 'agent %d' % i
             agent.collide = False

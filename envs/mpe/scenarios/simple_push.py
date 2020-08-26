@@ -1,6 +1,6 @@
 import numpy as np
-from multiagent.core import World, Agent, Landmark
-from multiagent.scenario import BaseScenario
+from envs.mpe.core import World, Agent, Landmark
+from envs.mpe.scenario import BaseScenario
 import random
 
 #
@@ -9,11 +9,11 @@ import random
 #
 
 class Scenario(BaseScenario):
-    def make_world(self):
+    def make_world(self, args):
         world = World()
         # set any world properties first
         world.dim_c = 2
-        num_agents = 2
+        num_agents = args.num_agents#2
         num_adversaries = 1
         num_landmarks = 2
         # add agents

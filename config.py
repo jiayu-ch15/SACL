@@ -23,6 +23,8 @@ def get_config():
     parser.add_argument("--hanabi_name", type=str, default='Hanabi-Full-Minimal')
     # mpe
     parser.add_argument("--scenario_name", type=str, default='simple_spread')
+    parser.add_argument("--num_good_agents", type=int, default=3)
+    parser.add_argument("--num_adversaries", type=int, default=1)
     # ssd    
     parser.add_argument("--share_reward", action='store_true', default=False)
     parser.add_argument("--shape_reward", action='store_true', default=False)
