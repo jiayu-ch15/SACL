@@ -420,9 +420,14 @@ def main():
                     print("value loss of agent%i: " %i + str(value_losses[i]))
 
             if args.env_name == "MPE":
-                pass
+                for i in range(num_agents):
+                    rewards = []
+                    for info in infos:                        
+                        if 'reward' in info[i].keys():
+                            rewards.append(info[i]['reward'])                    
+                    logger.add_scalars('agent%i/rewards' % i, {'rewards': np.mean(rewards)}, total_num_steps)
 
-        if episode % args.eval_interval == 0:
+        if episode % args.eval_interval == 0 and args.eval==True:
             eval_episode = 0
             eval_obs, _ = eval_env.reset()
             eval_share_obs = eval_obs.reshape(1, -1)

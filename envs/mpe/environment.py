@@ -103,7 +103,7 @@ class MultiAgentEnv(gym.Env):
         obs_n = []
         reward_n = []
         done_n = []
-        info_n = {'n': []}
+        info_n = []
         self.agents = self.world.policy_agents
         # set action for each agent
         for i, agent in enumerate(self.agents):
@@ -111,11 +111,12 @@ class MultiAgentEnv(gym.Env):
         # advance world state
         self.world.step() # core.step()  
         # record observation for each agent
-        for agent in self.agents:
+        for i,agent in enumerate(self.agents):
             obs_n.append(self._get_obs(agent))
             reward_n.append(self._get_reward(agent))
             done_n.append(self._get_done(agent))
-            info_n['n'].append(self._get_info(agent))
+            info = {'reward':self._get_reward(agent)}            
+            info_n.append(info)
 
         # all agents get total reward in cooperative case, if shared reward, all agents have the same reward, and reward is sum
         reward = np.sum(reward_n)  
