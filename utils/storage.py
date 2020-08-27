@@ -219,14 +219,13 @@ class RolloutStorage(object):
             return_batch = torch.tensor(returns[indices])
             masks_batch = torch.tensor(masks[indices])
             high_masks_batch = torch.tensor(high_masks[indices])
-            available_actions_batch = torch.tensor(available_actions[indices])
             old_action_log_probs_batch = torch.tensor(action_log_probs[indices])
             if advantages is None:
                 adv_targ = None
             else:
                 adv_targ = torch.tensor(advantages[indices])
 
-            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks_batch, available_actions_batch, old_action_log_probs_batch, adv_targ
+            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, adv_targ
             
     def feed_forward_generator_share(self, advantages, num_mini_batch=None, mini_batch_size=None):
         episode_length, n_rollout_threads, num_agents = self.rewards.shape[0:3]
