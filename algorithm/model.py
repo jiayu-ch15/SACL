@@ -29,6 +29,7 @@ class Flatten(nn.Module):
 class Policy(nn.Module):
     def __init__(self, obs_space, action_space, num_agents, base=None, base_kwargs=None, device=torch.device("cpu")):
         super(Policy, self).__init__()
+        self.mixed_obs = False
         self.mixed_action = False
         self.multi_discrete = False
         self.device = device
@@ -37,15 +38,36 @@ class Policy(nn.Module):
             
         if obs_space.__class__.__name__ == "Box":
             obs_shape = obs_space.shape
+        elif obs_space.__class__.__name__ == "list":
+            if len(obs_space) > 1:# means all obs space is passed here
+                # num_agents means agent_id
+                # obs_space means all_obs_space
+                agent_id = num_agents
+                all_obs_space = obs_space
+                if all_obs_space[agent_id].__class__.__name__ == "Box":
+                    obs_shape = all_obs_space[agent_id].shape
+                else:
+                    obs_shape = all_obs_space[agent_id]
+                self.mixed_obs = True
+            else:
+                obs_shape = obs_space
         else:
-            obs_shape = obs_space
+            raise NotImplementedError
             
-        if len(obs_shape) == 3:
-            self.base = CNNBase(obs_shape, num_agents, **base_kwargs)
-        elif len(obs_shape) == 1:
-            self.base = MLPBase(obs_shape, num_agents, **base_kwargs)
-        else:# attn model, just support MLP model
-            self.base = MLPBase(obs_shape, num_agents, **base_kwargs)
+        if self.mixed_obs:
+            if len(obs_shape) == 3:
+                self.base = CNNBase(all_obs_space, agent_id, **base_kwargs)
+            elif len(obs_shape) == 1:
+                self.base = MLPBase(all_obs_space, agent_id, **base_kwargs)
+            else:
+                raise NotImplementedError
+        else:
+            if len(obs_shape) == 3:
+                self.base = CNNBase(obs_shape, num_agents, **base_kwargs)
+            elif len(obs_shape) == 1:
+                self.base = MLPBase(obs_shape, num_agents, **base_kwargs)
+            else:# attn model, just support MLP model
+                self.base = MLPBase(obs_shape, num_agents, **base_kwargs)
 
         if action_space.__class__.__name__ == "Discrete":
             num_actions = action_space.n            
@@ -220,10 +242,24 @@ class NNBase(nn.Module):
         self._naive_recurrent = naive_recurrent
         self._attn = attn
         self._use_common_layer = use_common_layer
-        #input_size, split_shape=None, d_model=512, attn_N=2, heads=8, dropout=0.0, use_average_pool=True, use_orthogonal=True    
+        #input_size, split_shape=None, d_model=512, attn_N=2, heads=8, dropout=0.0, use_average_pool=True, use_orthogonal=True 
         if self._attn:
-            self.encoder_actor = Encoder(obs_shape[0], obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
-            self.encoder_critic = Encoder(obs_shape[0]*num_agents, [[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
+            if obs_shape[0].__class__.__name__ == 'list':
+                all_obs_space = obs_shape
+                agent_id = num_agents
+                num_agents = len(all_obs_space)
+                if all_obs_space[agent_id].__class__.__name__ == "Box":
+                    obs_shape = all_obs_space[agent_id].shape
+                else:
+                    obs_shape = all_obs_space[agent_id]
+                share_obs_dim = 0
+                for obs_space in all_obs_space:
+                    share_obs_dim += obs_space.shape[0]
+                self.encoder_actor = Encoder(obs_shape[0], obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
+                self.encoder_critic = Encoder(share_obs_dim, [[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
+            else: 
+                self.encoder_actor = Encoder(obs_shape[0], obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
+                self.encoder_critic = Encoder(obs_shape[0]*num_agents, [[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
         
         if self._recurrent or self._naive_recurrent:
             self.gru = nn.GRU(hidden_size, hidden_size)         
@@ -455,7 +491,7 @@ class CNNBase(NNBase):
 
 class MLPBase(NNBase):
     def __init__(self, obs_shape, num_agents, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_feature_normlization=True, use_feature_popart=True, use_orthogonal=True, layer_N=1, use_ReLU=False):
-        super(MLPBase, self).__init__(obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer, use_orthogonal,use_ReLU)
+        super(MLPBase, self).__init__(obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer, use_orthogonal, use_ReLU)
 
         self._use_common_layer = use_common_layer
         self._use_feature_normlization = use_feature_normlization
@@ -467,18 +503,32 @@ class MLPBase(NNBase):
         
         assert (self._use_feature_normlization and self._use_feature_popart) == False, ("--use_feature_normlization and --use_feature_popart can not be set True simultaneously.")
         
+        if obs_shape[0].__class__.__name__ != 'int': # mixed obs
+            all_obs_space = obs_shape
+            agent_id = num_agents
+            num_agents = len(all_obs_space)
+            if all_obs_space[agent_id].__class__.__name__ == "Box":
+                obs_shape = all_obs_space[agent_id].shape
+            else:
+                obs_shape = all_obs_space[agent_id]
+            share_obs_dim = 0
+            for obs_space in all_obs_space:
+                share_obs_dim += obs_space.shape[0]
+        else:
+            share_obs_dim = obs_shape[0]*num_agents
+        
         if self._use_feature_normlization:
             self.actor_norm = nn.LayerNorm(obs_shape[0])
-            self.critic_norm = nn.LayerNorm(obs_shape[0]*num_agents)
+            self.critic_norm = nn.LayerNorm(share_obs_dim)
             
         if self._use_feature_popart:
             self.actor_norm = PopArt(obs_shape[0])
-            self.critic_norm = PopArt(obs_shape[0]*num_agents)
+            self.critic_norm = PopArt(share_obs_dim)
             
         if self._attn:           
             if use_average_pool == True:
                 num_inputs_actor = attn_size + obs_shape[-1][1]
-                num_inputs_critic = attn_size #+ obs_shape[0]
+                num_inputs_critic = attn_size 
             else:
                 num_inputs = 0
                 split_shape = obs_shape[1:]
@@ -488,7 +538,7 @@ class MLPBase(NNBase):
                 num_inputs_critic = num_agents * attn_size
         else:
             num_inputs_actor = obs_shape[0]
-            num_inputs_critic = obs_shape[0]*num_agents
+            num_inputs_critic = share_obs_dim
             
         if self._use_orthogonal:
             init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
@@ -563,6 +613,7 @@ class MLPBase(NNBase):
                 hidden_critic, rnn_hxs_critic = self._forward_gru_critic(hidden_critic, rnn_hxs_critic, masks)  
                 
         return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs_actor, rnn_hxs_critic
+
 
 class FeedForward(nn.Module):
 
