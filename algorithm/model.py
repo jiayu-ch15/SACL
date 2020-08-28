@@ -39,7 +39,7 @@ class Policy(nn.Module):
         if obs_space.__class__.__name__ == "Box":
             obs_shape = obs_space.shape
         elif obs_space.__class__.__name__ == "list":
-            if obs_space[-1].__class__.__name__ == "list":# means attn
+            if obs_space[-1].__class__.__name__ != "Box":# means attn
                 obs_shape = obs_space
             else:# means all obs space is passed here
                 # num_agents means agent_id

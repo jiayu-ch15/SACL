@@ -394,7 +394,7 @@ def main():
                     rew.append(rollouts[agent_id].rewards[:,i].sum())
                     
                 logger.add_scalars('agent%i/reward' % agent_id,
-                    {'reward': np.sum(np.array(rew))/(rollouts[agent_id].rewards.shape[0])},
+                    {'reward': np.mean(np.array(rew)/(rollouts[agent_id].rewards.shape[0]))},
                     (episode + 1) * args.episode_length * args.n_rollout_threads)
                 
                 rollouts[agent_id].after_update()
@@ -435,9 +435,9 @@ def main():
                 for agent_id in range(num_agents):
                     show_rewards = []
                     for info in infos:                        
-                        if 'reward' in info[agent_id].keys():
-                            show_rewards.append(info[agent_id]['reward'])                    
-                    logger.add_scalars('agent%i/rewards' % agent_id, {'rewards': np.mean(show_rewards)}, total_num_steps)
+                        if 'individual_reward' in info[agent_id].keys():
+                            show_rewards.append(info[agent_id]['individual_reward'])                    
+                    logger.add_scalars('agent%i/individual_reward' % agent_id, {'individual_reward': np.mean(show_rewards)}, total_num_steps)
                 
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()
