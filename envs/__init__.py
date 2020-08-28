@@ -6,6 +6,7 @@ from .ssd.Cleanup import CleanupEnv
 from .ssd.Harvest import HarvestEnv
 from .hanabi.rl_env import HanabiEnv
 from .mpe.MPE import MPEEnv
+from .hns.envs.hide_and_seek import HideAndSeekEnv
 
 from absl import flags
 FLAGS = flags.FLAGS

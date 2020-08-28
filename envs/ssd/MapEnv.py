@@ -796,13 +796,10 @@ class MapEnv(object):
             infos['waste_cleared'] = self.waste_cleared
         if self.env_name == "Harvest":
             infos['apple_consumption'] = apple_consumption
-            
-        global_reward = np.sum(rewards)  
+                   
         if self.share_reward:
+            global_reward = np.sum(rewards)
             rewards = [global_reward] * self.num_agents
-
-        if self.shape_reward:
-            rewards = list(map(lambda x :x[0] * self.shape_beta + x[1] * (1-self.shape_beta), zip([global_reward] * self.num_agents, rewards)))
 
         return observations, rewards, dones, infos, [[None]]*self.num_agents
 

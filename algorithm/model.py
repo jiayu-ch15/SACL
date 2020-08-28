@@ -35,11 +35,13 @@ class Policy(nn.Module):
         self.device = device
         if base_kwargs is None:
             base_kwargs = {}
-            
+        
         if obs_space.__class__.__name__ == "Box":
             obs_shape = obs_space.shape
         elif obs_space.__class__.__name__ == "list":
-            if len(obs_space) > 1:# means all obs space is passed here
+            if obs_space[-1].__class__.__name__ == "list":# means attn
+                obs_shape = obs_space
+            else:# means all obs space is passed here
                 # num_agents means agent_id
                 # obs_space means all_obs_space
                 agent_id = num_agents
@@ -48,12 +50,10 @@ class Policy(nn.Module):
                     obs_shape = all_obs_space[agent_id].shape
                 else:
                     obs_shape = all_obs_space[agent_id]
-                self.mixed_obs = True
-            else:
-                obs_shape = obs_space
+                self.mixed_obs = True                
         else:
             raise NotImplementedError
-            
+        
         if self.mixed_obs:
             if len(obs_shape) == 3:
                 self.base = CNNBase(all_obs_space, agent_id, **base_kwargs)
@@ -503,7 +503,7 @@ class MLPBase(NNBase):
         
         assert (self._use_feature_normlization and self._use_feature_popart) == False, ("--use_feature_normlization and --use_feature_popart can not be set True simultaneously.")
         
-        if obs_shape[0].__class__.__name__ != 'int': # mixed obs
+        if 'int' not in obs_shape[0].__class__.__name__: # mixed obs
             all_obs_space = obs_shape
             agent_id = num_agents
             num_agents = len(all_obs_space)

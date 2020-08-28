@@ -95,7 +95,7 @@ hyper-parameters:
 
 lr=7e-4,hidden_size=512,layer_N=2,use_ReLU,ppo epoch=15
 
-- 2 players: parallel=200,episode length=80,mini_batch=1 ----------- 200 \* 80 \* 2 / 1 = 32000
+- 2 players: parallel=200,episode length=80,mini_batch=1 ----------- 200 \* 80 \* 2 / 1 = 32000 ---0.01
   - parallel=1000,episode length=80,mini_batch=5 ----------- 1000 \* 80 \* 2 / 5 = 32000
 - 3 players: parallel=1000,episode length=80,mini_batch=8 -----------1000 \* 80 \* 3 / 8 = 30000
 - 4 players: parallel=1000,episode length=80,mini_batch=10 ------------1000 \* 80 \* 4 / 10 = 32000
@@ -112,4 +112,16 @@ Cooperative scenarios:
 
 - simple_spread
 - simple_speaker_listener
-- simple_reference
+- simple_reference【wrong】
+
+## 5. Train HideAndSeek
+
+```Bash
+# install mujuco_worldgen
+cd envs/hns/mujoco-worldgen/
+pip install -e .
+pip install mujoco_py xmltodict
+# encounter enum error, excute uninstall
+pip uninstall enum34
+```
+

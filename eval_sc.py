@@ -124,7 +124,7 @@ def main():
             for i in range(num_agents):
                 eval_masks[0][i]=1.0
         
-        if eval_episode>=32:
+        if eval_episode>=args.eval_episodes:
             print(eval_battles_won/eval_episode)
             break
     eval_env.close()

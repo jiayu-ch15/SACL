@@ -226,8 +226,8 @@ def main():
             if args.share_policy:   
                 update_linear_schedule(agents.optimizer, episode, episodes, args.lr)  
             else:     
-                for i in range(num_agents):
-                    update_linear_schedule(agents[i].optimizer, episode, episodes, args.lr)           
+                for agent_id in range(num_agents):
+                    update_linear_schedule(agents[agent_id].optimizer, episode, episodes, args.lr)           
 
         for step in range(args.episode_length):
             # Sample actions

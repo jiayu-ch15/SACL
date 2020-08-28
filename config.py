@@ -16,9 +16,8 @@ def get_config():
     # env
     parser.add_argument("--env_name", type=str, default='batch1')
     parser.add_argument("--num_agents", type=int, default=3)
+    parser.add_argument("--share_reward", action='store_false', default=True)
     
-    # starcraft2
-    parser.add_argument("--map_name", type=str, default='3m')
     # hanabi
     parser.add_argument("--hanabi_name", type=str, default='Hanabi-Full-Minimal')
     # mpe
@@ -26,10 +25,13 @@ def get_config():
     parser.add_argument("--num_landmarks", type=int, default=3)
     parser.add_argument("--num_good_agents", type=int, default=3)
     parser.add_argument("--num_adversaries", type=int, default=1)
-    # ssd    
-    parser.add_argument("--share_reward", action='store_true', default=False)
-    parser.add_argument("--shape_reward", action='store_true', default=False)
-    parser.add_argument("--shape_beta", type=float, default=0.8, help='use how much global reward')
+    
+    # do not need num_agents
+    # starcraft2
+    parser.add_argument("--map_name", type=str, default='3m')
+    # hide and seek
+    parser.add_argument("--num_seekers", type=int, default=1)
+    parser.add_argument("--num_hiders", type=int, default=1)
     
     # network
     parser.add_argument("--share_policy", action='store_false', default=True, help='agent share the same policy')
@@ -88,7 +90,7 @@ def get_config():
     # log
     parser.add_argument("--log_interval", type=int, default=1)    
     
-    #eval
+    # eval
     parser.add_argument("--eval", action='store_true', default=False)
     parser.add_argument("--eval_interval", type=int, default=10)
     parser.add_argument("--eval_episodes", type=int, default=32)

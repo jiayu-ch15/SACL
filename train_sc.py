@@ -40,7 +40,7 @@ def make_parallel_env(args):
     else:
         return SubprocVecEnv([get_env_fn(i) for i in range(args.n_rollout_threads)])
         
-def make_test_env(args):
+def make_eval_env(args):
     def get_env_fn(rank):
         def init_env():
             if args.env_name == "StarCraft2":
@@ -92,7 +92,8 @@ def main():
 
     # env
     envs = make_parallel_env(args)
-    eval_env = make_test_env(args)
+    if args.eval:
+        eval_env = make_eval_env(args)
     num_agents = get_map_params(args.map_name)["n_agents"]
     #Policy network
 
@@ -231,8 +232,8 @@ def main():
             if args.share_policy:   
                 update_linear_schedule(agents.optimizer, episode, episodes, args.lr)  
             else:     
-                for i in range(num_agents):
-                    update_linear_schedule(agents[i].optimizer, episode, episodes, args.lr)           
+                for agent_id in range(num_agents):
+                    update_linear_schedule(agents[agent_id].optimizer, episode, episodes, args.lr)           
 
         for step in range(args.episode_length):
             # Sample actions
@@ -473,7 +474,7 @@ def main():
                 last_battles_game = battles_game
                 last_battles_won = battles_won
 
-        if episode % args.eval_interval == 0:
+        if episode % args.eval_interval == 0 and args.eval:
             eval_battles_won = 0
             eval_episode = 0
             eval_obs, eval_available_actions = eval_env.reset()
@@ -531,6 +532,7 @@ def main():
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()
     envs.close()
-    eval_env.close()
+    if args.eval:
+        eval_env.close()
 if __name__ == "__main__":
     main()

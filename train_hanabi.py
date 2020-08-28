@@ -17,7 +17,7 @@ from algorithm.ppo import PPO
 from algorithm.model import Policy
 
 from config import get_config
-from utils.env_wrappers import ChooseSubprocVecEnv, DummyVecEnv
+from utils.env_wrappers import ChooseSubprocVecEnv
 from utils.util import update_linear_schedule
 from utils.storage import RolloutStorage
 import shutil
@@ -234,8 +234,8 @@ def main():
             if args.share_policy:   
                 update_linear_schedule(agents.optimizer, episode, episodes, args.lr)  
             else:     
-                for i in range(num_agents):
-                    update_linear_schedule(agents[i].optimizer, episode, episodes, args.lr)          
+                for agent_id in range(num_agents):
+                    update_linear_schedule(agents[agent_id].optimizer, episode, episodes, args.lr)          
         scores = []          
         for step in range(args.episode_length):
             # Sample actions
