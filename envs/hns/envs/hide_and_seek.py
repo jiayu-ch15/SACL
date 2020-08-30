@@ -233,7 +233,7 @@ def outside_quadrant_placement(grid, obj_size, metadata, random_state):
 def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
              floor_size=6.0, grid_size=30, door_size=0,
              n_hiders=1, n_seekers=1, max_n_agents=None,
-             n_boxes=1, n_ramps=1, n_elongated_boxes=0,
+             n_boxes=0, n_ramps=0, n_elongated_boxes=0,
              rand_num_elongated_boxes=False, n_min_boxes=None,
              box_size=0.5, boxid_obs=False, box_only_z_rot=True,
              rew_type='joint_zero_sum',

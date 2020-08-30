@@ -120,7 +120,7 @@ Cooperative scenarios:
 # install mujuco_worldgen
 cd envs/hns/mujoco-worldgen/
 pip install -e .
-pip install mujoco_py xmltodict
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple mujoco_py xmltodict
 # encounter enum error, excute uninstall
 pip uninstall enum34
 ```
