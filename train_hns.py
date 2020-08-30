@@ -98,9 +98,8 @@ def main():
     all_action_space = []
     all_obs_space = []
     action_movement_dim = []
-    order_obs = ['agent_qpos_qvel','box_obs','ramp_obs','food_pos','observation_self']
-    
-    mask_order_obs = ['mask_aa_obs','mask_ab_obs','mask_ar_obs','mask_af_obs',None]
+    order_obs = ['agent_qpos_qvel','box_obs','ramp_obs','food_pos','mask_ab_obs','mask_af_obs','observation_self']    
+    mask_order_obs = ['mask_aa_obs','mask_ab_obs','mask_ar_obs','mask_af_obs',None,None,None]
     for agent_id in range(num_agents):
         # deal with dict action space
         action_movement = envs.action_space['action_movement'][agent_id].nvec
@@ -116,7 +115,7 @@ def main():
         obs_space = []
         obs_dim = 0
         for key in order_obs:
-            if key in envs.observation_space.spaces.keys(): 
+            if key in envs.observation_space.spaces.keys():
                 space = list(envs.observation_space[key].shape)
                 if len(space)<2:  
                     space.insert(0,1)        
@@ -124,7 +123,7 @@ def main():
                 obs_dim += reduce(lambda x,y:x*y,space)
         obs_space.insert(0,obs_dim)
         all_obs_space.append(obs_space)
-           
+   
     if args.share_policy:
         actor_critic = Policy(all_obs_space[0], 
                     all_action_space[0],
@@ -238,15 +237,18 @@ def main():
     
     # reset env 
     dict_obs = envs.reset()
-    print(dict_obs[0].keys())
     obs = []
     share_obs = []   
     for d_o in dict_obs:
         for i, key in enumerate(order_obs):
-            if key in envs.observation_space.spaces.keys():               
+            if key in envs.observation_space.spaces.keys():             
                 if mask_order_obs[i] == None:
-                    temp_share_obs = d_o[key].reshape(num_agents,-1)
-                    temp_obs = temp_share_obs
+                    if 'mask' in key:
+                        temp_share_obs = d_o[key].reshape(num_agents,-1)
+                        temp_obs = np.zeros((num_agents,1))
+                    else:
+                        temp_share_obs = d_o[key].reshape(num_agents,-1)
+                        temp_obs = temp_share_obs
                 else:
                     temp_share_obs = d_o[key].reshape(num_agents,-1)
                     temp_mask = d_o[mask_order_obs[i]]
@@ -264,7 +266,7 @@ def main():
     obs = np.array(obs) 
     share_obs = np.array(share_obs)            
        
-    # replay buffer)    
+    # replay buffer  
     rollouts.share_obs[0] = share_obs.copy() 
     rollouts.obs[0] = obs.copy()                
     rollouts.recurrent_hidden_states = np.zeros(rollouts.recurrent_hidden_states.shape).astype(np.float32)
@@ -290,7 +292,6 @@ def main():
             action_log_probs = []
             recurrent_hidden_statess = []
             recurrent_hidden_statess_critic = []
-            
             with torch.no_grad():                
                 for agent_id in range(num_agents):
                     if args.share_policy:

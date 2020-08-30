@@ -179,7 +179,6 @@ class SpoofEntityWrapper(gym.ObservationWrapper):
             obs[key + '_spoof'] = np.concatenate([np.ones_like(obs[key]), np.zeros((obs[key].shape[0], n_to_spoof))], -1)
             if n_to_spoof > 0:
                 obs[key] = np.concatenate([obs[key], np.zeros((obs[key].shape[0], n_to_spoof))], -1)
-
         return obs
 
 
@@ -205,7 +204,6 @@ class ConcatenateObsWrapper(gym.ObservationWrapper):
         for key_to_save, keys_to_concat in self.obs_groups.items():
             for k in keys_to_concat:
                 if k not in obs.keys():
-                    print(obs.keys())
                     assert 0
             obs[key_to_save] = np.concatenate([obs[k] for k in keys_to_concat], -1)
         return obs
