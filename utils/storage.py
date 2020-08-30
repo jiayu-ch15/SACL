@@ -8,7 +8,7 @@ def _flatten_helper(T, N, _tensor):
 
 class RolloutStorage(object):
     def __init__(self, num_agents, episode_length, n_rollout_threads, obs_space, action_space,
-                 recurrent_hidden_state_size, same_shape=False):
+                 recurrent_hidden_state_size, use_same_dim=False):
         
         if obs_space.__class__.__name__ == 'Box':
             obs_shape = obs_space.shape
@@ -24,7 +24,7 @@ class RolloutStorage(object):
                 self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0] * num_agents, obs_shape[1], obs_shape[2])).astype(np.float32)
                 self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, *obs_shape)).astype(np.float32)
             else:
-                if same_shape:
+                if use_same_dim:
                     self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0])).astype(np.float32)
                     self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0])).astype(np.float32)
                 else:

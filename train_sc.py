@@ -244,25 +244,25 @@ def main():
             recurrent_hidden_statess_critic = []
             
             with torch.no_grad():                
-                for i in range(num_agents):
+                for agent_id in range(num_agents):
                     if args.share_policy:
                         actor_critic.eval()
-                        value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(i,
-                        torch.tensor(rollouts.share_obs[step,:,i]), 
-                        torch.tensor(rollouts.obs[step,:,i]), 
-                        torch.tensor(rollouts.recurrent_hidden_states[step,:,i]), 
-                        torch.tensor(rollouts.recurrent_hidden_states_critic[step,:,i]),
-                        torch.tensor(rollouts.masks[step,:,i]),
-                        torch.tensor(rollouts.available_actions[step,:,i]))
+                        value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(agent_id,
+                        torch.tensor(rollouts.share_obs[step,:,agent_id]), 
+                        torch.tensor(rollouts.obs[step,:,agent_id]), 
+                        torch.tensor(rollouts.recurrent_hidden_states[step,:,agent_id]), 
+                        torch.tensor(rollouts.recurrent_hidden_states_critic[step,:,agent_id]),
+                        torch.tensor(rollouts.masks[step,:,agent_id]),
+                        torch.tensor(rollouts.available_actions[step,:,agent_id]))
                     else:
-                        actor_critic[i].eval()
-                        value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic[i].act(i,
-                        torch.tensor(rollouts.share_obs[step,:,i]), 
-                        torch.tensor(rollouts.obs[step,:,i]), 
-                        torch.tensor(rollouts.recurrent_hidden_states[step,:,i]), 
-                        torch.tensor(rollouts.recurrent_hidden_states_critic[step,:,i]),
-                        torch.tensor(rollouts.masks[step,:,i]),
-                        torch.tensor(rollouts.available_actions[step,:,i]))
+                        actor_critic[agent_id].eval()
+                        value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic[agent_id].act(agent_id,
+                        torch.tensor(rollouts.share_obs[step,:,agent_id]), 
+                        torch.tensor(rollouts.obs[step,:,agent_id]), 
+                        torch.tensor(rollouts.recurrent_hidden_states[step,:,agent_id]), 
+                        torch.tensor(rollouts.recurrent_hidden_states_critic[step,:,agent_id]),
+                        torch.tensor(rollouts.masks[step,:,agent_id]),
+                        torch.tensor(rollouts.available_actions[step,:,agent_id]))
                         
                     values.append(value.detach().cpu().numpy())
                     actions.append(action.detach().cpu().numpy())
@@ -274,9 +274,9 @@ def main():
             actions_env = []
             for i in range(args.n_rollout_threads):
                 one_hot_action_env = []
-                for k in range(num_agents):
-                    one_hot_action = np.zeros(envs.action_space[0].n)
-                    one_hot_action[actions[k][i]] = 1
+                for agent_id in range(num_agents):
+                    one_hot_action = np.zeros(envs.action_space[agent_id].n)
+                    one_hot_action[actions[agent_id][i]] = 1
                     one_hot_action_env.append(one_hot_action)
                 actions_env.append(one_hot_action_env)
                        
@@ -286,12 +286,12 @@ def main():
             # If done then clean the history of observations.
             # insert data in buffer
             masks = []
-            for k, done_ in enumerate(done): 
+            for i, done_ in enumerate(done): 
                 mask = []               
-                for i in range(num_agents): 
+                for agent_id in range(num_agents): 
                     if done_:    
-                        recurrent_hidden_statess[i][k] = np.zeros(args.hidden_size).astype(np.float32)
-                        recurrent_hidden_statess_critic[i][k] = np.zeros(args.hidden_size).astype(np.float32)    
+                        recurrent_hidden_statess[agent_id][i] = np.zeros(args.hidden_size).astype(np.float32)
+                        recurrent_hidden_statess_critic[agent_id][i] = np.zeros(args.hidden_size).astype(np.float32)    
                         mask.append([0.0])
                     else:
                         mask.append([1.0])
@@ -302,13 +302,13 @@ def main():
             for info in infos: 
                 bad_mask = []  
                 high_mask = []             
-                for i in range(num_agents): 
-                    if info[i]['bad_transition']:              
+                for agent_id in range(num_agents): 
+                    if info[agent_id]['bad_transition']:              
                         bad_mask.append([0.0])
                     else:
                         bad_mask.append([1.0])
                         
-                    if info[i]['high_masks']:              
+                    if info[agent_id]['high_masks']:              
                         high_mask.append([1.0])
                     else:
                         high_mask.append([0.0])
@@ -349,17 +349,17 @@ def main():
                                 available_actions)
                            
         with torch.no_grad(): 
-            for i in range(num_agents):         
+            for agent_id in range(num_agents):         
                 if args.share_policy: 
                     actor_critic.eval()                
-                    next_value,_,_ = actor_critic.get_value(i,
-                                                   torch.tensor(rollouts.share_obs[-1,:,i]), 
-                                                   torch.tensor(rollouts.obs[-1,:,i]), 
-                                                   torch.tensor(rollouts.recurrent_hidden_states[-1,:,i]),
-                                                   torch.tensor(rollouts.recurrent_hidden_states_critic[-1,:,i]),
-                                                   torch.tensor(rollouts.masks[-1,:,i]))
+                    next_value,_,_ = actor_critic.get_value(agent_id,
+                                                   torch.tensor(rollouts.share_obs[-1,:,agent_id]), 
+                                                   torch.tensor(rollouts.obs[-1,:,agent_id]), 
+                                                   torch.tensor(rollouts.recurrent_hidden_states[-1,:,agent_id]),
+                                                   torch.tensor(rollouts.recurrent_hidden_states_critic[-1,:,agent_id]),
+                                                   torch.tensor(rollouts.masks[-1,:,agent_id]))
                     next_value = next_value.detach().cpu().numpy()
-                    rollouts.compute_returns(i,
+                    rollouts.compute_returns(agent_id,
                                     next_value, 
                                     args.use_gae, 
                                     args.gamma,
@@ -368,22 +368,22 @@ def main():
                                     args.use_popart,
                                     agents.value_normalizer)
                 else:
-                    actor_critic[i].eval()
-                    next_value,_,_ = actor_critic[i].get_value(i,
-                                                   torch.tensor(rollouts.share_obs[-1,:,i]), 
-                                                   torch.tensor(rollouts.obs[-1,:,i]), 
-                                                   torch.tensor(rollouts.recurrent_hidden_states[-1,:,i]),
-                                                   torch.tensor(rollouts.recurrent_hidden_states_critic[-1,:,i]),
-                                                   torch.tensor(rollouts.masks[-1,:,i]))
+                    actor_critic[agent_id].eval()
+                    next_value,_,_ = actor_critic[agent_id].get_value(agent_id,
+                                                   torch.tensor(rollouts.share_obs[-1,:,agent_id]), 
+                                                   torch.tensor(rollouts.obs[-1,:,agent_id]), 
+                                                   torch.tensor(rollouts.recurrent_hidden_states[-1,:,agent_id]),
+                                                   torch.tensor(rollouts.recurrent_hidden_states_critic[-1,:,agent_id]),
+                                                   torch.tensor(rollouts.masks[-1,:,agent_id]))
                     next_value = next_value.detach().cpu().numpy()
-                    rollouts.compute_returns(i,
+                    rollouts.compute_returns(agent_id,
                                     next_value, 
                                     args.use_gae, 
                                     args.gamma,
                                     args.gae_lambda, 
                                     args.use_proper_time_limits,
                                     args.use_popart,
-                                    agents[i].value_normalizer)
+                                    agents[agent_id].value_normalizer)
 
          
         # update the network
@@ -399,18 +399,18 @@ def main():
             action_losses = []
             dist_entropies = [] 
             
-            for i in range(num_agents):
-                actor_critic[i].train()
-                value_loss, action_loss, dist_entropy = agents[i].update(i, rollouts)
+            for agent_id in range(num_agents):
+                actor_critic[agent_id].train()
+                value_loss, action_loss, dist_entropy = agents[agent_id].update(agent_id, rollouts)
                 value_losses.append(value_loss)
                 action_losses.append(action_loss)
                 dist_entropies.append(dist_entropy)
                 
                 rew = []
-                for j in range(rollouts.rewards.shape[1]):
-                    rew.append(rollouts.rewards[:,j,i].sum())
+                for i in range(rollouts.rewards.shape[1]):
+                    rew.append(rollouts.rewards[:,i,agent_id].sum())
                     
-                logger.add_scalars('agent%i/reward' % i,
+                logger.add_scalars('agent%i/reward' % agent_id,
                     {'reward': np.mean(np.array(rew)/(rollouts.rewards.shape[0]))},
                     (episode + 1) * args.episode_length * args.n_rollout_threads)
                                                                      
@@ -426,11 +426,11 @@ def main():
                             }, 
                             str(save_dir) + "/agent_model.pt")
             else:
-                for i in range(num_agents):                                                  
+                for agent_id in range(num_agents):                                                  
                     torch.save({
-                                'model': actor_critic[i]
+                                'model': actor_critic[agent_id]
                                 }, 
-                                str(save_dir) + "/agent%i_model" % i + ".pt")
+                                str(save_dir) + "/agent%i_model" % agent_id + ".pt")
 
         # log information
         if episode % args.log_interval == 0:
@@ -446,8 +446,8 @@ def main():
             if args.share_policy:
                 print("value loss of agent: " + str(value_loss))
             else:
-                for i in range(num_agents):
-                    print("value loss of agent%i: " %i + str(value_losses[i]))
+                for agent_id in range(num_agents):
+                    print("value loss of agent%i: " % agent_id + str(value_losses[agent_id]))
 
             if args.env_name == "StarCraft2":                
                 battles_won = []
@@ -484,27 +484,38 @@ def main():
             eval_masks = np.ones((1,num_agents,1)).astype(np.float32)
             
             while True:
-                eval_actions = []
-                actor_critic.eval()
-                for i in range(num_agents):
-                    _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(i,
-                        torch.tensor(eval_share_obs), 
-                        torch.tensor(eval_obs[:,i]), 
-                        torch.tensor(eval_recurrent_hidden_states[:,i]), 
-                        torch.tensor(eval_recurrent_hidden_states_critic[:,i]),
-                        torch.tensor(eval_masks[:,i]),
-                        torch.tensor(eval_available_actions[:,i,:]),
-                        deterministic=True)
+                eval_actions = []               
+                for agent_id in range(num_agents):
+                    if args.share_policy:
+                        actor_critic.eval()
+                        _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(agent_id,
+                            torch.tensor(eval_share_obs), 
+                            torch.tensor(eval_obs[:,agent_id]), 
+                            torch.tensor(eval_recurrent_hidden_states[:,agent_id]), 
+                            torch.tensor(eval_recurrent_hidden_states_critic[:,agent_id]),
+                            torch.tensor(eval_masks[:,agent_id]),
+                            torch.tensor(eval_available_actions[:,agent_id,:]),
+                            deterministic=True)
+                    else:
+                        actor_critic[agent_id].eval()
+                        _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic[agent_id].act(agent_id,
+                            torch.tensor(eval_share_obs), 
+                            torch.tensor(eval_obs[:,agent_id]), 
+                            torch.tensor(eval_recurrent_hidden_states[:,agent_id]), 
+                            torch.tensor(eval_recurrent_hidden_states_critic[:,agent_id]),
+                            torch.tensor(eval_masks[:,agent_id]),
+                            torch.tensor(eval_available_actions[:,agent_id,:]),
+                            deterministic=True)
 
                     eval_actions.append(action.detach().cpu().numpy())
-                    eval_recurrent_hidden_states[:,i] = recurrent_hidden_states.detach().cpu().numpy()
-                    eval_recurrent_hidden_states_critic[:,i] = recurrent_hidden_states_critic.detach().cpu().numpy()
+                    eval_recurrent_hidden_states[:,agent_id] = recurrent_hidden_states.detach().cpu().numpy()
+                    eval_recurrent_hidden_states_critic[:,agent_id] = recurrent_hidden_states_critic.detach().cpu().numpy()
 
                 # rearrange action           
                 eval_actions_env = []
-                for k in range(num_agents):
-                    one_hot_action = np.zeros(eval_env.action_space[0].n)
-                    one_hot_action[eval_actions[k][0]] = 1
+                for agent_id in range(num_agents):
+                    one_hot_action = np.zeros(eval_env.action_space[agent_id].n)
+                    one_hot_action[eval_actions[agent_id][0]] = 1
                     eval_actions_env.append(one_hot_action)
                         
                 # Obser reward and next obs
@@ -515,13 +526,13 @@ def main():
                     eval_episode += 1
                     if eval_infos[0][0]['won']:
                         eval_battles_won += 1
-                    for i in range(num_agents):    
-                        eval_recurrent_hidden_states[0][i] = np.zeros(args.hidden_size).astype(np.float32)
-                        eval_recurrent_hidden_states_critic[0][i] = np.zeros(args.hidden_size).astype(np.float32)    
-                        eval_masks[0][i]=0.0
+                    for agent_id in range(num_agents):    
+                        eval_recurrent_hidden_states[0][agent_id] = np.zeros(args.hidden_size).astype(np.float32)
+                        eval_recurrent_hidden_states_critic[0][agent_id] = np.zeros(args.hidden_size).astype(np.float32)    
+                        eval_masks[0][agent_id]=0.0
                 else:
-                    for i in range(num_agents):
-                        eval_masks[0][i]=1.0
+                    for agent_id in range(num_agents):
+                        eval_masks[0][agent_id]=1.0
                 
                 if eval_episode>=args.eval_episodes:
                     logger.add_scalars('eval_win_rate',

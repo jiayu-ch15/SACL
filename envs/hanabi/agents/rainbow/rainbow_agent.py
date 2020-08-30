@@ -115,6 +115,7 @@ class RainbowAgent(dqn_agent.DQNAgent):
       tf_device: str, Tensorflow device on which to run computations.
     """
     # We need this because some tools convert round floats into ints.
+    
     vmax = float(vmax)
     self.num_atoms = num_atoms
     # Using -vmax as the minimum return is is wasteful, because all rewards are

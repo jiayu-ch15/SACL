@@ -38,6 +38,19 @@ def make_parallel_env(args):
         return ChooseSubprocVecEnv([get_env_fn(0)])
     else:
         return ChooseSubprocVecEnv([get_env_fn(i) for i in range(args.n_rollout_threads)])
+        
+def make_eval_env(args):
+    def get_env_fn(rank):
+        def init_env():
+            if args.env_name == "Hanabi":
+                assert args.num_agents>1 and args.num_agents<6, ("num_agents can be only between 2-5.")
+                env = HanabiEnv(args)
+            else:
+                print("Can not support the " + args.env_name + "environment." )
+                raise NotImplementedError
+            return env
+        return init_env
+    return ChooseSubprocVecEnv([get_env_fn(0)])
 
 def main():
     args = get_config()
@@ -77,6 +90,8 @@ def main():
 
     # env
     envs = make_parallel_env(args)
+    if args.eval:
+        eval_env = make_eval_env(args)
     num_agents = args.num_agents
     #Policy network
 
@@ -469,9 +484,72 @@ def main():
             else:
                 for i in range(num_agents):
                     print("value loss of agent%i: " %i + str(value_losses[i]))
-            if args.env_name == "Hanabi":        
-                logger.add_scalars('score',{'score': np.mean(scores)},total_num_steps)
-                print("Mean score is {}.".format(np.mean(scores)))
+            if args.env_name == "Hanabi":  
+                if len(scores)>0: 
+                    logger.add_scalars('score',{'score': np.mean(scores)},total_num_steps)
+                    print("Mean score is {}.".format(np.mean(scores)))
+                else:
+                    logger.add_scalars('score',{'score': 0},total_num_steps)
+                    print("Can not access mean score.")
+                
+                
+        if episode % args.eval_interval == 0 and args.eval:
+            eval_scores = []
+            eval_episode = 0
+            eval_obs, eval_available_actions = eval_env.reset([True])
+            eval_share_obs = eval_obs.reshape(1, -1)
+            eval_actions = np.ones((1, num_agents, 1)).astype(np.float32)*(-1.0)
+            eval_recurrent_hidden_states = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
+            eval_recurrent_hidden_states_critic = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
+            eval_masks = np.ones((1,num_agents,1)).astype(np.float32)
+            
+            while True:               
+                for agent_id in range(num_agents):
+                    if args.share_policy:
+                        actor_critic.eval()
+                        _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(agent_id,
+                            torch.FloatTensor(eval_share_obs), 
+                            torch.FloatTensor(eval_obs[:,agent_id]), 
+                            torch.FloatTensor(eval_recurrent_hidden_states[:,agent_id]), 
+                            torch.FloatTensor(eval_recurrent_hidden_states_critic[:,agent_id]),
+                            torch.FloatTensor(eval_masks[:,agent_id]),
+                            torch.FloatTensor(eval_available_actions[:,agent_id]),
+                            deterministic=True)
+                    else:
+                        actor_critic[agent_id].eval()
+                        _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic[agent_id].act(agent_id,
+                            torch.FloatTensor(eval_share_obs), 
+                            torch.FloatTensor(eval_obs[:,agent_id]), 
+                            torch.FloatTensor(eval_recurrent_hidden_states[:,agent_id]), 
+                            torch.FloatTensor(eval_recurrent_hidden_states_critic[:,agent_id]),
+                            torch.FloatTensor(eval_masks[:,agent_id]),
+                            torch.FloatTensor(eval_available_actions[:,agent_id]),
+                            deterministic=True)
+
+                    eval_actions[:,agent_id] = action.detach().cpu().numpy()
+                    eval_recurrent_hidden_states[:,agent_id] = recurrent_hidden_states.detach().cpu().numpy()
+                    eval_recurrent_hidden_states_critic[:,agent_id] = recurrent_hidden_states_critic.detach().cpu().numpy()
+                        
+                    # Obser reward and next obs
+                    eval_obs, eval_rewards, eval_dones, eval_infos, eval_available_actions = eval_env.step(eval_actions)
+                    eval_share_obs = eval_obs.reshape(1, -1)
+                                                        
+                    if eval_dones[0]:                         
+                        eval_episode += 1
+                        if 'score' in eval_infos[0].keys():
+                            eval_scores.append(eval_infos[0]['score'])
+                        eval_obs, eval_available_actions = eval_env.reset([True])
+                        eval_share_obs = eval_obs.reshape(1, -1)    
+                        eval_recurrent_hidden_states = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
+                        eval_recurrent_hidden_states_critic = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
+                        eval_actions = np.ones((1, num_agents, 1)).astype(np.float32)*(-1.0)
+                        break
+                
+                if eval_episode>=args.eval_episodes:
+                    logger.add_scalars('eval_score',
+                                    {'eval_score': np.mean(eval_scores)},
+                                    total_num_steps)
+                    break
                 
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()

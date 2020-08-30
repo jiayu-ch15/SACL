@@ -142,7 +142,8 @@ def main():
                                  'use_feature_popart':args.use_feature_popart,
                                  'use_orthogonal':args.use_orthogonal,
                                  'layer_N':args.layer_N,
-                                 'use_ReLU':args.use_ReLU
+                                 'use_ReLU':args.use_ReLU,
+                                 'use_same_dim':True
                                  },
                     device = device)
         actor_critic.to(device)
@@ -174,7 +175,7 @@ def main():
                     all_obs_space[0], 
                     all_action_space[0],
                     args.hidden_size,
-                    same_shape=True)        
+                    use_same_dim=True)        
     else:
         actor_critic = []
         agents = []
@@ -196,7 +197,8 @@ def main():
                                  'use_feature_popart':args.use_feature_popart,
                                  'use_orthogonal':args.use_orthogonal,
                                  'layer_N':args.layer_N,
-                                 'use_ReLU':args.use_ReLU
+                                 'use_ReLU':args.use_ReLU,
+                                 'use_same_dim':True
                                  },
                       device = device)
             ac.to(device)
@@ -231,7 +233,7 @@ def main():
                     all_obs_space[0], 
                     all_action_space[0],
                     args.hidden_size,
-                    same_shape=True)
+                    use_same_dim=True)
     
     # reset env 
     dict_obs = envs.reset()
@@ -247,8 +249,9 @@ def main():
                 else:
                     temp_share_obs = d_o[key].reshape(num_agents,-1)
                     temp_mask = d_o[mask_order_obs[i]]
-                    print(temp_mask)
-                    temp_obs = temp_share_obs
+                    temp_obs = d_o[key]
+                    temp_obs[~temp_mask]=np.zeros(((~temp_mask).sum(),temp_obs.shape[2]))                       
+                    temp_obs = temp_obs.reshape(num_agents,-1) 
                 if i == 0:
                     reshape_obs = temp_obs
                     reshape_share_obs = temp_share_obs
