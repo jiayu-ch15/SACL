@@ -107,8 +107,9 @@ def main():
         action_movement_dim.append(len(action_movement))      
         action_glueall = envs.action_space['action_glueall'][agent_id].n
         action_vec = np.append(action_movement, action_glueall)
-        action_pull = envs.action_space['action_pull'][agent_id].n
-        action_vec = np.append(action_vec, action_pull)
+        if 'action_pull' in envs.action_space.spaces.keys():
+            action_pull = envs.action_space['action_pull'][agent_id].n
+            action_vec = np.append(action_vec, action_pull)
         action_space = MultiDiscrete([[0,vec-1] for vec in action_vec])
         all_action_space.append(action_space) 
         # deal with dict obs space
@@ -324,10 +325,12 @@ def main():
                 for agent_id in range(num_agents):
                     action_movement.append(actions[agent_id][n_rollout_thread][:action_movement_dim[agent_id]])
                     action_glueall.append(int(actions[agent_id][n_rollout_thread][action_movement_dim[agent_id]]))
-                    action_pull.append(int(actions[agent_id][n_rollout_thread][-1]))
+                    if 'action_pull' in envs.action_space.spaces.keys():
+                        action_pull.append(int(actions[agent_id][n_rollout_thread][-1]))
                 action_movement = np.stack(action_movement, axis = 0)
                 action_glueall = np.stack(action_glueall, axis = 0)
-                action_pull = np.stack(action_pull, axis = 0)                             
+                if 'action_pull' in envs.action_space.spaces.keys():
+                    action_pull = np.stack(action_pull, axis = 0)                             
                 one_env_action = {'action_movement': action_movement, 'action_pull': action_pull, 'action_glueall': action_glueall}
                 actions_env.append(one_env_action)
                        

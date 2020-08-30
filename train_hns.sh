@@ -2,7 +2,7 @@
 env="HideAndSeek"
 scenario_name="quadrant"
 num_seekers=1
-num_hiders=2
+num_hiders=1
 algo="test"
 seed_max=1
 

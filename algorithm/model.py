@@ -62,13 +62,14 @@ class Policy(nn.Module):
             else:
                 raise NotImplementedError
         else:
-            if len(obs_shape) == 3:
-                self.base = CNNBase(obs_shape, num_agents, **base_kwargs)
-            elif len(obs_shape) == 1:
+            if obs_shape[-1].__class__.__name__=='list':#attn
                 self.base = MLPBase(obs_shape, num_agents, **base_kwargs)
-            else:# attn model, just support MLP model
-                self.base = MLPBase(obs_shape, num_agents, **base_kwargs)
-
+            else:
+                if len(obs_shape) == 3:
+                    self.base = CNNBase(obs_shape, num_agents, **base_kwargs)
+                else:
+                    self.base = MLPBase(obs_shape, num_agents, **base_kwargs)
+                
         if action_space.__class__.__name__ == "Discrete":
             num_actions = action_space.n            
             self.dist = Categorical(self.base.output_size, num_actions)

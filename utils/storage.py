@@ -20,16 +20,24 @@ class RolloutStorage(object):
                 self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0])).astype(np.float32)
         elif obs_space.__class__.__name__ == 'list':
             obs_shape = obs_space
-            if len(obs_shape) == 3:
-                self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0] * num_agents, obs_shape[1], obs_shape[2])).astype(np.float32)
-                self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, *obs_shape)).astype(np.float32)
-            else:
+            if obs_shape[-1].__class__.__name__=='list':#attn
                 if use_same_dim:
                     self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0])).astype(np.float32)
                     self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0])).astype(np.float32)
                 else:
                     self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0] * num_agents)).astype(np.float32)
                     self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0])).astype(np.float32)
+            else:
+                if len(obs_shape) == 3:
+                    self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0] * num_agents, obs_shape[1], obs_shape[2])).astype(np.float32)
+                    self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, *obs_shape)).astype(np.float32)
+                else:
+                    if use_same_dim:
+                        self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0])).astype(np.float32)
+                        self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0])).astype(np.float32)
+                    else:
+                        self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0] * num_agents)).astype(np.float32)
+                        self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0])).astype(np.float32)
         else:
             raise NotImplementedError
                

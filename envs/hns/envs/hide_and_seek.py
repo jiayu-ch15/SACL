@@ -233,7 +233,7 @@ def outside_quadrant_placement(grid, obj_size, metadata, random_state):
 def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
              floor_size=6.0, grid_size=30, door_size=0,
              n_hiders=1, n_seekers=1, max_n_agents=None,
-             n_boxes=2, n_ramps=1, n_elongated_boxes=0,
+             n_boxes=0, n_ramps=0, n_elongated_boxes=0,
              rand_num_elongated_boxes=False, n_min_boxes=None,
              box_size=0.5, boxid_obs=False, box_only_z_rot=True,
              rew_type='joint_zero_sum',
@@ -453,9 +453,18 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
         env = GrabClosestWrapper(env)
     env = NoActionsInPrepPhase(env, np.arange(n_hiders, n_hiders + n_seekers))
     env = DiscardMujocoExceptionEpisodes(env)
-    env = ConcatenateObsWrapper(env, {'agent_qpos_qvel': ['agent_qpos_qvel', 'hider', 'prep_obs'],
+    if n_boxes > 0 and n_ramps > 0:
+        env = ConcatenateObsWrapper(env, {'agent_qpos_qvel': ['agent_qpos_qvel', 'hider', 'prep_obs'],
                                       'box_obs': ['box_obs', 'you_lock', 'team_lock', 'obj_lock'],
                                       'ramp_obs': ['ramp_obs'] + (['ramp_you_lock', 'ramp_team_lock', 'ramp_obj_lock'] if lock_ramp else [])})
+    elif n_boxes > 0:
+        env = ConcatenateObsWrapper(env, {'agent_qpos_qvel': ['agent_qpos_qvel', 'hider', 'prep_obs'],
+                                      'box_obs': ['box_obs', 'you_lock', 'team_lock', 'obj_lock']})
+    elif n_ramps > 0:
+        env = ConcatenateObsWrapper(env, {'agent_qpos_qvel': ['agent_qpos_qvel', 'hider', 'prep_obs'],
+                                          'ramp_obs': ['ramp_obs'] + (['ramp_you_lock', 'ramp_team_lock', 'ramp_obj_lock'] if lock_ramp else [])})
+    else:
+        env = ConcatenateObsWrapper(env, {'agent_qpos_qvel': ['agent_qpos_qvel', 'hider', 'prep_obs']})
     env = SelectKeysWrapper(env, keys_self=keys_self,
                             keys_external=keys_external,
                             keys_mask=keys_mask_self + keys_mask_external,
