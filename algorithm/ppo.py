@@ -407,11 +407,11 @@ class PPO():
             if self.use_popart:
                 advantage = rollouts.returns[:-1,:,agent_id] - self.value_normalizer.denormalize(torch.tensor(rollouts.value_preds[:-1,:,agent_id])).cpu().numpy()
             else:
-                advantage = rollouts.returns[:-1,:,agent_id] - rollouts.value_preds[:-1,:,agent_id]
-            advantage = (advantage - advantage.mean()) / (
-                advantage.std() + 1e-5)
+                advantage = rollouts.returns[:-1,:,agent_id] - rollouts.value_preds[:-1,:,agent_id]           
             advantages.append(advantage)
         #agent ,step, parallel,1
+        advantages = (advantages - advantages.mean()) / (
+                advantages.std() + 1e-5)
         advantages = np.array(advantages).transpose(1,2,0,3)
 
         value_loss_epoch = 0
