@@ -117,6 +117,7 @@ Cooperative scenarios:
 ## 5. Train HideAndSeek
 
 ```Bash
+# install mujuco, see https://zoeyuchao.github.io/2020/03/12/%E5%AE%89%E8%A3%85mujoco%E5%92%8Cmujoco-py.html
 # install mujuco_worldgen
 cd envs/hns/mujoco-worldgen/
 pip install -e .

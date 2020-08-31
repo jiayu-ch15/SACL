@@ -48,7 +48,7 @@ def load_env(pattern, core_dir=worldgen_path(), envs_dir='examples', xmls_dir='x
     """
     # Loads environment based on XML.
     env = None
-    args_remaining = {}  
+    args_remaining = {}
     if pattern.endswith(".xml"):
         if len(kwargs) > 0:
             print("Not passing any argument to environment, "
@@ -72,12 +72,13 @@ def load_env(pattern, core_dir=worldgen_path(), envs_dir='examples', xmls_dir='x
         env = Env(get_sim=get_sim)
     # Loads environment from a python file
     elif pattern.endswith("py") and os.path.exists(pattern):
+        
         print("Loading env from the module: %s" % pattern)
         module = run_path(pattern)
         make_env = module["make_env"]
         args_to_pass, args_remaining = extract_matching_arguments(make_env, kwargs)
         env = make_env(**args_to_pass)
-
+        
     elif pattern.endswith(".jsonnet") and os.path.exists(pattern):
         env_data = json.loads(_jsonnet.evaluate_file(pattern))
         make_env = get_function(env_data['make_env'])

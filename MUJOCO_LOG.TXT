@@ -1,0 +1,27 @@
+Sun Aug 30 21:24:02 2020
+ERROR: GLEW initalization error: Missing GL version
+
+Sun Aug 30 21:24:43 2020
+ERROR: GLEW initalization error: Missing GL version
+
+Sun Aug 30 21:28:31 2020
+ERROR: GLEW initalization error: Missing GL version
+
+Sun Aug 30 21:43:57 2020
+ERROR: OpenGL version 1.5 or higher required
+
+Sun Aug 30 21:57:26 2020
+ERROR: OpenGL version 1.5 or higher required
+
+Sun Aug 30 21:59:05 2020
+ERROR: OpenGL version 1.5 or higher required
+
+Sun Aug 30 22:00:29 2020
+ERROR: OpenGL version 1.5 or higher required
+
+Sun Aug 30 22:12:16 2020
+ERROR: GLEW initalization error: Missing GL version
+
+Sun Aug 30 22:28:32 2020
+ERROR: OpenGL version 1.5 or higher required
+

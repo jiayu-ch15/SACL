@@ -337,7 +337,7 @@ def main():
                        
             # Obser reward and next obs
             dict_obs, rewards, dones, infos = envs.step(actions_env)
-            rewards=rewards[:,:,np.newaxis]
+            rewards=rewards[:,:,np.newaxis]            
 
             # If done then clean the history of observations.
             # insert data in buffer
@@ -423,10 +423,15 @@ def main():
         if args.share_policy:
             actor_critic.train()
             value_loss, action_loss, dist_entropy = agents.update_share(num_agents, rollouts)
-                           
-            logger.add_scalars('reward',
-                {'reward': np.mean(rollouts.rewards)},
-                (episode + 1) * args.episode_length * args.n_rollout_threads)
+                
+            for hider_id in range(num_hiders):
+                logger.add_scalars('hider%i/reward' % hider_id,
+                        {'reward': np.mean(rollouts.rewards[:,:,hider_id])},
+                        (episode + 1) * args.episode_length * args.n_rollout_threads)
+            for seeker_id in range(num_seekers):
+                logger.add_scalars('seeker%i/reward' % seeker_id,
+                        {'reward': np.mean(rollouts.rewards[:,:,num_hiders+seeker_id])},
+                        (episode + 1) * args.episode_length * args.n_rollout_threads)
         else:
             value_losses = []
             action_losses = []

@@ -32,6 +32,8 @@ def get_config():
     # hide and seek
     parser.add_argument("--num_seekers", type=int, default=1)
     parser.add_argument("--num_hiders", type=int, default=1)
+    parser.add_argument("--num_boxes", type=int, default=1)
+    parser.add_argument("--num_ramps", type=int, default=1)
     
     # network
     parser.add_argument("--share_policy", action='store_false', default=True, help='agent share the same policy')

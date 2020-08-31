@@ -249,11 +249,11 @@ class NNBase(nn.Module):
         #input_size, split_shape=None, d_model=512, attn_N=2, heads=8, dropout=0.0, use_average_pool=True, use_orthogonal=True 
         if self._attn:
             if self._use_same_dim:
-                self.encoder_actor = Encoder(obs_shape[0], obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
-                self.encoder_critic = Encoder(obs_shape[0], obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)   
+                self.encoder_actor = Encoder(obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
+                self.encoder_critic = Encoder(obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)   
             else:
-                self.encoder_actor = Encoder(obs_shape[0], obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
-                self.encoder_critic = Encoder(obs_shape[0]*num_agents, [[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
+                self.encoder_actor = Encoder(obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
+                self.encoder_critic = Encoder([[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
     
         if self._recurrent or self._naive_recurrent:
             self.gru = nn.GRU(hidden_size, hidden_size)         
@@ -601,7 +601,10 @@ class MLPBase(NNBase):
                 
         if self.is_attn:
             x = self.encoder_actor(x)
-            share_x = self.encoder_critic(share_x, agent_id)
+            if self._use_same_dim:
+                share_x = self.encoder_critic(share_x)
+            else:
+                share_x = self.encoder_critic(share_x, agent_id)
                             
         if self._use_common_layer:
             hidden_actor = self.actor(x)
@@ -639,7 +642,7 @@ class FeedForward(nn.Module):
             active_func = nn.ReLU()
         else:
             active_func = nn.Tanh()
-            
+           
         self.linear_1 = nn.Sequential(init_(nn.Linear(d_model, d_ff)), active_func)
 
         self.dropout = nn.Dropout(dropout)
@@ -708,7 +711,7 @@ class MultiHeadAttention(nn.Module):
         return output
         
 class EncoderLayer(nn.Module):
-    def __init__(self, d_model, heads, dropout = 0.0, use_orthogonal=True, d_ff = 512, use_FF=False, use_ReLU=False):
+    def __init__(self, d_model, heads, dropout = 0.0, use_orthogonal=True, use_ReLU=False, d_ff = 512, use_FF=False):
         super(EncoderLayer, self).__init__()
         self._use_FF = use_FF
         self.norm_1 = nn.LayerNorm(d_model)
@@ -803,7 +806,7 @@ class Embedding(nn.Module):
         return out, self_x
    
 class Encoder(nn.Module):
-    def __init__(self, input_size, split_shape=None, d_model=512, attn_N=2, heads=8, dropout=0.0, use_average_pool=True, use_orthogonal=True, use_ReLU=False):
+    def __init__(self, split_shape, d_model=512, attn_N=2, heads=8, dropout=0.0, use_average_pool=True, use_orthogonal=True, use_ReLU=False):
         super(Encoder, self).__init__()
                                        
         self._attn_N = attn_N
@@ -814,8 +817,7 @@ class Encoder(nn.Module):
         else:
             self.catself=True
             self.embedding = SelfEmbedding(split_shape[1:], d_model, use_orthogonal, use_ReLU)
-            #d_model, heads, dropout = 0.0, d_ff = 512, use_orthogonal=True, use_FF=False
-        self.layers = get_clones(EncoderLayer(d_model, heads, dropout, use_orthogonal,use_ReLU), self._attn_N)
+        self.layers = get_clones(EncoderLayer(d_model, heads, dropout, use_orthogonal, use_ReLU), self._attn_N)
         self.norm = nn.LayerNorm(d_model)
         
     def forward(self, src, self_idx=-1, mask=None):

@@ -229,11 +229,13 @@ def outside_quadrant_placement(grid, obj_size, metadata, random_state):
     ]
     return poses[random_state.randint(0, 3)]
 
+def make_env(args):
+    return HideAndSeekEnv(args)
 
 def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
              floor_size=6.0, grid_size=30, door_size=0,
              n_hiders=1, n_seekers=1, max_n_agents=None,
-             n_boxes=0, n_ramps=0, n_elongated_boxes=0,
+             n_boxes=1, n_ramps=1, n_elongated_boxes=0,
              rand_num_elongated_boxes=False, n_min_boxes=None,
              box_size=0.5, boxid_obs=False, box_only_z_rot=True,
              rew_type='joint_zero_sum',
@@ -248,7 +250,7 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
              n_rooms=4, random_room_number=True, prob_outside_walls=1.0,
              n_lidar_per_agent = 0, visualize_lidar=False, compress_lidar_scale=None,
              hiders_together_radius=None, seekers_together_radius=None,
-             prep_fraction=0, prep_obs=False,
+             prep_fraction=0.4, prep_obs=False,
              team_size_obs=False,
              restrict_rect=None, penalize_objects_out=False,
              n_food=0, food_radius=None, food_respawn_time=None, max_food_health=1,
@@ -259,6 +261,9 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
     scenario = args.scenario_name
     n_seekers = args.num_seekers
     n_hiders = args.num_hiders
+    n_boxes = args.num_boxes
+    n_ramps = args.num_ramps
+
     if args.share_reward:
         rew_type = 'joint_zero_sum'
       
