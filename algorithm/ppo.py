@@ -410,9 +410,9 @@ class PPO():
                 advantage = rollouts.returns[:-1,:,agent_id] - rollouts.value_preds[:-1,:,agent_id]           
             advantages.append(advantage)
         #agent ,step, parallel,1
-        advantages = (advantages - advantages.mean()) / (
-                advantages.std() + 1e-5)
         advantages = np.array(advantages).transpose(1,2,0,3)
+        advantages = (advantages - advantages.mean()) / (
+                advantages.std() + 1e-5)      
 
         value_loss_epoch = 0
         action_loss_epoch = 0

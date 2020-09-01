@@ -405,13 +405,9 @@ def main():
                 value_losses.append(value_loss)
                 action_losses.append(action_loss)
                 dist_entropies.append(dist_entropy)
-                
-                rew = []
-                for i in range(rollouts.rewards.shape[1]):
-                    rew.append(rollouts.rewards[:,i,agent_id].sum())
-                    
+                                    
                 logger.add_scalars('agent%i/reward' % agent_id,
-                    {'reward': np.mean(np.array(rew)/(rollouts.rewards.shape[0]))},
+                    {'reward': np.mean(rollouts.rewards[:,:,agent_id])},
                     (episode + 1) * args.episode_length * args.n_rollout_threads)
                                                                      
         # clean the buffer and reset
