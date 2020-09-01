@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tensorboardX import SummaryWriter
 
-from envs import HideAndSeekEnv
+from envs import HideAndSeekEnv, BlueprintConstructionEnv, BoxLockingEnv
 from algorithm.ppo import PPO
 from algorithm.model import Policy
 
@@ -30,6 +30,10 @@ def make_parallel_env(args):
         def init_env():
             if args.env_name == "HideAndSeek":
                 env = HideAndSeekEnv(args)
+            elif args.env_name == "BlueprintConstruction":
+                env = BlueprintConstructionEnv(args)
+            elif args.env_name == "BoxLocking":
+                env = BoxLockingEnv(args)
             else:
                 print("Can not support the " + args.env_name + "environment." )
                 raise NotImplementedError
@@ -43,6 +47,10 @@ def make_eval_env(args):
         def init_env():
             if args.env_name == "HideAndSeek":
                 env = HideAndSeekEnv(args)
+            elif args.env_name == "BlueprintConstruction":
+                env = BlueprintConstructionEnv(args)
+            elif args.env_name == "BoxLocking":
+                env = BoxLockingEnv(args)
             else:
                 print("Can not support the " + args.env_name + "environment." )
                 raise NotImplementedError
@@ -91,15 +99,18 @@ def main():
     envs = make_parallel_env(args)
     if args.eval:
         eval_env = make_eval_env(args)
-    num_seekers = args.num_seekers
-    num_hiders = args.num_hiders
-    num_agents = num_seekers + num_hiders
+    if args.env_name == "HideAndSeek":
+        num_seekers = args.num_seekers
+        num_hiders = args.num_hiders
+        num_agents = num_seekers + num_hiders
+    else:
+        num_agents = args.num_agents
     
     all_action_space = []
     all_obs_space = []
     action_movement_dim = []
-    order_obs = ['agent_qpos_qvel','box_obs','ramp_obs','food_pos','mask_ab_obs','mask_af_obs','observation_self']    
-    mask_order_obs = ['mask_aa_obs','mask_ab_obs','mask_ar_obs','mask_af_obs',None,None,None]
+    order_obs = ['agent_qpos_qvel','box_obs','ramp_obs','food_obs','observation_self']    
+    mask_order_obs = ['mask_aa_obs','mask_ab_obs','mask_ar_obs','mask_af_obs',None]
     for agent_id in range(num_agents):
         # deal with dict action space
         action_movement = envs.action_space['action_movement'][agent_id].nvec
@@ -237,27 +248,25 @@ def main():
     
     # reset env 
     dict_obs = envs.reset()
+    
     obs = []
     share_obs = []   
     for d_o in dict_obs:
         for i, key in enumerate(order_obs):
             if key in envs.observation_space.spaces.keys():             
                 if mask_order_obs[i] == None:
-                    if 'mask' in key:
-                        temp_share_obs = d_o[key].reshape(num_agents,-1)
-                        temp_obs = np.zeros((num_agents,1))
-                    else:
-                        temp_share_obs = d_o[key].reshape(num_agents,-1)
-                        temp_obs = temp_share_obs
+                    temp_share_obs = d_o[key].reshape(num_agents,-1).copy()
+                    temp_obs = temp_share_obs.copy()
                 else:
-                    temp_share_obs = d_o[key].reshape(num_agents,-1)
-                    temp_mask = d_o[mask_order_obs[i]]
-                    temp_obs = d_o[key]
-                    temp_obs[~temp_mask]=np.zeros(((~temp_mask).sum(),temp_obs.shape[2]))                       
+                    temp_share_obs = d_o[key].reshape(num_agents,-1).copy()
+                    temp_mask = d_o[mask_order_obs[i]].copy()
+                    temp_obs = d_o[key].copy()
+                    mins_temp_mask = ~temp_mask
+                    temp_obs[mins_temp_mask]=np.zeros((mins_temp_mask.sum(),temp_obs.shape[2]))                       
                     temp_obs = temp_obs.reshape(num_agents,-1) 
                 if i == 0:
-                    reshape_obs = temp_obs
-                    reshape_share_obs = temp_share_obs
+                    reshape_obs = temp_obs.copy()
+                    reshape_share_obs = temp_share_obs.copy()
                 else:
                     reshape_obs = np.concatenate((reshape_obs,temp_obs),axis=1) 
                     reshape_share_obs = np.concatenate((reshape_share_obs,temp_share_obs),axis=1)                    
@@ -284,6 +293,17 @@ def main():
             else:     
                 for agent_id in range(num_agents):
                     update_linear_schedule(agents[agent_id].optimizer, episode, episodes, args.lr)           
+        # info list
+        max_box_move_prep = []
+        max_box_move = []
+        num_box_lock_prep = []
+        num_box_lock = []
+        max_ramp_move_prep = []
+        max_ramp_move = []
+        num_ramp_lock_prep = []
+        num_ramp_lock = []
+        food_eaten = []
+        food_eaten_prep = []
 
         for step in range(args.episode_length):
             # Sample actions
@@ -349,6 +369,31 @@ def main():
                         recurrent_hidden_statess[agent_id][i] = np.zeros(args.hidden_size).astype(np.float32)
                         recurrent_hidden_statess_critic[agent_id][i] = np.zeros(args.hidden_size).astype(np.float32)    
                         mask.append([0.0])
+                        # get info to tensorboard
+                        if args.env_name == "HideAndSeek":
+                            if args.n_boxes > 0:
+                                if 'max_box_move_prep' in infos[i].keys():
+                                    max_box_move_prep.append(infos[i]['max_box_move_prep'])
+                                if 'max_box_move' in infos[i].keys():
+                                    max_box_move.append(infos[i]['max_box_move'])
+                                if 'num_box_lock_prep' in infos[i].keys():
+                                    num_box_lock_prep.append(infos[i]['num_box_lock_prep'])
+                                if 'num_box_lock' in infos[i].keys():
+                                    num_box_lock.append(infos[i]['num_box_lock'])
+                            if args.n_ramps > 0:
+                                if 'max_ramp_move_prep' in infos[i].keys():
+                                    max_ramp_move_prep.append(infos[i]['max_ramp_move_prep'])
+                                if 'max_ramp_move' in infos[i].keys():
+                                    max_ramp_move.append(infos[i]['max_ramp_move'])
+                                if 'num_ramp_lock_prep' in infos[i].keys():
+                                    max_ramp_move.append(infos[i]['num_ramp_lock_prep'])
+                                if 'num_ramp_lock' in infos[i].keys():
+                                    max_ramp_move.append(infos[i]['num_ramp_lock'])
+                            if args.n_food > 0:
+                                if 'food_eaten' in infos[i].keys():
+                                    food_eaten.append(infos[i]['food_eaten'])
+                                if 'food_eaten_prep' in infos[i].keys():
+                                    food_eaten_prep.append(infos[i]['food_eaten_prep'])
                     else:
                         mask.append([1.0])
                 masks.append(mask)                            
@@ -357,12 +402,20 @@ def main():
             share_obs = []   
             for d_o in dict_obs:
                 for i, key in enumerate(order_obs):
-                    if key in envs.observation_space.spaces.keys():
-                        temp_share_obs = d_o[key].reshape(num_agents,-1)
-                        temp_obs = d_o[key].reshape(num_agents,-1)
+                    if key in envs.observation_space.spaces.keys():             
+                        if mask_order_obs[i] == None:
+                            temp_share_obs = d_o[key].reshape(num_agents,-1).copy()
+                            temp_obs = temp_share_obs.copy()
+                        else:
+                            temp_share_obs = d_o[key].reshape(num_agents,-1).copy()
+                            temp_mask = d_o[mask_order_obs[i]].copy()
+                            temp_obs = d_o[key].copy()
+                            mins_temp_mask = ~temp_mask
+                            temp_obs[mins_temp_mask]=np.zeros((mins_temp_mask.sum(),temp_obs.shape[2]))                       
+                            temp_obs = temp_obs.reshape(num_agents,-1) 
                         if i == 0:
-                            reshape_obs = temp_obs
-                            reshape_share_obs = temp_share_obs
+                            reshape_obs = temp_obs.copy()
+                            reshape_share_obs = temp_share_obs.copy()
                         else:
                             reshape_obs = np.concatenate((reshape_obs,temp_obs),axis=1) 
                             reshape_share_obs = np.concatenate((reshape_share_obs,temp_share_obs),axis=1)                    
@@ -424,13 +477,18 @@ def main():
             actor_critic.train()
             value_loss, action_loss, dist_entropy = agents.update_share(num_agents, rollouts)
                 
-            for hider_id in range(num_hiders):
-                logger.add_scalars('hider%i/reward' % hider_id,
-                        {'reward': np.mean(rollouts.rewards[:,:,hider_id])},
-                        (episode + 1) * args.episode_length * args.n_rollout_threads)
-            for seeker_id in range(num_seekers):
-                logger.add_scalars('seeker%i/reward' % seeker_id,
-                        {'reward': np.mean(rollouts.rewards[:,:,num_hiders+seeker_id])},
+            if args.env_name == "HideAndSeek":
+                for hider_id in range(num_hiders):
+                    logger.add_scalars('hider%i/reward' % hider_id,
+                            {'reward': np.mean(rollouts.rewards[:,:,hider_id])},
+                            (episode + 1) * args.episode_length * args.n_rollout_threads)
+                for seeker_id in range(num_seekers):
+                    logger.add_scalars('seeker%i/reward' % seeker_id,
+                            {'reward': np.mean(rollouts.rewards[:,:,num_hiders+seeker_id])},
+                            (episode + 1) * args.episode_length * args.n_rollout_threads)
+            else:
+                logger.add_scalars('reward',
+                        {'reward': np.mean(rollouts.rewards)},
                         (episode + 1) * args.episode_length * args.n_rollout_threads)
         else:
             value_losses = []
@@ -481,15 +539,63 @@ def main():
                 print("value loss of agent: " + str(value_loss))
             else:
                 for agent_id in range(num_agents):
-                    print("value loss of agent%i: " % agent_id + str(value_losses[agent_id]))
-
-            if args.env_name == "HideAndSeek":   
-                pass             
-
+                    print("value loss of agent%i: " % agent_id + str(value_losses[agent_id]))             
+            
+            if args.env_name == "HideAndSeek":
+                if args.n_boxes > 0:
+                    if len(max_box_move_prep)>0:
+                        logger.add_scalars('max_box_move_prep',{'max_box_move_prep': np.mean(max_box_move_prep)},total_num_steps)
+                    if len(max_box_move)>0:
+                        logger.add_scalars('max_box_move',{'max_box_move': np.mean(max_box_move)},total_num_steps)
+                    if len(num_box_lock_prep)>0:
+                        logger.add_scalars('num_box_lock_prep',{'num_box_lock_prep': np.mean(num_box_lock_prep)},total_num_steps)
+                    if len(num_box_lock)>0:
+                        logger.add_scalars('num_box_lock',{'num_box_lock': np.mean(num_box_lock)},total_num_steps)
+                if args.n_ramps > 0:
+                    if len(max_ramp_move_prep)>0:
+                        logger.add_scalars('max_ramp_move_prep',{'max_ramp_move_prep': np.mean(max_ramp_move_prep)},total_num_steps)
+                    if len(max_ramp_move)>0:
+                        logger.add_scalars('max_ramp_move',{'max_ramp_move': np.mean(max_ramp_move)},total_num_steps)
+                    if len(num_ramp_lock_prep)>0:
+                        logger.add_scalars('num_ramp_lock_prep',{'num_ramp_lock_prep': np.mean(num_ramp_lock_prep)},total_num_steps)
+                    if len(num_ramp_lock)>0:
+                        logger.add_scalars('num_ramp_lock',{'num_ramp_lock': np.mean(num_ramp_lock)},total_num_steps)
+                if args.n_food > 0:
+                    if len(food_eaten)>0:
+                        logger.add_scalars('food_eaten',{'food_eaten': np.mean(food_eaten)},total_num_steps)
+                    if len(food_eaten_prep)>0:
+                        logger.add_scalars('food_eaten_prep',{'food_eaten_prep': np.mean(food_eaten_prep)},total_num_steps)
+        # eval 
         if episode % args.eval_interval == 0 and args.eval:
             eval_episode = 0
-            eval_obs = eval_env.reset()
-            eval_share_obs = eval_obs.reshape(1, -1)
+            eval_dict_obs = eval_env.reset()
+            
+            eval_obs = []
+            eval_share_obs = []   
+            for eval_d_o in eval_dict_obs:
+                for i, key in enumerate(order_obs):
+                    if key in eval_env.observation_space.spaces.keys():             
+                        if mask_order_obs[i] == None:
+                            temp_share_obs = eval_d_o[key].reshape(num_agents,-1).copy()
+                            temp_obs = temp_share_obs.copy()
+                        else:
+                            temp_share_obs = eval_d_o[key].reshape(num_agents,-1).copy()
+                            temp_mask = eval_d_o[mask_order_obs[i]].copy()
+                            temp_obs = eval_d_o[key].copy()
+                            mins_temp_mask = ~temp_mask
+                            temp_obs[mins_temp_mask]=np.zeros((mins_temp_mask.sum(),temp_obs.shape[2]))                       
+                            temp_obs = temp_obs.reshape(num_agents,-1) 
+                        if i == 0:
+                            reshape_obs = temp_obs.copy()
+                            reshape_share_obs = temp_share_obs.copy()
+                        else:
+                            reshape_obs = np.concatenate((reshape_obs,temp_obs),axis=1) 
+                            reshape_share_obs = np.concatenate((reshape_share_obs,temp_share_obs),axis=1)                    
+                eval_obs.append(reshape_obs)
+                eval_share_obs.append(reshape_share_obs)   
+            eval_obs = np.array(eval_obs) 
+            eval_share_obs = np.array(eval_share_obs)
+            
             eval_recurrent_hidden_states = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
             eval_recurrent_hidden_states_critic = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
             eval_masks = np.ones((1,num_agents,1)).astype(np.float32)
@@ -499,11 +605,11 @@ def main():
                 actor_critic.eval()
                 for agent_id in range(num_agents):
                     _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(agent_id,
-                        torch.tensor(eval_share_obs), 
-                        torch.tensor(eval_obs[:,agent_id]), 
-                        torch.tensor(eval_recurrent_hidden_states[:,agent_id]), 
-                        torch.tensor(eval_recurrent_hidden_states_critic[:,agent_id]),
-                        torch.tensor(eval_masks[:,agent_id]),
+                        torch.FloatTensor(eval_share_obs[:,agent_id]), 
+                        torch.FloatTensor(eval_obs[:,agent_id]), 
+                        torch.FloatTensor(eval_recurrent_hidden_states[:,agent_id]), 
+                        torch.FloatTensor(eval_recurrent_hidden_states_critic[:,agent_id]),
+                        torch.FloatTensor(eval_masks[:,agent_id]),
                         None,
                         deterministic=True)
 
@@ -512,21 +618,55 @@ def main():
                     eval_recurrent_hidden_states_critic[:,agent_id] = recurrent_hidden_states_critic.detach().cpu().numpy()
 
                 # rearrange action           
-                action_movement = []
-                action_pull = []
-                action_glueall = []
-                for agent_id in range(num_agents):
-                    action_movement.append(actions[agent_id][0][:action_movement_dim[agent_id]])
-                    #action_pull.append(np.int(actions[agent_id][i][3]))
-                    action_glueall.append(int(actions[agent_id][0][action_movement_dim[agent_id]]))
-                action_movement = np.stack(action_movement, axis = 0)
-                #action_pull = np.stack(action_pull, axis = 0)
-                action_glueall = np.stack(action_glueall, axis = 0)
-                eval_actions_env = {'action_movement': action_movement, 'action_pull': action_pull, 'action_glueall': action_glueall}
+                eval_actions_env = []
+                for n_rollout_thread in range(1):
+                    action_movement = []
+                    action_pull = []
+                    action_glueall = []
+                    for agent_id in range(num_agents):
+                        action_movement.append(eval_actions[agent_id][n_rollout_thread][:action_movement_dim[agent_id]])
+                        action_glueall.append(int(eval_actions[agent_id][n_rollout_thread][action_movement_dim[agent_id]]))
+                        if 'action_pull' in envs.action_space.spaces.keys():
+                            action_pull.append(int(eval_actions[agent_id][n_rollout_thread][-1]))
+                    action_movement = np.stack(action_movement, axis = 0)
+                    action_glueall = np.stack(action_glueall, axis = 0)
+                    if 'action_pull' in envs.action_space.spaces.keys():
+                        action_pull = np.stack(action_pull, axis = 0)                             
+                    one_env_action = {'action_movement': action_movement, 'action_pull': action_pull, 'action_glueall': action_glueall}
+                    eval_actions_env.append(one_env_action)
                                          
                 # Obser reward and next obs
-                eval_obs, eval_rewards, eval_dones, eval_infos = eval_env.step([eval_actions_env])
-                eval_share_obs = eval_obs.reshape(1, -1)
+                eval_dict_obs, eval_rewards, eval_dones, eval_infos = eval_env.step(eval_actions_env)
+                
+                eval_obs = []
+                eval_share_obs = []   
+                for eval_d_o in eval_dict_obs:
+                    for i, key in enumerate(order_obs):
+                        if key in eval_env.observation_space.spaces.keys():             
+                            if mask_order_obs[i] == None:
+                                temp_share_obs = eval_d_o[key].reshape(num_agents,-1).copy()
+                                temp_obs = temp_share_obs.copy()
+                            else:
+                                temp_share_obs = eval_d_o[key].reshape(num_agents,-1).copy()
+                                temp_mask = eval_d_o[mask_order_obs[i]].copy()
+                                temp_obs = eval_d_o[key].copy()
+                                mins_temp_mask = ~temp_mask
+                                temp_obs[mins_temp_mask]=np.zeros((mins_temp_mask.sum(),temp_obs.shape[2]))                       
+                                temp_obs = temp_obs.reshape(num_agents,-1) 
+                            if i == 0:
+                                reshape_obs = temp_obs.copy()
+                                reshape_share_obs = temp_share_obs.copy()
+                            else:
+                                reshape_obs = np.concatenate((reshape_obs,temp_obs),axis=1) 
+                                reshape_share_obs = np.concatenate((reshape_share_obs,temp_share_obs),axis=1)                    
+                    eval_obs.append(reshape_obs)
+                    eval_share_obs.append(reshape_share_obs)   
+                eval_obs = np.array(eval_obs) 
+                eval_share_obs = np.array(eval_share_obs)
+                
+                eval_recurrent_hidden_states = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
+                eval_recurrent_hidden_states_critic = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
+                eval_masks = np.ones((1,num_agents,1)).astype(np.float32)
                                                     
                 if eval_dones[0]: 
                     eval_episode += 1

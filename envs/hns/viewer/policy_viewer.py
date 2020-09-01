@@ -185,22 +185,19 @@ class PolicyViewer_hs(MjViewer):
         self.share_obs = []   
         for i, key in enumerate(self.order_obs):
             if key in self.env.observation_space.spaces.keys():             
-                if self.mask_order_obs[i] == None:
-                    if 'mask' in key:
-                        temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1)
-                        temp_obs = np.zeros((self.num_agents,1))
-                    else:
-                        temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1)
-                        temp_obs = temp_share_obs
+                if self.mask_order_obs[i] == None:          
+                    temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1).copy()
+                    temp_obs = temp_share_obs.copy()
                 else:
-                    temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1)
-                    temp_mask = self.dict_obs[self.mask_order_obs[i]]
-                    temp_obs = self.dict_obs[key]
-                    temp_obs[~temp_mask]=np.zeros(((~temp_mask).sum(),temp_obs.shape[2]))                       
+                    temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1).copy()
+                    temp_mask = self.dict_obs[self.mask_order_obs[i]].copy()
+                    temp_obs = self.dict_obs[key].copy()
+                    mins_temp_mask = ~temp_mask
+                    temp_obs[mins_temp_mask]=np.zeros(((mins_temp_mask).sum(),temp_obs.shape[2]))                       
                     temp_obs = temp_obs.reshape(self.num_agents,-1) 
                 if i == 0:
-                    reshape_obs = temp_obs
-                    reshape_share_obs = temp_share_obs
+                    reshape_obs = temp_obs.copy()
+                    reshape_share_obs = temp_share_obs.copy()
                 else:
                     reshape_obs = np.concatenate((reshape_obs,temp_obs),axis=1) 
                     reshape_share_obs = np.concatenate((reshape_share_obs,temp_share_obs),axis=1)                    
@@ -252,21 +249,18 @@ class PolicyViewer_hs(MjViewer):
             for i, key in enumerate(self.order_obs):
                 if key in self.env.observation_space.spaces.keys():             
                     if self.mask_order_obs[i] == None:
-                        if 'mask' in key:
-                            temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1)
-                            temp_obs = np.zeros((self.num_agents,1))
-                        else:
-                            temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1)
-                            temp_obs = temp_share_obs
+                        temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1).copy()
+                        temp_obs = temp_share_obs.copy()
                     else:
-                        temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1)
-                        temp_mask = self.dict_obs[self.mask_order_obs[i]]
-                        temp_obs = self.dict_obs[key]
-                        temp_obs[~temp_mask]=np.zeros(((~temp_mask).sum(),temp_obs.shape[2]))                       
+                        temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1).copy()
+                        temp_mask = self.dict_obs[self.mask_order_obs[i]].copy()
+                        temp_obs = self.dict_obs[key].copy()
+                        mins_temp_mask = ~temp_mask
+                        temp_obs[mins_temp_mask]=np.zeros(((mins_temp_mask).sum(),temp_obs.shape[2]))                       
                         temp_obs = temp_obs.reshape(self.num_agents,-1) 
                     if i == 0:
-                        reshape_obs = temp_obs
-                        reshape_share_obs = temp_share_obs
+                        reshape_obs = temp_obs.copy()
+                        reshape_share_obs = temp_share_obs.copy()
                     else:
                         reshape_obs = np.concatenate((reshape_obs,temp_obs),axis=1) 
                         reshape_share_obs = np.concatenate((reshape_share_obs,temp_share_obs),axis=1)                    
@@ -301,21 +295,18 @@ class PolicyViewer_hs(MjViewer):
         for i, key in enumerate(self.order_obs):
             if key in self.env.observation_space.spaces.keys():             
                 if self.mask_order_obs[i] == None:
-                    if 'mask' in key:
-                        temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1)
-                        temp_obs = np.zeros((self.num_agents,1))
-                    else:
-                        temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1)
-                        temp_obs = temp_share_obs
+                    temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1).copy()
+                    temp_obs = temp_share_obs.copy()
                 else:
-                    temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1)
-                    temp_mask = self.dict_obs[self.mask_order_obs[i]]
-                    temp_obs = self.dict_obs[key]
-                    temp_obs[~temp_mask]=np.zeros(((~temp_mask).sum(),temp_obs.shape[2]))                       
+                    temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1).copy()
+                    temp_mask = self.dict_obs[self.mask_order_obs[i]].copy()
+                    temp_obs = self.dict_obs[key].copy()
+                    mins_temp_mask = ~temp_mask
+                    temp_obs[mins_temp_mask]=np.zeros(((mins_temp_mask).sum(),temp_obs.shape[2]))                       
                     temp_obs = temp_obs.reshape(self.num_agents,-1) 
                 if i == 0:
-                    reshape_obs = temp_obs
-                    reshape_share_obs = temp_share_obs
+                    reshape_obs = temp_obs.copy()
+                    reshape_share_obs = temp_share_obs.copy()
                 else:
                     reshape_obs = np.concatenate((reshape_obs,temp_obs),axis=1) 
                     reshape_share_obs = np.concatenate((reshape_share_obs,temp_share_obs),axis=1)                    

@@ -123,8 +123,10 @@ class ConstructionCompletedRewardWrapper(gym.Wrapper):
 
         return obs, rew, done, info
 
+def make_env(args):
+    BlueprintConstructionEnv(args)
 
-def make_env(n_substeps=15, horizon=80, deterministic_mode=False,
+def BlueprintConstructionEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
              floor_size=6.0, grid_size=30,
              n_agents=1,
              n_rooms=4, random_room_number=True, scenario='empty', door_size=2,
@@ -140,6 +142,9 @@ def make_env(n_substeps=15, horizon=80, deterministic_mode=False,
              n_lidar_per_agent=0, visualize_lidar=False, compress_lidar_scale=None,
              boxid_obs=True, boxsize_obs=True, team_size_obs=False, additional_obs={}):
 
+    scenario = args.scenario_name
+    n_agents = args.num_agents
+    assert n_agents==1, ("only 1 agents is supported, check the config.py.")
     grab_radius_multiplier = lock_grab_radius / box_size
     lock_radius_multiplier = lock_grab_radius / box_size
 
@@ -158,6 +163,8 @@ def make_env(n_substeps=15, horizon=80, deterministic_mode=False,
         env.add_module(WallScenarios(grid_size=grid_size, door_size=door_size,
                                      scenario='empty',
                                      friction=other_friction))
+    else:
+        raise ValueError(f"Scenario {scenario} not supported.")
 
     env.add_module(Agents(n_agents,
                           placement_fn=uniform_placement,

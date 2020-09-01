@@ -197,21 +197,6 @@ def quadrant_placement(grid, obj_size, metadata, random_state):
                     random_state.randint(1, qsize - obj_size[1] - 1)])
     return pos
 
-def nearwall_placement(grid, obj_size, metadata, random_state):
-    '''
-        Places object outside of the bottom right quadrant of the playing field
-    '''
-    grid_size = len(grid)
-    qsize = metadata['quadrant_size']
-    poses = [
-        np.array([grid_size - qsize - obj_size[0] - 1,
-                  random_state.randint(qsize, grid_size - obj_size[1] - 1)]),
-
-        np.array([random_state.randint(qsize, grid_size - obj_size[1] - 1),
-                  grid_size - qsize - obj_size[0] - 1,]),
-    ]
-    return poses[random_state.randint(0, 2)]
-
 
 def outside_quadrant_placement(grid, obj_size, metadata, random_state):
     '''
@@ -233,9 +218,9 @@ def make_env(args):
     return HideAndSeekEnv(args)
 
 def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
-             floor_size=6.0, grid_size=30, door_size=0,
-             n_hiders=1, n_seekers=1, max_n_agents=None,
-             n_boxes=1, n_ramps=1, n_elongated_boxes=0,
+             floor_size=6.0, grid_size=30, door_size=2,
+             n_hiders=2, n_seekers=2, max_n_agents=None,
+             n_boxes=2, n_ramps=1, n_elongated_boxes=0,
              rand_num_elongated_boxes=False, n_min_boxes=None,
              box_size=0.5, boxid_obs=False, box_only_z_rot=True,
              rew_type='joint_zero_sum',
@@ -248,7 +233,7 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
              scenario='quadrant', quadrant_game_hider_uniform_placement=False,
              p_door_dropout=0.0,
              n_rooms=4, random_room_number=True, prob_outside_walls=1.0,
-             n_lidar_per_agent = 0, visualize_lidar=False, compress_lidar_scale=None,
+             n_lidar_per_agent=0, visualize_lidar=False, compress_lidar_scale=None,
              hiders_together_radius=None, seekers_together_radius=None,
              prep_fraction=0.4, prep_obs=False,
              team_size_obs=False,
@@ -263,6 +248,7 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
     n_hiders = args.num_hiders
     n_boxes = args.num_boxes
     n_ramps = args.num_ramps
+    n_food = args.num_food
 
     if args.share_reward:
         rew_type = 'joint_zero_sum'
@@ -318,13 +304,10 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
         env.add_module(WallScenarios(grid_size=grid_size, door_size=door_size,
                                      scenario=scenario, friction=other_friction,
                                      p_door_dropout=p_door_dropout))
-        # box_placement_fn = quadrant_placement
-        # ramp_placement_fn = uniform_placement
-        box_placement_fn = outside_quadrant_placement
-        ramp_placement_fn = nearwall_placement
+        box_placement_fn = quadrant_placement
+        ramp_placement_fn = uniform_placement
         hider_placement = uniform_placement if quadrant_game_hider_uniform_placement else quadrant_placement
-        # agent_placement_fn = [hider_placement] * n_hiders + [outside_quadrant_placement] * n_seekers
-        agent_placement_fn = [hider_placement] * n_hiders + [hider_placement] * n_seekers
+        agent_placement_fn = [hider_placement] * n_hiders + [outside_quadrant_placement] * n_seekers
     else:
         raise ValueError(f"Scenario {scenario} not supported.")
     env.add_module(Agents(n_hiders + n_seekers,
