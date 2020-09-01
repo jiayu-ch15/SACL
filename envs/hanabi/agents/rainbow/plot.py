@@ -4,8 +4,11 @@ from dopamine.agents.dqn import dqn_agent
 from dopamine.discrete_domains import run_experiment
 from dopamine.colab import utils as colab_utils
 from absl import flags
+import matplotlib.animation as animation
+from matplotlib.pyplot import MultipleLocator
 
 import matplotlib.pyplot as plt
+plt.style.use('ggplot')
 FILE_PREFIX = 'log'
 ITERATION_PREFIX = 'iter'
 
@@ -40,18 +43,28 @@ def summarize_data(data, summary_keys):
 
   return summary
 
-BASE_PATH = '/home/yuchao/project/mappo-sc/envs/hanabi/agents/rainbow/results/hanabi_small5_rainbow/logs'  # @param
-game="Hanabi-Small5"
+BASE_PATH = '/home/yuchao/project/mappo-sc/envs/hanabi/agents/rainbow/results/hanabi_small4_rainbow/logs'  # @param
+game="Hanabi-Small4"
 # Use our provided colab utils to load this log file. The second returned 
 raw_data, _ = colab_utils.load_statistics(BASE_PATH, verbose=True)
 
 summarized_data = summarize_data(
     raw_data, ['average_return'])
-plt.plot(summarized_data['average_return'], label='average_return')
-plt.plot()
-plt.title('Rainbow training - {}'.format(game))
-plt.xlabel('Iteration')
+y = summarized_data['average_return']
+x = [i*10000 for i in range(len(y))]
+
+plt.plot(x,y,label='average_return')
+
+plt.tick_params(axis='both',which='major') 
+
+x_major_locator=MultipleLocator(10000000)
+x_minor_Locator = MultipleLocator(100000)
+ax=plt.gca()
+ax.xaxis.set_major_locator(x_major_locator)
+ax.xaxis.set_minor_locator(x_minor_Locator)
+ax.xaxis.get_major_formatter().set_powerlimits((0,1))
+plt.xlabel('timesteps')
 plt.ylabel('Score')
-plt.legend()
-#plt.show()
+plt.legend(loc='best', numpoints=1, fancybox=True)
+plt.title('Rainbow training - {}'.format(game))
 plt.savefig('./results/{}.png'.format(game))
