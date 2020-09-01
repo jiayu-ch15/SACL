@@ -134,7 +134,7 @@ class PolicyViewer_hs(MjViewer):
             self.seed = seed
             env.seed(seed)
         self.total_rew = 0.0
-        self.ob = env.reset()
+        self.dict_obs = env.reset()
         #for policy in self.policies:
         #    policy.reset()
         assert env.metadata['n_actors'] % len(policies) == 0
@@ -167,49 +167,115 @@ class PolicyViewer_hs(MjViewer):
             self.update_sim(self.env.unwrapped.sim)
 
     def run(self):
+        self.action_movement_dim = []
+        self.order_obs = ['agent_qpos_qvel','box_obs','ramp_obs','food_pos','mask_ab_obs','mask_af_obs','observation_self']    
+        self.mask_order_obs = ['mask_aa_obs','mask_ab_obs','mask_ar_obs','mask_af_obs',None,None,None]
+   
+        self.num_agents = 2
+        for agent_id in range(self.num_agents):
+            # deal with dict action space
+            action_movement = self.env.action_space['action_movement'][agent_id].nvec
+            self.action_movement_dim.append(len(action_movement))
+        self.masks = np.ones((1, self.num_agents, 1)).astype(np.float32)
         if self.duration is not None:
             self.end_time = time.time() + self.duration
         self.total_rew_avg = 0.0
         self.n_episodes = 0
-        recurrent_hidden_states = torch.zeros(1,self.policies[0].recurrent_hidden_state_size)
-        masks = torch.zeros(1, 1)
+        self.obs = []
+        self.share_obs = []   
+        for i, key in enumerate(self.order_obs):
+            if key in self.env.observation_space.spaces.keys():             
+                if self.mask_order_obs[i] == None:
+                    if 'mask' in key:
+                        temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1)
+                        temp_obs = np.zeros((self.num_agents,1))
+                    else:
+                        temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1)
+                        temp_obs = temp_share_obs
+                else:
+                    temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1)
+                    temp_mask = self.dict_obs[self.mask_order_obs[i]]
+                    temp_obs = self.dict_obs[key]
+                    temp_obs[~temp_mask]=np.zeros(((~temp_mask).sum(),temp_obs.shape[2]))                       
+                    temp_obs = temp_obs.reshape(self.num_agents,-1) 
+                if i == 0:
+                    reshape_obs = temp_obs
+                    reshape_share_obs = temp_share_obs
+                else:
+                    reshape_obs = np.concatenate((reshape_obs,temp_obs),axis=1) 
+                    reshape_share_obs = np.concatenate((reshape_share_obs,temp_share_obs),axis=1)                    
+        self.obs.append(reshape_obs)
+        self.share_obs.append(reshape_share_obs)   
+        self.obs = np.array(self.obs).astype(np.float32)
+        self.share_obs = np.array(self.share_obs).astype(np.float32) 
+        self.recurrent_hidden_states = np.zeros((1, self.num_agents, 64)).astype(np.float32)
+        self.recurrent_hidden_states_critic = np.zeros((1, self.num_agents, 64)).astype(np.float32)
         while self.duration is None or time.time() < self.end_time:
-            share_obs = torch.tensor(self.ob, dtype=torch.float).cuda().view(1,-1)
-            if len(self.policies) == 0:
-                action, _ = self.policies[0].act(self.ob)
-            else:
-                #self.ob = splitobs(self.ob, keepdims=False)
-                #ob_policy_idx = np.split(np.arange(len(self.ob)), len(self.policies))
-                action_list = []
-                for i, policy in enumerate(self.policies):
-                    #inp = itemgetter(*ob_policy_idx[i])(self.ob)
-                    #inp = listdict2dictnp([inp] if ob_policy_idx[i].shape[0] == 1 else inp)
-                    obs = torch.tensor(self.ob[i], dtype=torch.float).cuda().view(1, -1)
-                    value, action, _, recurrent_hidden_states = policy.act(share_obs, obs, 2, recurrent_hidden_states, masks)
-                    action_list.append(action)
-                #action = listdict2dictnp(actions, keepdims=True)
+            values = []
+            actions= []
+            recurrent_hidden_statess = []
+            recurrent_hidden_statess_critic = []
+            with torch.no_grad():                
+                for agent_id in range(self.num_agents):
+                    self.policies[0].eval()
+                    print(self.recurrent_hidden_states)
+                    print(type(self.recurrent_hidden_states))
+                    value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = self.policies[0].act(agent_id,
+                    torch.tensor(self.share_obs[:,agent_id,:]), 
+                    torch.tensor(self.obs[:,agent_id,:]), 
+                    torch.tensor(self.recurrent_hidden_states[:,agent_id,:]), 
+                    torch.tensor(self.recurrent_hidden_states_critic[:,agent_id,:]),
+                    torch.tensor(self.masks[:,agent_id,:]))
+                    values.append(value.detach().cpu().numpy())
+                    actions.append(action.detach().cpu().numpy())
+                    recurrent_hidden_statess.append(recurrent_hidden_states.detach().cpu().numpy())
+                    recurrent_hidden_statess_critic.append(recurrent_hidden_states_critic.detach().cpu().numpy())
+
             action_movement = []
             action_pull = []
             action_glueall = []
-            for k in range(1):
-                action_movement.append(action_list[k][0][:3].cpu().numpy())
-                # action_pull.append(np.int(action_list[k][0][3].cpu().numpy()))
-                # action_glueall.append(np.int(action_list[k][0][4].cpu().numpy()))
-                action_pull.append(0)
-                action_glueall.append(0)
-            for k in range(1):
-                #action_movement.append(np.zeros(3, dtype = np.int32))
-                action_movement.append(np.array([5,5,5]))
-                action_pull.append(0)
-                action_glueall.append(0)
+            for agent_id in range(self.num_agents):
+                action_movement.append(actions[agent_id][0][:self.action_movement_dim[agent_id]])
+                action_glueall.append(int(actions[agent_id][0][self.action_movement_dim[agent_id]]))
+                if 'action_pull' in self.env.action_space.spaces.keys():
+                    action_pull.append(int(actions[agent_id][-1]))
             action_movement = np.stack(action_movement, axis = 0)
-            action_pull = np.stack(action_pull, axis = 0)
             action_glueall = np.stack(action_glueall, axis = 0)
+            if 'action_pull' in self.env.action_space.spaces.keys():
+                action_pull = np.stack(action_pull, axis = 0)                             
             one_env_action = {'action_movement': action_movement, 'action_pull': action_pull, 'action_glueall': action_glueall}
-            #import pdb; pdb.set_trace()
-            self.ob, rew, done, env_info = self.env.step(one_env_action)
+        
+            self.dict_obs, rew, done, env_info = self.env.step(one_env_action)
             self.total_rew += rew
-            #import pdb; pdb.set_trace()
+            self.obs = []
+            self.share_obs = []   
+            for i, key in enumerate(self.order_obs):
+                if key in self.env.observation_space.spaces.keys():             
+                    if self.mask_order_obs[i] == None:
+                        if 'mask' in key:
+                            temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1)
+                            temp_obs = np.zeros((self.num_agents,1))
+                        else:
+                            temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1)
+                            temp_obs = temp_share_obs
+                    else:
+                        temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1)
+                        temp_mask = self.dict_obs[self.mask_order_obs[i]]
+                        temp_obs = self.dict_obs[key]
+                        temp_obs[~temp_mask]=np.zeros(((~temp_mask).sum(),temp_obs.shape[2]))                       
+                        temp_obs = temp_obs.reshape(self.num_agents,-1) 
+                    if i == 0:
+                        reshape_obs = temp_obs
+                        reshape_share_obs = temp_share_obs
+                    else:
+                        reshape_obs = np.concatenate((reshape_obs,temp_obs),axis=1) 
+                        reshape_share_obs = np.concatenate((reshape_share_obs,temp_share_obs),axis=1)                    
+            self.obs.append(reshape_obs)
+            self.share_obs.append(reshape_share_obs)   
+            self.obs = np.array(self.obs).astype(np.float32)
+            self.share_obs = np.array(self.share_obs).astype(np.float32)
+            self.recurrent_hidden_states = np.array(recurrent_hidden_statess).transpose(1,0,2)
+            self.recurrent_hidden_states_critic = np.array(recurrent_hidden_statess_critic).transpose(1,0,2)
             if done or env_info.get('discard_episode', False):
                 self.reset_increment()
 
@@ -229,7 +295,36 @@ class PolicyViewer_hs(MjViewer):
         self.total_rew = 0.0
         self.seed += 1
         self.env.seed(self.seed)
-        self.ob = self.env.reset()
+        self.dict_obs = self.env.reset()
+        self.obs = []
+        self.share_obs = []   
+        for i, key in enumerate(self.order_obs):
+            if key in self.env.observation_space.spaces.keys():             
+                if self.mask_order_obs[i] == None:
+                    if 'mask' in key:
+                        temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1)
+                        temp_obs = np.zeros((self.num_agents,1))
+                    else:
+                        temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1)
+                        temp_obs = temp_share_obs
+                else:
+                    temp_share_obs = self.dict_obs[key].reshape(self.num_agents,-1)
+                    temp_mask = self.dict_obs[self.mask_order_obs[i]]
+                    temp_obs = self.dict_obs[key]
+                    temp_obs[~temp_mask]=np.zeros(((~temp_mask).sum(),temp_obs.shape[2]))                       
+                    temp_obs = temp_obs.reshape(self.num_agents,-1) 
+                if i == 0:
+                    reshape_obs = temp_obs
+                    reshape_share_obs = temp_share_obs
+                else:
+                    reshape_obs = np.concatenate((reshape_obs,temp_obs),axis=1) 
+                    reshape_share_obs = np.concatenate((reshape_share_obs,temp_share_obs),axis=1)                    
+        self.obs.append(reshape_obs)
+        self.share_obs.append(reshape_share_obs)   
+        self.obs = np.array(self.obs).astype(np.float32)
+        self.share_obs = np.array(self.share_obs).astype(np.float32) 
+        self.recurrent_hidden_states = np.zeros((1, self.num_agents, 64)).astype(np.float32)
+        self.recurrent_hidden_states_critic = np.zeros((1, self.num_agents, 64)).astype(np.float32)
         #for policy in self.policies:
         #    policy.reset()
         if hasattr(self.env, "reset_goal"):
