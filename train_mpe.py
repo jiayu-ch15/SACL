@@ -372,8 +372,11 @@ def main():
             actor_critic.train()
             value_loss, action_loss, dist_entropy = agents.update_share(num_agents, rollouts)
                            
-            logger.add_scalars('reward',
-                {'reward': np.mean(rollouts.rewards)},
+            rew = []
+            for i in range(rollouts.rewards.shape[1]):
+                rew.append(np.sum(rollouts.rewards[:,i]))
+            logger.add_scalars('average_episode_reward',
+                {'average_episode_reward': np.mean(rew)/num_agents},
                 (episode + 1) * args.episode_length * args.n_rollout_threads)
             # clean the buffer and reset
             rollouts.after_update()
@@ -389,8 +392,11 @@ def main():
                 action_losses.append(action_loss)
                 dist_entropies.append(dist_entropy)
                     
-                logger.add_scalars('agent%i/reward' % agent_id,
-                    {'reward': np.mean(rollouts[agent_id].rewards)},
+                rew = []
+                for i in range(rollouts[agent_id].rewards.shape[1]):
+                    rew.append(np.sum(rollouts[agent_id].rewards[:,i]))
+                logger.add_scalars('agent%i/average_episode_reward'%agent_id,
+                    {'average_episode_reward': np.mean(rew)},
                     (episode + 1) * args.episode_length * args.n_rollout_threads)
                 
                 rollouts[agent_id].after_update()
