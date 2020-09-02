@@ -362,31 +362,6 @@ def main():
                         recurrent_hidden_statess[agent_id][i] = np.zeros(args.hidden_size).astype(np.float32)
                         recurrent_hidden_statess_critic[agent_id][i] = np.zeros(args.hidden_size).astype(np.float32)    
                         mask.append([0.0])
-                        # get info to tensorboard
-                        if args.env_name == "HideAndSeek":
-                            if args.n_boxes > 0:
-                                if 'max_box_move_prep' in infos[i].keys():
-                                    max_box_move_prep.append(infos[i]['max_box_move_prep'])
-                                if 'max_box_move' in infos[i].keys():
-                                    max_box_move.append(infos[i]['max_box_move'])
-                                if 'num_box_lock_prep' in infos[i].keys():
-                                    num_box_lock_prep.append(infos[i]['num_box_lock_prep'])
-                                if 'num_box_lock' in infos[i].keys():
-                                    num_box_lock.append(infos[i]['num_box_lock'])
-                            if args.n_ramps > 0:
-                                if 'max_ramp_move_prep' in infos[i].keys():
-                                    max_ramp_move_prep.append(infos[i]['max_ramp_move_prep'])
-                                if 'max_ramp_move' in infos[i].keys():
-                                    max_ramp_move.append(infos[i]['max_ramp_move'])
-                                if 'num_ramp_lock_prep' in infos[i].keys():
-                                    max_ramp_move.append(infos[i]['num_ramp_lock_prep'])
-                                if 'num_ramp_lock' in infos[i].keys():
-                                    max_ramp_move.append(infos[i]['num_ramp_lock'])
-                            if args.n_food > 0:
-                                if 'food_eaten' in infos[i].keys():
-                                    food_eaten.append(infos[i]['food_eaten'])
-                                if 'food_eaten_prep' in infos[i].keys():
-                                    food_eaten_prep.append(infos[i]['food_eaten_prep'])
                     else:
                         mask.append([1.0])
                 masks.append(mask)                            
@@ -470,17 +445,7 @@ def main():
             actor_critic.train()
             value_loss, action_loss, dist_entropy = agents.update_share(num_agents, rollouts)
                 
-            if args.env_name == "HideAndSeek":
-                for hider_id in range(num_hiders):
-                    logger.add_scalars('hider%i/reward' % hider_id,
-                            {'reward': np.mean(rollouts.rewards[:,:,hider_id])},
-                            (episode + 1) * args.episode_length * args.n_rollout_threads)
-                for seeker_id in range(num_seekers):
-                    logger.add_scalars('seeker%i/reward' % seeker_id,
-                            {'reward': np.mean(rollouts.rewards[:,:,num_hiders+seeker_id])},
-                            (episode + 1) * args.episode_length * args.n_rollout_threads)
-            else:
-                logger.add_scalars('reward',
+            logger.add_scalars('reward',
                         {'reward': np.mean(rollouts.rewards)},
                         (episode + 1) * args.episode_length * args.n_rollout_threads)
         else:
@@ -533,31 +498,6 @@ def main():
             else:
                 for agent_id in range(num_agents):
                     print("value loss of agent%i: " % agent_id + str(value_losses[agent_id]))             
-            
-            if args.env_name == "HideAndSeek":
-                if args.n_boxes > 0:
-                    if len(max_box_move_prep)>0:
-                        logger.add_scalars('max_box_move_prep',{'max_box_move_prep': np.mean(max_box_move_prep)},total_num_steps)
-                    if len(max_box_move)>0:
-                        logger.add_scalars('max_box_move',{'max_box_move': np.mean(max_box_move)},total_num_steps)
-                    if len(num_box_lock_prep)>0:
-                        logger.add_scalars('num_box_lock_prep',{'num_box_lock_prep': np.mean(num_box_lock_prep)},total_num_steps)
-                    if len(num_box_lock)>0:
-                        logger.add_scalars('num_box_lock',{'num_box_lock': np.mean(num_box_lock)},total_num_steps)
-                if args.n_ramps > 0:
-                    if len(max_ramp_move_prep)>0:
-                        logger.add_scalars('max_ramp_move_prep',{'max_ramp_move_prep': np.mean(max_ramp_move_prep)},total_num_steps)
-                    if len(max_ramp_move)>0:
-                        logger.add_scalars('max_ramp_move',{'max_ramp_move': np.mean(max_ramp_move)},total_num_steps)
-                    if len(num_ramp_lock_prep)>0:
-                        logger.add_scalars('num_ramp_lock_prep',{'num_ramp_lock_prep': np.mean(num_ramp_lock_prep)},total_num_steps)
-                    if len(num_ramp_lock)>0:
-                        logger.add_scalars('num_ramp_lock',{'num_ramp_lock': np.mean(num_ramp_lock)},total_num_steps)
-                if args.n_food > 0:
-                    if len(food_eaten)>0:
-                        logger.add_scalars('food_eaten',{'food_eaten': np.mean(food_eaten)},total_num_steps)
-                    if len(food_eaten_prep)>0:
-                        logger.add_scalars('food_eaten_prep',{'food_eaten_prep': np.mean(food_eaten_prep)},total_num_steps)
         # eval 
         if episode % args.eval_interval == 0 and args.eval:
             eval_episode = 0

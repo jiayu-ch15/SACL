@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tensorboardX import SummaryWriter
 
-from envs import HideAndSeekEnv, BlueprintConstructionEnv, BoxLockingEnv
+from envs import HideAndSeekEnv
 from algorithm.ppo import PPO
 from algorithm.model import Policy
 
@@ -30,10 +30,6 @@ def make_parallel_env(args):
         def init_env():
             if args.env_name == "HideAndSeek":
                 env = HideAndSeekEnv(args)
-            elif args.env_name == "BlueprintConstruction":
-                env = BlueprintConstructionEnv(args)
-            elif args.env_name == "BoxLocking":
-                env = BoxLockingEnv(args)
             else:
                 print("Can not support the " + args.env_name + "environment." )
                 raise NotImplementedError
@@ -47,10 +43,6 @@ def make_eval_env(args):
         def init_env():
             if args.env_name == "HideAndSeek":
                 env = HideAndSeekEnv(args)
-            elif args.env_name == "BlueprintConstruction":
-                env = BlueprintConstructionEnv(args)
-            elif args.env_name == "BoxLocking":
-                env = BoxLockingEnv(args)
             else:
                 print("Can not support the " + args.env_name + "environment." )
                 raise NotImplementedError
@@ -261,7 +253,6 @@ def main():
                 else:
                     temp_share_obs = d_o[key].reshape(num_agents,-1).copy()
                     temp_mask = d_o[mask_order_obs[i]].copy()
-                    print(temp_mask)
                     temp_obs = d_o[key].copy()
                     mins_temp_mask = ~temp_mask
                     temp_obs[mins_temp_mask]=np.zeros((mins_temp_mask.sum(),temp_obs.shape[2]))                       
