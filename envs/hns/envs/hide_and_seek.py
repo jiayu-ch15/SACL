@@ -19,6 +19,7 @@ from envs.hns.wrappers.limit_mvmnt import RestrictAgentsRect
 from envs.hns.wrappers.team import TeamMembership
 from envs.hns.wrappers.food import FoodHealthWrapper, AlwaysEatWrapper
 from envs.hns.modules.agents import Agents, AgentManipulation
+from envs.hns.modules.time import Time
 from envs.hns.modules.walls import RandomWalls, WallScenarios
 from envs.hns.modules.objects import Boxes, Ramps, LidarSites
 from envs.hns.modules.food import Food
@@ -315,6 +316,7 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
                           color=[np.array((66., 235., 244., 255.)) / 255] * n_hiders + [(1., 0., 0., 1.)] * n_seekers,
                           friction=other_friction,
                           polar_obs=polar_obs))
+    env.add_module(Time(args.episode_length))
     
     if np.max(n_boxes) > 0:
         env.add_module(Boxes(n_boxes=n_boxes, placement_fn=box_placement_fn,
@@ -354,7 +356,7 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
         env.add_module(FloorAttributes(friction=box_floor_friction))
     env.add_module(WorldConstants(gravity=gravity))
     env.reset()
-    keys_self = ['agent_qpos_qvel', 'hider', 'prep_obs']
+    keys_self = ['agent_qpos_qvel', 'hider', 'prep_obs','current_step']
     keys_mask_self = ['mask_aa_obs']
     keys_external = ['agent_qpos_qvel']
     keys_copy = ['you_lock', 'team_lock', 'ramp_you_lock', 'ramp_team_lock']
