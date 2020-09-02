@@ -7,6 +7,7 @@ from utils.distributions import Bernoulli, Categorical, DiagGaussian
 from utils.util import init
 import copy
 import math
+import pdb
 
 from .ppo import PopArt
 
@@ -194,7 +195,6 @@ class Policy(nn.Module):
         masks = masks.to(self.device)
         high_masks = high_masks.to(self.device)
         action = action.to(self.device)
-        
         value, actor_features, rnn_hxs_actor, rnn_hxs_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)
         
         if self.mixed_action:
@@ -206,7 +206,7 @@ class Policy(nn.Module):
                 dist[i] = self.dist[i](actor_features)
                 action_log_probs[i] = dist[i].log_probs(action[i])
                 if high_masks is not None:
-                    dist_entropy[i] = (dist[i].entropy()* high_masks).sum() / (high_masks.sum()*dist[i].entropy().size(-1))
+                    dist_entropy[i] = (dist[i].entropy()*high_masks.squeeze(-1)).sum()/high_masks.sum()
                 else:
                     dist_entropy[i] = dist[i].entropy().mean()
             action_log_probs_out = torch.sum(torch.cat(action_log_probs, -1), -1, keepdim = True)
@@ -219,7 +219,7 @@ class Policy(nn.Module):
                 dist = self.dists[i](actor_features)
                 action_log_probs.append(dist.log_probs(action[i]))
                 if high_masks is not None:
-                    dist_entropy.append( (dist.entropy()* high_masks).sum() / (high_masks.sum()*dist.entropy().size(-1)) )
+                    dist_entropy.append( (dist.entropy()*high_masks.squeeze(-1)).sum()/high_masks.sum() )
                 else:
                     dist_entropy.append(dist.entropy().mean())
                     
@@ -227,8 +227,8 @@ class Policy(nn.Module):
             dist_entropy_out = torch.tensor(dist_entropy).mean()
         else:
             dist = self.dist(actor_features)
-            action_log_probs = dist.log_probs(action)    
-            dist_entropy = (dist.entropy()*high_masks).sum()/(high_masks.sum()*dist.entropy().size(-1))
+            action_log_probs = dist.log_probs(action)
+            dist_entropy = (dist.entropy()*high_masks.squeeze(-1)).sum()/high_masks.sum()
             action_log_probs_out = action_log_probs
             dist_entropy_out = dist_entropy
 
@@ -503,7 +503,6 @@ class MLPBase(NNBase):
         self._attn = attn
         
         assert (self._use_feature_normlization and self._use_feature_popart) == False, ("--use_feature_normlization and --use_feature_popart can not be set True simultaneously.")
-        
         if 'int' not in obs_shape[0].__class__.__name__: # mixed obs
             all_obs_space = obs_shape
             agent_id = num_agents
@@ -599,7 +598,6 @@ class MLPBase(NNBase):
         if self._use_feature_normlization or self._use_feature_popart:
             x = self.actor_norm(x)
             share_x = self.critic_norm(share_x)
-                
         if self.is_attn:
             x = self.encoder_actor(x)
             if self._use_same_dim:

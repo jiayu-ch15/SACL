@@ -201,7 +201,7 @@ def BlueprintConstructionEnv(args, n_substeps=15, horizon=80, deterministic_mode
         env.add_module(FloorAttributes(friction=box_floor_friction))
     env.add_module(WorldConstants(gravity=gravity))
     env.reset()
-    keys_self = ['agent_qpos_qvel', 'hider', 'prep_obs']
+    keys_self = ['agent_qpos_qvel']
     keys_mask_self = ['mask_aa_obs']
     keys_external = ['agent_qpos_qvel', 'construction_site_obs']
     keys_copy = ['you_lock', 'team_lock', 'ramp_you_lock', 'ramp_team_lock']
@@ -257,7 +257,7 @@ def BlueprintConstructionEnv(args, n_substeps=15, horizon=80, deterministic_mode
 
     env = SplitObservations(env, keys_self + keys_mask_self, keys_copy=keys_copy)
     if n_agents == 1:
-        env = SpoofEntityWrapper(env, 2, ['agent_qpos_qvel', 'hider', 'prep_obs'], ['mask_aa_obs'])
+        env = SpoofEntityWrapper(env, 2, ['agent_qpos_qvel'], ['mask_aa_obs'])
     env = SpoofEntityWrapper(env, n_boxes,
                              ['box_obs', 'you_lock', 'team_lock', 'obj_lock'],
                              ['mask_ab_obs'])
@@ -269,7 +269,7 @@ def BlueprintConstructionEnv(args, n_substeps=15, horizon=80, deterministic_mode
     if not grab_selective and grab_box:
         env = GrabClosestWrapper(env)
     env = DiscardMujocoExceptionEpisodes(env)
-    env = ConcatenateObsWrapper(env, {'agent_qpos_qvel': ['agent_qpos_qvel', 'hider', 'prep_obs'],
+    env = ConcatenateObsWrapper(env, {'agent_qpos_qvel': ['agent_qpos_qvel'],
                                       'box_obs': ['box_obs', 'you_lock', 'team_lock', 'obj_lock']})
     env = SelectKeysWrapper(env, keys_self=keys_self,
                             keys_external=keys_external,

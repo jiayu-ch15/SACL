@@ -310,7 +310,7 @@ def BoxLockingEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
         env.add_module(FloorAttributes(friction=box_floor_friction))
     env.add_module(WorldConstants(gravity=gravity))
     env.reset()
-    keys_self = ['agent_qpos_qvel', 'hider', 'prep_obs']
+    keys_self = ['agent_qpos_qvel']
     keys_mask_self = ['mask_aa_obs']
     keys_external = ['agent_qpos_qvel']
     keys_copy = ['you_lock', 'team_lock']
@@ -387,7 +387,7 @@ def BoxLockingEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
     keys_mask_external += ['mask_ab_obs_spoof']
 
     if n_agents < 2:
-        env = SpoofEntityWrapper(env, 1, ['agent_qpos_qvel', 'hider', 'prep_obs'], ['mask_aa_obs'])
+        env = SpoofEntityWrapper(env, 1, ['agent_qpos_qvel'], ['mask_aa_obs'])
 
     env = LockAllWrapper(env, remove_object_specific_lock=True)
     if not grab_out_of_vision and grab_box:
@@ -397,10 +397,15 @@ def BoxLockingEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
     if not grab_selective and grab_box:
         env = GrabClosestWrapper(env)
     env = DiscardMujocoExceptionEpisodes(env)
-    env = ConcatenateObsWrapper(env, {'agent_qpos_qvel': ['agent_qpos_qvel', 'hider', 'prep_obs'],
+    if n_ramps > 0:
+        env = ConcatenateObsWrapper(env, {'agent_qpos_qvel': ['agent_qpos_qvel'],
                                       'box_obs': ['box_obs', 'you_lock', 'team_lock', 'obj_lock'],
                                       'ramp_obs': ['ramp_obs', 'ramp_you_lock', 'ramp_team_lock',
                                                    'ramp_obj_lock']})
+    else:
+        env = ConcatenateObsWrapper(env, {'agent_qpos_qvel': ['agent_qpos_qvel'],
+                                      'box_obs': ['box_obs', 'you_lock', 'team_lock', 'obj_lock']})
+    
     env = SelectKeysWrapper(env, keys_self=keys_self,
                             keys_external=keys_external,
                             keys_mask=keys_mask_self + keys_mask_external,

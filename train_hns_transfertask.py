@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tensorboardX import SummaryWriter
 
-from envs import HideAndSeekEnv, BlueprintConstructionEnv, BoxLockingEnv
+from envs import BlueprintConstructionEnv, BoxLockingEnv
 from algorithm.ppo import PPO
 from algorithm.model import Policy
 
@@ -28,9 +28,7 @@ from functools import reduce
 def make_parallel_env(args):
     def get_env_fn(rank):
         def init_env():
-            if args.env_name == "HideAndSeek":
-                env = HideAndSeekEnv(args)
-            elif args.env_name == "BlueprintConstruction":
+            if args.env_name == "BlueprintConstruction":
                 env = BlueprintConstructionEnv(args)
             elif args.env_name == "BoxLocking":
                 env = BoxLockingEnv(args)
@@ -45,9 +43,7 @@ def make_parallel_env(args):
 def make_eval_env(args):
     def get_env_fn(rank):
         def init_env():
-            if args.env_name == "HideAndSeek":
-                env = HideAndSeekEnv(args)
-            elif args.env_name == "BlueprintConstruction":
+            if args.env_name == "BlueprintConstruction":
                 env = BlueprintConstructionEnv(args)
             elif args.env_name == "BoxLocking":
                 env = BoxLockingEnv(args)
@@ -99,18 +95,14 @@ def main():
     envs = make_parallel_env(args)
     if args.eval:
         eval_env = make_eval_env(args)
-    if args.env_name == "HideAndSeek":
-        num_seekers = args.num_seekers
-        num_hiders = args.num_hiders
-        num_agents = num_seekers + num_hiders
-    else:
-        num_agents = args.num_agents
+    
+    num_agents = args.num_agents
     print(envs.observation_space.spaces.keys())
     all_action_space = []
     all_obs_space = []
     action_movement_dim = []
-    order_obs = ['agent_qpos_qvel','box_obs','ramp_obs','food_obs','observation_self']    
-    mask_order_obs = ['mask_aa_obs','mask_ab_obs','mask_ar_obs','mask_af_obs',None]
+    order_obs = ['box_obs','ramp_obs','food_obs','observation_self']    
+    mask_order_obs = ['mask_ab_obs','mask_ar_obs','mask_af_obs',None]
     for agent_id in range(num_agents):
         # deal with dict action space
         action_movement = envs.action_space['action_movement'][agent_id].nvec
@@ -261,7 +253,6 @@ def main():
                 else:
                     temp_share_obs = d_o[key].reshape(num_agents,-1).copy()
                     temp_mask = d_o[mask_order_obs[i]].copy()
-                    print(temp_mask)
                     temp_obs = d_o[key].copy()
                     mins_temp_mask = ~temp_mask
                     temp_obs[mins_temp_mask]=np.zeros((mins_temp_mask.sum(),temp_obs.shape[2]))                       
