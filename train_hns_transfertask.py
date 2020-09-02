@@ -97,7 +97,6 @@ def main():
         eval_env = make_eval_env(args)
     
     num_agents = args.num_agents
-    print(envs.observation_space.spaces.keys())
     all_action_space = []
     all_obs_space = []
     action_movement_dim = []
@@ -240,7 +239,6 @@ def main():
     
     # reset env 
     dict_obs = envs.reset()
-    print(dict_obs)
     
     obs = []
     share_obs = []   

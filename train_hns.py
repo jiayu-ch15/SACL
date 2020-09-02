@@ -97,7 +97,7 @@ def main():
         num_agents = num_seekers + num_hiders
     else:
         num_agents = args.num_agents
-    print(envs.observation_space.spaces.keys())
+
     all_action_space = []
     all_obs_space = []
     action_movement_dim = []
@@ -240,7 +240,6 @@ def main():
     
     # reset env 
     dict_obs = envs.reset()
-    print(dict_obs)
     
     obs = []
     share_obs = []   
@@ -364,7 +363,7 @@ def main():
                         mask.append([0.0])
                         # get info to tensorboard
                         if args.env_name == "HideAndSeek":
-                            if args.n_boxes > 0:
+                            if args.num_boxes > 0:
                                 if 'max_box_move_prep' in infos[i].keys():
                                     max_box_move_prep.append(infos[i]['max_box_move_prep'])
                                 if 'max_box_move' in infos[i].keys():
@@ -373,7 +372,7 @@ def main():
                                     num_box_lock_prep.append(infos[i]['num_box_lock_prep'])
                                 if 'num_box_lock' in infos[i].keys():
                                     num_box_lock.append(infos[i]['num_box_lock'])
-                            if args.n_ramps > 0:
+                            if args.num_ramps > 0:
                                 if 'max_ramp_move_prep' in infos[i].keys():
                                     max_ramp_move_prep.append(infos[i]['max_ramp_move_prep'])
                                 if 'max_ramp_move' in infos[i].keys():
@@ -382,7 +381,7 @@ def main():
                                     max_ramp_move.append(infos[i]['num_ramp_lock_prep'])
                                 if 'num_ramp_lock' in infos[i].keys():
                                     max_ramp_move.append(infos[i]['num_ramp_lock'])
-                            if args.n_food > 0:
+                            if args.num_food > 0:
                                 if 'food_eaten' in infos[i].keys():
                                     food_eaten.append(infos[i]['food_eaten'])
                                 if 'food_eaten_prep' in infos[i].keys():
@@ -535,7 +534,7 @@ def main():
                     print("value loss of agent%i: " % agent_id + str(value_losses[agent_id]))             
             
             if args.env_name == "HideAndSeek":
-                if args.n_boxes > 0:
+                if args.num_boxes > 0:
                     if len(max_box_move_prep)>0:
                         logger.add_scalars('max_box_move_prep',{'max_box_move_prep': np.mean(max_box_move_prep)},total_num_steps)
                     if len(max_box_move)>0:
@@ -544,7 +543,7 @@ def main():
                         logger.add_scalars('num_box_lock_prep',{'num_box_lock_prep': np.mean(num_box_lock_prep)},total_num_steps)
                     if len(num_box_lock)>0:
                         logger.add_scalars('num_box_lock',{'num_box_lock': np.mean(num_box_lock)},total_num_steps)
-                if args.n_ramps > 0:
+                if args.num_ramps > 0:
                     if len(max_ramp_move_prep)>0:
                         logger.add_scalars('max_ramp_move_prep',{'max_ramp_move_prep': np.mean(max_ramp_move_prep)},total_num_steps)
                     if len(max_ramp_move)>0:
@@ -553,7 +552,7 @@ def main():
                         logger.add_scalars('num_ramp_lock_prep',{'num_ramp_lock_prep': np.mean(num_ramp_lock_prep)},total_num_steps)
                     if len(num_ramp_lock)>0:
                         logger.add_scalars('num_ramp_lock',{'num_ramp_lock': np.mean(num_ramp_lock)},total_num_steps)
-                if args.n_food > 0:
+                if args.num_food > 0:
                     if len(food_eaten)>0:
                         logger.add_scalars('food_eaten',{'food_eaten': np.mean(food_eaten)},total_num_steps)
                     if len(food_eaten_prep)>0:

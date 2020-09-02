@@ -7,6 +7,28 @@ from envs.hns.util.geometry import dist_pt_to_cuboid
 from copy import deepcopy
 from itertools import compress
 
+class TimeWrapper(gym.Wrapper):
+    def __init__(self, env, horizon):
+        super().__init__(env)
+        self.n_agents = self.unwrapped.n_agents
+        self.horizon = horizon
+        self.current_step = 0
+        self.observation_space = update_obs_space(env, {'current_step': (self.n_agents, 1)})
+
+    def observation(self, obs):
+        current_step = np.expand_dims([self.current_step/self.horizon],0).repeat(self.n_agents,axis=0)   
+        obs['current_step'] = current_step
+        return obs
+
+    def reset(self):
+        obs = self.env.reset()
+        self.current_step = 0
+        return self.observation(obs)
+
+    def step(self, action):
+        obs, rew, done, info = self.env.step(action)
+        self.current_step += 1
+        return self.observation(obs), rew, done, info
 
 class GrabObjWrapper(gym.Wrapper):
     '''

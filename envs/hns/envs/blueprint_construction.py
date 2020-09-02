@@ -6,7 +6,7 @@ from envs.hns.wrappers.util import (DiscretizeActionWrapper, MaskActionWrapper,
                                     DiscardMujocoExceptionEpisodes, SpoofEntityWrapper,
                                     AddConstantObservationsWrapper,
                                     ConcatenateObsWrapper, NumpyArrayRewardWrapper)
-from envs.hns.wrappers.manipulation import (GrabObjWrapper, GrabClosestWrapper,
+from envs.hns.wrappers.manipulation import (GrabObjWrapper, GrabClosestWrapper, TimeWrapper,
                                             LockObjWrapper, LockAllWrapper)
 from envs.hns.wrappers.lidar import Lidar
 from envs.hns.wrappers.team import TeamMembership
@@ -201,7 +201,7 @@ def BlueprintConstructionEnv(args, n_substeps=15, horizon=80, deterministic_mode
         env.add_module(FloorAttributes(friction=box_floor_friction))
     env.add_module(WorldConstants(gravity=gravity))
     env.reset()
-    keys_self = ['agent_qpos_qvel']
+    keys_self = ['agent_qpos_qvel','current_step']
     keys_mask_self = ['mask_aa_obs']
     keys_external = ['agent_qpos_qvel', 'construction_site_obs']
     keys_copy = ['you_lock', 'team_lock', 'ramp_you_lock', 'ramp_team_lock']
@@ -254,7 +254,7 @@ def BlueprintConstructionEnv(args, n_substeps=15, horizon=80, deterministic_mode
         rew_type = rew_info['type']
         del rew_info['type']
         env = reward_wrappers[rew_type](env, **rew_info)
-
+    env = TimeWrapper(env, horizon)
     env = SplitObservations(env, keys_self + keys_mask_self, keys_copy=keys_copy)
     if n_agents == 1:
         env = SpoofEntityWrapper(env, 2, ['agent_qpos_qvel'], ['mask_aa_obs'])

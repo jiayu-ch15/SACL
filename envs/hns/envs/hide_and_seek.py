@@ -9,7 +9,7 @@ from envs.hns.wrappers.util import (DiscretizeActionWrapper, ConcatenateObsWrapp
                                     DiscardMujocoExceptionEpisodes,
                                     AddConstantObservationsWrapper)
 from envs.hns.wrappers.manipulation import (GrabObjWrapper, GrabClosestWrapper,
-                                            LockObjWrapper, LockAllWrapper)
+                                            LockObjWrapper, LockAllWrapper, TimeWrapper)
 from envs.hns.wrappers.lidar import Lidar
 from envs.hns.wrappers.line_of_sight import (AgentAgentObsMask2D, AgentGeomObsMask2D,
                                              AgentSiteObsMask2D)
@@ -19,7 +19,6 @@ from envs.hns.wrappers.limit_mvmnt import RestrictAgentsRect
 from envs.hns.wrappers.team import TeamMembership
 from envs.hns.wrappers.food import FoodHealthWrapper, AlwaysEatWrapper
 from envs.hns.modules.agents import Agents, AgentManipulation
-from envs.hns.modules.time import Time
 from envs.hns.modules.walls import RandomWalls, WallScenarios
 from envs.hns.modules.objects import Boxes, Ramps, LidarSites
 from envs.hns.modules.food import Food
@@ -316,8 +315,7 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
                           color=[np.array((66., 235., 244., 255.)) / 255] * n_hiders + [(1., 0., 0., 1.)] * n_seekers,
                           friction=other_friction,
                           polar_obs=polar_obs))
-    env.add_module(Time(args.episode_length))
-    
+
     if np.max(n_boxes) > 0:
         env.add_module(Boxes(n_boxes=n_boxes, placement_fn=box_placement_fn,
                              friction=box_floor_friction, polar_obs=polar_obs,
@@ -370,6 +368,7 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
     env = AddConstantObservationsWrapper(env, new_obs={'hider': hider_obs})
     env = HideAndSeekRewardWrapper(env, n_hiders=n_hiders, n_seekers=n_seekers,
                                    rew_type=rew_type)
+    env = TimeWrapper(env, horizon)
     if restrict_rect is not None:
         env = RestrictAgentsRect(env, restrict_rect=restrict_rect, penalize_objects_out=penalize_objects_out)
     env = PreparationPhase(env, prep_fraction=prep_fraction)

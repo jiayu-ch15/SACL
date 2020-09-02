@@ -6,7 +6,7 @@ from envs.hns.wrappers.util import (DiscretizeActionWrapper, MaskActionWrapper,
                                     DiscardMujocoExceptionEpisodes,
                                     AddConstantObservationsWrapper,
                                     SpoofEntityWrapper, ConcatenateObsWrapper)
-from envs.hns.wrappers.manipulation import (GrabObjWrapper, GrabClosestWrapper,
+from envs.hns.wrappers.manipulation import (GrabObjWrapper, GrabClosestWrapper, TimeWrapper,
                                             LockObjWrapper, LockAllWrapper)
 from envs.hns.wrappers.lidar import Lidar
 from envs.hns.wrappers.line_of_sight import AgentAgentObsMask2D, AgentGeomObsMask2D
@@ -310,7 +310,7 @@ def BoxLockingEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
         env.add_module(FloorAttributes(friction=box_floor_friction))
     env.add_module(WorldConstants(gravity=gravity))
     env.reset()
-    keys_self = ['agent_qpos_qvel']
+    keys_self = ['agent_qpos_qvel','current_step']
     keys_mask_self = ['mask_aa_obs']
     keys_external = ['agent_qpos_qvel']
     keys_copy = ['you_lock', 'team_lock']
@@ -321,7 +321,7 @@ def BoxLockingEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
     env = AgentAgentObsMask2D(env)
     env = DiscretizeActionWrapper(env, 'action_movement')
     env = NumpyArrayRewardWrapper(env)
-
+    env = TimeWrapper(env, horizon)
     if np.max(n_boxes) > 0:
         env = AgentGeomObsMask2D(env, pos_obs_key='box_pos', mask_obs_key='mask_ab_obs',
                                  geom_idxs_obs_key='box_geom_idxs')
