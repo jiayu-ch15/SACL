@@ -195,18 +195,21 @@ class PPO():
                             value_losses_clipped = huber_loss(error_clipped, self.huber_delta)
                             error = (return_batch) - values
                             value_losses = huber_loss(error,self.huber_delta)
-                            value_loss = torch.max(value_losses, value_losses_clipped).mean()
+                            #value_loss = torch.max(value_losses, value_losses_clipped).mean()
+                            value_loss = (torch.max(value_losses, value_losses_clipped) * high_masks_batch).sum() / high_masks_batch.sum()
                     else:
                         if self.use_popart:
                             value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
                             value_losses = (values - self.value_normalizer(return_batch)).pow(2)
                             value_losses_clipped = (value_pred_clipped - self.value_normalizer(return_batch)).pow(2)
-                            value_loss = 0.5 * torch.max(value_losses, value_losses_clipped).mean()
+                            # value_loss = 0.5 * torch.max(value_losses, value_losses_clipped).mean()
+                            value_loss = 0.5 * ( (torch.max(value_losses, value_losses_clipped) * high_masks_batch).sum() / high_masks_batch.sum() )
                         else:
                             value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
                             value_losses = (values - (return_batch)).pow(2)
                             value_losses_clipped = (value_pred_clipped - (return_batch)).pow(2)
-                            value_loss = 0.5 * torch.max(value_losses, value_losses_clipped).mean()
+                            #value_loss = 0.5 * torch.max(value_losses, value_losses_clipped).mean()
+                            value_loss = 0.5 * ( (torch.max(value_losses, value_losses_clipped) * high_masks_batch).sum() / high_masks_batch.sum() )
                     
                 else:
                     if self.use_huber_loss:
@@ -214,12 +217,15 @@ class PPO():
                             error = self.value_normalizer(return_batch) - values
                         else:
                             error = return_batch - values
-                        value_loss = huber_loss(error,self.huber_delta).mean()
+                        #value_loss = huber_loss(error,self.huber_delta).mean()
+                        value_loss = (huber_loss(error,self.huber_delta) * high_masks_batch).sum() / high_masks_batch.sum()
                     else:
                         if self.use_popart:
-                            value_loss = 0.5 * (self.value_normalizer(return_batch) - values).pow(2).mean()
+                            #value_loss = 0.5 * (self.value_normalizer(return_batch) - values).pow(2).mean()
+                            value_loss = 0.5 * (((self.value_normalizer(return_batch) - values).pow(2) * high_masks_batch).sum() / high_masks_batch.sum())
                         else:
-                            value_loss = 0.5 * (return_batch - values).pow(2).mean()
+                            #value_loss = 0.5 * (return_batch - values).pow(2).mean()
+                            value_loss = 0.5 * (((return_batch - values).pow(2) * high_masks_batch).sum() / high_masks_batch.sum())
                 
                 self.optimizer.zero_grad()
                 
