@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tensorboardX import SummaryWriter
 
-from envs import BlueprintConstructionEnv, BoxLockingEnv
+from envs import BlueprintConstructionEnv, BoxLockingEnv, ShelterConstructionEnv
 from algorithm.ppo import PPO
 from algorithm.model import Policy
 
@@ -32,6 +32,8 @@ def make_parallel_env(args):
                 env = BlueprintConstructionEnv(args)
             elif args.env_name == "BoxLocking":
                 env = BoxLockingEnv(args)
+            elif args.env_name == "ShelterConstruction":
+                env = ShelterConstructionEnv(args)
             else:
                 print("Can not support the " + args.env_name + "environment." )
                 raise NotImplementedError
@@ -47,6 +49,8 @@ def make_eval_env(args):
                 env = BlueprintConstructionEnv(args)
             elif args.env_name == "BoxLocking":
                 env = BoxLockingEnv(args)
+            elif args.env_name == "ShelterConstruction":
+                env = ShelterConstructionEnv(args)
             else:
                 print("Can not support the " + args.env_name + "environment." )
                 raise NotImplementedError

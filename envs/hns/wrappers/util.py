@@ -78,7 +78,7 @@ class DiscardMujocoExceptionEpisodes(gym.Wrapper):
             # Done is set to False such that rollout workers do not accidently send data in
             # the event that timelimit is up in the same step as an error occured.
             print("mujuco error incurs, discard episode.")
-            obs, rew, done, info = {}, 0.0, False, {'discard_episode': True}
+            obs, rew, done, info = {}, 0.0, True, {'discard_episode': True}
             logging.info(str(e))
             logging.info("Encountered Mujoco Exception During Environment Step.\
                           Reset Episode Required")
