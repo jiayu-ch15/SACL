@@ -220,7 +220,7 @@ def rotate_tri_placement(grid, obj_size, metadata, random_state):
     return tri_placement(next_room)(grid, obj_size, metadata, random_state)
 
 def make_env(args):
-    BoxLockingEnv(args)
+    return BoxLockingEnv(args)
 
 def BoxLockingEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
              floor_size=6.0, grid_size=30, door_size=2,

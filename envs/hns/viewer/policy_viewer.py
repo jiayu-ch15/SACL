@@ -168,8 +168,12 @@ class PolicyViewer_hs(MjViewer):
 
     def run(self):
         self.action_movement_dim = []
-        self.order_obs = ['agent_qpos_qvel','box_obs','ramp_obs','food_pos','mask_ab_obs','mask_af_obs','observation_self']    
-        self.mask_order_obs = ['mask_aa_obs','mask_ab_obs','mask_ar_obs','mask_af_obs',None,None,None]
+        '''
+        self.order_obs = ['agent_qpos_qvel','box_obs','ramp_obs','food_obs','observation_self']    
+        self.mask_order_obs = ['mask_aa_obs','mask_ab_obs','mask_ar_obs','mask_af_obs',None]
+        '''
+        self.order_obs = ['agent_qpos_qvel','box_obs','construction_site_obs','observation_self']    
+        self.mask_order_obs = ['mask_aa_obs','mask_ab_obs',None,None]
    
         self.num_agents = 2
         for agent_id in range(self.num_agents):

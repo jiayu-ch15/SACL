@@ -187,8 +187,8 @@ class PPO():
                             value_losses_clipped = huber_loss(error_clipped, self.huber_delta)
                             error = self.value_normalizer(return_batch) - values
                             value_losses = huber_loss(error,self.huber_delta)
-                            value_loss = torch.max(value_losses, value_losses_clipped).mean()
-                            #value_loss = (torch.max(value_losses, value_losses_clipped) * high_masks_batch).sum() / high_masks_batch.sum()
+                            #value_loss = torch.max(value_losses, value_losses_clipped).mean()
+                            value_loss = (torch.max(value_losses, value_losses_clipped) * high_masks_batch).sum() / high_masks_batch.sum()
                         else:
                             value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
                             error_clipped = (return_batch) - value_pred_clipped

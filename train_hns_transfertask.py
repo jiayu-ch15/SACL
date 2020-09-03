@@ -104,8 +104,8 @@ def main():
     all_action_space = []
     all_obs_space = []
     action_movement_dim = []
-    order_obs = ['box_obs','ramp_obs','food_obs','observation_self']    
-    mask_order_obs = ['mask_ab_obs','mask_ar_obs','mask_af_obs',None]
+    order_obs = ['box_obs','ramp_obs','construction_site_obs','observation_self']    
+    mask_order_obs = ['mask_ab_obs','mask_ar_obs',None,None]
     for agent_id in range(num_agents):
         # deal with dict action space
         action_movement = envs.action_space['action_movement'][agent_id].nvec
@@ -351,14 +351,14 @@ def main():
             for i, done in enumerate(dones): 
                 if done:
                     if "discard_episode" in infos[i].keys():
-                        discard_episode+=1
+                        if infos[i]['discard_episode']:
+                            discard_episode += 1
                 mask = []               
                 for agent_id in range(num_agents): 
                     if done:    
                         recurrent_hidden_statess[agent_id][i] = np.zeros(args.hidden_size).astype(np.float32)
                         recurrent_hidden_statess_critic[agent_id][i] = np.zeros(args.hidden_size).astype(np.float32)    
-                        mask.append([0.0])
-                        
+                        mask.append([0.0])                        
                     else:
                         mask.append([1.0])
                 masks.append(mask)                            

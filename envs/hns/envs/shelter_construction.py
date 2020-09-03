@@ -71,7 +71,7 @@ class ShelterRewardWrapper(gym.Wrapper):
         return obs, rew, done, info
 
 def make_env(args):
-    ShelterConstructionEnv(args)
+    return ShelterConstructionEnv(args)
 
 def ShelterConstructionEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
              floor_size=6.0, grid_size=30,

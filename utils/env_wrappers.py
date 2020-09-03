@@ -15,7 +15,9 @@ def simplifyworker(remote, parent_remote, env_fn_wrapper):
             ob, reward, done, info = env.step(data)
             if 'bool' in done.__class__.__name__:
                 if done:
+                    print("reset")
                     ob = env.reset()
+                    print(ob)
             else:
                 if all(done):
                     ob = env.reset()           

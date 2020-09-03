@@ -124,7 +124,7 @@ class ConstructionCompletedRewardWrapper(gym.Wrapper):
         return obs, rew, done, info
 
 def make_env(args):
-    BlueprintConstructionEnv(args)
+    return BlueprintConstructionEnv(args)
 
 def BlueprintConstructionEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
              floor_size=6.0, grid_size=30,
