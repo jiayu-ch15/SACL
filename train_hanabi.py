@@ -94,7 +94,7 @@ def main():
         eval_env = make_eval_env(args)
     num_agents = args.num_agents
     #Policy network
-
+    
     if args.share_policy:
         if args.model_dir==None or args.model_dir=="":
             actor_critic = Policy(envs.observation_space[0], 
