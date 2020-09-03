@@ -159,9 +159,16 @@ class SelectKeysWrapper(gym.ObservationWrapper):
             return obs
 
         else:
-            obs = np.concatenate([observation[k] for k in self.keys_self], -1)        
-            obs = {'observation_self': obs}
-            obs_extern = {k: v for k, v in observation.items() if k in self.keys_external + self.keys_mask}           
-            obs.update(obs_extern)
+            temp_obs = []
+            for k in self.keys_self:
+                if k in observation.keys():
+                    temp_obs.append(observation[k])
+            if len(temp_obs) == 0: 
+                return observation
+            else:
+                obs = np.concatenate(temp_obs, -1)        
+                obs = {'observation_self': obs}
+                obs_extern = {k: v for k, v in observation.items() if k in self.keys_external + self.keys_mask}           
+                obs.update(obs_extern)
             return obs
 
