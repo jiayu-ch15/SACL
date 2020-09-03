@@ -291,7 +291,7 @@ def main():
                     turn_recurrent_hidden_states[choose,current_agent_id] = recurrent_hidden_states.detach().cpu().numpy()
                     turn_recurrent_hidden_states_critic[choose,current_agent_id] = recurrent_hidden_states_critic.detach().cpu().numpy()
                     
-                    obs, reward, done, infos, available_actions = envs.step(env_actions) #TODO
+                    obs, reward, done, infos, available_actions = envs.step(env_actions) 
                     
                     if len(envs.observation_space[0]) == 3:
                         share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])        
@@ -318,6 +318,7 @@ def main():
                                 turn_rewards[n_rollout_thread, left_agent_id] = turn_rewards_since_last_action[n_rollout_thread, left_agent_id]
                                 turn_rewards_since_last_action[n_rollout_thread, left_agent_id] = 0.0
                                 # other variables use what at last time, action will be useless.
+                                '''
                                 if left_agent_id == (current_agent_id + 1):
                                     if args.share_policy:                            
                                         actor_critic.eval()
@@ -337,8 +338,9 @@ def main():
                                                             torch.FloatTensor(turn_recurrent_hidden_states_critic[n_rollout_thread,left_agent_id]).unsqueeze(0),
                                                             torch.FloatTensor(turn_masks[n_rollout_thread,left_agent_id]).unsqueeze(0)
                                                             )
-                                    turn_obs[n_rollout_thread,left_agent_id] = use_obs[n_rollout_thread,left_agent_id]                                
-                                    turn_values[n_rollout_thread,left_agent_id] = value.detach().cpu().numpy()       
+                                '''
+                                turn_values[n_rollout_thread,left_agent_id] = 0.0
+                                turn_obs[n_rollout_thread,left_agent_id] = use_obs[n_rollout_thread,left_agent_id]                                      
                                 turn_share_obs[n_rollout_thread,left_agent_id] = use_share_obs[n_rollout_thread,left_agent_id]                             
                             turn_masks[n_rollout_thread] = np.zeros((num_agents, 1)).astype(np.float32)
                             turn_recurrent_hidden_states[n_rollout_thread] = np.zeros((num_agents, *rollouts.recurrent_hidden_states.shape[3:])).astype(np.float32)
