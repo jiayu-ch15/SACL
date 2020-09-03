@@ -35,6 +35,9 @@ def get_config():
     parser.add_argument("--num_boxes", type=int, default=1)
     parser.add_argument("--num_ramps", type=int, default=1)
     parser.add_argument("--num_food", type=int, default=0)
+    # transfer task
+    parser.add_argument("--task_type", type=str, default='all')
+    parser.add_argument("--objective_placement", type=str, default='center')   
     
     # network
     parser.add_argument("--share_policy", action='store_false', default=True, help='agent share the same policy')

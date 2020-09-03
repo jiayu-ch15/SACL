@@ -89,6 +89,7 @@ def ShelterConstructionEnv(args, n_substeps=15, horizon=80, deterministic_mode=F
              boxid_obs=True, boxsize_obs=True, team_size_obs=False, additional_obs={}):
 
     n_agents = args.num_agents
+    objective_placement = args.objective_placement
     assert n_agents==1, ("only 1 agents is supported, check the config.py.")
 
     grab_radius_multiplier = lock_grab_radius / box_size
