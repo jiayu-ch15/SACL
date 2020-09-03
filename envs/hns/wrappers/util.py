@@ -77,6 +77,7 @@ class DiscardMujocoExceptionEpisodes(gym.Wrapper):
             self.episode_error = True
             # Done is set to False such that rollout workers do not accidently send data in
             # the event that timelimit is up in the same step as an error occured.
+            print("mujuco error incurs, discard episode.")
             obs, rew, done, info = {}, 0.0, False, {'discard_episode': True}
             logging.info(str(e))
             logging.info("Encountered Mujoco Exception During Environment Step.\
@@ -199,11 +200,23 @@ class ConcatenateObsWrapper(gym.ObservationWrapper):
             new_last_dim = sum([self.observation_space.spaces[k].shape[-1] for k in keys_to_concat])
             new_shape = list(self.observation_space.spaces[keys_to_concat[0]].shape[:-1]) + [new_last_dim]
             self.observation_space = update_obs_space(self, {key_to_save: new_shape})
-
-    def observation(self, obs):
-        for key_to_save, keys_to_concat in self.obs_groups.items():
+    '''
+    def observation(self, obs):        
+        for key_to_save, keys_to_concat in self.obs_groups.items():           
             for k in keys_to_concat:
                 if k not in obs.keys():
+                    print(keys_to_concat)
+                    print(obs.keys())
                     assert 0
             obs[key_to_save] = np.concatenate([obs[k] for k in keys_to_concat], -1)
+        return obs
+    '''
+    def observation(self, obs):        
+        for key_to_save, keys_to_concat in self.obs_groups.items():  
+            temp_obs = []         
+            for k in keys_to_concat:
+                if k in obs.keys():
+                    temp_obs.append(obs[k])
+            if key_to_save in obs.keys():
+                obs[key_to_save] = np.concatenate(temp_obs, -1)
         return obs

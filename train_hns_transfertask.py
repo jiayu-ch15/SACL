@@ -285,16 +285,7 @@ def main():
                 for agent_id in range(num_agents):
                     update_linear_schedule(agents[agent_id].optimizer, episode, episodes, args.lr)           
         # info list
-        max_box_move_prep = []
-        max_box_move = []
-        num_box_lock_prep = []
-        num_box_lock = []
-        max_ramp_move_prep = []
-        max_ramp_move = []
-        num_ramp_lock_prep = []
-        num_ramp_lock = []
-        food_eaten = []
-        food_eaten_prep = []
+        discard_episode = 0
 
         for step in range(args.episode_length):
             # Sample actions
@@ -354,12 +345,16 @@ def main():
             # insert data in buffer
             masks = []
             for i, done in enumerate(dones): 
+                if done:
+                    if "discard_episode" in infos[i].keys():
+                        discard_episode+=1
                 mask = []               
                 for agent_id in range(num_agents): 
                     if done:    
                         recurrent_hidden_statess[agent_id][i] = np.zeros(args.hidden_size).astype(np.float32)
                         recurrent_hidden_statess_critic[agent_id][i] = np.zeros(args.hidden_size).astype(np.float32)    
                         mask.append([0.0])
+                        
                     else:
                         mask.append([1.0])
                 masks.append(mask)                            
@@ -495,7 +490,9 @@ def main():
                 print("value loss of agent: " + str(value_loss))
             else:
                 for agent_id in range(num_agents):
-                    print("value loss of agent%i: " % agent_id + str(value_losses[agent_id]))             
+                    print("value loss of agent%i: " % agent_id + str(value_losses[agent_id])) 
+
+            logger.add_scalars('discard_episode',{'discard_episode': discard_episode},total_num_steps)            
         # eval 
         if episode % args.eval_interval == 0 and args.eval:
             eval_episode = 0
