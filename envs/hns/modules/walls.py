@@ -494,5 +494,4 @@ class WallScenarios(EnvModule):
             obs = {'door_obs': self.door_obs, 'vector_door_obs': vector_door_obs}
         else:
             obs = {}
-        print(self.door_obs)
         return obs

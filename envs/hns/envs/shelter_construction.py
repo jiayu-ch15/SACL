@@ -98,7 +98,7 @@ def ShelterConstructionEnv(args, n_substeps=15, horizon=80, deterministic_mode=F
                floor_size=floor_size, grid_size=grid_size,
                action_lims=action_lims, deterministic_mode=deterministic_mode)
 
-    env.add_module(WallScenariosn_agents=n_agents, grid_size=grid_size, door_size=2, scenario='empty',
+    env.add_module(WallScenarios(n_agents=n_agents, grid_size=grid_size, door_size=2, scenario='empty',
                                  friction=other_friction))
 
     if objective_placement == 'center':
