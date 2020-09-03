@@ -255,7 +255,7 @@ def BoxLockingEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
                grid_size=grid_size)
 
     if scenario == 'randomwalls':
-        env.add_module(RandomWalls(grid_size=grid_size, num_rooms=n_rooms,
+        env.add_module(RandomWalls(n_agents=n_agents, grid_size=grid_size, num_rooms=n_rooms,
                                    random_room_number=random_room_number,
                                    min_room_size=6, door_size=door_size,
                                    gen_door_obs=False))
@@ -263,14 +263,14 @@ def BoxLockingEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
         ramp_placement_fn = uniform_placement
         agent_placement_fn = uniform_placement if not fixed_agent_spawn else center_placement
     elif scenario == 'quadrant':
-        env.add_module(WallScenarios(grid_size=grid_size, door_size=door_size,
+        env.add_module(WallScenarios(n_agents=n_agents, grid_size=grid_size, door_size=door_size,
                                      scenario=scenario, friction=other_friction,
                                      p_door_dropout=p_door_dropout))
         box_placement_fn = uniform_placement
         ramp_placement_fn = uniform_placement
         agent_placement_fn = quadrant_placement if not fixed_agent_spawn else center_placement
     elif scenario == 'empty':
-        env.add_module(WallScenarios(grid_size=grid_size, door_size=2, scenario='empty'))
+        env.add_module(WallScenarios(n_agents=n_agents, grid_size=grid_size, door_size=2, scenario='empty'))
         box_placement_fn = uniform_placement
         ramp_placement_fn = uniform_placement
         agent_placement_fn = center_placement
@@ -310,7 +310,7 @@ def BoxLockingEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
         env.add_module(FloorAttributes(friction=box_floor_friction))
     env.add_module(WorldConstants(gravity=gravity))
     env.reset()
-    keys_self = ['agent_qpos_qvel','current_step']
+    keys_self = ['agent_qpos_qvel','vector_door_obs','current_step']
     keys_mask_self = ['mask_aa_obs']
     keys_external = ['agent_qpos_qvel']
     keys_copy = ['you_lock', 'team_lock']
@@ -396,7 +396,7 @@ def BoxLockingEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
         env = MaskActionWrapper(env, action_key='action_pull', mask_keys=mask_keys)
     if not grab_selective and grab_box:
         env = GrabClosestWrapper(env)
-    env = DiscardMujocoExceptionEpisodes(env)
+    env = DiscardMujocoExceptionEpisodes(env,n_agents)
     if n_ramps > 0:
         env = ConcatenateObsWrapper(env, {'agent_qpos_qvel': ['agent_qpos_qvel'],
                                       'box_obs': ['box_obs', 'you_lock', 'team_lock', 'obj_lock'],

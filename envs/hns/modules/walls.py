@@ -311,10 +311,11 @@ class RandomWalls(EnvModule):
                 This is just used for pretty rendering
     '''
     @store_args
-    def __init__(self, grid_size, num_rooms, min_room_size, door_size, friction=None,
+    def __init__(self, n_agents, grid_size, num_rooms, min_room_size, door_size, friction=None,
                  num_tries=10, outside_wall_rgba=(0, 1, 0, 0.1),
                  random_room_number=False, gen_door_obs=True, prob_outside_walls=1.0,
                  low_outside_walls=False):
+        self.n_agents = n_agents
         pass
 
     def build_world_step(self, env, floor, floor_size):
@@ -355,8 +356,10 @@ class RandomWalls(EnvModule):
         return True
 
     def observation_step(self, env, sim):
-        if self.gen_door_obs:
-            obs = {'door_obs': self.door_obs}
+        vector_door_obs = self.door_obs.reshape(1,-1)
+        vector_door_obs = vector_door_obs.repeat(self.n_agents,axis=0)
+        if self.door_obs is not None:
+            obs = {'door_obs': self.door_obs, 'vector_door_obs': vector_door_obs}
         else:
             obs = {}
 
@@ -383,8 +386,9 @@ class WallScenarios(EnvModule):
                 This is just used for pretty rendering
     '''
     @store_args
-    def __init__(self, grid_size, door_size, scenario, friction=None, p_door_dropout=0.0,
+    def __init__(self, n_agents, grid_size, door_size, scenario, friction=None, p_door_dropout=0.0,
                  low_outside_walls=False):
+        self.n_agents = n_agents
         assert scenario in ['var_quadrant', 'quadrant', 'half', 'var_tri', 'empty']
 
     def build_world_step(self, env, floor, floor_size):
@@ -484,9 +488,11 @@ class WallScenarios(EnvModule):
         return True
 
     def observation_step(self, env, sim):
+        vector_door_obs = self.door_obs.reshape(1,-1)
+        vector_door_obs = vector_door_obs.repeat(self.n_agents,axis=0)
         if self.door_obs is not None:
-            obs = {'door_obs': self.door_obs}
+            obs = {'door_obs': self.door_obs, 'vector_door_obs': vector_door_obs}
         else:
             obs = {}
-
+        print(self.door_obs)
         return obs

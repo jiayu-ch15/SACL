@@ -262,7 +262,7 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
                deterministic_mode=deterministic_mode)
    
     if scenario == 'randomwalls':
-        env.add_module(RandomWalls(
+        env.add_module(RandomWalls(n_agents = n_hiders + n_seekers,
             grid_size=grid_size, num_rooms=n_rooms,
             random_room_number=random_room_number, min_room_size=6,
             door_size=door_size,
@@ -301,7 +301,7 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
             agent_placement_fn += [first_seeker_placement] * (n_seekers)
 
     elif scenario == 'quadrant':
-        env.add_module(WallScenarios(grid_size=grid_size, door_size=door_size,
+        env.add_module(WallScenarios(n_agents = n_hiders + n_seekers, grid_size=grid_size, door_size=door_size,
                                      scenario=scenario, friction=other_friction,
                                      p_door_dropout=p_door_dropout))
         box_placement_fn = quadrant_placement
@@ -354,7 +354,7 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
         env.add_module(FloorAttributes(friction=box_floor_friction))
     env.add_module(WorldConstants(gravity=gravity))
     env.reset()
-    keys_self = ['agent_qpos_qvel', 'hider', 'prep_obs','current_step']
+    keys_self = ['agent_qpos_qvel', 'hider', 'prep_obs','vector_door_obs','current_step']
     keys_mask_self = ['mask_aa_obs']
     keys_external = ['agent_qpos_qvel']
     keys_copy = ['you_lock', 'team_lock', 'ramp_you_lock', 'ramp_team_lock']
@@ -440,7 +440,7 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
     if not grab_selective and grab_box and n_boxes >0:
         env = GrabClosestWrapper(env)
     env = NoActionsInPrepPhase(env, np.arange(n_hiders, n_hiders + n_seekers))
-    env = DiscardMujocoExceptionEpisodes(env)
+    env = DiscardMujocoExceptionEpisodes(env, n_hiders + n_seekers)
     if n_boxes > 0 and n_ramps > 0:
         env = ConcatenateObsWrapper(env, {'agent_qpos_qvel': ['agent_qpos_qvel', 'hider', 'prep_obs'],
                                       'box_obs': ['box_obs', 'you_lock', 'team_lock', 'obj_lock'],

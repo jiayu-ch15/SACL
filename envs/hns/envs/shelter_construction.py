@@ -98,7 +98,7 @@ def ShelterConstructionEnv(args, n_substeps=15, horizon=80, deterministic_mode=F
                floor_size=floor_size, grid_size=grid_size,
                action_lims=action_lims, deterministic_mode=deterministic_mode)
 
-    env.add_module(WallScenarios(grid_size=grid_size, door_size=2, scenario='empty',
+    env.add_module(WallScenariosn_agents=n_agents, grid_size=grid_size, door_size=2, scenario='empty',
                                  friction=other_friction))
 
     if objective_placement == 'center':
@@ -129,7 +129,7 @@ def ShelterConstructionEnv(args, n_substeps=15, horizon=80, deterministic_mode=F
         env.add_module(FloorAttributes(friction=box_floor_friction))
     env.add_module(WorldConstants(gravity=gravity))
     env.reset()
-    keys_self = ['agent_qpos_qvel','current_step']
+    keys_self = ['agent_qpos_qvel','vector_door_obs','current_step']
     keys_mask_self = ['mask_aa_obs']
     keys_external = ['agent_qpos_qvel']
     keys_copy = ['you_lock', 'team_lock', 'ramp_you_lock', 'ramp_team_lock']
@@ -183,7 +183,7 @@ def ShelterConstructionEnv(args, n_substeps=15, horizon=80, deterministic_mode=F
         env = MaskActionWrapper(env, 'action_pull', ['mask_ab_obs'])  # Can only pull if in vision
     if not grab_selective and grab_box:
         env = GrabClosestWrapper(env)
-    env = DiscardMujocoExceptionEpisodes(env)
+    env = DiscardMujocoExceptionEpisodes(env, n_agents)
     env = ConcatenateObsWrapper(env, {'agent_qpos_qvel': ['agent_qpos_qvel'],
                                       'box_obs': ['box_obs', 'you_lock', 'team_lock', 'obj_lock']})
     env = SelectKeysWrapper(env, keys_self=keys_self,
