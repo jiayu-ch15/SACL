@@ -487,10 +487,10 @@ class WallScenarios(EnvModule):
         add_walls_to_grid(env.placement_grid, walls)
         return True
 
-    def observation_step(self, env, sim):
-        vector_door_obs = self.door_obs.reshape(1,-1)
-        vector_door_obs = vector_door_obs.repeat(self.n_agents,axis=0)
+    def observation_step(self, env, sim):       
         if self.door_obs is not None:
+            vector_door_obs = self.door_obs.reshape(1,-1)
+            vector_door_obs = vector_door_obs.repeat(self.n_agents,axis=0)
             obs = {'door_obs': self.door_obs, 'vector_door_obs': vector_door_obs}
         else:
             obs = {}
