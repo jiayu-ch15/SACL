@@ -217,13 +217,15 @@ def main():
     reset_choose = np.ones(args.n_rollout_threads)==1.0 
     obs, available_actions = envs.reset(reset_choose)
         
-    # replay buffer  
-    if len(envs.observation_space[0]) == 3:
-        share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])        
-    else:
-        share_obs = obs.reshape(args.n_rollout_threads, -1)
-
-    share_obs = obs #np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
+    # replay buffer 
+    if args.use_same_dim:
+        share_obs = obs
+    else: 
+        if len(envs.observation_space[0]) == 3:
+            share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])        
+        else:
+            share_obs = obs.reshape(args.n_rollout_threads, -1)
+        share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
        
     use_obs = obs.copy()
     use_share_obs = share_obs.copy()
