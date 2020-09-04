@@ -4,23 +4,19 @@ import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 import time
+import math
 
 def huber_loss(e, d):
     a = (abs(e)<=d).float()
     b = (e>d).float()
     return a*e**2/2 + b*d*(abs(e)-d/2)
     
-def get_p_and_g_mean_norm(it):
-
-    size = 1e-8
-    su_p = 0
-    su_g = 0
+def get_gard_norm(it):
+    sum_grad = 0
     for x in it:
         if x.grad is None:continue
-        size += 1.
-        su_p += x.norm()
-        su_g += x.grad.norm()
-    return su_p / size, su_g / size
+        sum_grad += x.grad ** 2    
+    return math.sqrt(sum_grad)
 
 class PopArt(nn.Module):
     """ Normalize a vector of observations - across the first norm_axes dimensions"""
@@ -229,7 +225,7 @@ class PPO():
                     if turn_on == True:
                         (action_loss - dist_entropy * self.entropy_coef).backward()
                 
-                norm, grad_norm = get_p_and_g_mean_norm(self.actor_critic.parameters())
+                grad_norm = get_gard_norm(self.actor_critic.parameters())
                        
                 if self.use_max_grad_norm:
                     nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
@@ -362,7 +358,7 @@ class PPO():
                     if turn_on == True:
                         (action_loss - dist_entropy * self.entropy_coef).backward()
                 
-                norm, grad_norm = get_p_and_g_mean_norm(self.actor_critic.parameters())
+                grad_norm = get_gard_norm(self.actor_critic.parameters())
                        
                 if self.use_max_grad_norm:
                     nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
@@ -503,7 +499,7 @@ class PPO():
                     if turn_on == True:
                         (action_loss - dist_entropy * self.entropy_coef).backward()
                
-                norm, grad_norm = get_p_and_g_mean_norm(self.actor_critic.parameters())
+                grad_norm = get_gard_norm(self.actor_critic.parameters())
                        
                 if self.use_max_grad_norm:
                     nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
