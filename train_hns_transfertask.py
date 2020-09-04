@@ -129,7 +129,7 @@ def main():
                 obs_dim += reduce(lambda x,y:x*y,space)
         obs_space.insert(0,obs_dim)
         all_obs_space.append(obs_space)
-   
+    
     if args.share_policy:
         actor_critic = Policy(all_obs_space[0], 
                     all_action_space[0],
@@ -289,6 +289,8 @@ def main():
                     update_linear_schedule(agents[agent_id].optimizer, episode, episodes, args.lr)           
         # info list
         discard_episode = 0
+        success = 0
+        trials = 0
 
         for step in range(args.episode_length):
             # Sample actions
@@ -349,9 +351,13 @@ def main():
             masks = []
             for i, done in enumerate(dones): 
                 if done:
+                    trials += 1
                     if "discard_episode" in infos[i].keys():
                         if infos[i]['discard_episode']:
                             discard_episode += 1
+                    if "success" in infos[i].keys():
+                        if infos[i]['success']:
+                            success += 1
                 mask = []               
                 for agent_id in range(num_agents): 
                     if done:    
@@ -495,10 +501,15 @@ def main():
                 for agent_id in range(num_agents):
                     print("value loss of agent%i: " % agent_id + str(value_losses[agent_id])) 
 
-            logger.add_scalars('discard_episode',{'discard_episode': discard_episode},total_num_steps)            
+            logger.add_scalars('discard_episode',{'discard_episode': discard_episode},total_num_steps)
+            if trials > 0:
+                logger.add_scalars('success_rate',{'success_rate': success/trials},total_num_steps) 
+            else:
+                logger.add_scalars('success_rate',{'success_rate': 0.0},total_num_steps)           
         # eval 
         if episode % args.eval_interval == 0 and args.eval:
             eval_episode = 0
+            eval_success = 0
             eval_dict_obs = eval_env.reset()
             
             eval_obs = []
@@ -601,6 +612,9 @@ def main():
                                                     
                 if eval_dones[0]: 
                     eval_episode += 1
+                    if "success" in eval_infos[0].keys():
+                        if eval_infos[0]['success']:
+                            eval_success += 1
                     for agent_id in range(num_agents):    
                         eval_recurrent_hidden_states[0][agent_id] = np.zeros(args.hidden_size).astype(np.float32)
                         eval_recurrent_hidden_states_critic[0][agent_id] = np.zeros(args.hidden_size).astype(np.float32)    
@@ -610,6 +624,8 @@ def main():
                         eval_masks[0][agent_id]=1.0
                 
                 if eval_episode>=args.eval_episodes:
+                    logger.add_scalars('eval_success_rate',{'eval_success_rate': eval_success/args.eval_episodes},total_num_steps) 
+                    print("eval_success_rate is " + str(eval_success/args.eval_episodes))
                     break
                 
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))

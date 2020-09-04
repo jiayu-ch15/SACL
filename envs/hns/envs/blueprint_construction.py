@@ -99,10 +99,12 @@ class ConstructionCompletedRewardWrapper(gym.Wrapper):
         self.site_activation_radius = site_activation_radius
         self.reward_scale = reward_scale
         self.use_corners = use_corners
+        self.success = False
 
     def reset(self):
         obs = self.env.reset()
         self.n_sites = self.metadata['curr_n_sites']
+        self.success = False
         return obs
 
     def step(self, action):
@@ -119,8 +121,10 @@ class ConstructionCompletedRewardWrapper(gym.Wrapper):
 
         if construction_completed:
             rew += self.n_sites * self.reward_scale
+            self.success = True
             done = True
-        
+        info['success'] = self.success
+
         return obs, rew, done, info
 
 def make_env(args):
@@ -129,7 +133,7 @@ def make_env(args):
 def BlueprintConstructionEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
              floor_size=6.0, grid_size=30,
              n_agents=1,
-             n_rooms=4, random_room_number=True, scenario='empty', door_size=2,
+             n_rooms=2, random_room_number=False, scenario='empty', door_size=2,
              n_sites=3, n_elongated_sites=0, site_placement='uniform_away_from_walls',
              reward_infos=[{'type': 'construction_dense'}],
              n_boxes=2, n_elongated_boxes=0,

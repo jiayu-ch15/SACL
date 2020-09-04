@@ -81,6 +81,7 @@ class LockObjectsTask(gym.Wrapper):
         self.unlock_penalty = unlock_penalty
         self.shaped_reward_scale = shaped_reward_scale
         self.success_reward = success_reward
+        self.success = False
         self.objs_locked = np.zeros((n_objs, ), dtype=np.int8)
         self.spawn_pos = None
         self.spawn_pos_dist = None
@@ -97,6 +98,7 @@ class LockObjectsTask(gym.Wrapper):
         self.spawn_pos = obs[self.agent_key][0, :2]
         self.spawn_pos_dist = 0
         self.next_obj, self.next_obj_dist = self._get_next_obj(obs)
+        self.success = False
         return obs
 
     def _get_next_obj(self, obs):
@@ -181,6 +183,9 @@ class LockObjectsTask(gym.Wrapper):
                                 self.spawn_pos_dist <= self.return_threshold):
             # reward for successfully completing the task
             rew += self.success_reward
+            self.success = True
+            
+        info['success'] = self.success
 
         return obs, rew, done, info
 
