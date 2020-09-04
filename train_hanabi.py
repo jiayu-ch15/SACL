@@ -114,7 +114,8 @@ def main():
                                  'use_feature_popart':args.use_feature_popart,
                                  'use_orthogonal':args.use_orthogonal,
                                  'layer_N':args.layer_N,
-                                 'use_ReLU':args.use_ReLU                                 
+                                 'use_ReLU':args.use_ReLU,
+                                 'use_same_dim':args.use_same_dim                                 
                                  },
                     device = device)
         else:       
@@ -148,7 +149,8 @@ def main():
                     args.n_rollout_threads,
                     envs.observation_space[0], 
                     envs.action_space[0],
-                    args.hidden_size)        
+                    args.hidden_size,
+                    use_same_dim=args.use_same_dim)        
     else:
         actor_critic = []
         agents = []
@@ -171,7 +173,8 @@ def main():
                                  'use_feature_popart':args.use_feature_popart,
                                  'use_orthogonal':args.use_orthogonal,
                                  'layer_N':args.layer_N,
-                                 'use_ReLU':args.use_ReLU
+                                 'use_ReLU':args.use_ReLU,
+                                 'use_same_dim':args.use_same_dim
                                  },
                       device = device)
             else:       
@@ -207,7 +210,8 @@ def main():
                     args.n_rollout_threads,
                     envs.observation_space[0], 
                     envs.action_space[0],
-                    args.hidden_size)
+                    args.hidden_size,
+                    use_same_dim=args.use_same_dim)
     
     # reset env 
     reset_choose = np.ones(args.n_rollout_threads)==1.0 
@@ -219,7 +223,7 @@ def main():
     else:
         share_obs = obs.reshape(args.n_rollout_threads, -1)
 
-    share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
+    share_obs = obs #np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
        
     use_obs = obs.copy()
     use_share_obs = share_obs.copy()
@@ -293,12 +297,14 @@ def main():
                     
                     obs, reward, done, infos, available_actions = envs.step(env_actions) 
                     
-                    if len(envs.observation_space[0]) == 3:
-                        share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])        
+                    if args.use_same_dim:
+                        share_obs = obs
                     else:
-                        share_obs = obs.reshape(args.n_rollout_threads, -1)
-                       
-                    share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
+                        if len(envs.observation_space[0]) == 3:
+                            share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])        
+                        else:
+                            share_obs = obs.reshape(args.n_rollout_threads, -1)                                            
+                        share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
                     
                     use_obs = obs.copy()
                     use_share_obs = share_obs.copy()
@@ -369,14 +375,16 @@ def main():
                                   turn_available_actions)
                             
             # env reset
-            obs, available_actions = envs.reset(reset_choose)          
+            obs, available_actions = envs.reset(reset_choose)
 
-            if len(envs.observation_space[0]) == 3:
-                share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])        
+            if args.use_same_dim:          
+                share_obs = obs
             else:
-                share_obs = obs.reshape(args.n_rollout_threads, -1)
-                
-            share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
+                if len(envs.observation_space[0]) == 3:
+                    share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])        
+                else:
+                    share_obs = obs.reshape(args.n_rollout_threads, -1)                   
+                share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
             
             use_obs[reset_choose] = obs[reset_choose]
             use_share_obs[reset_choose] = share_obs[reset_choose]
@@ -530,14 +538,20 @@ def main():
                         
                     # Obser reward and next obs
                     eval_obs, eval_rewards, eval_dones, eval_infos, eval_available_actions = eval_env.step(eval_actions)
-                    eval_share_obs = eval_obs.reshape(1, -1)
+                    if args.use_same_dim:
+                        eval_share_obs = eval_obs
+                    else:
+                        eval_share_obs = eval_obs.reshape(1, -1)
                                                         
                     if eval_dones[0]:                         
                         eval_episode += 1
                         if 'score' in eval_infos[0].keys():
                             eval_scores.append(eval_infos[0]['score'])
                         eval_obs, eval_available_actions = eval_env.reset([True])
-                        eval_share_obs = eval_obs.reshape(1, -1)    
+                        if args.use_same_dim:
+                            eval_share_obs = eval_obs
+                        else:
+                            eval_share_obs = eval_obs.reshape(1, -1)  
                         eval_recurrent_hidden_states = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
                         eval_recurrent_hidden_states_critic = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
                         eval_actions = np.ones((1, num_agents, 1)).astype(np.float32)*(-1.0)
