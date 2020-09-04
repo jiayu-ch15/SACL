@@ -344,7 +344,8 @@ def main():
                        
             # Obser reward and next obs
             dict_obs, rewards, dones, infos = envs.step(actions_env)
-            rewards=rewards[:,:,np.newaxis]            
+            if len(rewards.shape) < 3:
+                rewards=rewards[:,:,np.newaxis]            
 
             # If done then clean the history of observations.
             # insert data in buffer

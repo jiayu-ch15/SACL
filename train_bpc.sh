@@ -2,7 +2,7 @@
 env="BlueprintConstruction"
 scenario_name="empty"
 num_agents=1
-algo="empty_room2_norandom_parallel500_length160_attn"
+algo="empty_grab_site1_parallel500_length160_attn"
 seed_max=1
 
 echo "env is ${env}, scenario is ${scenario_name}, num_agents is ${num_agents}, algo is ${algo}, seed is ${seed_max}"

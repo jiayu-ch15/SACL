@@ -61,12 +61,11 @@ class ShelterRewardWrapper(gym.Wrapper):
     def step(self, action):
         obs, rew, done, info = self.env.step(action)
         target_geom = obs['static_cylinder_geom_idxs'][0, 0]
-        rew = rew + np.zeros((self.unwrapped.n_agents, 1))
+        rew = rew + np.zeros((self.unwrapped.n_agents,))
         for pt in self.ray_start_points:
             _, collision_geom = raycast(self.sim, pt1=pt, geom2_id=target_geom)
             if collision_geom == target_geom:
                 rew -= 1
-
         rew *= self.reward_scale
         return obs, rew, done, info
 
