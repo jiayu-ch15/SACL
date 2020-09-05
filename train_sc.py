@@ -330,7 +330,7 @@ def main():
                                 reward, 
                                 masks, 
                                 bad_masks,
-                                high_masks,
+                                None,
                                 available_actions)
             else:
                 share_obs = obs.reshape(args.n_rollout_threads, -1)
@@ -346,7 +346,7 @@ def main():
                                 reward, 
                                 masks, 
                                 bad_masks,
-                                high_masks,
+                                None,
                                 available_actions)
                            
         with torch.no_grad(): 
