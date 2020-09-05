@@ -560,7 +560,7 @@ class MLPBase(NNBase):
         
         if self._layer_N == 1:
             self.actor = nn.Sequential(
-                init_(nn.Linear(num_inputs_actor, hidden_size)), active_func,
+                init_(nn.Linear(num_inputs_actor, hidden_size)), active_func, 
                 init_(nn.Linear(hidden_size, hidden_size)), active_func)
     
             self.critic = nn.Sequential(
@@ -746,8 +746,7 @@ class SelfEmbedding(nn.Module):
                 setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1], d_model)), active_func))
             else:
                 setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1]+split_shape[-1][1], d_model)), active_func))
-                  
-        
+                         
     def forward(self, x, self_idx=-1):
         x = split_obs(x, self.split_shape)
         N = len(x)

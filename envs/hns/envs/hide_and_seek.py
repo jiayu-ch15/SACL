@@ -354,9 +354,9 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
         env.add_module(FloorAttributes(friction=box_floor_friction))
     env.add_module(WorldConstants(gravity=gravity))
     env.reset()
-    keys_self = ['agent_qpos_qvel', 'hider', 'prep_obs','vector_door_obs','current_step']
+    keys_self = ['agent_qpos_qvel', 'hider', 'prep_obs','current_step']
     keys_mask_self = ['mask_aa_obs']
-    keys_external = ['agent_qpos_qvel']
+    keys_external = ['agent_qpos_qvel', 'vector_door_obs']
     keys_copy = ['you_lock', 'team_lock', 'ramp_you_lock', 'ramp_team_lock']
     keys_mask_external = []
     env = SplitMultiAgentActions(env)

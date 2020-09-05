@@ -446,7 +446,9 @@ class StarCraft2Env(MultiAgentEnv):
         except (protocol.ProtocolError, protocol.ConnectionError):
             self.full_restart()
             terminated = True
+            available_actions = []
             for i in range(self.n_agents):
+                available_actions.append(self.get_avail_agent_actions(i))
                 info[i] = {
                     "battles_won": self.battles_won,
                     "battles_game": self.battles_game,
@@ -459,7 +461,7 @@ class StarCraft2Env(MultiAgentEnv):
                     info[i]["high_masks"] = False
                 else:
                     info[i]["high_masks"] = True
-            return self.get_obs(),[[0]]*self.n_agents, terminated, info, []
+            return self.get_obs(),[[0]]*self.n_agents, terminated, info, available_actions
 
         self._total_steps += 1
         self._episode_steps += 1
