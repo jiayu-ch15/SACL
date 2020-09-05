@@ -557,28 +557,10 @@ class MLPBase(NNBase):
             active_func = nn.ReLU()
         else:
             active_func = nn.Tanh()
-        
-        if self._layer_N == 1:
-            self.actor = nn.Sequential(
-                init_(nn.Linear(num_inputs_actor, hidden_size)), active_func, 
-                init_(nn.Linear(hidden_size, hidden_size)), active_func)
-    
-            self.critic = nn.Sequential(
-                init_(nn.Linear(num_inputs_critic, hidden_size)), active_func,
-                init_(nn.Linear(hidden_size, hidden_size)), active_func)
-        elif self._layer_N == 2:
-            self.actor = nn.Sequential(
-                init_(nn.Linear(num_inputs_actor, hidden_size)), active_func,
-                init_(nn.Linear(hidden_size, hidden_size)), active_func,
-                init_(nn.Linear(hidden_size, hidden_size)), active_func)
-    
-            self.critic = nn.Sequential(
-                init_(nn.Linear(num_inputs_critic, hidden_size)), active_func,
-                init_(nn.Linear(hidden_size, hidden_size)), active_func,
-                init_(nn.Linear(hidden_size, hidden_size)), active_func)
-        else:
-            raise NotImplementedError
-            
+
+        self.actor = MLPLayer(num_inputs_actor, hidden_size, self._layer_N, self._use_orthogonal, self._use_ReLU)
+        self.critic = MLPLayer(num_inputs_critic, hidden_size, self._layer_N, self._use_orthogonal, self._use_ReLU)
+   
         if self._use_common_layer:
             self.actor = nn.Sequential(
                 init_(nn.Linear(num_inputs_actor, hidden_size)), active_func)    
@@ -707,7 +689,31 @@ class MultiHeadAttention(nn.Module):
         output = self.out(concat)
     
         return output
+
+class MLPLayer(nn.Module):
+    def __init__(self, input_dim, hidden_size, layer_N, use_orthogonal, use_ReLU):
+        super(MLPLayer, self).__init__()
+        self._layer_N = layer_N
+        if use_orthogonal:
+            init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
+        else:
+            init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
         
+        if use_ReLU:
+            active_func = nn.ReLU()
+        else:
+            active_func = nn.Tanh()
+
+        self.fc1 = nn.Sequential(init_(nn.Linear(input_dim, hidden_size)), active_func)
+        self.fc_h = nn.Sequential(init_(nn.Linear(hidden_size, hidden_size)), active_func)
+        self.fc2 = get_clones(self.fc_h, self._layer_N)
+    
+    def forward(self, x):
+        x = self.fc1(x)
+        for i in range(self._layer_N):
+            x = self.fc2[i](x)
+        return x
+
 class EncoderLayer(nn.Module):
     def __init__(self, d_model, heads, dropout = 0.0, use_orthogonal=True, use_ReLU=False, d_ff = 512, use_FF=False):
         super(EncoderLayer, self).__init__()

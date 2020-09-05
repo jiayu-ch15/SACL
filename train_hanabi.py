@@ -58,6 +58,7 @@ def main():
     # seed
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
+    np.random.seed(args.seed)
     
     # cuda
     if args.cuda and torch.cuda.is_available():

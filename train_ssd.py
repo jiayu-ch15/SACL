@@ -33,7 +33,6 @@ def make_parallel_env(args):
                 print("Can not support the " + args.env_name + "environment." )
                 raise NotImplementedError
             env.seed(args.seed + rank * 1000)
-            # np.random.seed(args.seed + rank * 1000)
             return env
         return init_env
     if args.n_rollout_threads == 1:
@@ -47,7 +46,8 @@ def main():
     # seed
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
-    
+    np.random.seed(args.seed)
+
     # cuda
     if args.cuda and torch.cuda.is_available():
         device = torch.device("cuda:0")
