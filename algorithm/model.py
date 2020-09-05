@@ -236,7 +236,7 @@ class Policy(nn.Module):
 #obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer, use_orthogonal
 class NNBase(nn.Module):
     def __init__(self, obs_shape, num_agents, naive_recurrent=False, recurrent=False, hidden_size=64,
-                 attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, 
+                 attn=False, attn_only_critic=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, 
                  use_common_layer=False, use_orthogonal=True, use_ReLU=False, use_same_dim=False):
         super(NNBase, self).__init__()
 
@@ -244,6 +244,7 @@ class NNBase(nn.Module):
         self._recurrent = recurrent
         self._naive_recurrent = naive_recurrent
         self._attn = attn
+        self._attn_only_critic = attn_only_critic
         self._use_common_layer = use_common_layer
         self._use_same_dim = use_same_dim
         #input_size, split_shape=None, d_model=512, attn_N=2, heads=8, dropout=0.0, use_average_pool=True, use_orthogonal=True 
@@ -254,7 +255,9 @@ class NNBase(nn.Module):
             else:
                 self.encoder_actor = Encoder(obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
                 self.encoder_critic = Encoder([[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
-    
+        elif self._attn_only_critic:
+            self.encoder_critic = Encoder([[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
+        
         if self._recurrent or self._naive_recurrent:
             self.gru = nn.GRU(hidden_size, hidden_size)         
             for name, param in self.gru.named_parameters():
@@ -485,11 +488,11 @@ class CNNBase(NNBase):
 
 class MLPBase(NNBase):
     def __init__(self, obs_shape, num_agents, naive_recurrent = False, recurrent=False, hidden_size=64, 
-                attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, 
+                attn=False, attn_only_critic=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, 
                 use_common_layer=False, use_feature_normlization=True, use_feature_popart=True, 
                 use_orthogonal=True, layer_N=1, use_ReLU=False, use_same_dim=False):
         super(MLPBase, self).__init__(obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, 
-                                      attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, 
+                                      attn, attn_only_critic, attn_size, attn_N, attn_heads, dropout, use_average_pool, 
                                       use_common_layer, use_orthogonal, use_ReLU, use_same_dim)
 
         self._use_common_layer = use_common_layer
@@ -500,6 +503,7 @@ class MLPBase(NNBase):
         self._use_ReLU = use_ReLU
         self._use_same_dim = use_same_dim
         self._attn = attn
+        self._attn_only_critic = attn_only_critic
         
         assert (self._use_feature_normlization and self._use_feature_popart) == False, ("--use_feature_normlization and --use_feature_popart can not be set True simultaneously.")
         if 'int' not in obs_shape[0].__class__.__name__: # mixed obs
@@ -544,6 +548,12 @@ class MLPBase(NNBase):
                     num_inputs_critic = num_inputs * attn_size
                 else:
                     num_inputs_critic = num_agents * attn_size
+        elif self._attn_only_critic:
+            num_inputs_actor = obs_shape[0]
+            if use_average_pool == True:
+                num_inputs_critic = attn_size
+            else:
+                num_inputs_critic = num_agents * attn_size
         else:
             num_inputs_actor = obs_shape[0]
             num_inputs_critic = share_obs_dim
@@ -566,9 +576,8 @@ class MLPBase(NNBase):
                 init_(nn.Linear(num_inputs_actor, hidden_size)), active_func)    
             self.critic = nn.Sequential(
                 init_(nn.Linear(num_inputs_critic, hidden_size)), active_func)
-            self.common_linear = nn.Sequential(
-                init_(nn.Linear(hidden_size, hidden_size)), active_func,
-                init_(nn.Linear(hidden_size, hidden_size)), active_func)
+            self.fc_h = nn.Sequential(init_(nn.Linear(hidden_size, hidden_size)), active_func)
+            self.common_linear = get_clones(self.fc_h, self._layer_N)
 
         self.critic_linear = init_(nn.Linear(hidden_size, 1))
 
@@ -579,27 +588,28 @@ class MLPBase(NNBase):
         if self._use_feature_normlization or self._use_feature_popart:
             x = self.actor_norm(x)
             share_x = self.critic_norm(share_x)
+
         if self.is_attn:
             x = self.encoder_actor(x)
             if self._use_same_dim:
                 share_x = self.encoder_critic(share_x)
             else:
                 share_x = self.encoder_critic(share_x, agent_id)
+        elif self._attn_only_critic:
+            share_x = self.encoder_critic(share_x, agent_id)
                             
         if self._use_common_layer:
             hidden_actor = self.actor(x)
             hidden_critic = self.critic(share_x)
-            hidden_actor = self.common_linear(hidden_actor)
-            hidden_critic = self.common_linear(hidden_critic)
-            
+            for i in range(self._layer_N):
+                hidden_actor = self.common_linear[i](hidden_actor)
+                hidden_critic = self.common_linear[i](hidden_critic)            
             if self.is_recurrent or self.is_naive_recurrent:
                 hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
                 hidden_critic, rnn_hxs_critic = self._forward_gru(hidden_critic, rnn_hxs_critic, masks)
-
         else:
             hidden_actor = self.actor(x)
             hidden_critic = self.critic(share_x)
-
             if self.is_recurrent or self.is_naive_recurrent:
                 hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
                 hidden_critic, rnn_hxs_critic = self._forward_gru_critic(hidden_critic, rnn_hxs_critic, masks)  

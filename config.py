@@ -59,7 +59,8 @@ def get_config():
     parser.add_argument("--critic_full_obs", action='store_true', default=False)
     
     # attn
-    parser.add_argument("--attn", action='store_true', default=False)    
+    parser.add_argument("--attn", action='store_true', default=False)  
+    parser.add_argument("--attn_only_critic", action='store_true', default=False)    
     parser.add_argument("--attn_N", type=int, default=1)
     parser.add_argument("--attn_size", type=int, default=64)
     parser.add_argument("--attn_heads", type=int, default=4)
