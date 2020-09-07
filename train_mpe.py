@@ -83,6 +83,7 @@ def main():
     # env
     envs = make_parallel_env(args)
     num_agents = args.num_agents
+    
     #Policy network
     if args.share_policy:
         actor_critic = Policy(envs.observation_space[0], 
@@ -288,7 +289,7 @@ def main():
                
             # Obser reward and next obs
             obs, rewards, dones, infos, _ = envs.step(actions_env)
-
+            
             # If done then clean the history of observations.
             # insert data in buffer
             masks = []

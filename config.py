@@ -84,6 +84,7 @@ def get_config():
     parser.add_argument("--gae-lambda", type=float, default=0.95, help='gae lambda parameter (default: 0.95)')
     parser.add_argument("--use-proper-time-limits", action='store_true', default=False, help='compute returns taking into account time limits')
     parser.add_argument("--use_huber_loss", action='store_false', default=True)
+    parser.add_argument("--use_value_high_masks", action='store_false', default=True)
     parser.add_argument("--huber_delta", type=float, default=10.0)   
     
     # replay buffer

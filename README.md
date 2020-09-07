@@ -1,4 +1,4 @@
-# MAPPO-SC (Multi-agent PPO for StarCraftII/Hanabi/ssd/mpe)
+# MAPPO-SC (Multi-agent PPO for StarCraftII/Hanabi/ssd/mpe/hns)
 
 ## 1.Install
 

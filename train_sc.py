@@ -138,6 +138,7 @@ def main():
                    use_huber_loss=args.use_huber_loss,
                    huber_delta=args.huber_delta,
                    use_popart=args.use_popart,
+                   use_value_high_masks=args.use_value_high_masks,
                    device=device)
                    
         #replay buffer
@@ -192,6 +193,7 @@ def main():
                    use_huber_loss=args.use_huber_loss,
                    huber_delta=args.huber_delta,
                    use_popart=args.use_popart,
+                   use_value_high_masks=args.use_value_high_masks,
                    device=device)
                                
             actor_critic.append(ac)
@@ -330,7 +332,7 @@ def main():
                                 reward, 
                                 masks, 
                                 bad_masks,
-                                None,
+                                high_masks,
                                 available_actions)
             else:
                 share_obs = obs.reshape(args.n_rollout_threads, -1)
@@ -346,7 +348,7 @@ def main():
                                 reward, 
                                 masks, 
                                 bad_masks,
-                                None,
+                                high_masks,
                                 available_actions)
                            
         with torch.no_grad(): 

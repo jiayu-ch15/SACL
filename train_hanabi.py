@@ -143,6 +143,7 @@ def main():
                    use_huber_loss=args.use_huber_loss,
                    huber_delta=args.huber_delta,
                    use_popart=args.use_popart,
+                   use_value_high_masks=args.use_value_high_masks,
                    device=device)
                    
         #replay buffer
@@ -202,6 +203,7 @@ def main():
                    use_huber_loss=args.use_huber_loss,
                    huber_delta=args.huber_delta,
                    use_popart=args.use_popart,
+                   use_value_high_masks=args.use_value_high_masks,
                    device=device)
                                
             actor_critic.append(ac)
