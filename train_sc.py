@@ -284,15 +284,15 @@ def main():
                 actions_env.append(one_hot_action_env)
                        
             # Obser reward and next obs
-            obs, reward, done, infos, available_actions = envs.step(actions_env)
+            obs, reward, dones, infos, available_actions = envs.step(actions_env)
 
             # If done then clean the history of observations.
             # insert data in buffer
             masks = []
-            for i, done_ in enumerate(done): 
+            for i, done in enumerate(dones): 
                 mask = []               
                 for agent_id in range(num_agents): 
-                    if done_:    
+                    if done:    
                         recurrent_hidden_statess[agent_id][i] = np.zeros(args.hidden_size).astype(np.float32)
                         recurrent_hidden_statess_critic[agent_id][i] = np.zeros(args.hidden_size).astype(np.float32)    
                         mask.append([0.0])
@@ -518,10 +518,10 @@ def main():
                     eval_actions_env.append(one_hot_action)
                         
                 # Obser reward and next obs
-                eval_obs, eval_reward, eval_done, eval_infos, eval_available_actions = eval_env.step([eval_actions_env])
+                eval_obs, eval_reward, eval_dones, eval_infos, eval_available_actions = eval_env.step([eval_actions_env])
                 eval_share_obs = eval_obs.reshape(1, -1)
                                                     
-                if eval_done[0]: 
+                if eval_dones[0]: 
                     eval_episode += 1
                     if eval_infos[0][0]['won']:
                         eval_battles_won += 1
