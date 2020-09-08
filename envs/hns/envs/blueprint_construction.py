@@ -134,7 +134,7 @@ def BlueprintConstructionEnv(args, n_substeps=15, horizon=80, deterministic_mode
              floor_size=6.0, grid_size=30,
              n_agents=1,
              n_rooms=2, random_room_number=False, scenario='empty', door_size=2,
-             n_sites=1, n_elongated_sites=0, site_placement='center',
+             n_sites=[2,4], n_elongated_sites=0, site_placement='uniform_away_from_walls',
              reward_infos=[{'type': 'construction_dense'}],
              n_boxes=1, n_elongated_boxes=0,
              n_min_boxes=None, box_size=0.5, box_only_z_rot=False,
