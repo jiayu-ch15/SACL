@@ -237,9 +237,9 @@ def BoxLockingEnv(args, n_substeps=15, horizon=120, deterministic_mode=False,
              box_floor_friction=0.2, other_friction=0.01, gravity=[0, 0, -50],
              action_lims=(-0.9, 0.9), polar_obs=True,
              scenario='quadrant', p_door_dropout=0.0,
-             n_rooms=4, random_room_number=True,
+             n_rooms=2, random_room_number=False,
              n_lidar_per_agent=0, visualize_lidar=False, compress_lidar_scale=None,
-             n_boxes=4, box_size=0.5, box_only_z_rot=True,
+             n_boxes=1, box_size=0.5, box_only_z_rot=True,
              boxid_obs=False, boxsize_obs=True, pad_ramp_size=True, additional_obs={},
              # lock-box task
              task_type='order-return', lock_reward=5.0, unlock_penalty=5.0, shaped_reward_scale=0.5,
@@ -281,7 +281,7 @@ def BoxLockingEnv(args, n_substeps=15, horizon=120, deterministic_mode=False,
         ramp_placement_fn = uniform_placement
         agent_placement_fn = center_placement
     elif 'var_tri' in scenario:
-        env.add_module(WallScenarios(grid_size=grid_size, door_size=door_size, scenario='var_tri'))
+        env.add_module(WallScenarios(n_agents=n_agents, grid_size=grid_size, door_size=door_size, scenario='var_tri'))
         ramp_placement_fn = [tri_placement(i % 3) for i in range(n_ramps)]
         agent_placement_fn = center_placement if fixed_agent_spawn else \
             (uniform_placement if 'uniform' in scenario else rotate_tri_placement)
@@ -316,7 +316,10 @@ def BoxLockingEnv(args, n_substeps=15, horizon=120, deterministic_mode=False,
         env.add_module(FloorAttributes(friction=box_floor_friction))
     env.add_module(WorldConstants(gravity=gravity))
     env.reset()
-    keys_self = ['agent_qpos_qvel','current_step','vector_door_obs']
+    if 'var_tri' in scenario or "randomwalls" in scenario:
+        keys_self = ['agent_qpos_qvel','current_step']
+    else:
+        keys_self = ['agent_qpos_qvel','current_step','vector_door_obs']
     keys_mask_self = ['mask_aa_obs']
     keys_external = ['agent_qpos_qvel']
     keys_copy = ['you_lock', 'team_lock']

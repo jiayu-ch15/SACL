@@ -350,15 +350,20 @@ class RandomWalls(EnvModule):
         # Convert doors into mujoco frame
         if self.gen_door_obs:
             self.door_obs = construct_door_obs(np.array(doors), floor_size, self.grid_size)
+        else:
+            self.door_obs = None
 
         walls_to_mujoco(floor, floor_size, self.grid_size, walls, friction=self.friction)
         add_walls_to_grid(env.placement_grid, walls)
         return True
 
     def observation_step(self, env, sim):
-        vector_door_obs = self.door_obs.reshape(1,-1)
-        vector_door_obs = vector_door_obs.repeat(self.n_agents,axis=0)
         if self.door_obs is not None:
+            one_door_dim = self.door_obs[0].shape[-1]
+            vector_door_obs = np.zeros((1, self.max_num_doors*one_door_dim))
+            current_door_dim = self.door_obs.reshape(1,-1).shape[-1]
+            vector_door_obs[0][:current_door_dim] = self.door_obs.reshape(1,-1).copy()
+            vector_door_obs = vector_door_obs.repeat(self.n_agents,axis=0)
             obs = {'door_obs': self.door_obs, 'vector_door_obs': vector_door_obs}
         else:
             obs = {}
@@ -492,11 +497,6 @@ class WallScenarios(EnvModule):
 
     def observation_step(self, env, sim):       
         if self.door_obs is not None:
-            one_door_dim = self.door_obs[0].shape[-1]
-            vector_door_obs = np.zeros((1, self.max_num_doors*one_door_dim))
-            current_door_dim = self.door_obs.reshape(1,-1).shape[-1]
-            vector_door_obs[0][:current_door_dim] = self.door_obs.reshape(1,-1).copy()
-            vector_door_obs = vector_door_obs.repeat(self.n_agents,axis=0)
             obs = {'door_obs': self.door_obs, 'vector_door_obs': vector_door_obs}
         else:
             obs = {}
