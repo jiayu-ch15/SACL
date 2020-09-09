@@ -224,20 +224,20 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
              rand_num_elongated_boxes=False, n_min_boxes=None,
              box_size=2.0, boxid_obs=False, box_only_z_rot=True,
              rew_type='joint_zero_sum',
-             lock_box=True, grab_box=True, lock_ramp=True,
-             lock_type='any_lock_specific',
+             lock_box=True, grab_box=True, lock_ramp=False,
+             lock_type='all_lock_team_specific',
              lock_grab_radius=0.25, lock_out_of_vision=True, grab_exclusive=False,
              grab_out_of_vision=False, grab_selective=False,
              box_floor_friction=0.2, other_friction=0.01, gravity=[0, 0, -50],
              action_lims=(-0.9, 0.9), polar_obs=True,
-             scenario='quadrant', quadrant_game_hider_uniform_placement=False,
-             p_door_dropout=0.0,
+             scenario='quadrant', quadrant_game_hider_uniform_placement=True,
+             p_door_dropout=0.5,
              n_rooms=4, random_room_number=True, prob_outside_walls=1.0,
              n_lidar_per_agent=0, visualize_lidar=False, compress_lidar_scale=None,
              hiders_together_radius=None, seekers_together_radius=None,
-             prep_fraction=0.4, prep_obs=False,
+             prep_fraction=0.4, prep_obs=True,
              team_size_obs=False,
-             restrict_rect=None, penalize_objects_out=False,
+             restrict_rect=[0.1, 0.1, 5.9, 5.9], penalize_objects_out=True,
              n_food=0, food_radius=None, food_respawn_time=None, max_food_health=1,
              food_together_radius=None, food_rew_type='selfish', eat_when_caught=False,
              food_reward_scale=1.0, food_normal_centered=False, food_box_centered=False,
@@ -354,9 +354,9 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
         env.add_module(FloorAttributes(friction=box_floor_friction))
     env.add_module(WorldConstants(gravity=gravity))
     env.reset()
-    keys_self = ['agent_qpos_qvel', 'hider', 'prep_obs','current_step']
+    keys_self = ['agent_qpos_qvel', 'hider', 'prep_obs','current_step', 'vector_door_obs']
     keys_mask_self = ['mask_aa_obs']
-    keys_external = ['agent_qpos_qvel', 'vector_door_obs']
+    keys_external = ['agent_qpos_qvel']
     keys_copy = ['you_lock', 'team_lock', 'ramp_you_lock', 'ramp_team_lock']
     keys_mask_external = []
     env = SplitMultiAgentActions(env)

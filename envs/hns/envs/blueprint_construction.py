@@ -130,16 +130,27 @@ class ConstructionCompletedRewardWrapper(gym.Wrapper):
 def make_env(args):
     return BlueprintConstructionEnv(args)
 
-def BlueprintConstructionEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
+def BlueprintConstructionEnv(args, n_substeps=15, horizon=150, deterministic_mode=False,
              floor_size=6.0, grid_size=30,
              n_agents=1,
              n_rooms=2, random_room_number=False, scenario='empty', door_size=2,
-             n_sites=[2,4], n_elongated_sites=0, site_placement='uniform_away_from_walls',
-             reward_infos=[{'type': 'construction_dense'}],
-             n_boxes=1, n_elongated_boxes=0,
+             n_sites=[1,4], n_elongated_sites=0, site_placement='uniform_away_from_walls',
+             reward_infos=[{
+                    type: 'construction_dense',
+                    alpha: -1.5,
+                    use_corners: true,
+                    reward_scale: 0.05,
+                },
+                {
+                    type: 'construction_completed',
+                    site_activation_radius: 0.1,
+                    use_corners: true,
+                    reward_scale: 3,
+                },],
+             n_boxes=8, n_elongated_boxes=0,
              n_min_boxes=None, box_size=0.5, box_only_z_rot=False,
              lock_box=True, grab_box=True, grab_selective=False, lock_grab_radius=0.25,
-             lock_type='any_lock_specific', grab_exclusive=False,
+             lock_type='all_lock_team_specific', grab_exclusive=False,
              grab_out_of_vision=True, lock_out_of_vision=True,
              box_floor_friction=0.2, other_friction=0.01, gravity=[0, 0, -50],
              action_lims=(-0.9, 0.9), polar_obs=True,

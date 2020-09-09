@@ -228,6 +228,7 @@ class Policy(nn.Module):
             dist = self.dist(actor_features)
             action_log_probs = dist.log_probs(action)
             dist_entropy = (dist.entropy()*high_masks.squeeze(-1)).sum()/high_masks.sum()
+            #dist_entropy = dist.entropy().mean()
             action_log_probs_out = action_log_probs
             dist_entropy_out = dist_entropy
 

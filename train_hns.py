@@ -102,8 +102,8 @@ def main():
     all_action_space = []
     all_obs_space = []
     action_movement_dim = []
-    order_obs = ['agent_qpos_qvel','box_obs','ramp_obs','food_obs','vector_door_obs','observation_self']    
-    mask_order_obs = ['mask_aa_obs','mask_ab_obs','mask_ar_obs','mask_af_obs',None, None]
+    order_obs = ['agent_qpos_qvel','box_obs','ramp_obs','food_obs','observation_self']    
+    mask_order_obs = ['mask_aa_obs','mask_ab_obs','mask_ar_obs','mask_af_obs', None]
     for agent_id in range(num_agents):
         # deal with dict action space
         action_movement = envs.action_space['action_movement'][agent_id].nvec

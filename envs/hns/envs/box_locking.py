@@ -227,22 +227,22 @@ def rotate_tri_placement(grid, obj_size, metadata, random_state):
 def make_env(args):
     return BoxLockingEnv(args)
 
-def BoxLockingEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
+def BoxLockingEnv(args, n_substeps=15, horizon=120, deterministic_mode=False,
              floor_size=6.0, grid_size=30, door_size=2,
              n_agents=1, fixed_agent_spawn=False,
              lock_box=True, grab_box=True, grab_selective=False,
-             lock_type='any_lock_specific',
+             lock_type='all_lock_team_specific',
              lock_grab_radius=0.25, grab_exclusive=False, grab_out_of_vision=False,
-             lock_out_of_vision=True,
+             lock_out_of_vision=False,
              box_floor_friction=0.2, other_friction=0.01, gravity=[0, 0, -50],
              action_lims=(-0.9, 0.9), polar_obs=True,
              scenario='quadrant', p_door_dropout=0.0,
              n_rooms=4, random_room_number=True,
              n_lidar_per_agent=0, visualize_lidar=False, compress_lidar_scale=None,
-             n_boxes=2, box_size=0.5, box_only_z_rot=False,
-             boxid_obs=True, boxsize_obs=True, pad_ramp_size=True, additional_obs={},
+             n_boxes=4, box_size=0.5, box_only_z_rot=True,
+             boxid_obs=False, boxsize_obs=True, pad_ramp_size=True, additional_obs={},
              # lock-box task
-             task_type='all', lock_reward=5.0, unlock_penalty=7.0, shaped_reward_scale=0.25,
+             task_type='order-return', lock_reward=5.0, unlock_penalty=5.0, shaped_reward_scale=0.5,
              return_threshold=0.1,
              # ramps
              n_ramps=0):
@@ -316,9 +316,9 @@ def BoxLockingEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
         env.add_module(FloorAttributes(friction=box_floor_friction))
     env.add_module(WorldConstants(gravity=gravity))
     env.reset()
-    keys_self = ['agent_qpos_qvel','current_step']
+    keys_self = ['agent_qpos_qvel','current_step','vector_door_obs']
     keys_mask_self = ['mask_aa_obs']
-    keys_external = ['agent_qpos_qvel','vector_door_obs']
+    keys_external = ['agent_qpos_qvel']
     keys_copy = ['you_lock', 'team_lock']
     keys_mask_external = []
 

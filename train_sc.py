@@ -518,7 +518,7 @@ def main():
                     eval_actions_env.append(one_hot_action)
                         
                 # Obser reward and next obs
-                eval_obs, eval_reward, eval_dones, eval_infos, eval_available_actions = eval_env.step([eval_actions_env])
+                eval_obs, eval_rewards, eval_dones, eval_infos, eval_available_actions = eval_env.step([eval_actions_env])
                 eval_share_obs = eval_obs.reshape(1, -1)
                                                     
                 if eval_dones[0]: 
