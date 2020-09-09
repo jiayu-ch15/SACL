@@ -61,7 +61,7 @@ class ConstructionDenseRewardWrapper(gym.Wrapper):
             alpha (float): Smoothing parameter. Should be nonpositive.
             reward_scale (float): scales the reward by this factor
     '''
-    def __init__(self, env, use_corners=False, alpha=-8, reward_scale=1):
+    def __init__(self, env, use_corners=True, alpha=-1.5, reward_scale=0.05):
         super().__init__(env)
         assert alpha < 0, 'alpha must be negative for the SmoothMin function to work'
         self.alpha = alpha
@@ -93,7 +93,7 @@ class ConstructionCompletedRewardWrapper(gym.Wrapper):
                 at least one box within the site activation radius.
             reward_scale (float): scales the reward by this factor
     '''
-    def __init__(self, env, use_corners=False, site_activation_radius=0.2, reward_scale=1):
+    def __init__(self, env, use_corners=True, site_activation_radius=0.1, reward_scale=3):
         super().__init__(env)
         self.n_sites = self.metadata['curr_n_sites']
         self.site_activation_radius = site_activation_radius
@@ -135,18 +135,7 @@ def BlueprintConstructionEnv(args, n_substeps=15, horizon=150, deterministic_mod
              n_agents=1,
              n_rooms=2, random_room_number=False, scenario='empty', door_size=2,
              n_sites=[1,4], n_elongated_sites=0, site_placement='uniform_away_from_walls',
-             reward_infos=[{
-                    type: 'construction_dense',
-                    alpha: -1.5,
-                    use_corners: true,
-                    reward_scale: 0.05,
-                },
-                {
-                    type: 'construction_completed',
-                    site_activation_radius: 0.1,
-                    use_corners: true,
-                    reward_scale: 3,
-                },],
+             reward_infos=[{type: 'construction_dense'},{type: 'construction_completed'}],
              n_boxes=8, n_elongated_boxes=0,
              n_min_boxes=None, box_size=0.5, box_only_z_rot=False,
              lock_box=True, grab_box=True, grab_selective=False, lock_grab_radius=0.25,

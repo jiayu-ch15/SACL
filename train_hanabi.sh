@@ -1,8 +1,9 @@
 #!/bin/sh
 env="Hanabi"
 hanabi="Hanabi-Full"
-num_agents=3
+num_agents=2
 algo="value0_samedim_full3_parallel1000_length80_batch5_ppo15_lr7e-4_512_2layers_relu_100M"
+#algo="check"
 seed_max=1
 
 echo "env is ${env}, algo is ${algo}, seed is ${seed_max}"
