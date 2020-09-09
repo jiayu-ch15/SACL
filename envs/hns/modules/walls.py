@@ -407,6 +407,7 @@ class WallScenarios(EnvModule):
                 walls_to_split = [new_walls[wall_to_split]]
             else:
                 walls_to_split = new_walls
+            self.max_num_doors = len(new_walls)
         elif self.scenario == 'half':
             walls_to_split += [Wall([self.grid_size - 1, self.grid_size // 2],
                                     [0, self.grid_size // 2])]
@@ -469,10 +470,12 @@ class WallScenarios(EnvModule):
             env.metadata['tri_placement_rotation'] = []
         elif self.scenario == 'empty':
             walls_to_split = []
-
+        
+        
         # Add doors
         new_walls, doors = split_walls(walls_to_split, self.door_size,
                                        random_state=env._random_state)
+
         walls += new_walls
 
         env.metadata['doors'] = np.array(doors)
@@ -489,7 +492,10 @@ class WallScenarios(EnvModule):
 
     def observation_step(self, env, sim):       
         if self.door_obs is not None:
-            vector_door_obs = self.door_obs.reshape(1,-1)
+            one_door_dim = self.door_obs[0].shape[-1]
+            vector_door_obs = np.zeros((1, self.max_num_doors*one_door_dim))
+            current_door_dim = self.door_obs.reshape(1,-1).shape[-1]
+            vector_door_obs[0][:current_door_dim] = self.door_obs.reshape(1,-1).copy()
             vector_door_obs = vector_door_obs.repeat(self.n_agents,axis=0)
             obs = {'door_obs': self.door_obs, 'vector_door_obs': vector_door_obs}
         else:

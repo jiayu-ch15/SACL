@@ -266,13 +266,15 @@ def main():
                     reshape_share_obs = temp_share_obs.copy()
                 else:
                     reshape_obs = np.concatenate((reshape_obs,temp_obs),axis=1) 
-                    reshape_share_obs = np.concatenate((reshape_share_obs,temp_share_obs),axis=1)                    
+                    reshape_share_obs = np.concatenate((reshape_share_obs,temp_share_obs),axis=1)
+                               
         obs.append(reshape_obs)
-        share_obs.append(reshape_share_obs)   
+        share_obs.append(reshape_share_obs) 
+  
     obs = np.array(obs) 
     share_obs = np.array(share_obs)            
        
-    # replay buffer  
+    # replay buffer 
     rollouts.share_obs[0] = share_obs.copy() 
     rollouts.obs[0] = obs.copy()                
     rollouts.recurrent_hidden_states = np.zeros(rollouts.recurrent_hidden_states.shape).astype(np.float32)
@@ -394,7 +396,7 @@ def main():
                     else:
                         mask.append([1.0])
                 masks.append(mask)                            
-
+            
             obs = []
             share_obs = []   
             for d_o in dict_obs:
@@ -420,7 +422,7 @@ def main():
                 share_obs.append(reshape_share_obs)   
             obs = np.array(obs) 
             share_obs = np.array(share_obs)
-    
+            
             rollouts.insert(share_obs, 
                             obs, 
                             np.array(recurrent_hidden_statess).transpose(1,0,2), 
