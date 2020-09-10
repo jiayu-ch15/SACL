@@ -236,7 +236,7 @@ class Policy(nn.Module):
 
 #obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer, use_orthogonal
 class NNBase(nn.Module):
-    def __init__(self, obs_shape, num_agents, naive_recurrent=False, recurrent=False, hidden_size=64,
+    def __init__(self, obs_shape, num_agents, naive_recurrent=False, recurrent=False, hidden_size=64, recurrent_N=1,
                  attn=False, attn_only_critic=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, 
                  use_common_layer=False, use_orthogonal=True, use_ReLU=False, use_same_dim=False):
         super(NNBase, self).__init__()
@@ -260,7 +260,7 @@ class NNBase(nn.Module):
             self.encoder_critic = Encoder([[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
         
         if self._recurrent or self._naive_recurrent:
-            self.gru = nn.GRU(hidden_size, hidden_size)         
+            self.gru = nn.GRU(hidden_size, hidden_size, num_layers=recurrent_N)         
             for name, param in self.gru.named_parameters():
                 if 'bias' in name:
                     nn.init.constant_(param, 0)
@@ -270,7 +270,7 @@ class NNBase(nn.Module):
                     else:
                         nn.init.xavier_uniform_(param)
             if not self._use_common_layer:
-                self.gru_critic = nn.GRU(hidden_size, hidden_size)
+                self.gru_critic = nn.GRU(hidden_size, hidden_size, num_layers=recurrent_N)
                 for name, param in self.gru_critic.named_parameters():
                     if 'bias' in name:
                         nn.init.constant_(param, 0)
@@ -294,7 +294,7 @@ class NNBase(nn.Module):
         
     @property
     def recurrent_hidden_size(self):
-        if self._recurrent or self._naive_recurrent or self._lstm:
+        if self._recurrent or self._naive_recurrent:
             return self._hidden_size
         return 1
 
@@ -488,11 +488,11 @@ class CNNBase(NNBase):
         return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs_actor, rnn_hxs_critic
 
 class MLPBase(NNBase):
-    def __init__(self, obs_shape, num_agents, naive_recurrent = False, recurrent=False, hidden_size=64, 
+    def __init__(self, obs_shape, num_agents, naive_recurrent = False, recurrent=False, hidden_size=64, recurrent_N=1,
                 attn=False, attn_only_critic=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, 
                 use_common_layer=False, use_feature_normlization=True, use_feature_popart=True, 
                 use_orthogonal=True, layer_N=1, use_ReLU=False, use_same_dim=False):
-        super(MLPBase, self).__init__(obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, 
+        super(MLPBase, self).__init__(obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, recurrent_N,
                                       attn, attn_only_critic, attn_size, attn_N, attn_heads, dropout, use_average_pool, 
                                       use_common_layer, use_orthogonal, use_ReLU, use_same_dim)
 

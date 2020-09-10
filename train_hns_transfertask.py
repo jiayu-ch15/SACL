@@ -138,6 +138,7 @@ def main():
                     base_kwargs={'naive_recurrent': args.naive_recurrent_policy,
                                  'recurrent': args.recurrent_policy,
                                  'hidden_size': args.hidden_size,
+                                 'recurrent_N': args.recurrent_N,
                                  'attn': args.attn, 
                                  'attn_only_critic': args.attn_only_critic,                                 
                                  'attn_size': args.attn_size,
@@ -151,7 +152,8 @@ def main():
                                  'use_orthogonal':args.use_orthogonal,
                                  'layer_N':args.layer_N,
                                  'use_ReLU':args.use_ReLU,
-                                 'use_same_dim':True
+                                 'use_same_dim':True,
+                                 'use_last_action':args.use_last_action
                                  },
                     device = device)
         actor_critic.to(device)
@@ -195,6 +197,7 @@ def main():
                       base_kwargs={'naive_recurrent': args.naive_recurrent_policy,
                                  'recurrent': args.recurrent_policy,
                                  'hidden_size': args.hidden_size,
+                                 'recurrent_N': args.recurrent_N,
                                  'attn': args.attn,    
                                  'attn_only_critic': args.attn_only_critic,                              
                                  'attn_size': args.attn_size,
@@ -208,7 +211,8 @@ def main():
                                  'use_orthogonal':args.use_orthogonal,
                                  'layer_N':args.layer_N,
                                  'use_ReLU':args.use_ReLU,
-                                 'use_same_dim':True
+                                 'use_same_dim':True,
+                                 'use_last_action':args.use_last_action
                                  },
                       device = device)
             ac.to(device)
