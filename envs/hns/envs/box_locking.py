@@ -70,7 +70,7 @@ class LockObjectsTask(gym.Wrapper):
         if self.need_return:
             self.task = self.task.replace('-return', '')
         self.n_agents = self.unwrapped.n_agents
-        assert self.n_agents == 1, 'The locking tasks only support 1 agent'
+        #assert self.n_agents == 1, 'The locking tasks only support 1 agent'
         self.agent_key = agent_pos_key
         self.obj_order = list(range(self.n_objs))
         self.fixed_order = fixed_order
@@ -239,7 +239,7 @@ def BoxLockingEnv(args, n_substeps=15, horizon=120, deterministic_mode=False,
              scenario='quadrant', p_door_dropout=0.0,
              n_rooms=2, random_room_number=False,
              n_lidar_per_agent=0, visualize_lidar=False, compress_lidar_scale=None,
-             n_boxes=1, box_size=0.5, box_only_z_rot=True,
+             n_boxes=3, box_size=0.5, box_only_z_rot=True,
              boxid_obs=False, boxsize_obs=True, pad_ramp_size=True, additional_obs={},
              # lock-box task
              task_type='order-return', lock_reward=5.0, unlock_penalty=5.0, shaped_reward_scale=0.5,
@@ -250,7 +250,8 @@ def BoxLockingEnv(args, n_substeps=15, horizon=120, deterministic_mode=False,
     scenario = args.scenario_name
     n_agents = args.num_agents
     task_type = args.task_type
-    assert n_agents==1, ("only 1 agents is supported, check the config.py.")
+    n_boxes = args.num_boxes
+    #assert n_agents==1, ("only 1 agents is supported, check the config.py.")
 
     grab_radius_multiplier = lock_grab_radius / box_size
     lock_radius_multiplier = lock_grab_radius / box_size
