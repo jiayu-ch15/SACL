@@ -54,7 +54,7 @@ def get_config():
     # lstm
     parser.add_argument("--naive_recurrent_policy", action='store_true', default=False, help='use a naive recurrent policy')
     parser.add_argument("--recurrent_policy", action='store_false', default=True, help='use a recurrent policy')
-    parser.add_argument("--recurrent_N", type=int, default=1)
+    parser.add_argument("--recurrent_N", type=int, default=1) #TODO now only 1 is support
     parser.add_argument("--data_chunk_length", type=int, default=10)
     
     # attn

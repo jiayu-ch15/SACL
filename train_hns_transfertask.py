@@ -152,8 +152,7 @@ def main():
                                  'use_orthogonal':args.use_orthogonal,
                                  'layer_N':args.layer_N,
                                  'use_ReLU':args.use_ReLU,
-                                 'use_same_dim':True,
-                                 'use_last_action':args.use_last_action
+                                 'use_same_dim':True
                                  },
                     device = device)
         actor_critic.to(device)
@@ -211,8 +210,7 @@ def main():
                                  'use_orthogonal':args.use_orthogonal,
                                  'layer_N':args.layer_N,
                                  'use_ReLU':args.use_ReLU,
-                                 'use_same_dim':True,
-                                 'use_last_action':args.use_last_action
+                                 'use_same_dim':True
                                  },
                       device = device)
             ac.to(device)
