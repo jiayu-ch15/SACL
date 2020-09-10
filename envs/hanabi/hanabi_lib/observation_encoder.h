@@ -34,8 +34,7 @@ class ObservationEncoder {
 
   // All of the canonical observation encodings are vectors of bits. We can
   // change this if we want something more general (e.g. floats or doubles).
-  virtual std::vector<float> Encode(const HanabiObservation& obs,
-                                    bool show_own_cards=false) const = 0;
+  virtual std::vector<int> Encode(const HanabiObservation& obs) const = 0;
 
   // Return the type of this encoder.
   virtual Type type() const = 0;

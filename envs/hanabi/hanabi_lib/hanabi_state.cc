@@ -73,7 +73,6 @@ HanabiCard HanabiState::HanabiDeck::DealCard(std::mt19937* rng) {
   assert(card_count_[index] > 0);
   --card_count_[index];
   --total_count_;
-  deck_history_.push_back(index);
   return HanabiCard(IndexToColor(index), IndexToRank(index));
 }
 
@@ -85,7 +84,6 @@ HanabiCard HanabiState::HanabiDeck::DealCard(int color, int rank) {
   assert(card_count_[index] > 0);
   --card_count_[index];
   --total_count_;
-  deck_history_.push_back(index);
   return HanabiCard(IndexToColor(index), IndexToRank(index));
 }
 
@@ -359,18 +357,10 @@ std::string HanabiState::ToString() const {
 }
 
 int HanabiState::Score() const {
-  int score = std::accumulate(fireworks_.begin(), fireworks_.end(), 0);
   if (LifeTokens() <= 0) {
-    int bomb = parent_game_->Bomb();
-    if (bomb == 0) {
-      return 0;
-    } else if (bomb == -1) {
-      return std::max(0, score - 1);
-    } else if (bomb == 1) {
-      return score;
-    }
+    return 0;
   }
-  return score;
+  return std::accumulate(fireworks_.begin(), fireworks_.end(), 0);
 }
 
 HanabiState::EndOfGameType HanabiState::EndOfGameStatus() const {

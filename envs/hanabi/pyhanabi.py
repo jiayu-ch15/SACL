@@ -965,7 +965,6 @@ class ObservationEncoder(object):
     c_encoding_str = lib.EncodeObservation(self._encoder,
                                            observation.observation())
     encoding_string = encode_ffi_string(c_encoding_str)
-    
     lib.DeleteString(c_encoding_str)
     # Canonical observations are bit strings, so it is ok to encode using a
     # string. For float or double observations, make a custom object
