@@ -267,7 +267,6 @@ class HanabiEnv(Environment):
           self.state.deal_random_card()
     
         observation = self._make_observation_all_players()
-        print(observation)
         observation["current_player"] = self.state.cur_player()
         agent_turn=np.zeros(self.players).astype(np.int).tolist()
         agent_turn[self.state.cur_player()]=1
