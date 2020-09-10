@@ -497,6 +497,11 @@ class WallScenarios(EnvModule):
 
     def observation_step(self, env, sim):       
         if self.door_obs is not None:
+            one_door_dim = self.door_obs[0].shape[-1]
+            vector_door_obs = np.zeros((1, self.max_num_doors*one_door_dim))
+            current_door_dim = self.door_obs.reshape(1,-1).shape[-1]
+            vector_door_obs[0][:current_door_dim] = self.door_obs.reshape(1,-1).copy()
+            vector_door_obs = vector_door_obs.repeat(self.n_agents,axis=0)
             obs = {'door_obs': self.door_obs, 'vector_door_obs': vector_door_obs}
         else:
             obs = {}

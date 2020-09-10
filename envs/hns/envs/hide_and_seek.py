@@ -214,6 +214,22 @@ def outside_quadrant_placement(grid, obj_size, metadata, random_state):
     ]
     return poses[random_state.randint(0, 3)]
 
+def nearwall_placement(grid, obj_size, metadata, random_state):
+    '''
+        Places object outside of the bottom right quadrant of the playing field
+    '''
+    grid_size = len(grid)
+    qsize = metadata['quadrant_size']
+    # 地图坐标系左下角是[1,1]([x,y],x是横坐标，y是纵坐标)
+    poses = [
+        np.array([random_state.randint(grid_size - qsize, grid_size - obj_size[0] - 1),
+                qsize + obj_size[0]]),
+
+        np.array([grid_size - qsize - obj_size[0],
+                  random_state.randint(1, qsize - obj_size[1] - 1)]),
+    ]
+    return poses[random_state.randint(0, 2)]
+
 def make_env(args):
     return HideAndSeekEnv(args)
 
@@ -230,7 +246,7 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
              grab_out_of_vision=False, grab_selective=False,
              box_floor_friction=0.2, other_friction=0.01, gravity=[0, 0, -50],
              action_lims=(-0.9, 0.9), polar_obs=True,
-             scenario='quadrant', quadrant_game_hider_uniform_placement=True,
+             scenario='quadrant', quadrant_game_hider_uniform_placement=False,
              p_door_dropout=0.5,
              n_rooms=4, random_room_number=True, prob_outside_walls=1.0,
              n_lidar_per_agent=0, visualize_lidar=False, compress_lidar_scale=None,
@@ -305,7 +321,7 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
                                      scenario=scenario, friction=other_friction,
                                      p_door_dropout=p_door_dropout))
         box_placement_fn = quadrant_placement
-        ramp_placement_fn = uniform_placement
+        ramp_placement_fn = nearwall_placement #uniform_placement
         hider_placement = uniform_placement if quadrant_game_hider_uniform_placement else quadrant_placement
         agent_placement_fn = [hider_placement] * n_hiders + [outside_quadrant_placement] * n_seekers
     else:
