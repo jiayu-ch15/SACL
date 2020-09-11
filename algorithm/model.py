@@ -185,7 +185,7 @@ class Policy(nn.Module):
         
         return value, rnn_hxs_actor, rnn_hxs_critic
 
-    def evaluate_actions(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks, high_masks=None, action):
+    def evaluate_actions(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, action, masks, high_masks=None):
     
         share_inputs = share_inputs.to(self.device)
         inputs = inputs.to(self.device)
