@@ -185,7 +185,7 @@ class Policy(nn.Module):
         
         return value, rnn_hxs_actor, rnn_hxs_critic
 
-    def evaluate_actions(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks, high_masks, action):
+    def evaluate_actions(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks, high_masks=None, action):
     
         share_inputs = share_inputs.to(self.device)
         inputs = inputs.to(self.device)
@@ -227,8 +227,10 @@ class Policy(nn.Module):
         else:
             dist = self.dist(actor_features)
             action_log_probs = dist.log_probs(action)
-            dist_entropy = (dist.entropy()*high_masks.squeeze(-1)).sum()/high_masks.sum()
-            #dist_entropy = dist.entropy().mean()
+            if high_masks is not None:
+                dist_entropy = (dist.entropy()*high_masks.squeeze(-1)).sum()/high_masks.sum()               
+            else:
+                dist_entropy = dist.entropy().mean()
             action_log_probs_out = action_log_probs
             dist_entropy_out = dist_entropy
 
