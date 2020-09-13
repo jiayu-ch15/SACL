@@ -23,7 +23,7 @@ RainbowAgent.target_update_period = 500 # agent steps
 RainbowAgent.epsilon_train = 0.0
 RainbowAgent.epsilon_eval = 0.0
 RainbowAgent.epsilon_decay_period = 1000 # agent steps
-RainbowAgent.tf_device = '/cpu:*'  # '/cpu:*' use for non-GPU version
+RainbowAgent.tf_device = '/gpu:0'  # '/cpu:*' use for non-GPU version
 WrappedReplayMemory.replay_capacity = 50000 
 
 run_experiment.training_steps = 10000
@@ -33,7 +33,7 @@ run_one_iteration.evaluate_every_n = 10
 
 # Small Hanabi.
 create_environment.game_type = 'Hanabi-Small'
-create_environment.num_players = 3
+create_environment.num_players = 5
 
 create_agent.agent_type = 'Rainbow'
 create_obs_stacker.history_size = 1

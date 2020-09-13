@@ -707,10 +707,11 @@ class MLPLayer(nn.Module):
     def __init__(self, input_dim, hidden_size, layer_N, use_orthogonal, use_ReLU):
         super(MLPLayer, self).__init__()
         self._layer_N = layer_N
-        if use_orthogonal:
-            init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
+        
+        if use_orthogonal:        
+            init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
         else:
-            init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
+            init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
         
         if use_ReLU:
             active_func = nn.ReLU()
