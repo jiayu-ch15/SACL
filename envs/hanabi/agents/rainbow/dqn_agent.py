@@ -72,14 +72,14 @@ def dqn_template(state, num_actions, layer_size=512, num_layers=1):
     net: A `tf.Graphdef` for DQN:
       `\theta : \mathcal{X}\rightarrow\mathbb{R}^{|\mathcal{A}|}`
   """
-  weights_initializer = slim.variance_scaling_initializer(
-      factor=1.0 / np.sqrt(3.0), mode='FAN_IN', uniform=True)
+  weights_initializer = tf.orthogonal_initializer()
+  #weights_initializer = slim.variance_scaling_initializer(factor=1.0 / np.sqrt(3.0), mode='FAN_IN', uniform=True)
 
   net = tf.cast(state, tf.float32)
   net = tf.squeeze(net, axis=2)
   for _ in range(num_layers):
     net = slim.fully_connected(net, layer_size,
-                               activation_fn=tf.nn.relu)
+                               activation_fn=tf.nn.relu, weights_initializer=weights_initializer)
   net = slim.fully_connected(net, num_actions, activation_fn=None,
                              weights_initializer=weights_initializer)
   return net

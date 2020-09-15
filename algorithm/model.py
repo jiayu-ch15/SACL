@@ -525,14 +525,10 @@ class MLPBase(NNBase):
                 share_obs_dim = obs_shape[0]
             else:
                 share_obs_dim = obs_shape[0]*num_agents
-        
-        if self._use_feature_normlization:
-            self.actor_norm = nn.LayerNorm(obs_shape[0])
-            self.critic_norm = nn.LayerNorm(share_obs_dim)
             
         if self._use_feature_popart:
-            self.actor_norm = PopArt(obs_shape[0])
-            self.critic_norm = PopArt(share_obs_dim)
+            self.actor_popart = PopArt(obs_shape[0])
+            self.critic_popart = PopArt(share_obs_dim)
             
         if self._attn:           
             if use_average_pool == True:
@@ -562,14 +558,19 @@ class MLPBase(NNBase):
             num_inputs_critic = share_obs_dim
             
         if self._use_orthogonal:
-            init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
+            if self._use_ReLU:
+                active_func = nn.ReLU()
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
+            else:
+                active_func = nn.Tanh()
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
         else:
-            init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
-        
-        if self._use_ReLU:
-            active_func = nn.ReLU()
-        else:
-            active_func = nn.Tanh()
+            if self._use_ReLU:
+                active_func = nn.ReLU()
+                init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('relu'))
+            else:
+                active_func = nn.Tanh()
+                init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
 
         self.actor = MLPLayer(num_inputs_actor, hidden_size, self._layer_N, self._use_orthogonal, self._use_ReLU)
         self.critic = MLPLayer(num_inputs_critic, hidden_size, self._layer_N, self._use_orthogonal, self._use_ReLU)
@@ -582,15 +583,19 @@ class MLPBase(NNBase):
             self.fc_h = nn.Sequential(init_(nn.Linear(hidden_size, hidden_size)), active_func)
             self.common_linear = get_clones(self.fc_h, self._layer_N)
 
+        if self._use_feature_normlization:
+            self.actor_norm = nn.LayerNorm(hidden_size)
+            self.critic_norm = nn.LayerNorm(hidden_size)
+
         self.critic_linear = init_(nn.Linear(hidden_size, 1))
 
     def forward(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks):
         x = inputs
         share_x = share_inputs
         
-        if self._use_feature_normlization or self._use_feature_popart:
-            x = self.actor_norm(x)
-            share_x = self.critic_norm(share_x)
+        if self._use_feature_popart:
+            x = self.actor_popart(x)
+            share_x = self.critic_popart(share_x)
 
         if self.is_attn:
             x = self.encoder_actor(x)
@@ -606,13 +611,19 @@ class MLPBase(NNBase):
             hidden_critic = self.critic(share_x)
             for i in range(self._layer_N):
                 hidden_actor = self.common_linear[i](hidden_actor)
-                hidden_critic = self.common_linear[i](hidden_critic)            
+                hidden_critic = self.common_linear[i](hidden_critic) 
+            if self._use_feature_normlization:
+                hidden_actor = self.actor_norm(hidden_actor)
+                hidden_critic = self.critic_norm(hidden_critic) 
             if self.is_recurrent or self.is_naive_recurrent:
                 hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
                 hidden_critic, rnn_hxs_critic = self._forward_gru(hidden_critic, rnn_hxs_critic, masks)
         else:
             hidden_actor = self.actor(x)
             hidden_critic = self.critic(share_x)
+            if self._use_feature_normlization:
+                hidden_actor = self.actor_norm(hidden_actor)
+                hidden_critic = self.critic_norm(hidden_critic)
             if self.is_recurrent or self.is_naive_recurrent:
                 hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
                 hidden_critic, rnn_hxs_critic = self._forward_gru_critic(hidden_critic, rnn_hxs_critic, masks)  
@@ -627,14 +638,20 @@ class FeedForward(nn.Module):
         super(FeedForward, self).__init__() 
         # We set d_ff as a default to 2048
         if use_orthogonal:
-            init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
+            if use_ReLU:
+                active_func = nn.ReLU()
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
+            else:
+                active_func = nn.Tanh()
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
         else:
-            init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0))
+            if use_ReLU:
+                active_func = nn.ReLU()
+                init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('relu'))
+            else:
+                active_func = nn.Tanh()
+                init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
         
-        if use_ReLU:
-            active_func = nn.ReLU()
-        else:
-            active_func = nn.Tanh()
            
         self.linear_1 = nn.Sequential(init_(nn.Linear(d_model, d_ff)), active_func)
 
@@ -708,15 +725,20 @@ class MLPLayer(nn.Module):
         super(MLPLayer, self).__init__()
         self._layer_N = layer_N
         
-        if use_orthogonal:        
-            init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
+        if use_orthogonal:
+            if use_ReLU:
+                active_func = nn.ReLU()
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
+            else:
+                active_func = nn.Tanh()
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
         else:
-            init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
-        
-        if use_ReLU:
-            active_func = nn.ReLU()
-        else:
-            active_func = nn.Tanh()
+            if use_ReLU:
+                active_func = nn.ReLU()
+                init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('relu'))
+            else:
+                active_func = nn.Tanh()
+                init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
 
         self.fc1 = nn.Sequential(init_(nn.Linear(input_dim, hidden_size)), active_func)
         self.fc_h = nn.Sequential(init_(nn.Linear(hidden_size, hidden_size)), active_func)
@@ -751,15 +773,21 @@ class SelfEmbedding(nn.Module):
     def __init__(self, split_shape, d_model, use_orthogonal=True, use_ReLU=False):
         super(SelfEmbedding, self).__init__()
         self.split_shape = split_shape
-        if use_orthogonal:        
-            init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
+
+        if use_orthogonal:
+            if use_ReLU:
+                active_func = nn.ReLU()
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
+            else:
+                active_func = nn.Tanh()
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
         else:
-            init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
-        
-        if use_ReLU:
-            active_func = nn.ReLU()
-        else:
-            active_func = nn.Tanh()
+            if use_ReLU:
+                active_func = nn.ReLU()
+                init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('relu'))
+            else:
+                active_func = nn.Tanh()
+                init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
             
         for i in range(len(split_shape)):
             if i==(len(split_shape)-1):            
@@ -791,15 +819,20 @@ class Embedding(nn.Module):
         super(Embedding, self).__init__()
         self.split_shape = split_shape
         
-        if use_orthogonal:        
-            init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
+        if use_orthogonal:
+            if use_ReLU:
+                active_func = nn.ReLU()
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
+            else:
+                active_func = nn.Tanh()
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
         else:
-            init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
-        
-        if use_ReLU:
-            active_func = nn.ReLU()
-        else:
-            active_func = nn.Tanh()
+            if use_ReLU:
+                active_func = nn.ReLU()
+                init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('relu'))
+            else:
+                active_func = nn.Tanh()
+                init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
             
         for i in range(len(split_shape)):
             setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1], d_model)), active_func))

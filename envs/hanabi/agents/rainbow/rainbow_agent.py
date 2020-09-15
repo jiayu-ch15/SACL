@@ -56,15 +56,15 @@ def rainbow_template(state,
       `\theta : \mathcal{X}\rightarrow\mathbb{R}^{|\mathcal{A}| \times N}`,
       where `N` is num_atoms.
   """
-  weights_initializer = slim.variance_scaling_initializer(
-      factor=1.0 / np.sqrt(3.0), mode='FAN_IN', uniform=True)
+  weights_initializer = tf.orthogonal_initializer()
+  #weights_initializer = slim.variance_scaling_initializer(factor=1.0 / np.sqrt(3.0), mode='FAN_IN', uniform=True)
 
   net = tf.cast(state, tf.float32)
   net = tf.squeeze(net, axis=2)
 
   for _ in range(num_layers):
     net = slim.fully_connected(net, layer_size,
-                               activation_fn=tf.nn.relu)
+                               activation_fn=tf.nn.relu, weights_initializer=weights_initializer)
   net = slim.fully_connected(net, num_actions * num_atoms, activation_fn=None,
                              weights_initializer=weights_initializer)
   net = tf.reshape(net, [-1, num_actions, num_atoms])

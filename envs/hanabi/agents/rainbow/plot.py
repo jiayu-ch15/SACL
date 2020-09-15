@@ -43,8 +43,8 @@ def summarize_data(data, summary_keys):
 
   return summary
 
-BASE_PATH = '/home/yuchao/project/mappo-sc/envs/hanabi/agents/rainbow/results/default_small5/logs'  # @param
-game="Hanabi-Small5"
+BASE_PATH = '/home/yuchao/project/mappo-sc/envs/hanabi/agents/rainbow/results/default_small2/logs'  # @param
+game="Hanabi-Small2"
 # Use our provided colab utils to load this log file. The second returned 
 raw_data, _ = colab_utils.load_statistics(BASE_PATH, verbose=True)
 
@@ -53,12 +53,12 @@ summarized_data = summarize_data(
 y = summarized_data['average_return']
 x = [i*10000 for i in range(len(y))]
 
-plt.plot(x,y,label='average_return')
+plt.plot(x,y,label='Score')
 
 plt.tick_params(axis='both',which='major') 
 
 x_major_locator=MultipleLocator(10000000)
-x_minor_Locator = MultipleLocator(100000)
+x_minor_Locator = MultipleLocator(1000000)
 ax=plt.gca()
 ax.xaxis.set_major_locator(x_major_locator)
 ax.xaxis.set_minor_locator(x_minor_Locator)
