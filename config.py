@@ -75,7 +75,7 @@ def get_config():
     parser.add_argument("--value_loss_coef", type=float, default=1, help='value loss coefficient (default: 0.5)')
     parser.add_argument("--lr", type=float, default=5e-4, help='learning rate (default: 7e-4)')
     parser.add_argument("--eps", type=float, default=1e-5, help='RMSprop optimizer epsilon (default: 1e-5)')
-    parser.add_argument("--weight_decay", type=float, default=1e-8)
+    parser.add_argument("--weight_decay", type=float, default=0)
     parser.add_argument("--use-max-grad-norm", action='store_false', default=True)
     parser.add_argument("--max-grad-norm", type=float, default=20.0, help='max norm of gradients (default: 0.5)')
     parser.add_argument("--use-gae", action='store_false', default=True, help='use generalized advantage estimation')
