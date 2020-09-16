@@ -192,7 +192,8 @@ class Policy(nn.Module):
         rnn_hxs_actor = rnn_hxs_actor.to(self.device)
         rnn_hxs_critic = rnn_hxs_critic.to(self.device)
         masks = masks.to(self.device)
-        high_masks = high_masks.to(self.device)
+        if high_masks is not None:
+            high_masks = high_masks.to(self.device
         action = action.to(self.device)
         value, actor_features, rnn_hxs_actor, rnn_hxs_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)
         
