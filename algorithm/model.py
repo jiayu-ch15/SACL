@@ -527,8 +527,12 @@ class MLPBase(NNBase):
                 share_obs_dim = obs_shape[0]*num_agents
             
         if self._use_feature_popart:
-            self.actor_popart = PopArt(obs_shape[0])
-            self.critic_popart = PopArt(share_obs_dim)
+            self.actor_norm = PopArt(obs_shape[0])
+            self.critic_norm = PopArt(share_obs_dim)
+            
+        if self._use_feature_normlization:
+            self.actor_norm = nn.LayerNorm(obs_shape[0])
+            self.critic_norm = nn.LayerNorm(share_obs_dim)
             
         if self._attn:           
             if use_average_pool == True:
@@ -560,10 +564,10 @@ class MLPBase(NNBase):
         if self._use_orthogonal:
             if self._use_ReLU:
                 active_func = nn.ReLU()
-                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('relu'))
             else:
                 active_func = nn.Tanh()
-                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
         else:
             if self._use_ReLU:
                 active_func = nn.ReLU()
@@ -582,10 +586,7 @@ class MLPBase(NNBase):
                 init_(nn.Linear(num_inputs_critic, hidden_size)), active_func)
             self.fc_h = nn.Sequential(init_(nn.Linear(hidden_size, hidden_size)), active_func)
             self.common_linear = get_clones(self.fc_h, self._layer_N)
-
-        if self._use_feature_normlization:
-            self.actor_norm = nn.LayerNorm(hidden_size)
-            self.critic_norm = nn.LayerNorm(hidden_size)
+            self.norm = nn.LayerNorm(hidden_size)
 
         self.critic_linear = init_(nn.Linear(hidden_size, 1))
 
@@ -593,9 +594,9 @@ class MLPBase(NNBase):
         x = inputs
         share_x = share_inputs
         
-        if self._use_feature_popart:
-            x = self.actor_popart(x)
-            share_x = self.critic_popart(share_x)
+        if self._use_feature_popart or self._use_feature_normlization:
+            x = self.actor_norm(x)
+            share_x = self.critic_norm(share_x)
 
         if self.is_attn:
             x = self.encoder_actor(x)
@@ -612,18 +613,14 @@ class MLPBase(NNBase):
             for i in range(self._layer_N):
                 hidden_actor = self.common_linear[i](hidden_actor)
                 hidden_critic = self.common_linear[i](hidden_critic) 
-            if self._use_feature_normlization:
-                hidden_actor = self.actor_norm(hidden_actor)
-                hidden_critic = self.critic_norm(hidden_critic) 
+            hidden_actor = self.norm(hidden_actor)
+            hidden_critic = self.norm(hidden_critic)            
             if self.is_recurrent or self.is_naive_recurrent:
                 hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
                 hidden_critic, rnn_hxs_critic = self._forward_gru(hidden_critic, rnn_hxs_critic, masks)
         else:
             hidden_actor = self.actor(x)
             hidden_critic = self.critic(share_x)
-            if self._use_feature_normlization:
-                hidden_actor = self.actor_norm(hidden_actor)
-                hidden_critic = self.critic_norm(hidden_critic)
             if self.is_recurrent or self.is_naive_recurrent:
                 hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
                 hidden_critic, rnn_hxs_critic = self._forward_gru_critic(hidden_critic, rnn_hxs_critic, masks)  
@@ -640,10 +637,10 @@ class FeedForward(nn.Module):
         if use_orthogonal:
             if use_ReLU:
                 active_func = nn.ReLU()
-                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('relu'))
             else:
                 active_func = nn.Tanh()
-                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
         else:
             if use_ReLU:
                 active_func = nn.ReLU()
@@ -728,10 +725,10 @@ class MLPLayer(nn.Module):
         if use_orthogonal:
             if use_ReLU:
                 active_func = nn.ReLU()
-                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('relu'))
             else:
                 active_func = nn.Tanh()
-                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
         else:
             if use_ReLU:
                 active_func = nn.ReLU()
@@ -743,11 +740,13 @@ class MLPLayer(nn.Module):
         self.fc1 = nn.Sequential(init_(nn.Linear(input_dim, hidden_size)), active_func)
         self.fc_h = nn.Sequential(init_(nn.Linear(hidden_size, hidden_size)), active_func)
         self.fc2 = get_clones(self.fc_h, self._layer_N)
+        self.norm = nn.LayerNorm(hidden_size)
     
     def forward(self, x):
         x = self.fc1(x)
         for i in range(self._layer_N):
             x = self.fc2[i](x)
+        x = self.norm(x)
         return x
 
 class EncoderLayer(nn.Module):
@@ -777,10 +776,10 @@ class SelfEmbedding(nn.Module):
         if use_orthogonal:
             if use_ReLU:
                 active_func = nn.ReLU()
-                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('relu'))
             else:
                 active_func = nn.Tanh()
-                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
         else:
             if use_ReLU:
                 active_func = nn.ReLU()
@@ -822,10 +821,10 @@ class Embedding(nn.Module):
         if use_orthogonal:
             if use_ReLU:
                 active_func = nn.ReLU()
-                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('relu'))
             else:
                 active_func = nn.Tanh()
-                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), np.sqrt(2))
+                init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
         else:
             if use_ReLU:
                 active_func = nn.ReLU()

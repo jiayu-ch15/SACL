@@ -43,8 +43,8 @@ def summarize_data(data, summary_keys):
 
   return summary
 
-BASE_PATH = '/home/yuchao/project/mappo-sc/envs/hanabi/agents/rainbow/results/default_small2/logs'  # @param
-game="Hanabi-Small2"
+BASE_PATH = '/home/yuchao/project/mappo-sc/envs/hanabi/agents/rainbow/results/orthogonal_small2/logs'  # @param
+game="Hanabi-Orthogonal-Small2"
 # Use our provided colab utils to load this log file. The second returned 
 raw_data, _ = colab_utils.load_statistics(BASE_PATH, verbose=True)
 
