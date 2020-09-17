@@ -93,7 +93,7 @@ class Policy(nn.Module):
     def forward(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks):
         raise NotImplementedError
 
-    def act(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks, available_actions=None, deterministic=False):
+    def act(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks, available_actions=None, deterministic=False):
         share_inputs = share_inputs.to(self.device)
         inputs = inputs.to(self.device)
         rnn_hxs_actor = rnn_hxs_actor.to(self.device)
@@ -102,7 +102,7 @@ class Policy(nn.Module):
         if available_actions is not None:
             available_actions = available_actions.to(self.device)
         
-        value, actor_features, rnn_hxs_actor, rnn_hxs_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)        
+        value, actor_features, rnn_hxs_actor, rnn_hxs_critic = self.base(share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)        
         
         if self.mixed_action:
             dist, action, action_log_probs = [None, None], [None, None], [None, None]
@@ -152,7 +152,7 @@ class Policy(nn.Module):
             action_log_probs_out = action_log_probs  
         return value, action_out, action_log_probs_out, rnn_hxs_actor, rnn_hxs_critic
 
-    def get_value(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks):
+    def get_value(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks):
     
         share_inputs = share_inputs.to(self.device)
         inputs = inputs.to(self.device)
@@ -160,7 +160,7 @@ class Policy(nn.Module):
         rnn_hxs_critic = rnn_hxs_critic.to(self.device)
         masks = masks.to(self.device)
         
-        value, _, rnn_hxs_actor, rnn_hxs_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)
+        value, _, rnn_hxs_actor, rnn_hxs_critic = self.base(share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)
         
         return value, rnn_hxs_actor, rnn_hxs_critic
 
@@ -174,7 +174,7 @@ class Policy(nn.Module):
         if high_masks is not None:
             high_masks = high_masks.to(self.device)
         action = action.to(self.device)
-        value, actor_features, rnn_hxs_actor, rnn_hxs_critic = self.base(agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)
+        value, actor_features, rnn_hxs_actor, rnn_hxs_critic = self.base(share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)
         
         if self.mixed_action:
             a, b = action.split((2, 1), -1)
@@ -542,7 +542,7 @@ class MLPBase(NNBase):
 
         self.critic_linear = init_(nn.Linear(hidden_size, 1))
 
-    def forward(self, agent_id, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks):
+    def forward(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks):
         x = inputs
         share_x = share_inputs
         
@@ -552,7 +552,7 @@ class MLPBase(NNBase):
 
         if self.is_attn:
             x = self.encoder_actor(x)
-            share_x = self.encoder_critic(share_x, agent_id)
+            share_x = self.encoder_critic(share_x)
                             
         if self._use_common_layer:
             hidden_actor = self.actor(x)
@@ -598,8 +598,7 @@ class FeedForward(nn.Module):
                 init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('relu'))
             else:
                 active_func = nn.Tanh()
-                init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
-        
+                init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))        
            
         self.linear_1 = nn.Sequential(init_(nn.Linear(d_model, d_ff)), active_func)
 

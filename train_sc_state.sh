@@ -1,6 +1,6 @@
 #!/bin/sh
 env="StarCraft2"
-map="3m"
+map="5m_vs_6m"
 algo="check"
 seed_max=1
 
