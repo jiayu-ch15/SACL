@@ -281,7 +281,7 @@ def chooseworker(remote, parent_remote, env_fn_wrapper):
             remote.close()
             break
         elif cmd == 'get_spaces':
-            remote.send((env.observation_space, env.action_space))
+            remote.send((env.observation_space, env.share_observation_space, env.action_space))
         else:
             raise NotImplementedError
 
@@ -302,8 +302,8 @@ class ChooseSubprocVecEnv(VecEnv):
         for remote in self.work_remotes:
             remote.close()
         self.remotes[0].send(('get_spaces', None))
-        observation_space, action_space = self.remotes[0].recv()
-        VecEnv.__init__(self, len(env_fns), observation_space, action_space)
+        observation_space, share_observation_space, action_space = self.remotes[0].recv()
+        VecEnv.__init__(self, len(env_fns), observation_space, share_observation_space, action_space)
 
     def step_async(self, actions):
         for remote, action in zip(self.remotes, actions):

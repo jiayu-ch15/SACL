@@ -156,10 +156,12 @@ class HanabiEnv(Environment):
     self.players = self.game.num_players()
     self.action_space = []
     self.observation_space = []
+    self.share_observation_space = []
     for i in range(self.players):
         self.action_space.append(Discrete(self.num_moves()))
         self.observation_space.append([self.vectorized_observation_shape()[0]+self.players])
-           
+        self.share_observation_space.append([self.vectorized_observation_shape()[0]+self.players])
+          
   def reset(self, choose=True):
     """Resets the environment for a new game.
 
