@@ -836,6 +836,22 @@ char* ObservationShape(pyhanabi_observation_encoder_t* encoder) {
   return strdup(shape_str.c_str());
 }
 
+char* OwnHandShape(pyhanabi_observation_encoder_t* encoder) {
+  REQUIRE(encoder != nullptr);
+  REQUIRE(encoder->encoder != nullptr);
+  auto obs_enc = reinterpret_cast<hanabi_learning_env::ObservationEncoder*>(
+      encoder->encoder);
+  std::vector<int> shape = obs_enc->OwnHandShape();
+  std::string shape_str = "";
+  for (int i = 0; i < shape.size(); i++) {
+    shape_str += std::to_string(shape[i]);
+    if (i != shape.size() - 1) {
+      shape_str += ",";
+    }
+  }
+  return strdup(shape_str.c_str());
+}
+
 char* EncodeObservation(pyhanabi_observation_encoder_t* encoder,
                         pyhanabi_observation_t* observation) {
   REQUIRE(encoder != nullptr);
@@ -847,6 +863,27 @@ char* EncodeObservation(pyhanabi_observation_encoder_t* encoder,
   auto obs = reinterpret_cast<hanabi_learning_env::HanabiObservation*>(
       observation->observation);
   std::vector<int> encoding = obs_enc->Encode(*obs);
+  std::string obs_str = "";
+  for (int i = 0; i < encoding.size(); i++) {
+    obs_str += (encoding[i] ? "1" : "0");
+    if (i != encoding.size() - 1) {
+      obs_str += ",";
+    }
+  }
+  return strdup(obs_str.c_str());
+}
+
+char* EncodeOwnHandObservation(pyhanabi_observation_encoder_t* encoder,
+                        pyhanabi_observation_t* observation) {
+  REQUIRE(encoder != nullptr);
+  REQUIRE(encoder->encoder != nullptr);
+  REQUIRE(observation != nullptr);
+  REQUIRE(observation->observation != nullptr);
+  auto obs_enc = reinterpret_cast<hanabi_learning_env::ObservationEncoder*>(
+      encoder->encoder);
+  auto obs = reinterpret_cast<hanabi_learning_env::HanabiObservation*>(
+      observation->observation);
+  std::vector<int> encoding = obs_enc->EncodeOwnHand(*obs);
   std::string obs_str = "";
   for (int i = 0; i < encoding.size(); i++) {
     obs_str += (encoding[i] ? "1" : "0");

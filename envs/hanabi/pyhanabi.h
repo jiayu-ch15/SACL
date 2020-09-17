@@ -186,7 +186,10 @@ void NewObservationEncoder(pyhanabi_observation_encoder_t* encoder,
                            pyhanabi_game_t* game, int type);
 void DeleteObservationEncoder(pyhanabi_observation_encoder_t* encoder);
 char* ObservationShape(pyhanabi_observation_encoder_t* encoder);
+char* OwnHandShape(pyhanabi_observation_encoder_t* encoder);
 char* EncodeObservation(pyhanabi_observation_encoder_t* encoder,
+                        pyhanabi_observation_t* observation);
+char* EncodeOwnHandObservation(pyhanabi_observation_encoder_t* encoder,
                         pyhanabi_observation_t* observation);
 
 } /* extern "C" */

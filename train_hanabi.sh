@@ -1,6 +1,6 @@
 #!/bin/sh
 env="Hanabi"
-hanabi="Hanabi-Full-Minimal"
+hanabi="Hanabi-Small"
 num_agents=2
 #algo="value0_samedim_fullminimal2_parallel1000_length80_batch5_ppo15_lr7e-4_512_1mlp2gru_relu_100M"
 algo="check"

@@ -14,12 +14,12 @@ from tensorboardX import SummaryWriter
 
 from envs import HanabiEnv
 from algorithm.ppo import PPO
-from algorithm.model import Policy
+from algorithm.share_model import Policy
 
 from config import get_config
 from utils.env_wrappers import ChooseSubprocVecEnv
 from utils.util import update_linear_schedule
-from utils.storage import RolloutStorage
+from utils.share_storage import RolloutStorage
 import shutil
 import numpy as np
 
@@ -99,14 +99,13 @@ def main():
     if args.share_policy:
         if args.model_dir==None or args.model_dir=="":
             actor_critic = Policy(envs.observation_space[0], 
+                    envs.share_observation_space[0],
                     envs.action_space[0],
-                    num_agents = num_agents,
                     base_kwargs={'naive_recurrent': args.naive_recurrent_policy,
                                  'recurrent': args.recurrent_policy,
                                  'hidden_size': args.hidden_size,
                                  'recurrent_N': args.recurrent_N,
-                                 'attn': args.attn,
-                                 'attn_only_critic': args.attn_only_critic,                                 
+                                 'attn': args.attn,                                 
                                  'attn_size': args.attn_size,
                                  'attn_N': args.attn_N,
                                  'attn_heads': args.attn_heads,
@@ -117,8 +116,7 @@ def main():
                                  'use_feature_popart':args.use_feature_popart,
                                  'use_orthogonal':args.use_orthogonal,
                                  'layer_N':args.layer_N,
-                                 'use_ReLU':args.use_ReLU,
-                                 'use_same_dim':args.use_same_dim                                 
+                                 'use_ReLU':args.use_ReLU                                 
                                  },
                     device = device)
         else:       
@@ -151,24 +149,23 @@ def main():
         rollouts = RolloutStorage(num_agents,
                     args.episode_length, 
                     args.n_rollout_threads,
-                    envs.observation_space[0], 
+                    envs.observation_space[0],
+                    envs.share_observation_space[0], 
                     envs.action_space[0],
-                    args.hidden_size,
-                    use_same_dim=args.use_same_dim)        
+                    args.hidden_size)        
     else:
         actor_critic = []
         agents = []
         for agent_id in range(num_agents):
             if args.model_dir==None or args.model_dir=="":
-                ac = Policy(envs.observation_space[0], 
+                ac = Policy(envs.observation_space[0],
+                      envs.share_observation_space[0], 
                       envs.action_space[0],
-                      num_agents = num_agents,
                       base_kwargs={'naive_recurrent': args.naive_recurrent_policy,
                                  'recurrent': args.recurrent_policy,
                                  'hidden_size': args.hidden_size,
                                  'recurrent_N': args.recurrent_N,
-                                 'attn': args.attn,  
-                                 'attn_only_critic': args.attn_only_critic,                                
+                                 'attn': args.attn,                                
                                  'attn_size': args.attn_size,
                                  'attn_N': args.attn_N,
                                  'attn_heads': args.attn_heads,
@@ -179,8 +176,7 @@ def main():
                                  'use_feature_popart':args.use_feature_popart,
                                  'use_orthogonal':args.use_orthogonal,
                                  'layer_N':args.layer_N,
-                                 'use_ReLU':args.use_ReLU,
-                                 'use_same_dim':args.use_same_dim
+                                 'use_ReLU':args.use_ReLUm
                                  },
                       device = device)
             else:       
@@ -215,25 +211,15 @@ def main():
         rollouts = RolloutStorage(num_agents,
                     args.episode_length, 
                     args.n_rollout_threads,
-                    envs.observation_space[0], 
+                    envs.observation_space[0],
+                    envs.share_observation_space[0], 
                     envs.action_space[0],
-                    args.hidden_size,
-                    use_same_dim=args.use_same_dim)
+                    args.hidden_size)
     
     # reset env 
     reset_choose = np.ones(args.n_rollout_threads)==1.0 
-    obs, available_actions = envs.reset(reset_choose)
-        
-    # replay buffer 
-    if args.use_same_dim:
-        share_obs = obs
-    else: 
-        if len(envs.observation_space[0]) == 3:
-            share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])        
-        else:
-            share_obs = obs.reshape(args.n_rollout_threads, -1)
-        share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
-       
+    obs, share_obs, available_actions = envs.reset(reset_choose)
+    # replay buffer  
     use_obs = obs.copy()
     use_share_obs = share_obs.copy()
     use_available_actions = available_actions.copy()
@@ -277,8 +263,7 @@ def main():
                         break                 
                     if args.share_policy:
                         actor_critic.eval()
-                        value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(current_agent_id,
-                            torch.FloatTensor(use_share_obs[choose,current_agent_id]), 
+                        value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(torch.FloatTensor(use_share_obs[choose,current_agent_id]), 
                             torch.FloatTensor(use_obs[choose,current_agent_id]), 
                             torch.FloatTensor(turn_recurrent_hidden_states[choose,current_agent_id]), 
                             torch.FloatTensor(turn_recurrent_hidden_states_critic[choose,current_agent_id]),
@@ -286,8 +271,7 @@ def main():
                             torch.FloatTensor(use_available_actions[choose,current_agent_id]))
                     else:
                         actor_critic[current_agent_id].eval()
-                        value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic[current_agent_id].act(current_agent_id,
-                            torch.FloatTensor(use_share_obs[choose,current_agent_id]), 
+                        value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic[current_agent_id].act(torch.FloatTensor(use_share_obs[choose,current_agent_id]), 
                             torch.FloatTensor(use_obs[choose,current_agent_id]), 
                             torch.FloatTensor(turn_recurrent_hidden_states[choose,current_agent_id]), 
                             torch.FloatTensor(turn_recurrent_hidden_states_critic[choose,current_agent_id]),
@@ -304,16 +288,7 @@ def main():
                     turn_recurrent_hidden_states[choose,current_agent_id] = recurrent_hidden_states.detach().cpu().numpy()
                     turn_recurrent_hidden_states_critic[choose,current_agent_id] = recurrent_hidden_states_critic.detach().cpu().numpy()
                     
-                    obs, reward, done, infos, available_actions = envs.step(env_actions) 
-                    
-                    if args.use_same_dim:
-                        share_obs = obs
-                    else:
-                        if len(envs.observation_space[0]) == 3:
-                            share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])        
-                        else:
-                            share_obs = obs.reshape(args.n_rollout_threads, -1)                                            
-                        share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
+                    obs, share_obs, reward, done, infos, available_actions = envs.step(env_actions) 
                     
                     use_obs = obs.copy()
                     use_share_obs = share_obs.copy()
@@ -333,27 +308,7 @@ def main():
                                 turn_rewards[n_rollout_thread, left_agent_id] = turn_rewards_since_last_action[n_rollout_thread, left_agent_id]
                                 turn_rewards_since_last_action[n_rollout_thread, left_agent_id] = 0.0
                                 # other variables use what at last time, action will be useless.
-                                '''
-                                if left_agent_id == (current_agent_id + 1):
-                                    if args.share_policy:                            
-                                        actor_critic.eval()
-                                        value, _, _ = actor_critic.get_value(left_agent_id,
-                                                            torch.FloatTensor(use_share_obs[n_rollout_thread,left_agent_id]).unsqueeze(0), 
-                                                            torch.FloatTensor(use_obs[n_rollout_thread,left_agent_id]).unsqueeze(0), 
-                                                            torch.FloatTensor(turn_recurrent_hidden_states[n_rollout_thread,left_agent_id]).unsqueeze(0), 
-                                                            torch.FloatTensor(turn_recurrent_hidden_states_critic[n_rollout_thread,left_agent_id]).unsqueeze(0),
-                                                            torch.FloatTensor(turn_masks[n_rollout_thread,left_agent_id]).unsqueeze(0)
-                                                            )
-                                    else:
-                                        actor_critic[left_agent_id].eval()
-                                        value, _, _ = actor_critic[left_agent_id].get_value(left_agent_id,
-                                                            torch.FloatTensor(use_share_obs[n_rollout_thread,left_agent_id]).unsqueeze(0), 
-                                                            torch.FloatTensor(use_obs[n_rollout_thread,left_agent_id]).unsqueeze(0), 
-                                                            torch.FloatTensor(turn_recurrent_hidden_states[n_rollout_thread,left_agent_id]).unsqueeze(0), 
-                                                            torch.FloatTensor(turn_recurrent_hidden_states_critic[n_rollout_thread,left_agent_id]).unsqueeze(0),
-                                                            torch.FloatTensor(turn_masks[n_rollout_thread,left_agent_id]).unsqueeze(0)
-                                                            )
-                                '''
+                                
                                 turn_values[n_rollout_thread,left_agent_id] = 0.0
                                 turn_obs[n_rollout_thread,left_agent_id] = use_obs[n_rollout_thread,left_agent_id]                                      
                                 turn_share_obs[n_rollout_thread,left_agent_id] = use_share_obs[n_rollout_thread,left_agent_id]                             
@@ -384,17 +339,8 @@ def main():
                                   turn_available_actions)
                             
             # env reset
-            obs, available_actions = envs.reset(reset_choose)
+            obs, share_obs, available_actions = envs.reset(reset_choose)
 
-            if args.use_same_dim:          
-                share_obs = obs
-            else:
-                if len(envs.observation_space[0]) == 3:
-                    share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])        
-                else:
-                    share_obs = obs.reshape(args.n_rollout_threads, -1)                   
-                share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
-            
             use_obs[reset_choose] = obs[reset_choose]
             use_share_obs[reset_choose] = share_obs[reset_choose]
             use_available_actions[reset_choose] = available_actions[reset_choose]
@@ -407,8 +353,7 @@ def main():
             for i in range(num_agents):         
                 if args.share_policy:
                     actor_critic.eval()                 
-                    next_value,_,_ = actor_critic.get_value(i,
-                                                   torch.tensor(rollouts.share_obs[-1,:,i]), 
+                    next_value,_,_ = actor_critic.get_value(torch.tensor(rollouts.share_obs[-1,:,i]), 
                                                    torch.tensor(rollouts.obs[-1,:,i]), 
                                                    torch.tensor(rollouts.recurrent_hidden_states[-1,:,i]),
                                                    torch.tensor(rollouts.recurrent_hidden_states_critic[-1,:,i]),
@@ -424,8 +369,7 @@ def main():
                                     agents.value_normalizer)
                 else:
                     actor_critic[i].eval()
-                    next_value,_,_ = actor_critic[i].get_value(i,
-                                                   torch.tensor(rollouts.share_obs[-1,:,i]), 
+                    next_value,_,_ = actor_critic[i].get_value(torch.tensor(rollouts.share_obs[-1,:,i]), 
                                                    torch.tensor(rollouts.obs[-1,:,i]), 
                                                    torch.tensor(rollouts.recurrent_hidden_states[-1,:,i]),
                                                    torch.tensor(rollouts.recurrent_hidden_states_critic[-1,:,i]),
@@ -511,8 +455,7 @@ def main():
         if episode % args.eval_interval == 0 and args.eval:
             eval_scores = []
             eval_episode = 0
-            eval_obs, eval_available_actions = eval_env.reset([True])
-            eval_share_obs = eval_obs.reshape(1, -1)
+            eval_obs, eval_share_obs, eval_available_actions = eval_env.reset([True])
             eval_actions = np.ones((1, num_agents, 1)).astype(np.float32)*(-1.0)
             eval_recurrent_hidden_states = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
             eval_recurrent_hidden_states_critic = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
@@ -522,8 +465,7 @@ def main():
                 for agent_id in range(num_agents):
                     if args.share_policy:
                         actor_critic.eval()
-                        _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(agent_id,
-                            torch.FloatTensor(eval_share_obs), 
+                        _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(torch.FloatTensor(eval_share_obs[:,agent_id]), 
                             torch.FloatTensor(eval_obs[:,agent_id]), 
                             torch.FloatTensor(eval_recurrent_hidden_states[:,agent_id]), 
                             torch.FloatTensor(eval_recurrent_hidden_states_critic[:,agent_id]),
@@ -532,8 +474,7 @@ def main():
                             deterministic=True)
                     else:
                         actor_critic[agent_id].eval()
-                        _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic[agent_id].act(agent_id,
-                            torch.FloatTensor(eval_share_obs), 
+                        _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic[agent_id].act(torch.FloatTensor(eval_share_obs[:,agent_id]), 
                             torch.FloatTensor(eval_obs[:,agent_id]), 
                             torch.FloatTensor(eval_recurrent_hidden_states[:,agent_id]), 
                             torch.FloatTensor(eval_recurrent_hidden_states_critic[:,agent_id]),
@@ -546,21 +487,14 @@ def main():
                     eval_recurrent_hidden_states_critic[:,agent_id] = recurrent_hidden_states_critic.detach().cpu().numpy()
                         
                     # Obser reward and next obs
-                    eval_obs, eval_rewards, eval_dones, eval_infos, eval_available_actions = eval_env.step(eval_actions)
-                    if args.use_same_dim:
-                        eval_share_obs = eval_obs
-                    else:
-                        eval_share_obs = eval_obs.reshape(1, -1)
-                                                        
+                    eval_obs, eval_share_obs, eval_rewards, eval_dones, eval_infos, eval_available_actions = eval_env.step(eval_actions)
+                                                       
                     if eval_dones[0]:                         
                         eval_episode += 1
                         if 'score' in eval_infos[0].keys():
                             eval_scores.append(eval_infos[0]['score'])
-                        eval_obs, eval_available_actions = eval_env.reset([True])
-                        if args.use_same_dim:
-                            eval_share_obs = eval_obs
-                        else:
-                            eval_share_obs = eval_obs.reshape(1, -1)  
+                        eval_obs, eval_share_obs, eval_available_actions = eval_env.reset([True])
+                          
                         eval_recurrent_hidden_states = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
                         eval_recurrent_hidden_states_critic = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
                         eval_actions = np.ones((1, num_agents, 1)).astype(np.float32)*(-1.0)

@@ -54,6 +54,10 @@ int HandsSectionLength(const HanabiGame& game) {
          game.NumPlayers();
 }
 
+int OwnHandLength(const HanabiGame& game) {
+  return game.HandSize() * BitsPerCard(game);
+}
+
 // Enocdes cards in all other player's hands (excluding our unknown hand),
 // and whether the hand is missing a card for all players (when deck is empty.)
 // Each card in a hand is encoded with a one-hot representation using
@@ -430,6 +434,10 @@ std::vector<int> CanonicalObservationEncoder::Shape() const {
                : CardKnowledgeSectionLength(*parent_game_))};
 }
 
+std::vector<int> CanonicalObservationEncoder::OwnHandShape() const {
+  return {OwnHandLength(*parent_game_)};
+}
+
 std::vector<int> CanonicalObservationEncoder::Encode(
     const HanabiObservation& obs) const {
   // Make an empty bit string of the proper size.
@@ -447,6 +455,29 @@ std::vector<int> CanonicalObservationEncoder::Encode(
   }
 
   assert(offset == encoding.size());
+  return encoding;
+}
+
+std::vector<int> CanonicalObservationEncoder::EncodeOwnHand(
+    const HanabiObservation& obs
+) const {
+  int bits_per_card =  BitsPerCard(*parent_game_);
+  int len = parent_game_->HandSize() * bits_per_card;
+  std::vector<int> encoding(len, 0);
+
+  const std::vector<HanabiCard>& cards = obs.OwnHands()[0].Cards();
+  const int num_ranks = parent_game_->NumRanks();
+
+  int offset = 0;
+  for (const HanabiCard& card : cards) {
+    // Only a player's own cards can be invalid/unobserved.
+    assert(card.IsValid());
+    int idx = CardIndex(card.Color(), card.Rank(), num_ranks);
+    encoding[offset + idx] = 1;
+    offset += bits_per_card;
+  }
+
+  assert(offset == cards.size() * bits_per_card);
   return encoding;
 }
 

@@ -160,8 +160,7 @@ class HanabiEnv(Environment):
     for i in range(self.players):
         self.action_space.append(Discrete(self.num_moves()))
         self.observation_space.append([self.vectorized_observation_shape()[0]+self.players])
-        self.share_observation_space.append([self.vectorized_observation_shape()[0]+self.players])
-          
+        self.share_observation_space.append([self.vectorized_share_observation_shape()[0]+self.players]) 
   def reset(self, choose=True):
     """Resets the environment for a new game.
 
@@ -274,14 +273,17 @@ class HanabiEnv(Environment):
         agent_turn[self.state.cur_player()]=1
        
         obs=[]
+        share_obs=[]
         available_actions = np.zeros((self.players,self.num_moves())) 
         for i in range(self.players): 
           obs.append(observation['player_observations'][i]['vectorized']+agent_turn)
+          share_obs.append(observation['player_observations'][i]['vectorized_ownhand']+observation['player_observations'][i]['vectorized']+agent_turn)
           available_actions[i][observation['player_observations'][i]['legal_moves_as_int']]=1.0
     else:
         obs = np.zeros((self.players,self.vectorized_observation_shape()[0]+self.players))
+        share_obs = np.zeros((self.players, self.vectorized_share_observation_shape()[0]+self.players))
         available_actions = np.zeros((self.players,self.num_moves())) 
-    return obs, available_actions
+    return obs, share_obs, available_actions
 
   def vectorized_observation_shape(self):
     """Returns the shape of the vectorized observation.
@@ -290,6 +292,14 @@ class HanabiEnv(Environment):
       A list of integer dimensions describing the observation shape.
     """
     return self.observation_encoder.shape()
+
+  def vectorized_share_observation_shape(self):
+    """Returns the shape of the vectorized observation.
+
+    Returns:
+      A list of integer dimensions describing the observation shape.
+    """
+    return [self.observation_encoder.ownhandshape()[0] + self.observation_encoder.shape()[0]]
 
   def num_moves(self):
     """Returns the total number of moves in this game (legal or not).
@@ -414,11 +424,12 @@ class HanabiEnv(Environment):
     elif isinstance(action, int):
       if action == -1:# invalid action
         obs = np.zeros((self.players,self.vectorized_observation_shape()[0]+self.players))
+        share_obs = np.zeros((self.players,self.vectorized_share_observation_shape()[0]+self.players))        
         rewards = np.zeros((self.players,1))
         done = None
         infos = {'score':self.state.score()}
         available_actions = np.zeros((self.players,self.num_moves()))
-        return obs, rewards, done, infos, available_actions
+        return obs, share_obs, rewards, done, infos, available_actions
       # Convert int action into a Hanabi move.
       action = self.game.get_move(action)     
     else:
@@ -434,12 +445,14 @@ class HanabiEnv(Environment):
       self.state.deal_random_card()
 
     observation = self._make_observation_all_players()
-    obs=[]
+    obs = []
+    share_obs = []
     available_actions = np.zeros((self.players,self.num_moves()))
     agent_turn=np.zeros(self.players).astype(np.int).tolist()
     agent_turn[self.state.cur_player()]=1
     for i in range(self.players):
       obs.append(observation['player_observations'][i]['vectorized'] + agent_turn)
+      share_obs.append(observation['player_observations'][i]['vectorized_ownhand']+observation['player_observations'][i]['vectorized']+agent_turn)
       available_actions[i][observation['player_observations'][i]['legal_moves_as_int']]=1.0
       
     done = self.state.is_terminal()
@@ -448,7 +461,7 @@ class HanabiEnv(Environment):
     rewards = [[reward]]*self.players
     infos = {'score':self.state.score()}
     
-    return obs, rewards, done, infos, available_actions
+    return obs, share_obs, rewards, done, infos, available_actions
 
   def _make_observation_all_players(self):
     """Make observation for all players.
@@ -518,6 +531,7 @@ class HanabiEnv(Environment):
 
     # ipdb.set_trace()
     obs_dict["vectorized"] = self.observation_encoder.encode(observation)
+    obs_dict["vectorized_ownhand"] = self.observation_encoder.encodeownhand(observation)
     obs_dict["pyhanabi"] = observation
 
     return obs_dict

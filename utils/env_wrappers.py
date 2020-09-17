@@ -4,7 +4,7 @@ Modified from OpenAI Baselines code to work with multi-agent envs
 import numpy as np
 import torch
 from multiprocessing import Process, Pipe
-from baselines.common.vec_env import VecEnv, CloudpickleWrapper
+from baselines.common.vec_env import ShareVecEnv, VecEnv, CloudpickleWrapper
 
 def simplifyworker(remote, parent_remote, env_fn_wrapper):
     parent_remote.close()
@@ -206,7 +206,7 @@ def shareworker(remote, parent_remote, env_fn_wrapper):
         else:
             raise NotImplementedError
 
-class ShareSubprocVecEnv(VecEnv):
+class ShareSubprocVecEnv(ShareVecEnv):
     def __init__(self, env_fns, spaces=None):
         """
         envs: list of gym environments to run in subprocesses
@@ -268,11 +268,11 @@ def chooseworker(remote, parent_remote, env_fn_wrapper):
     while True:
         cmd, data = remote.recv()
         if cmd == 'step':
-            ob, reward, done, info, available_actions = env.step(data)            
-            remote.send((ob, reward, done, info, available_actions))
+            ob, s_ob, reward, done, info, available_actions = env.step(data)            
+            remote.send((ob, s_ob, reward, done, info, available_actions))
         elif cmd == 'reset':
-            ob, available_actions = env.reset(data)           
-            remote.send((ob, available_actions))
+            ob, s_ob, available_actions = env.reset(data)           
+            remote.send((ob, s_ob, available_actions))
         elif cmd == 'reset_task':
             ob = env.reset_task()
             remote.send(ob)
@@ -285,7 +285,7 @@ def chooseworker(remote, parent_remote, env_fn_wrapper):
         else:
             raise NotImplementedError
 
-class ChooseSubprocVecEnv(VecEnv):
+class ChooseSubprocVecEnv(ShareVecEnv):
     def __init__(self, env_fns, spaces=None):
         """
         envs: list of gym environments to run in subprocesses
@@ -313,15 +313,15 @@ class ChooseSubprocVecEnv(VecEnv):
     def step_wait(self):
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
-        obs, rews, dones, infos, available_actions = zip(*results)
-        return np.stack(obs), np.stack(rews), np.stack(dones), infos, np.stack(available_actions)
+        obs, share_obs, rews, dones, infos, available_actions = zip(*results)
+        return np.stack(obs), np.stack(share_obs), np.stack(rews), np.stack(dones), infos, np.stack(available_actions)
 
     def reset(self, reset_choose):
         for remote, choose in zip(self.remotes,reset_choose):
             remote.send(('reset', choose))
         results = [remote.recv() for remote in self.remotes]
-        obs, available_actions = zip(*results)
-        return np.stack(obs), np.stack(available_actions)
+        obs, share_obs, available_actions = zip(*results)
+        return np.stack(obs), np.stack(share_obs), np.stack(available_actions)
 
     def reset_task(self):
         for remote in self.remotes:

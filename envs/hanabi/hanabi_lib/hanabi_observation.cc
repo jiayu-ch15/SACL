@@ -63,11 +63,14 @@ HanabiObservation::HanabiObservation(const HanabiState& state,
   REQUIRE(observing_player >= 0 &&
           observing_player < state.ParentGame()->NumPlayers());
   hands_.reserve(state.Hands().size());
+  ownhands_.reserve(1);
   const bool hide_knowledge =
       state.ParentGame()->ObservationType() == HanabiGame::kMinimal;
   const bool show_cards = state.ParentGame()->ObservationType() == HanabiGame::kSeer;
   hands_.push_back(
       HanabiHand(state.Hands()[observing_player], !show_cards, hide_knowledge));
+  ownhands_.push_back(
+      HanabiHand(state.Hands()[observing_player], false, hide_knowledge));
   for (int offset = 1; offset < state.ParentGame()->NumPlayers(); ++offset) {
     hands_.push_back(HanabiHand(state.Hands()[(observing_player + offset) %
                                               state.ParentGame()->NumPlayers()],

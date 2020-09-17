@@ -40,6 +40,7 @@ class HanabiObservation {
   // first player clock-wise from observing_player. hands[0][] has
   // invalid cards as players don't see their own cards.
   const std::vector<HanabiHand>& Hands() const { return hands_; }
+  const std::vector<HanabiHand>& OwnHands() const { return ownhands_; }
   // The element at the back is the most recent discard.
   const std::vector<HanabiCard>& DiscardPile() const { return discard_pile_; }
   const std::vector<int>& Fireworks() const { return fireworks_; }
@@ -65,6 +66,7 @@ class HanabiObservation {
  private:
   int cur_player_offset_;  // offset of current_player from observing_player
   std::vector<HanabiHand> hands_;         // observing player is element 0
+  std::vector<HanabiHand> ownhands_;         // observing player is element 0
   std::vector<HanabiCard> discard_pile_;  // back is most recent discard
   std::vector<int> fireworks_;
   int deck_size_;

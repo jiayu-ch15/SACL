@@ -33,7 +33,9 @@ class CanonicalObservationEncoder : public ObservationEncoder {
       : parent_game_(parent_game) {}
 
   std::vector<int> Shape() const override;
+  std::vector<int> OwnHandShape() const override;
   std::vector<int> Encode(const HanabiObservation& obs) const override;
+  std::vector<int> EncodeOwnHand(const HanabiObservation& obs) const override;
 
   ObservationEncoder::Type type() const override {
     return ObservationEncoder::Type::kCanonical;
