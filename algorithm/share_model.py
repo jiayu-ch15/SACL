@@ -28,9 +28,8 @@ class Flatten(nn.Module):
         return x.view(x.size(0), -1)
 
 class Policy(nn.Module):
-    def __init__(self, obs_space, action_space, num_agents, base=None, base_kwargs=None, device=torch.device("cpu")):
+    def __init__(self, obs_space, share_obs_space, action_space, base=None, base_kwargs=None, device=torch.device("cpu")):
         super(Policy, self).__init__()
-        self.mixed_obs = False
         self.mixed_action = False
         self.multi_discrete = False
         self.device = device
@@ -39,37 +38,17 @@ class Policy(nn.Module):
         
         if obs_space.__class__.__name__ == "Box":
             obs_shape = obs_space.shape
+            share_obs_shape = share_obs_space.shape
         elif obs_space.__class__.__name__ == "list":
-            if obs_space[-1].__class__.__name__ != "Box":
-                obs_shape = obs_space
-            else:# means all obs space is passed here
-                # num_agents means agent_id
-                # obs_space means all_obs_space
-                agent_id = num_agents
-                all_obs_space = obs_space
-                if all_obs_space[agent_id].__class__.__name__ == "Box":
-                    obs_shape = all_obs_space[agent_id].shape
-                else:
-                    obs_shape = all_obs_space[agent_id]
-                self.mixed_obs = True                
+            obs_shape = obs_space  
+            share_obs_shape = share_obs_space               
         else:
-            raise NotImplementedError
-        
-        if self.mixed_obs:
-            if len(obs_shape) == 3:
-                self.base = CNNBase(all_obs_space, agent_id, **base_kwargs)
-            elif len(obs_shape) == 1:
-                self.base = MLPBase(all_obs_space, agent_id, **base_kwargs)
-            else:
-                raise NotImplementedError
+            raise NotImplementedError    
+       
+        if len(obs_shape) == 3:
+            self.base = CNNBase(obs_shape, share_obs_shape, **base_kwargs)
         else:
-            if obs_shape[-1].__class__.__name__=='list':#attn
-                self.base = MLPBase(obs_shape, num_agents, **base_kwargs)
-            else:
-                if len(obs_shape) == 3:
-                    self.base = CNNBase(obs_shape, num_agents, **base_kwargs)
-                else:
-                    self.base = MLPBase(obs_shape, num_agents, **base_kwargs)
+            self.base = MLPBase(obs_shape, share_obs_shape, **base_kwargs)
                 
         if action_space.__class__.__name__ == "Discrete":
             num_actions = action_space.n            
@@ -239,28 +218,20 @@ class Policy(nn.Module):
 
 #obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer, use_orthogonal
 class NNBase(nn.Module):
-    def __init__(self, obs_shape, num_agents, naive_recurrent=False, recurrent=False, hidden_size=64, recurrent_N=1,
-                 attn=False, attn_only_critic=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, 
-                 use_common_layer=False, use_orthogonal=True, use_ReLU=False, use_same_dim=False):
+    def __init__(self, obs_shape, share_obs_shape, naive_recurrent=False, recurrent=False, hidden_size=64, recurrent_N=1,
+                 attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, 
+                 use_common_layer=False, use_orthogonal=True, use_ReLU=False):
         super(NNBase, self).__init__()
 
         self._hidden_size = hidden_size
         self._recurrent = recurrent
         self._naive_recurrent = naive_recurrent
         self._attn = attn
-        self._attn_only_critic = attn_only_critic
         self._use_common_layer = use_common_layer
-        self._use_same_dim = use_same_dim
         #input_size, split_shape=None, d_model=512, attn_N=2, heads=8, dropout=0.0, use_average_pool=True, use_orthogonal=True 
         if self._attn:
-            if self._use_same_dim:
-                self.encoder_actor = Encoder(obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
-                self.encoder_critic = Encoder(obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)   
-            else:
-                self.encoder_actor = Encoder(obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
-                self.encoder_critic = Encoder([[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
-        elif self._attn_only_critic:
-            self.encoder_critic = Encoder([[1,obs_shape[0]]]*num_agents, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU)
+            self.encoder_actor = Encoder(obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU, cat_self=True)
+            self.encoder_critic = Encoder(share_obs_shape, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_orthogonal, use_ReLU, cat_self=False)
         
         if self._recurrent or self._naive_recurrent:
             self.gru = nn.GRU(hidden_size, hidden_size, num_layers=recurrent_N)         
@@ -491,13 +462,13 @@ class CNNBase(NNBase):
         return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs_actor, rnn_hxs_critic
 
 class MLPBase(NNBase):
-    def __init__(self, obs_shape, num_agents, naive_recurrent = False, recurrent=False, hidden_size=64, recurrent_N=1,
-                attn=False, attn_only_critic=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, 
+    def __init__(self, obs_shape, share_obs_shape, naive_recurrent = False, recurrent=False, hidden_size=64, recurrent_N=1,
+                attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, 
                 use_common_layer=False, use_feature_normlization=True, use_feature_popart=True, 
-                use_orthogonal=True, layer_N=1, use_ReLU=False, use_same_dim=False):
-        super(MLPBase, self).__init__(obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, recurrent_N,
-                                      attn, attn_only_critic, attn_size, attn_N, attn_heads, dropout, use_average_pool, 
-                                      use_common_layer, use_orthogonal, use_ReLU, use_same_dim)
+                use_orthogonal=True, layer_N=1, use_ReLU=False):
+        super(MLPBase, self).__init__(obs_shape, share_obs_shape, naive_recurrent, recurrent, hidden_size, recurrent_N,
+                                      attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, 
+                                      use_common_layer, use_orthogonal, use_ReLU)
 
         self._use_common_layer = use_common_layer
         self._use_feature_normlization = use_feature_normlization
@@ -505,61 +476,38 @@ class MLPBase(NNBase):
         self._use_orthogonal = use_orthogonal
         self._layer_N = layer_N
         self._use_ReLU = use_ReLU
-        self._use_same_dim = use_same_dim
         self._attn = attn
-        self._attn_only_critic = attn_only_critic
         
         assert (self._use_feature_normlization and self._use_feature_popart) == False, ("--use_feature_normlization and --use_feature_popart can not be set True simultaneously.")
-        if 'int' not in obs_shape[0].__class__.__name__: # mixed obs
-            all_obs_space = obs_shape
-            agent_id = num_agents
-            num_agents = len(all_obs_space)
-            if all_obs_space[agent_id].__class__.__name__ == "Box":
-                obs_shape = all_obs_space[agent_id].shape
-            else:
-                obs_shape = all_obs_space[agent_id]
-            share_obs_dim = 0
-            for obs_space in all_obs_space:
-                share_obs_dim += obs_space.shape[0]
-        else:
-            if self._use_same_dim:
-                share_obs_dim = obs_shape[0]
-            else:
-                share_obs_dim = obs_shape[0]*num_agents
+        
+        obs_dim = obs_shape[0]
+        share_obs_dim = share_obs_shape[0]
             
         if self._use_feature_popart:
-            self.actor_norm = PopArt(obs_shape[0])
+            self.actor_norm = PopArt(obs_dim)
             self.critic_norm = PopArt(share_obs_dim)
             
         if self._use_feature_normlization:
-            self.actor_norm = nn.LayerNorm(obs_shape[0])
+            self.actor_norm = nn.LayerNorm(obs_dim)
             self.critic_norm = nn.LayerNorm(share_obs_dim)
             
         if self._attn:           
             if use_average_pool == True:
                 num_inputs_actor = attn_size + obs_shape[-1][1]
-                if self._use_same_dim:            
-                    num_inputs_critic = attn_size + obs_shape[-1][1]
-                else:
-                    num_inputs_critic = attn_size 
+                num_inputs_critic = attn_size 
             else:
-                num_inputs = 0
-                split_shape = obs_shape[1:]
+                num_inputs = 0                
+                split_shape = obs_shape[1:]                
                 for i in range(len(split_shape)):
                     num_inputs += split_shape[i][0]
+                num_inputs_critic = 0
+                split_shape_critic = share_obs_shape[1:]
+                for i in range(len(split_shape_critic)):
+                    num_inputs_critic += split_shape_critic[i][0]
                 num_inputs_actor = num_inputs * attn_size
-                if self._use_same_dim:
-                    num_inputs_critic = num_inputs * attn_size
-                else:
-                    num_inputs_critic = num_agents * attn_size
-        elif self._attn_only_critic:
-            num_inputs_actor = obs_shape[0]
-            if use_average_pool == True:
-                num_inputs_critic = attn_size
-            else:
-                num_inputs_critic = num_agents * attn_size
+                num_inputs_critic = num_inputs_critic * attn_size
         else:
-            num_inputs_actor = obs_shape[0]
+            num_inputs_actor = obs_dim
             num_inputs_critic = share_obs_dim
             
         if self._use_orthogonal:
@@ -604,11 +552,6 @@ class MLPBase(NNBase):
 
         if self.is_attn:
             x = self.encoder_actor(x)
-            if self._use_same_dim:
-                share_x = self.encoder_critic(share_x)
-            else:
-                share_x = self.encoder_critic(share_x, agent_id)
-        elif self._attn_only_critic:
             share_x = self.encoder_critic(share_x, agent_id)
                             
         if self._use_common_layer:
@@ -863,17 +806,16 @@ class Embedding(nn.Module):
         return out, self_x
    
 class Encoder(nn.Module):
-    def __init__(self, split_shape, d_model=512, attn_N=2, heads=8, dropout=0.0, use_average_pool=True, use_orthogonal=True, use_ReLU=False):
+    def __init__(self, split_shape, d_model=512, attn_N=2, heads=8, dropout=0.0, use_average_pool=True, use_orthogonal=True, use_ReLU=False, cat_self=False):
         super(Encoder, self).__init__()
                                        
         self._attn_N = attn_N
         self._use_average_pool = use_average_pool
-        self.catself=False
-        if split_shape[0].__class__ == list:           
-            self.embedding = Embedding(split_shape, d_model, use_orthogonal, use_ReLU)
-        else:
-            self.catself=True
+        self._cat_self= cat_self
+        if self._cat_self:
             self.embedding = SelfEmbedding(split_shape[1:], d_model, use_orthogonal, use_ReLU)
+        else:
+            self.embedding = Embedding(split_shape[1:], d_model, use_orthogonal, use_ReLU)
         self.layers = get_clones(EncoderLayer(d_model, heads, dropout, use_orthogonal, use_ReLU), self._attn_N)
         self.norm = nn.LayerNorm(d_model)
         
@@ -885,7 +827,7 @@ class Encoder(nn.Module):
         if self._use_average_pool:
             x = torch.transpose(x, 1, 2) 
             x = F.avg_pool1d(x, kernel_size=x.size(-1)).view(x.size(0), -1)
-            if self.catself:
+            if self._cat_self:
                 x = torch.cat((x, self_x), dim=-1)
         x = x.view(x.size(0), -1)
         return x    

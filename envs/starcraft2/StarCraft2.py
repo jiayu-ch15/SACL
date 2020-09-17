@@ -298,9 +298,11 @@ class StarCraft2Env(MultiAgentEnv):
         
         self.action_space = []
         self.observation_space = []
+        self.share_observation_space = []
         for i in range(self.n_agents):
             self.action_space.append(Discrete(self.n_actions))
             self.observation_space.append(self.get_obs_size())
+            self.share_observation_space.append(self.get_state_size())
 
     def _launch(self):
         """Launch the StarCraft II game."""
@@ -390,7 +392,7 @@ class StarCraft2Env(MultiAgentEnv):
             logging.debug("Started Episode {}"
                           .format(self._episode_count).center(60, "*"))
 
-        return self.get_obs(), available_actions
+        return self.get_obs(), self.get_state(), available_actions
 
     def _restart(self):
         """Restart the environment by killing all units on the map.
@@ -461,7 +463,7 @@ class StarCraft2Env(MultiAgentEnv):
                     info[i]["high_masks"] = False
                 else:
                     info[i]["high_masks"] = True
-            return self.get_obs(),[[0]]*self.n_agents, terminated, info, available_actions
+            return self.get_obs(),self.get_state(),[[0]]*self.n_agents, terminated, info, available_actions
 
         self._total_steps += 1
         self._episode_steps += 1
@@ -525,7 +527,7 @@ class StarCraft2Env(MultiAgentEnv):
         if self.reward_scale:
             reward /= self.max_reward / self.reward_scale_rate
 
-        return self.get_obs(), [[reward]]*self.n_agents, terminated, info, available_actions
+        return self.get_obs(), self.get_state(), [[reward]]*self.n_agents, terminated, info, available_actions
 
     def get_agent_action(self, a_id, action):
         """Construct the action for agent a_id."""
@@ -1281,12 +1283,17 @@ class StarCraft2Env(MultiAgentEnv):
 
         size = enemy_state + ally_state
 
-        if self.state_last_action:
-            size += self.n_agents * self.n_actions
-        if self.state_timestep_number:
-            size += 1
+        last_action_state=0
+        timestep_state=0
 
-        return size
+        if self.state_last_action:
+            last_action_state = self.n_agents * self.n_actions
+            size += last_action_state
+        if self.state_timestep_number:
+            timestep_state = 1
+            size += timestep_state
+
+        return [size, [self.n_agents, nf_al], [self.n_enemies, nf_en], [1,last_action_state+timestep_state]]
 
     def get_visibility_matrix(self):
         """Returns a boolean numpy array of dimensions 

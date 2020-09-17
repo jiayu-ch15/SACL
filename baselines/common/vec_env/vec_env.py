@@ -40,9 +40,10 @@ class VecEnv(ABC):
         'render.modes': ['human', 'rgb_array']
     }
 
-    def __init__(self, num_envs, observation_space, action_space):
+    def __init__(self, num_envs, observation_space, share_observation_space, action_space):
         self.num_envs = num_envs
         self.observation_space = observation_space
+        self.share_observation_space = share_observation_space
         self.action_space = action_space
 
     @abstractmethod
