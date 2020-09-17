@@ -224,7 +224,7 @@ class ShareSubprocVecEnv(ShareVecEnv):
             remote.close()
         self.remotes[0].send(('get_spaces', None))
         observation_space, share_observation_space, action_space = self.remotes[0].recv()
-        VecEnv.__init__(self, len(env_fns), observation_space, share_observation_space, action_space)
+        ShareVecEnv.__init__(self, len(env_fns), observation_space, share_observation_space, action_space)
 
     def step_async(self, actions):
         for remote, action in zip(self.remotes, actions):
@@ -303,7 +303,7 @@ class ChooseSubprocVecEnv(ShareVecEnv):
             remote.close()
         self.remotes[0].send(('get_spaces', None))
         observation_space, share_observation_space, action_space = self.remotes[0].recv()
-        VecEnv.__init__(self, len(env_fns), observation_space, share_observation_space, action_space)
+        ShareVecEnv.__init__(self, len(env_fns), observation_space, share_observation_space, action_space)
 
     def step_async(self, actions):
         for remote, action in zip(self.remotes, actions):
