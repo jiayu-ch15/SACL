@@ -477,24 +477,22 @@ def main():
                 for agent_id in range(num_agents):
                     if args.share_policy:
                         actor_critic.eval()
-                        _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(agent_id,
-                            torch.tensor(eval_share_obs), 
-                            torch.tensor(eval_obs[:,agent_id]), 
-                            torch.tensor(eval_recurrent_hidden_states[:,agent_id]), 
-                            torch.tensor(eval_recurrent_hidden_states_critic[:,agent_id]),
-                            torch.tensor(eval_masks[:,agent_id]),
-                            torch.tensor(eval_available_actions[:,agent_id,:]),
-                            deterministic=True)
+                        _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(torch.tensor(eval_share_obs), 
+                                        torch.tensor(eval_obs[:,agent_id]), 
+                                        torch.tensor(eval_recurrent_hidden_states[:,agent_id]), 
+                                        torch.tensor(eval_recurrent_hidden_states_critic[:,agent_id]),
+                                        torch.tensor(eval_masks[:,agent_id]),
+                                        torch.tensor(eval_available_actions[:,agent_id,:]),
+                                        deterministic=True)
                     else:
                         actor_critic[agent_id].eval()
-                        _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic[agent_id].act(agent_id,
-                            torch.tensor(eval_share_obs), 
-                            torch.tensor(eval_obs[:,agent_id]), 
-                            torch.tensor(eval_recurrent_hidden_states[:,agent_id]), 
-                            torch.tensor(eval_recurrent_hidden_states_critic[:,agent_id]),
-                            torch.tensor(eval_masks[:,agent_id]),
-                            torch.tensor(eval_available_actions[:,agent_id,:]),
-                            deterministic=True)
+                        _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic[agent_id].act(torch.tensor(eval_share_obs), 
+                                        torch.tensor(eval_obs[:,agent_id]), 
+                                        torch.tensor(eval_recurrent_hidden_states[:,agent_id]), 
+                                        torch.tensor(eval_recurrent_hidden_states_critic[:,agent_id]),
+                                        torch.tensor(eval_masks[:,agent_id]),
+                                        torch.tensor(eval_available_actions[:,agent_id,:]),
+                                        deterministic=True)
 
                     eval_actions.append(action.detach().cpu().numpy())
                     eval_recurrent_hidden_states[:,agent_id] = recurrent_hidden_states.detach().cpu().numpy()
