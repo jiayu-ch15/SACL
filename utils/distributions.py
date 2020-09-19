@@ -64,7 +64,7 @@ class Categorical(nn.Module):
             m,
             nn.init.orthogonal_,
             lambda x: nn.init.constant_(x, 0),
-            gain=0.01)
+            gain=1)
 
         self.linear = init_(nn.Linear(num_inputs, num_outputs))
 

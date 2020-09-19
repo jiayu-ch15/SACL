@@ -43,7 +43,7 @@ def get_config():
     parser.add_argument("--share_policy", action='store_false', default=True, help='agent share the same policy')
     parser.add_argument("--hidden_size", type=int, default=64)
     parser.add_argument("--layer_N", type=int, default=1)
-    parser.add_argument("--use_ReLU", action='store_true', default=False)
+    parser.add_argument("--use_ReLU", action='store_false', default=True)
     parser.add_argument("--use_common_layer", action='store_true', default=False)
     parser.add_argument("--use_popart", action='store_false', default=True)
     parser.add_argument("--use_feature_popart", action='store_true', default=False)
@@ -93,14 +93,14 @@ def get_config():
     parser.add_argument("--use-linear-lr-decay", action='store_true', default=False, help='use a linear schedule on the learning rate')
     
     # save
-    parser.add_argument("--save_interval", type=int, default=10)
+    parser.add_argument("--save_interval", type=int, default=150)
     
     # log
-    parser.add_argument("--log_interval", type=int, default=1)    
+    parser.add_argument("--log_interval", type=int, default=5)    
     
     # eval
     parser.add_argument("--eval", action='store_true', default=False)
-    parser.add_argument("--eval_interval", type=int, default=10)
+    parser.add_argument("--eval_interval", type=int, default=25)
     parser.add_argument("--eval_episodes", type=int, default=32)
     
     # render
