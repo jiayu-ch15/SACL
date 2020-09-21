@@ -89,6 +89,7 @@ def main():
         actor_critic = Policy(envs.observation_space[0], 
                     envs.action_space[0],
                     num_agents = num_agents,
+                    gain = args.gain,
                     base_kwargs={'naive_recurrent': args.naive_recurrent_policy,
                                  'recurrent': args.recurrent_policy,
                                  'hidden_size': args.hidden_size,
@@ -147,6 +148,7 @@ def main():
             ac = Policy(envs.observation_space, 
                       envs.action_space[agent_id],
                       num_agents = agent_id, # here is special
+                      gain = args.gain,
                       base_kwargs={'naive_recurrent': args.naive_recurrent_policy,
                                  'recurrent': args.recurrent_policy,
                                  'hidden_size': args.hidden_size,

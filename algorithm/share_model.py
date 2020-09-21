@@ -28,7 +28,7 @@ class Flatten(nn.Module):
         return x.view(x.size(0), -1)
 
 class Policy(nn.Module):
-    def __init__(self, obs_space, share_obs_space, action_space, base=None, base_kwargs=None, device=torch.device("cpu")):
+    def __init__(self, obs_space, share_obs_space, action_space, gain=1, base=None, base_kwargs=None, device=torch.device("cpu")):
         super(Policy, self).__init__()
         self.mixed_action = False
         self.multi_discrete = False
@@ -52,7 +52,7 @@ class Policy(nn.Module):
                 
         if action_space.__class__.__name__ == "Discrete":
             num_actions = action_space.n            
-            self.dist = Categorical(self.base.output_size, num_actions)
+            self.dist = Categorical(self.base.output_size, num_actions, gain)
         elif action_space.__class__.__name__ == "Box":
             num_actions = action_space.shape[0]
             self.dist = DiagGaussian(self.base.output_size, num_actions)
@@ -65,13 +65,13 @@ class Policy(nn.Module):
             action_size = action_space.high-action_space.low+1
             self.dists = []
             for num_actions in action_size:
-                self.dists.append(Categorical(self.base.output_size, num_actions))
+                self.dists.append(Categorical(self.base.output_size, num_actions, gain))
             self.dists = nn.ModuleList(self.dists)
         else:# discrete+continous
             self.mixed_action = True
             continous = action_space[0].shape[0]
             discrete = action_space[1].n
-            self.dist = nn.ModuleList([DiagGaussian(self.base.output_size, continous), Categorical(self.base.output_size, discrete)])
+            self.dist = nn.ModuleList([DiagGaussian(self.base.output_size, continous), Categorical(self.base.output_size, discrete, gain)])
 
     @property
     def is_recurrent(self):
