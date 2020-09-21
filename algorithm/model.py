@@ -552,12 +552,17 @@ class MLPBase(NNBase):
                     num_inputs_critic = num_inputs * attn_size
                 else:
                     num_inputs_critic = num_agents * attn_size
+
+            self.actor_attn_norm = nn.LayerNorm(num_inputs_actor)
+            self.critic_attn_norm = nn.LayerNorm(num_inputs_critic)
+
         elif self._attn_only_critic:
             num_inputs_actor = obs_shape[0]
             if use_average_pool == True:
                 num_inputs_critic = attn_size
             else:
                 num_inputs_critic = num_agents * attn_size
+            self.critic_attn_norm = nn.LayerNorm(num_inputs_critic)
         else:
             num_inputs_actor = obs_shape[0]
             num_inputs_critic = share_obs_dim
@@ -582,12 +587,11 @@ class MLPBase(NNBase):
 
         if self._use_common_layer:
             self.actor = nn.Sequential(
-                init_(nn.Linear(num_inputs_actor, hidden_size)), active_func)    
+                init_(nn.Linear(num_inputs_actor, hidden_size)), active_func, nn.LayerNorm(hidden_size))    
             self.critic = nn.Sequential(
-                init_(nn.Linear(num_inputs_critic, hidden_size)), active_func)
-            self.fc_h = nn.Sequential(init_(nn.Linear(hidden_size, hidden_size)), active_func)
+                init_(nn.Linear(num_inputs_critic, hidden_size)), active_func, nn.LayerNorm(hidden_size))
+            self.fc_h = nn.Sequential(init_(nn.Linear(hidden_size, hidden_size)), active_func, nn.LayerNorm(hidden_size))
             self.common_linear = get_clones(self.fc_h, self._layer_N)
-            self.norm = nn.LayerNorm(hidden_size)
 
         self.actor_rnn_norm = nn.LayerNorm(hidden_size)
         self.critic_rnn_norm = nn.LayerNorm(hidden_size)
@@ -608,17 +612,19 @@ class MLPBase(NNBase):
                 share_x = self.encoder_critic(share_x)
             else:
                 share_x = self.encoder_critic(share_x, agent_id)
+            x = self.actor_attn_norm(x)
+            share_x = self.critic_attn_norm(share_x)
+
         elif self._attn_only_critic:
             share_x = self.encoder_critic(share_x, agent_id)
+            share_x = self.critic_attn_norm(share_x)
                             
         if self._use_common_layer:
             hidden_actor = self.actor(x)
             hidden_critic = self.critic(share_x)
             for i in range(self._layer_N):
                 hidden_actor = self.common_linear[i](hidden_actor)
-                hidden_critic = self.common_linear[i](hidden_critic) 
-            hidden_actor = self.norm(hidden_actor)
-            hidden_critic = self.norm(hidden_critic)            
+                hidden_critic = self.common_linear[i](hidden_critic)             
             if self.is_recurrent or self.is_naive_recurrent:
                 hidden_actor, rnn_hxs_actor = self._forward_gru(hidden_actor, rnn_hxs_actor, masks)
                 hidden_critic, rnn_hxs_critic = self._forward_gru(hidden_critic, rnn_hxs_critic, masks)
@@ -658,7 +664,7 @@ class FeedForward(nn.Module):
                 init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
         
            
-        self.linear_1 = nn.Sequential(init_(nn.Linear(d_model, d_ff)), active_func)
+        self.linear_1 = nn.Sequential(init_(nn.Linear(d_model, d_ff)), active_func, nn.LayerNorm(d_ff))
 
         self.dropout = nn.Dropout(dropout)
         self.linear_2 = init_(nn.Linear(d_ff, d_model))
@@ -745,16 +751,14 @@ class MLPLayer(nn.Module):
                 active_func = nn.Tanh()
                 init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
 
-        self.fc1 = nn.Sequential(init_(nn.Linear(input_dim, hidden_size)), active_func)
-        self.fc_h = nn.Sequential(init_(nn.Linear(hidden_size, hidden_size)), active_func)
+        self.fc1 = nn.Sequential(init_(nn.Linear(input_dim, hidden_size)), active_func, nn.LayerNorm(hidden_size))
+        self.fc_h = nn.Sequential(init_(nn.Linear(hidden_size, hidden_size)), active_func, nn.LayerNorm(hidden_size))
         self.fc2 = get_clones(self.fc_h, self._layer_N)
-        self.norm = nn.LayerNorm(hidden_size)
     
     def forward(self, x):
         x = self.fc1(x)
         for i in range(self._layer_N):
             x = self.fc2[i](x)
-        x = self.norm(x)
         return x
 
 class EncoderLayer(nn.Module):
@@ -798,9 +802,9 @@ class SelfEmbedding(nn.Module):
             
         for i in range(len(split_shape)):
             if i==(len(split_shape)-1):            
-                setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1], d_model)), active_func))
+                setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1], d_model)), active_func, nn.LayerNorm(d_model)))
             else:
-                setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1]+split_shape[-1][1], d_model)), active_func))
+                setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1]+split_shape[-1][1], d_model)), active_func, nn.LayerNorm(d_model)))
                          
     def forward(self, x, self_idx=-1):
         x = split_obs(x, self.split_shape)
@@ -842,7 +846,7 @@ class Embedding(nn.Module):
                 init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
             
         for i in range(len(split_shape)):
-            setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1], d_model)), active_func))
+            setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1], d_model, nn.LayerNorm(d_model))), active_func))
                   
         
     def forward(self, x, self_idx):
