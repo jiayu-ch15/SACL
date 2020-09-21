@@ -5,20 +5,21 @@ from envs.mpe.scenario import BaseScenario
 class Scenario(BaseScenario):
     def make_world(self, args):
         world = World()
+        world.world_length = args.episode_length
         # set any world properties first
         world.dim_c = 2
-        num_agents = args.num_agents
-        num_landmarks = args.num_landmarks#3
+        world.num_agents = args.num_agents
+        world.num_landmarks = args.num_landmarks#3
         world.collaborative = True
         # add agents
-        world.agents = [Agent() for i in range(num_agents)]
+        world.agents = [Agent() for i in range(world.num_agents)]
         for i, agent in enumerate(world.agents):
             agent.name = 'agent %d' % i
             agent.collide = True
             agent.silent = True
             agent.size = 0.15
         # add landmarks
-        world.landmarks = [Landmark() for i in range(num_landmarks)]
+        world.landmarks = [Landmark() for i in range(world.num_landmarks)]
         for i, landmark in enumerate(world.landmarks):
             landmark.name = 'landmark %d' % i
             landmark.collide = False

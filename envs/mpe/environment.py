@@ -20,6 +20,8 @@ class MultiAgentEnv(gym.Env):
                  shared_viewer=True, discrete_action=True):
 
         self.world = world
+        self.world_length = self.world.world_length
+        self.current_step = 0
         self.agents = self.world.policy_agents
         # set required vectorized gym env property
         self.n = len(world.policy_agents)
@@ -40,7 +42,7 @@ class MultiAgentEnv(gym.Env):
         self.discrete_action_input = False
         # if true, even the action is continuous, action will be performed discretely
         self.force_discrete_action = world.discrete_action if hasattr(world, 'discrete_action') else False
-        # in this env, force_discrete_action == False£¬because world do not have discrete_action
+        # in this env, force_discrete_action == Falseï¿½ï¿½because world do not have discrete_action
 
         # if true, every agent has the same reward
         self.shared_reward = world.collaborative if hasattr(world, 'collaborative') else False
@@ -100,6 +102,7 @@ class MultiAgentEnv(gym.Env):
 
     # step  this is  env.step()
     def step(self, action_n):
+        self.current_step += 1
         obs_n = []
         reward_n = []
         done_n = []
@@ -131,6 +134,7 @@ class MultiAgentEnv(gym.Env):
         return obs_n, reward_n, done_n, info_n, available_action
 
     def reset(self):
+        self.current_step = 0
         # reset world
         self.reset_callback(self.world)
         # reset renderer
@@ -162,7 +166,10 @@ class MultiAgentEnv(gym.Env):
     # unused right now -- agents are allowed to go beyond the viewing screen
     def _get_done(self, agent):
         if self.done_callback is None:
-            return False
+            if self.current_step >= self.world_length:
+                return True
+            else:
+                return False
         return self.done_callback(agent, self.world)
 
     # get reward for a particular agent

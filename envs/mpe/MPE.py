@@ -1,7 +1,7 @@
 from .environment import MultiAgentEnv
 from .scenarios import load
 
-def MPEEnv(args, benchmark=False):
+def MPEEnv(args):
     '''
     Creates a MultiAgentEnv object as env. This can be used similar to a gym
     environment by calling env.reset() and env.step().
@@ -24,9 +24,7 @@ def MPEEnv(args, benchmark=False):
     scenario = load(args.scenario_name + ".py").Scenario()
     # create world
     world = scenario.make_world(args)
-    # create multiagent environment
-    if benchmark:        
-        env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation, scenario.benchmark_data)
-    else:
-        env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation)
+    # create multiagent environment 
+    env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation)
+
     return env

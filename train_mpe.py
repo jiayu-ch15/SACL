@@ -340,7 +340,7 @@ def main():
                             np.array(values[agent_id]),
                             rewards[:,agent_id], 
                             np.array(masks)[:,agent_id])
-                                      
+                                            
         with torch.no_grad(): 
             for agent_id in range(num_agents):         
                 if args.share_policy: 
@@ -376,8 +376,7 @@ def main():
                                             args.use_proper_time_limits,
                                             args.use_popart,
                                             agents[agent_id].value_normalizer)
-
-         
+        
         # update the network
         if args.share_policy:
             actor_critic.train()
