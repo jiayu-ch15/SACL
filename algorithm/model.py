@@ -846,7 +846,7 @@ class Embedding(nn.Module):
                 init_ = lambda m: init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(x, 0), gain = nn.init.calculate_gain('tanh'))
             
         for i in range(len(split_shape)):
-            setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1], d_model, nn.LayerNorm(d_model))), active_func))
+            setattr(self,'fc_'+str(i), nn.Sequential(init_(nn.Linear(split_shape[i][1], d_model)), active_func, nn.LayerNorm(d_model)))
                   
         
     def forward(self, x, self_idx):
