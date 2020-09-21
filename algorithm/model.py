@@ -28,7 +28,7 @@ class Flatten(nn.Module):
         return x.view(x.size(0), -1)
 
 class Policy(nn.Module):
-    def __init__(self, obs_space, action_space, num_agents, gain, base=None, base_kwargs=None, device=torch.device("cpu")):
+    def __init__(self, obs_space, action_space, num_agents, gain=1, base=None, base_kwargs=None, device=torch.device("cpu")):
         super(Policy, self).__init__()
         self.mixed_obs = False
         self.mixed_action = False
