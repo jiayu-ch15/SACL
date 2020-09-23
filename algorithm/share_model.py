@@ -554,8 +554,8 @@ class MLPBase(NNBase):
         if self.is_attn:
             x = self.encoder_actor(x)
             share_x = self.encoder_critic(share_x)
-            x = self.actor_attn_norm(x)
-            share_x = self.critic_attn_norm(share_x)
+            #x = self.actor_attn_norm(x)
+            #share_x = self.critic_attn_norm(share_x)
                             
         if self._use_common_layer:
             hidden_actor = self.actor(x)

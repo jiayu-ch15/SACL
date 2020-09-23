@@ -361,10 +361,13 @@ def main():
             masks = []
             for i, done in enumerate(dones): 
                 if done:
-                    trials += 1
                     if "discard_episode" in infos[i].keys():
                         if infos[i]['discard_episode']:
                             discard_episode += 1
+                        else:
+                            trials += 1
+                    else:
+                        trials += 1
                     if "success" in infos[i].keys():
                         if infos[i]['success']:
                             success += 1
