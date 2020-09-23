@@ -63,13 +63,13 @@ def main():
     # cuda
     if args.cuda and torch.cuda.is_available():
         device = torch.device("cuda:0")
-        #torch.set_num_threads(1)
+        torch.set_num_threads(1)
         if args.cuda_deterministic:
             torch.backends.cudnn.benchmark = False
             torch.backends.cudnn.deterministic = True
     else:
         device = torch.device("cpu")
-        #torch.set_num_threads(args.n_training_threads)
+        torch.set_num_threads(args.n_training_threads)
     
     # path
     model_dir = Path('./results') / args.env_name / args.map_name / args.algorithm_name

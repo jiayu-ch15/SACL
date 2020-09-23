@@ -5,6 +5,7 @@ num_agents=2
 #algo="value0_samedim_fullminimal2_parallel1000_length80_batch5_ppo15_lr7e-4_512_1mlp2gru_relu_100M"
 algo="check"
 seed_max=1
+ulimit -n 22222
 
 echo "env is ${env}, algo is ${algo}, seed is ${seed_max}"
 
