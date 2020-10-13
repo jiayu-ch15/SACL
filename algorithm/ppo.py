@@ -89,7 +89,6 @@ class PPO():
                  data_chunk_length,
                  value_loss_coef,
                  entropy_coef,
-                 logger = None,
                  lr=None,
                  eps=None,
                  weight_decay=None,
@@ -105,7 +104,6 @@ class PPO():
 
         self.step=0
         self.device = device
-        self.logger = logger
         self.actor_critic = actor_critic
 
         self.clip_param = clip_param
@@ -227,43 +225,31 @@ class PPO():
                     if turn_on == True:
                         (action_loss - dist_entropy * self.entropy_coef).backward()
                 
-                grad_norm = get_gard_norm(self.actor_critic.parameters())
-                       
                 if self.use_max_grad_norm:
-                    nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
-                    
+                    grad_norm = nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
+                else:
+                    grad_norm = get_gard_norm(self.actor_critic.parameters())
+                      
                 self.optimizer.step()
-                
-                if self.logger is not None:
-                    self.logger.add_scalars('agent%i/value_loss' % agent_id,
-                        {'value_loss': value_loss},
-                        self.step)
-                    self.logger.add_scalars('agent%i/action_loss' % agent_id,
-                        {'action_loss': action_loss},
-                        self.step)
-                    self.logger.add_scalars('agent%i/dist_entropy' % agent_id,
-                        {'dist_entropy': dist_entropy},
-                        self.step)
-                    self.logger.add_scalars('agent%i/KL_divloss' % agent_id,
-                        {'KL_divloss': KL_divloss},
-                        self.step)
-                    self.logger.add_scalars('agent%i/grad_norm' % agent_id,
-                        {'grad_norm': grad_norm},
-                        self.step)
-                    self.step += 1
 
                 value_loss_epoch += value_loss.item()
                 action_loss_epoch += action_loss.item()
-                dist_entropy_epoch += dist_entropy.item()                
+                dist_entropy_epoch += dist_entropy.item()  
+                grad_norm_epoch += grad_norm.item()
+                KL_divloss_epoch += KL_divloss.item()
+                ratio_epoch += ratio.mean()              
                 
         num_updates = self.ppo_epoch * self.num_mini_batch
 
         value_loss_epoch /= num_updates
         action_loss_epoch /= num_updates
         dist_entropy_epoch /= num_updates
+        grad_norm_epoch /= num_updates
+        KL_divloss_epoch /= num_updates
+        ratio_epoch /= num_updates
 
-        return value_loss_epoch, action_loss_epoch, dist_entropy_epoch
-        
+        return value_loss_epoch, action_loss_epoch, dist_entropy_epoch, grad_norm_epoch, KL_divloss_epoch, ratio_epoch
+
     def update(self, agent_id, rollouts, turn_on=True):
         if self.use_popart:
             advantages = rollouts.returns[:-1,:,agent_id] - self.value_normalizer.denormalize(torch.tensor(rollouts.value_preds[:-1,:,agent_id])).cpu().numpy()
@@ -359,43 +345,31 @@ class PPO():
                     (value_loss * self.value_loss_coef).backward()
                     if turn_on == True:
                         (action_loss - dist_entropy * self.entropy_coef).backward()
-                
-                grad_norm = get_gard_norm(self.actor_critic.parameters())
                        
                 if self.use_max_grad_norm:
-                    nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
-                    
+                    grad_norm = nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
+                else:
+                    grad_norm = get_gard_norm(self.actor_critic.parameters())
+   
                 self.optimizer.step()
-                
-                if self.logger is not None:
-                    self.logger.add_scalars('agent%i/value_loss' % agent_id,
-                        {'value_loss': value_loss},
-                        self.step)
-                    self.logger.add_scalars('agent%i/action_loss' % agent_id,
-                        {'action_loss': action_loss},
-                        self.step)
-                    self.logger.add_scalars('agent%i/dist_entropy' % agent_id,
-                        {'dist_entropy': dist_entropy},
-                        self.step)
-                    self.logger.add_scalars('agent%i/KL_divloss' % agent_id,
-                        {'KL_divloss': KL_divloss},
-                        self.step)
-                    self.logger.add_scalars('agent%i/grad_norm' % agent_id,
-                        {'grad_norm': grad_norm},
-                        self.step)
-                    self.step += 1
 
                 value_loss_epoch += value_loss.item()
                 action_loss_epoch += action_loss.item()
-                dist_entropy_epoch += dist_entropy.item()                
+                dist_entropy_epoch += dist_entropy.item() 
+                grad_norm_epoch += grad_norm.item()
+                KL_divloss_epoch += KL_divloss.item() 
+                ratio_epoch += ratio.mean()               
                 
         num_updates = self.ppo_epoch * self.num_mini_batch
 
         value_loss_epoch /= num_updates
         action_loss_epoch /= num_updates
         dist_entropy_epoch /= num_updates
+        grad_norm_epoch /= num_updates
+        KL_divloss_epoch /= num_updates
+        ratio_epoch /= num_updates
 
-        return value_loss_epoch, action_loss_epoch, dist_entropy_epoch
+        return value_loss_epoch, action_loss_epoch, dist_entropy_epoch, grad_norm_epoch, KL_divloss_epoch, ratio_epoch
 
     def update_share(self, num_agents, rollouts, turn_on=True):
         advantages = []
@@ -413,6 +387,9 @@ class PPO():
         value_loss_epoch = 0
         action_loss_epoch = 0
         dist_entropy_epoch = 0
+        grad_norm_epoch = 0
+        KL_divloss_epoch = 0
+        ratio_epoch = 0
 
         for e in range(self.ppo_epoch):
             
@@ -521,45 +498,27 @@ class PPO():
                     if turn_on == True:
                         (action_loss - dist_entropy * self.entropy_coef).backward()
                
-                grad_norm = get_gard_norm(self.actor_critic.parameters())
-                       
                 if self.use_max_grad_norm:
-                    nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
-                 
+                    grad_norm = nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
+                else:
+                    grad_norm = get_gard_norm(self.actor_critic.parameters())
+
                 self.optimizer.step()
-                
-                if self.logger is not None:
-                    self.logger.add_scalars('ratio',
-                        {'ratio': ratio.mean()},
-                        self.step)
-                    self.logger.add_scalars('adv',
-                        {'adv': adv_targ.mean()},
-                        self.step)
-                    self.logger.add_scalars('value_loss',
-                        {'value_loss': value_loss},
-                        self.step)
-                    self.logger.add_scalars('action_loss',
-                        {'action_loss': action_loss},
-                        self.step)
-                    self.logger.add_scalars('dist_entropy',
-                        {'dist_entropy': dist_entropy},
-                        self.step)
-                    self.logger.add_scalars('KL_divloss',
-                        {'KL_divloss': KL_divloss},
-                        self.step)
-                    self.logger.add_scalars('grad_norm',
-                        {'grad_norm': grad_norm},
-                        self.step)
-                    self.step += 1
                 
                 value_loss_epoch += value_loss.item()
                 action_loss_epoch += action_loss.item()
-                dist_entropy_epoch += dist_entropy.item()  
+                dist_entropy_epoch += dist_entropy.item() 
+                grad_norm_epoch += grad_norm.item()
+                KL_divloss_epoch += KL_divloss.item()
+                ratio_epoch += ratio.mean()
        
         num_updates = self.ppo_epoch * self.num_mini_batch
 
         value_loss_epoch /= num_updates
         action_loss_epoch /= num_updates
         dist_entropy_epoch /= num_updates
+        grad_norm_epoch /= num_updates
+        KL_divloss_epoch /= num_updates
+        ratio_epoch /= num_updates
 
-        return value_loss_epoch, action_loss_epoch, dist_entropy_epoch
+        return value_loss_epoch, action_loss_epoch, dist_entropy_epoch, grad_norm_epoch, KL_divloss_epoch, ratio_epoch

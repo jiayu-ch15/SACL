@@ -11,7 +11,7 @@ DQNAgent.target_update_period = 500 # agent steps
 DQNAgent.epsilon_train = 0.0
 DQNAgent.epsilon_eval = 0.0
 DQNAgent.epsilon_decay_period = 1000 # agent steps
-DQNAgent.tf_device = '/gpu:0'  # '/cpu:*' use for non-GPU version
+DQNAgent.tf_device = '/cpu:0'  # '/cpu:*' use for non-GPU version
 
 # This configures the Rainbow agent.
 AGENT_CLASS_2 = @RainbowAgent

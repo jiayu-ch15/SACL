@@ -352,6 +352,7 @@ def main():
                 actions_env.append(one_env_action)
                        
             # Obser reward and next obs
+            print(actions_env)
             dict_obs, rewards, dones, infos = envs.step(actions_env)
             if len(rewards.shape) < 3:
                 rewards=rewards[:,:,np.newaxis]            
@@ -518,7 +519,10 @@ def main():
             if trials > 0:
                 logger.add_scalars('success_rate',{'success_rate': success/trials},total_num_steps) 
             else:
-                logger.add_scalars('success_rate',{'success_rate': 0.0},total_num_steps)           
+                logger.add_scalars('success_rate',{'success_rate': 0.0},total_num_steps) 
+            
+            logger.export_scalars_to_json(str(log_dir / 'summary.json'))  
+                      
         # eval 
         if episode % args.eval_interval == 0 and args.eval:
             eval_episode = 0
