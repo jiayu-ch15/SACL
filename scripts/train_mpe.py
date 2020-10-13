@@ -26,12 +26,6 @@ import itertools
 
 import wandb
 
-#os.environ['WANDB_MODE'] = 'dryrun'
-os.environ['WANDB_BASE_URL'] = "http://172.16.0.22"
-os.environ['WANDB_API_KEY'] = "local-67d7b251ba576b0e701361284d514090c82d9471"
-
-os.environ['WANDB_IGNORE_GLOBS'] = "*.pt,*.patch,*.txt,*.json,*.log,*.yaml"
-
 def make_parallel_env(args, seed):
     def get_env_fn(rank):
         def init_env():
@@ -70,10 +64,9 @@ def main():
     for seed in range(args.seed):
 
         run = wandb.init(config=args, 
-                project="marlbenchmark", 
+                project=args.env_name, 
                 name=str(args.algorithm_name) + "_seed" + str(seed),
-                tags=args.env_name,
-                group=args.algorithm_name,
+                group=args.scenario_name,
                 dir=str(model_dir),
                 job_type="training",
                 reinit=True)       
