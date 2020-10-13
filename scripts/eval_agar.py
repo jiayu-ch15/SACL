@@ -8,7 +8,6 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from tensorboardX import SummaryWriter
 
 from envs import AgarEnv
 from config import get_config

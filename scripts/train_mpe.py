@@ -64,12 +64,12 @@ def main():
     for seed in range(args.seed):
 
         run = wandb.init(config=args, 
-                project=args.env_name, 
+                project=args.env_name,
                 name=str(args.algorithm_name) + "_seed" + str(seed),
                 group=args.scenario_name,
                 dir=str(model_dir),
                 job_type="training",
-                reinit=True)       
+                reinit=True)                  
         
         # seed
         torch.manual_seed(seed)

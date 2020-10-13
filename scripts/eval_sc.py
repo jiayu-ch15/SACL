@@ -10,7 +10,6 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from tensorboardX import SummaryWriter
 
 from envs import StarCraft2Env, get_map_params
 

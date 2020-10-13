@@ -22,6 +22,8 @@ from utils.util import update_linear_schedule
 from utils.storage import RolloutStorage
 import shutil
 
+import wandb
+
 def make_parallel_env(args):
     def get_env_fn(rank):
         def init_env():

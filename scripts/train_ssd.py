@@ -22,7 +22,9 @@ from utils.util import update_linear_schedule
 from utils.storage import RolloutStorage
 import shutil
 
-def make_parallel_env(args):
+import wandb
+
+def make_parallel_env(args, seed):
     def get_env_fn(rank):
         def init_env():
             if args.env_name == "Harvest":
@@ -32,7 +34,7 @@ def make_parallel_env(args):
             else:
                 print("Can not support the " + args.env_name + "environment." )
                 raise NotImplementedError
-            env.seed(args.seed + rank * 1000)
+            env.seed(seed + rank * 1000)
             return env
         return init_env
     if args.n_rollout_threads == 1:
@@ -44,9 +46,9 @@ def main():
     args = get_config()
 
     # seed
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
-    np.random.seed(args.seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
 
     # cuda
     if args.cuda and torch.cuda.is_available():
@@ -57,25 +59,7 @@ def main():
             torch.backends.cudnn.deterministic = True
     else:
         device = torch.device("cpu")
-        torch.set_num_threads(args.n_training_threads)
-    
-    # path
-    model_dir = Path('./results') / args.env_name / args.algorithm_name
-    if not model_dir.exists():
-        curr_run = 'run1'
-    else:
-        exst_run_nums = [int(str(folder.name).split('run')[1]) for folder in model_dir.iterdir() if str(folder.name).startswith('run')]
-        if len(exst_run_nums) == 0:
-            curr_run = 'run1'
-        else:
-            curr_run = 'run%i' % (max(exst_run_nums) + 1)
-
-    run_dir = model_dir / curr_run
-    log_dir = run_dir / 'logs'
-    save_dir = run_dir / 'models'
-    os.makedirs(str(log_dir))
-    os.makedirs(str(save_dir))
-    logger = SummaryWriter(str(log_dir)) 
+        torch.set_num_threads(args.n_training_threads) 
 
     # env
     envs = make_parallel_env(args)
