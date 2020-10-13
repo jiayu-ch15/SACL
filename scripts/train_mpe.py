@@ -64,6 +64,8 @@ def main():
         torch.set_num_threads(args.n_training_threads)
 
     model_dir = Path(os.path.split(os.path.dirname(os.path.abspath(__file__)))[0] + "/results") / args.env_name / args.scenario_name / args.algorithm_name
+    if not model_dir.exists():
+        os.makedirs(str(model_dir))
 
     for seed in range(args.seed):
 
