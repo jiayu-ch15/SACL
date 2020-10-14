@@ -9,5 +9,5 @@ algo="test"
 seed_max=1
 
 echo "env is ${env}, scenario is ${scenario_name}, num_agents is ${num_agents}, algo is ${algo}, max seed is ${seed_max}"
-CUDA_VISIBLE_DEVICES=7 python train_hns_transfertask.py --env_name ${env} --algorithm_name ${algo} --scenario_name ${scenario_name} --task_type ${task_type} --num_agents ${num_agents} --num_boxes ${num_boxes} --seed ${seed_max} --n_rollout_threads 1 --num_mini_batch 1 --episode_length 240 --num_env_steps 100000000 --ppo_epoch 15 --gain 1 --attn
+CUDA_VISIBLE_DEVICES=7 python train/train_hns_transfertask.py --env_name ${env} --algorithm_name ${algo} --scenario_name ${scenario_name} --task_type ${task_type} --num_agents ${num_agents} --num_boxes ${num_boxes} --seed ${seed_max} --n_rollout_threads 1 --num_mini_batch 1 --episode_length 240 --num_env_steps 100000000 --ppo_epoch 15 --gain 1 --attn
 echo "training is done!"
