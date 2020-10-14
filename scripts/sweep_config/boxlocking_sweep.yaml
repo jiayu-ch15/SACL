@@ -1,11 +1,11 @@
-program: train_mpe.py
-project: sweep_MPE
-name: simple_spread
+program: train_hns_transfertask.py
+project: sweep_BoxLocking
+name: boxlocking
 command:
   - ${env}
   - python3
   - ${program}
-  - --recurrent_policy
+  - --attn --use_feature_normlization
   - ${args}
 early_terminate:
   type: hyperband
@@ -15,44 +15,56 @@ early_terminate:
 method: grid
 metric:
   goal: maximize
-  name: average_episode_rewards
+  name: hider0/average_step_rewards
 parameters:
   env_name:
     distribution: constant
-    value: "MPE"
+    value: "BoxLocking"
   scenario_name:
     distribution: constant
-    value: "simple_spread"
+    value: "quadrant"
   algorithm_name:
     distribution: constant
     value: "hyper_sweep"
   num_agents:
     distribution: constant
-    value: 3
-  num_landmarks:
+    value: 2
+  num_boxes:
     distribution: constant
-    value: 3
+    value: 4
+  task_type:
+    distribution: constant
+    value: "all"
   seed:
     distribution: constant
     value: 1
   n_rollout_threads:
     distribution: constant
-    value: 20
+    value: 600
   data_chunk_length:
     distribution: constant
     value: 10
   num_env_steps:
     distribution: constant
-    value: 100000
+    value: 50000000
   episode_length:
     distribution: constant
-    value: 25
+    value: 400
+  hidden_size:
+    distribution: constant
+    value: 64 
+  layer_N:
+    distribution: constant
+    value: 1
+  attn_size:
+    distribution: constant
+    value: 64
   num_mini_batch:
     distribution: constant
     value: 1 
   gain:
     distribution: constant
-    value: 0.01
+    value: 1
   lr:
     distribution: categorical
     values: [0.01, 0.001, 0.0001]

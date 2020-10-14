@@ -1,11 +1,11 @@
-program: train_mpe.py
-project: sweep_MPE
-name: simple_spread
+program: train_sc_state.py
+project: sweep_SC
+name: 3m
 command:
   - ${env}
   - python3
   - ${program}
-  - --recurrent_policy
+  - --use_value_high_masks --eval
   - ${args}
 early_terminate:
   type: hyperband
@@ -15,47 +15,41 @@ early_terminate:
 method: grid
 metric:
   goal: maximize
-  name: average_episode_rewards
+  name: eval_win_rate
 parameters:
   env_name:
     distribution: constant
-    value: "MPE"
-  scenario_name:
+    value: "StarCraft2"
+  map_name:
     distribution: constant
-    value: "simple_spread"
+    value: "3m"
   algorithm_name:
     distribution: constant
     value: "hyper_sweep"
-  num_agents:
-    distribution: constant
-    value: 3
-  num_landmarks:
-    distribution: constant
-    value: 3
   seed:
     distribution: constant
     value: 1
   n_rollout_threads:
     distribution: constant
-    value: 20
+    value: 8
   data_chunk_length:
     distribution: constant
     value: 10
   num_env_steps:
     distribution: constant
-    value: 100000
+    value: 50000000
   episode_length:
     distribution: constant
-    value: 25
+    value: 400
   num_mini_batch:
     distribution: constant
     value: 1 
   gain:
     distribution: constant
-    value: 0.01
+    value: 1
   lr:
     distribution: categorical
-    values: [0.01, 0.001, 0.0001]
+    values: [0.001, 0.0001, 0.0005]
   ppo_epoch:
     distribution: categorical
     values: [5, 15, 20] 

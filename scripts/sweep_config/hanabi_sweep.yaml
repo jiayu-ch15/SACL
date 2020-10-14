@@ -1,11 +1,10 @@
-program: train_mpe.py
-project: sweep_MPE
-name: simple_spread
+program: train_hanabi.py
+project: sweep_Hanabi
+name: small2
 command:
   - ${env}
   - python3
-  - ${program}
-  - --recurrent_policy
+  - ${program} 
   - ${args}
 early_terminate:
   type: hyperband
@@ -15,47 +14,50 @@ early_terminate:
 method: grid
 metric:
   goal: maximize
-  name: average_episode_rewards
+  name: score
 parameters:
   env_name:
     distribution: constant
-    value: "MPE"
-  scenario_name:
+    value: "Hanabi"
+  hanabi_name:
     distribution: constant
-    value: "simple_spread"
+    value: "Hanabi-Small"
   algorithm_name:
     distribution: constant
     value: "hyper_sweep"
   num_agents:
     distribution: constant
-    value: 3
-  num_landmarks:
-    distribution: constant
-    value: 3
+    value: 2
   seed:
     distribution: constant
     value: 1
   n_rollout_threads:
     distribution: constant
-    value: 20
+    value: 1000
   data_chunk_length:
     distribution: constant
     value: 10
   num_env_steps:
     distribution: constant
-    value: 100000
+    value: 100000000
   episode_length:
     distribution: constant
-    value: 25
+    value: 80
   num_mini_batch:
     distribution: constant
-    value: 1 
+    value: 5 
   gain:
     distribution: constant
     value: 0.01
+  hidden_size:
+    distribution: constant
+    value: 512 
+  layer_N:
+    distribution: constant
+    value: 2
   lr:
     distribution: categorical
-    values: [0.01, 0.001, 0.0001]
+    values: [0.0001, 0.0005, 0.0007]
   ppo_epoch:
     distribution: categorical
     values: [5, 15, 20] 
