@@ -1,17 +1,12 @@
-program: train_mpe.py
+program: train/train_mpe.py
 project: sweep_MPE
-name: simple_spread
+name: simple_spread_mlp
 command:
   - ${env}
   - python3
   - ${program}
   - --recurrent_policy
   - ${args}
-early_terminate:
-  type: hyperband
-  s: 2
-  eta: 3
-  max_iter: 27
 method: grid
 metric:
   goal: maximize
@@ -37,13 +32,13 @@ parameters:
     value: 1
   n_rollout_threads:
     distribution: constant
-    value: 20
+    value: 128
   data_chunk_length:
     distribution: constant
     value: 10
   num_env_steps:
     distribution: constant
-    value: 100000
+    value: 10000000
   episode_length:
     distribution: constant
     value: 25
@@ -55,9 +50,9 @@ parameters:
     value: 0.01
   lr:
     distribution: categorical
-    values: [0.01, 0.001, 0.0001]
+    values: [0.01, 0.001, 0.0001, 0.0005, 0.0007]
   ppo_epoch:
     distribution: categorical
-    values: [5, 15, 20] 
+    values: [10, 25] 
   
 
