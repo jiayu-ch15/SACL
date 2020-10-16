@@ -32,13 +32,13 @@ parameters:
     value: 1
   n_rollout_threads:
     distribution: constant
-    value: 20
+    value: 128
   data_chunk_length:
     distribution: constant
     value: 10
   num_env_steps:
     distribution: constant
-    value: 100000
+    value: 20000000
   episode_length:
     distribution: constant
     value: 25
@@ -50,9 +50,9 @@ parameters:
     value: 0.01
   lr:
     distribution: categorical
-    values: [0.01, 0.001, 0.0001, 0.0005, 0.0007]
+    values: [0.0001, 0.0005, 0.0007, 0.001, 0.01]
   ppo_epoch:
     distribution: categorical
-    values: [10, 25] 
+    values: [5, 10, 15, 25] 
   
 
