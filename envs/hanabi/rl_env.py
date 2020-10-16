@@ -67,6 +67,14 @@ class Environment(object):
     """
     raise NotImplementedError("Not implemented in Abstract Base class")
 
+  def close(self):
+    """Take one step in the game.
+
+    Raises:
+      AssertionError: abnormal close.
+    """
+    raise NotImplementedError("Not implemented in Abstract Base class")
+
 
 class HanabiEnv(Environment):
   """RL interface to a Hanabi environment.
@@ -284,6 +292,9 @@ class HanabiEnv(Environment):
         share_obs = np.zeros((self.players, self.vectorized_share_observation_shape()[0]+self.players))
         available_actions = np.zeros((self.players,self.num_moves())) 
     return obs, share_obs, available_actions
+
+  def close(self):
+    pass
 
   def vectorized_observation_shape(self):
     """Returns the shape of the vectorized observation.

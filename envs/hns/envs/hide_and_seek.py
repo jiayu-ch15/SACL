@@ -220,7 +220,7 @@ def nearwall_placement(grid, obj_size, metadata, random_state):
     '''
     grid_size = len(grid)
     qsize = metadata['quadrant_size']
-    # 地图坐标系左下角是[1,1]([x,y],x是横坐标，y是纵坐标)
+    # left down corner is [1,1]([x,y],x is x-axis，y is y-axis)
     poses = [
         np.array([random_state.randint(grid_size - qsize, grid_size - obj_size[0] - 1),
                 qsize + obj_size[0]]),
@@ -247,7 +247,7 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
              box_floor_friction=0.2, other_friction=0.01, gravity=[0, 0, -50],
              action_lims=(-0.9, 0.9), polar_obs=True,
              scenario='quadrant', quadrant_game_hider_uniform_placement=False,
-             p_door_dropout=0.5,
+             p_door_dropout=0.0,
              n_rooms=4, random_room_number=True, prob_outside_walls=1.0,
              n_lidar_per_agent=0, visualize_lidar=False, compress_lidar_scale=None,
              hiders_together_radius=None, seekers_together_radius=None,
@@ -265,9 +265,6 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
     n_boxes = args.num_boxes
     n_ramps = args.num_ramps
     n_food = args.num_food
-
-    if args.share_reward:
-        rew_type = 'joint_zero_sum'
       
     grab_radius_multiplier = lock_grab_radius / box_size
     lock_radius_multiplier = lock_grab_radius / box_size

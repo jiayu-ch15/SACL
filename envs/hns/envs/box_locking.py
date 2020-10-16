@@ -95,7 +95,7 @@ class LockObjectsTask(gym.Wrapper):
         self.objs_locked[:] = 0
         self.unlocked_objs = self.obj_order
         obs = self.env.reset()
-        self.spawn_pos = obs[self.agent_key][0, :2]
+        self.spawn_pos = obs[self.agent_key][:, :2] # support multi-agent
         self.spawn_pos_dist = 0
         self.next_obj, self.next_obj_dist = self._get_next_obj(obs)
         self.success = False
@@ -168,16 +168,17 @@ class LockObjectsTask(gym.Wrapper):
 
         self.objs_locked = curr_objs_locked
         self.unlocked_objs = [i for i in self.obj_order if self.objs_locked[i] == 0]
-
-        new_next_obj, new_next_obj_dist = self._get_next_obj(obs)
+       
         agent_pos = obs[self.agent_key][:, :2]
-        new_spawn_pos_dist = np.linalg.norm(agent_pos - self.spawn_pos)
-        rew += self._get_shaped_reward(new_next_obj, new_next_obj_dist, new_spawn_pos_dist)
+        new_spawn_pos_dist = max(np.linalg.norm(agent_pos-self.spawn_pos, axis=1))
+
+        if self.n_agents == 1:
+            new_next_obj, new_next_obj_dist = self._get_next_obj(obs)
+            rew += self._get_shaped_reward(new_next_obj, new_next_obj_dist, new_spawn_pos_dist)
+            self.next_obj_dist = new_next_obj_dist
+            self.next_obj = new_next_obj 
 
         self.spawn_pos_dist = new_spawn_pos_dist
-        self.next_obj_dist = new_next_obj_dist
-        self.next_obj = new_next_obj
-
         n_unlocked = len(self.unlocked_objs)
         if n_unlocked == 0 and ((not self.need_return) or
                                 self.spawn_pos_dist <= self.return_threshold):
@@ -186,7 +187,7 @@ class LockObjectsTask(gym.Wrapper):
             self.success = True
             
         info['success'] = self.success
-
+        info['lock_rate'] = 1 - n_unlocked/self.n_objs
         return obs, rew, done, info
 
 
@@ -229,14 +230,14 @@ def make_env(args):
 
 def BoxLockingEnv(args, n_substeps=15, horizon=120, deterministic_mode=False,
              floor_size=6.0, grid_size=30, door_size=2,
-             n_agents=1, fixed_agent_spawn=False,
+             n_agents=2, fixed_agent_spawn=False,
              lock_box=True, grab_box=True, grab_selective=False,
              lock_type='all_lock_team_specific',
              lock_grab_radius=0.25, grab_exclusive=False, grab_out_of_vision=False,
              lock_out_of_vision=False,
              box_floor_friction=0.2, other_friction=0.01, gravity=[0, 0, -50],
              action_lims=(-0.9, 0.9), polar_obs=True,
-             scenario='quadrant', p_door_dropout=0.0,
+             scenario='quadrant', p_door_dropout=0.5,
              n_rooms=2, random_room_number=False,
              n_lidar_per_agent=0, visualize_lidar=False, compress_lidar_scale=None,
              n_boxes=3, box_size=0.5, box_only_z_rot=True,

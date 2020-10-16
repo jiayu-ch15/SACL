@@ -512,6 +512,9 @@ def main():
                     if eval_episode>=args.eval_episodes:
                         wandb.log({'eval_score': np.mean(eval_scores)}, step=total_num_steps)
                         break
+        envs.close()
+        if args.eval:
+            eval_env.close()
         run.finish()
 if __name__ == "__main__":
     main()

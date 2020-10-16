@@ -119,24 +119,28 @@ class ConstructionCompletedRewardWrapper(gym.Wrapper):
         construction_completed = ((all_sites_activated and not self.use_corners) or
                                   (all_sites_activated and all_corners_aligned))
 
+        activated_sites_num = np.sum(activated_sites)
+        rew += activated_sites_num * self.reward_scale
+
         if construction_completed:
-            rew += self.n_sites * self.reward_scale
+            #rew += self.n_sites * self.reward_scale
             self.success = True
             done = True
         info['success'] = self.success
+        info['activated_sites'] = activated_sites_num
 
         return obs, rew, done, info
 
 def make_env(args):
     return BlueprintConstructionEnv(args)
 
-def BlueprintConstructionEnv(args, n_substeps=15, horizon=150, deterministic_mode=False,
-             floor_size=6.0, grid_size=30,
-             n_agents=1,
+def BlueprintConstructionEnv(args, n_substeps=15, horizon=200, deterministic_mode=False,
+             floor_size=4.0, grid_size=30,
+             n_agents=2,
              n_rooms=2, random_room_number=False, scenario='empty', door_size=2,
-             n_sites=[1,4], n_elongated_sites=0, site_placement='uniform_away_from_walls',
-             reward_infos=[{type: 'construction_dense'},{type: 'construction_completed'}],
-             n_boxes=8, n_elongated_boxes=0,
+             n_sites=2, n_elongated_sites=0, site_placement='uniform_away_from_walls',
+             reward_infos=[{'type': 'construction_dense'}, {'type': 'construction_completed'}],
+             n_boxes=4, n_elongated_boxes=0,
              n_min_boxes=None, box_size=0.5, box_only_z_rot=False,
              lock_box=True, grab_box=True, grab_selective=False, lock_grab_radius=0.25,
              lock_type='all_lock_team_specific', grab_exclusive=False,
@@ -148,7 +152,8 @@ def BlueprintConstructionEnv(args, n_substeps=15, horizon=150, deterministic_mod
 
     scenario = args.scenario_name
     n_agents = args.num_agents
-    assert n_agents==1, ("only 1 agents is supported, check the config.py.")
+    n_boxes = args.num_boxes
+    #assert n_agents==1, ("only 1 agents is supported, check the config.py.")
     grab_radius_multiplier = lock_grab_radius / box_size
     lock_radius_multiplier = lock_grab_radius / box_size
 
@@ -255,6 +260,7 @@ def BlueprintConstructionEnv(args, n_substeps=15, horizon=150, deterministic_mod
     }
 
     for rew_info in reward_infos:
+        print(rew_info)
         rew_type = rew_info['type']
         del rew_info['type']
         env = reward_wrappers[rew_type](env, **rew_info)

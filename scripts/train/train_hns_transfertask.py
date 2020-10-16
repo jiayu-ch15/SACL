@@ -102,8 +102,15 @@ def main():
         all_action_space = []
         all_obs_space = []
         action_movement_dim = []
-        order_obs = ['box_obs','ramp_obs','construction_site_obs','observation_self']    
-        mask_order_obs = ['mask_ab_obs','mask_ar_obs',None,None]
+        if args.env_name == "BlueprintConstruction":
+            order_obs = ['agent_qpos_qvel','box_obs','ramp_obs','construction_site_obs','observation_self']      
+            mask_order_obs = [None,None,None,None,None]
+        elif args.env_name == "BoxLocking":
+            order_obs = ['agent_qpos_qvel','box_obs','ramp_obs','observation_self']
+            mask_order_obs = ['mask_aa_obs','mask_ab_obs','mask_ar_obs',None]
+        else:
+            print("Can not support the " + args.env_name + "environment." )
+            raise NotImplementedError
         for agent_id in range(num_agents):
             # deal with dict action space
             action_movement = envs.action_space['action_movement'][agent_id].nvec
@@ -303,6 +310,8 @@ def main():
             discard_episode = 0
             success = 0
             trials = 0
+            lock_rate = []
+            activated_sites = []
 
             for step in range(args.episode_length):
                 # Sample actions
@@ -355,7 +364,6 @@ def main():
                     actions_env.append(one_env_action)
                         
                 # Obser reward and next obs
-                print(actions_env)
                 dict_obs, rewards, dones, infos = envs.step(actions_env)
                 if len(rewards.shape) < 3:
                     rewards=rewards[:,:,np.newaxis]            
@@ -375,6 +383,10 @@ def main():
                         if "success" in infos[i].keys():
                             if infos[i]['success']:
                                 success += 1
+                        if "lock_rate" in infos[i].keys():
+                            lock_rate.append(infos[i]['lock_rate'])
+                        if "activated_sites" in infos[i].keys():
+                            activated_sites.append(infos[i]['activated_sites'])
                     mask = []               
                     for agent_id in range(num_agents): 
                         if done:    
@@ -531,10 +543,18 @@ def main():
                         wandb.log({"agent%i/average_step_rewards" % agent_id: np.mean(rollouts.rewards[:,:,agent_id])}, step=total_num_steps) 
 
                 wandb.log({'discard_episode': discard_episode}, step=total_num_steps)
+
                 if trials > 0:
                     wandb.log({'success_rate': success/trials}, step=total_num_steps) 
                 else:
-                    wandb.log({'success_rate': 0.0}, step=total_num_steps)  
+                    wandb.log({'success_rate': 0.0}, step=total_num_steps)
+
+                if args.env_name == "BoxLocking":
+                    if len(lock_rate) > 0: 
+                        wandb.log({'lock_rate': np.mean(lock_rate)}, step=total_num_steps)  
+                elif args.env_name == "BlueprintConstruction":
+                    if len(activated_sites) > 0: 
+                        wandb.log({'activated_sites': np.mean(activated_sites)}, step=total_num_steps)  
                         
             # eval 
             if episode % args.eval_interval == 0 and args.eval:
