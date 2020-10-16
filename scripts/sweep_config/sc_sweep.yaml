@@ -1,17 +1,13 @@
-program: train_sc_state.py
+program: train/train_sc_state.py
 project: sweep_SC
 name: 3m
 command:
   - ${env}
   - python3
   - ${program}
-  - --use_value_high_masks --eval
+  - --eval 
+  - --use_value_high_masks
   - ${args}
-early_terminate:
-  type: hyperband
-  s: 2
-  eta: 3
-  max_iter: 27
 method: grid
 metric:
   goal: maximize
@@ -37,7 +33,7 @@ parameters:
     value: 10
   num_env_steps:
     distribution: constant
-    value: 50000000
+    value: 4000000
   episode_length:
     distribution: constant
     value: 400
@@ -49,9 +45,9 @@ parameters:
     value: 1
   lr:
     distribution: categorical
-    values: [0.001, 0.0001, 0.0005]
+    values: [0.0001, 0.0005, 0.0007, 0.001, 0.01]
   ppo_epoch:
     distribution: categorical
-    values: [5, 15, 20] 
+    values: [5, 10, 15, 20] 
   
 
