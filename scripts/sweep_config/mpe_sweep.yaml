@@ -32,13 +32,13 @@ parameters:
     value: 1
   n_rollout_threads:
     distribution: constant
-    value: 128
+    value: 20
   data_chunk_length:
     distribution: constant
     value: 10
   num_env_steps:
     distribution: constant
-    value: 10000000
+    value: 100000
   episode_length:
     distribution: constant
     value: 25
