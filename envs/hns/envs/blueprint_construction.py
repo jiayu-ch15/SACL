@@ -96,6 +96,7 @@ class ConstructionCompletedRewardWrapper(gym.Wrapper):
     def __init__(self, env, use_corners=True, site_activation_radius=0.1, reward_scale=3):
         super().__init__(env)
         self.n_sites = self.metadata['curr_n_sites']
+        self.n_agents = self.metadata['n_actors']
         self.site_activation_radius = site_activation_radius
         self.reward_scale = reward_scale
         self.use_corners = use_corners
@@ -104,6 +105,7 @@ class ConstructionCompletedRewardWrapper(gym.Wrapper):
     def reset(self):
         obs = self.env.reset()
         self.n_sites = self.metadata['curr_n_sites']
+        self.n_agents = self.metadata['n_actors']
         self.success = False
         return obs
 
@@ -119,16 +121,18 @@ class ConstructionCompletedRewardWrapper(gym.Wrapper):
         construction_completed = ((all_sites_activated and not self.use_corners) or
                                   (all_sites_activated and all_corners_aligned))
 
-        activated_sites_num = np.sum(activated_sites)
-        rew += activated_sites_num * self.reward_scale
+        if self.n_agents > 1:
+            activated_sites_num = np.sum(activated_sites)
+            rew += activated_sites_num * self.reward_scale
 
         if construction_completed:
-            #rew += self.n_sites * self.reward_scale
+            if self.n_agents == 1:
+                rew += self.n_sites * self.reward_scale
             self.success = True
             done = True
         info['success'] = self.success
         info['activated_sites'] = activated_sites_num
-
+        
         return obs, rew, done, info
 
 def make_env(args):
@@ -153,7 +157,6 @@ def BlueprintConstructionEnv(args, n_substeps=15, horizon=200, deterministic_mod
     scenario = args.scenario_name
     n_agents = args.num_agents
     n_boxes = args.num_boxes
-    #assert n_agents==1, ("only 1 agents is supported, check the config.py.")
     grab_radius_multiplier = lock_grab_radius / box_size
     lock_radius_multiplier = lock_grab_radius / box_size
 
@@ -260,7 +263,6 @@ def BlueprintConstructionEnv(args, n_substeps=15, horizon=200, deterministic_mod
     }
 
     for rew_info in reward_infos:
-        print(rew_info)
         rew_type = rew_info['type']
         del rew_info['type']
         env = reward_wrappers[rew_type](env, **rew_info)

@@ -24,7 +24,7 @@ import shutil
 
 import wandb
 
-def make_parallel_env(args, seed):
+def make_parallel_env(args):
     def get_env_fn(rank):
         def init_env():
             if args.env_name == "Harvest":
@@ -34,7 +34,7 @@ def make_parallel_env(args, seed):
             else:
                 print("Can not support the " + args.env_name + "environment." )
                 raise NotImplementedError
-            env.seed(seed + rank * 1000)
+            env.seed(args.seed + rank * 1000)
             return env
         return init_env
     if args.n_rollout_threads == 1:
@@ -46,9 +46,9 @@ def main():
     args = get_config()
 
     # seed
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    np.random.seed(args.seed)
 
     # cuda
     if args.cuda and torch.cuda.is_available():
@@ -66,7 +66,7 @@ def main():
     num_agents = get_map_params(args.map_name)["n_agents"]
     #Policy network
 
-       if args.share_policy:
+    if args.share_policy:
         actor_critic = Policy(envs.observation_space[0], 
                     envs.action_space[0],
                     num_agents = num_agents,
