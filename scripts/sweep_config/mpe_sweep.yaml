@@ -29,7 +29,7 @@ parameters:
     value: 3
   seed:
     distribution: constant
-    value: 1
+    value: 3
   n_rollout_threads:
     distribution: constant
     value: 128

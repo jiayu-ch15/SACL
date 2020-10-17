@@ -140,6 +140,9 @@ class PPO():
         value_loss_epoch = 0
         action_loss_epoch = 0
         dist_entropy_epoch = 0
+        grad_norm_epoch = 0
+        KL_divloss_epoch = 0
+        ratio_epoch = 0
 
         for e in range(self.ppo_epoch):
             if self.actor_critic.is_recurrent:
@@ -261,6 +264,9 @@ class PPO():
         value_loss_epoch = 0
         action_loss_epoch = 0
         dist_entropy_epoch = 0
+        grad_norm_epoch = 0
+        KL_divloss_epoch = 0
+        ratio_epoch = 0
 
         for e in range(self.ppo_epoch):
             if self.actor_critic.is_recurrent:
