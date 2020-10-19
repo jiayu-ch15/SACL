@@ -23,6 +23,7 @@ from utils.storage import RolloutStorage
 import shutil
 
 import wandb
+import socket
 
 def make_parallel_env(args):
     def get_env_fn(rank):

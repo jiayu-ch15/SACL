@@ -25,6 +25,7 @@ from utils.multi_discrete import MultiDiscrete
 from functools import reduce
 
 import wandb
+import socket
 
 def make_parallel_env(args):
     def get_env_fn(rank):
@@ -72,6 +73,8 @@ def main():
 
     run = wandb.init(config=args, 
             project=args.env_name, 
+            entity="yuchao",
+            notes=socket.gethostname(),
             name=str(args.algorithm_name) + "_seed" + str(args.seed),
             group=args.scenario_name,
             dir=str(model_dir),

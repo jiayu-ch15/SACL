@@ -23,6 +23,7 @@ import shutil
 import numpy as np
 
 import wandb
+import socket
 
 def make_parallel_env(args):
     def get_env_fn(rank):
@@ -73,6 +74,8 @@ def main():
 
     run = wandb.init(config=args, 
             project=args.env_name, 
+            entity="yuchao",
+            notes=socket.gethostname(),
             name=str(args.algorithm_name) + "_seed" + str(args.seed),
             group=args.map_name,
             dir=str(model_dir),

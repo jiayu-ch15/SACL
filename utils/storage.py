@@ -201,53 +201,58 @@ class RolloutStorage(object):
                         use_proper_time_limits=True,
                         use_popart=True,
                         value_normalizer=None):
+        parallel_envs_num = self.rewards.shape[1]
         if use_proper_time_limits:
             if use_gae:
                 self.value_preds[-1] = next_value
                 gae = 0
                 for step in reversed(range(self.rewards.shape[0])):
                     if use_popart:
-                        delta = self.rewards[step] + gamma * np.split(value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[
-                        step + 1]))).cpu().numpy(), self.value_preds[step + 1].shape[0]) * self.masks[step + 1] - np.split(value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[step]))).cpu().numpy(), self.value_preds[step].shape[0])
-                        gae = delta + gamma * gae_lambda * self.masks[step + 1] * gae
-                        gae = gae * self.bad_masks[step + 1]
-                        self.returns[step] = gae + np.split(value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[step]))).cpu().numpy(), self.value_preds[step].shape[0])
+                        delta = np.concatenate(self.rewards[step]) + gamma \
+                                * value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[step + 1]))).cpu().numpy() \
+                                * np.concatenate(self.masks[step + 1]) \
+                                - value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[step]))).cpu().numpy()
+                        gae = delta + gamma * gae_lambda * np.concatenate(self.masks[step + 1]) * gae
+                        gae = gae * np.concatenate(self.bad_masks[step + 1])
+                        self.returns[step] = np.array(np.split((gae + value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[step]))).cpu().numpy()), parallel_envs_num))
                     else:
-                        delta = self.rewards[step] + gamma * self.value_preds[
-                            step + 1] * self.masks[step + 1] - self.value_preds[step]
-                        gae = delta + gamma * gae_lambda * self.masks[step + 1] * gae
-                        gae = gae * self.bad_masks[step + 1]
-                        self.returns[step] = gae + self.value_preds[step]
+                        delta = np.concatenate(self.rewards[step]) + gamma * np.concatenate(self.value_preds[step + 1]) * np.concatenate(self.masks[step + 1]) - np.concatenate(self.value_preds[step])
+                        gae = delta + gamma * gae_lambda * np.concatenate(self.masks[step + 1]) * gae
+                        gae = gae * np.concatenate(self.bad_masks[step + 1])
+                        self.returns[step] = np.array(np.split((gae + np.concatenate(self.value_preds[step])), parallel_envs_num))
             else:
                 self.returns[-1] = next_value
                 for step in reversed(range(self.rewards.shape[0])):
                     if use_popart:
-                        self.returns[step] = (self.returns[step + 1] * \
-                        gamma * self.masks[step + 1] + self.rewards[step]) * self.bad_masks[step + 1] \
-                        + (1 - self.bad_masks[step + 1]) * np.split(value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[step]))).cpu().numpy(), self.value_preds[step].shape[0])
+                        self.returns[step] = np.array(np.split(((np.concatenate(self.returns[step + 1]) * gamma \
+                                             * np.concatenate(self.masks[step + 1]) + np.concatenate(self.rewards[step])) * np.concatenate(self.bad_masks[step + 1]) \
+                                             + (1 - np.concatenate(self.bad_masks[step + 1])) \
+                                             * value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[step]))).cpu().numpy()), parallel_envs_num))
                     else:
-                        self.returns[step] = (self.returns[step + 1] * \
-                            gamma * self.masks[step + 1] + self.rewards[step]) * self.bad_masks[step + 1] \
-                            + (1 - self.bad_masks[step + 1]) * self.value_preds[step]
+                        self.returns[step] = np.array(np.split(((np.concatenate(self.returns[step + 1]) * gamma \
+                                             * np.concatenate(self.masks[step + 1]) + np.concatenate(self.rewards[step])) \
+                                             * np.concatenate(self.bad_masks[step + 1]) \
+                                             + (1 - np.concatenate(self.bad_masks[step + 1])) * np.concatenate(self.value_preds[step])), parallel_envs_num))
         else:
             if use_gae:
                 self.value_preds[-1] = next_value
                 gae = 0
                 for step in reversed(range(self.rewards.shape[0])):
                     if use_popart:
-                        delta = self.rewards[step] + gamma * np.split(value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[step + 1]))).cpu().numpy(), self.value_preds[step + 1].shape[0]) * self.masks[step + 1] - np.split(value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[step]))).cpu().numpy(), self.value_preds[step].shape[0])
-                        gae = delta + gamma * gae_lambda * self.masks[step + 1] * gae                       
-                        self.returns[step] = gae + np.split(value_normalizer.denormalize(np.concatenate(torch.tensor(self.value_preds[step]))).cpu().numpy(), self.value_preds[step].shape[0])
+                        delta = np.concatenate(self.rewards[step]) \
+                                + gamma * value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[step + 1]))).cpu().numpy() \
+                                * np.concatenate(self.masks[step + 1]) \
+                                - value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[step]))).cpu().numpy()
+                        gae = delta + gamma * gae_lambda * np.concatenate(self.masks[step + 1]) * gae                       
+                        self.returns[step] = np.array(np.split((gae + value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[step]))).cpu().numpy()), parallel_envs_num))
                     else:
-                        delta = self.rewards[step] + gamma * self.value_preds[step + 1] * self.masks[step + 1] - self.value_preds[step]
-                        gae = delta + gamma * gae_lambda * self.masks[step + 1] * gae
-                        self.returns[step] = gae + self.value_preds[step]
+                        delta = np.concatenate(self.rewards[step]) + gamma * np.concatenate(self.value_preds[step + 1]) * np.concatenate(self.masks[step + 1]) - np.concatenate(self.value_preds[step])
+                        gae = delta + gamma * gae_lambda * np.concatenate(self.masks[step + 1]) * gae
+                        self.returns[step] = np.array(np.split((gae + np.concatenate(self.value_preds[step])), parallel_envs_num))
             else:
                 self.returns[-1] = next_value
                 for step in reversed(range(self.rewards.shape[0])):
-                    self.returns[step] = self.returns[step + 1] * \
-                            gamma * self.masks[step + 1] + self.rewards[step]
-
+                    self.returns[step] = np.array(np.split((gamma * np.concatenate(self.returns[step + 1]) * np.concatenate(self.masks[step + 1]) + np.concatenate(self.rewards[step])), parallel_envs_num))
     
     def feed_forward_generator(self, agent_id, advantages, num_mini_batch=None, mini_batch_size=None):
         episode_length, n_rollout_threads = self.rewards.shape[0:2]
