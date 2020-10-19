@@ -28,8 +28,8 @@ parameters:
     distribution: constant
     value: 3
   seed:
-    distribution: constant
-    value: 3
+    distribution: categorical
+    values: [1, 2, 3]
   n_rollout_threads:
     distribution: constant
     value: 128
@@ -53,6 +53,6 @@ parameters:
     values: [0.0001, 0.0005, 0.0007, 0.001, 0.01]
   ppo_epoch:
     distribution: categorical
-    values: [5, 10, 15, 25] 
+    values: [5, 10, 15, 20, 25] 
   
 

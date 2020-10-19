@@ -63,7 +63,7 @@ def main():
         os.makedirs(str(model_dir))
 
     run = wandb.init(config=args, 
-            project=args.env_name,
+            project="marlbenchmarks",
             entity="yuchao",
             notes=socket.gethostname(),
             name=str(args.algorithm_name) + "_seed" + str(args.seed),
