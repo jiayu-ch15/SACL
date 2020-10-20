@@ -79,7 +79,7 @@ def main():
 
     # env init
     envs = make_parallel_env(args)
-    num_agents = args.num_agents
+    num_agents = args.num_agents  
     
     #Policy network
     if args.share_policy:
@@ -259,12 +259,27 @@ def main():
                     action_log_probs = np.array(np.split(action_log_prob.detach().cpu().numpy(),args.n_rollout_threads))
                     recurrent_hidden_statess = np.array(np.split(recurrent_hidden_states.detach().cpu().numpy(),args.n_rollout_threads))
                     recurrent_hidden_statess_critic = np.array(np.split(recurrent_hidden_states_critic.detach().cpu().numpy(),args.n_rollout_threads))
+                    
+                    # rearrange action                    
+                    if envs.action_space[0].__class__.__name__ == 'MultiDiscrete':
+                        for i in range(envs.action_space[0].shape):
+                            uc_actions_env = np.eye(envs.action_space[0].high[i]+1)[actions[:,:,i]]
+                            if i == 0:
+                                actions_env = uc_actions_env
+                            else:
+                                actions_env = np.concatenate((actions_env, uc_actions_env), axis=2)                           
+                    elif envs.action_space[0].__class__.__name__ == 'Discrete':
+                        actions_env = np.squeeze(np.eye(envs.action_space[0].n)[actions], 2)
+                    else:
+                        raise NotImplementedError
                 else:
                     values = []
                     actions= []
+                    actions_env = []
                     action_log_probs = []
                     recurrent_hidden_statess = []
                     recurrent_hidden_statess_critic = []
+
                     for agent_id in range(num_agents):
                         actor_critic[agent_id].eval()
                         value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic \
@@ -275,39 +290,33 @@ def main():
                                                         torch.FloatTensor(rollouts[agent_id].masks[step,:]))
                         # [agents, envs, dim]
                         values.append(value.detach().cpu().numpy())
-                        actions.append(action.detach().cpu().numpy())
+                        action = action.detach().cpu().numpy()
+                        # rearrange action                  
+                        if envs.action_space[agent_id].__class__.__name__ == 'MultiDiscrete':
+                            for i in range(envs.action_space[agent_id].shape):
+                                uc_action_env = np.eye(envs.action_space[agent_id].high[i]+1)[action[:,i]]
+                                if i == 0:
+                                    action_env = uc_action_env
+                                else:
+                                    action_env = np.concatenate((action_env, uc_action_env), axis=1)                           
+                        elif envs.action_space[agent_id].__class__.__name__ == 'Discrete':
+                            action_env = np.squeeze(np.eye(envs.action_space[agent_id].n)[action], 1)
+                        else:
+                            raise NotImplementedError
+                        actions_env.append(action_env)
+                        actions.append(action)
                         action_log_probs.append(action_log_prob.detach().cpu().numpy())
                         recurrent_hidden_statess.append(recurrent_hidden_states.detach().cpu().numpy())
                         recurrent_hidden_statess_critic.append(recurrent_hidden_states_critic.detach().cpu().numpy())
+
                     # [envs, agents, dim]
                     values = np.array(values).transpose(1,0,2)
                     actions = np.array(actions).transpose(1,0,2)
+                    actions_env = np.array(actions_env).transpose(1,0,2)
                     action_log_probs = np.array(action_log_probs).transpose(1,0,2)
                     recurrent_hidden_statess = np.array(recurrent_hidden_statess).transpose(1,0,2)
                     recurrent_hidden_statess_critic = np.array(recurrent_hidden_statess_critic).transpose(1,0,2)
-                    
-            # rearrange action
-            actions_env = []
-            for i in range(args.n_rollout_threads):
-                one_hot_action_env = []
-                for agent_id in range(num_agents):
-                    if envs.action_space[agent_id].__class__.__name__ == 'MultiDiscrete':
-                        uc_action = []
-                        for j in range(envs.action_space[agent_id].shape):
-                            uc_one_hot_action = np.zeros(envs.action_space[agent_id].high[j]+1)
-                            uc_one_hot_action[actions[i][agent_id][j]] = 1
-                            uc_action.append(uc_one_hot_action)
-                        uc_action = np.concatenate(uc_action)
-                        one_hot_action_env.append(uc_action)
-                            
-                    elif envs.action_space[agent_id].__class__.__name__ == 'Discrete':    
-                        one_hot_action = np.zeros(envs.action_space[agent_id].n)
-                        one_hot_action[actions[i][agent_id]] = 1
-                        one_hot_action_env.append(one_hot_action)
-                    else:
-                        raise NotImplementedError
-                actions_env.append(one_hot_action_env)
-            
+           
             # Obser reward and next obs
             obs, rewards, dones, infos = envs.step(actions_env)
 
@@ -319,8 +328,7 @@ def main():
                 
             if args.share_policy: 
                 share_obs = obs.reshape(args.n_rollout_threads, -1)        
-                share_obs = np.expand_dims(share_obs, 1).repeat(num_agents,axis=1)    
-                
+                share_obs = np.expand_dims(share_obs, 1).repeat(num_agents,axis=1)               
                 rollouts.insert(share_obs, 
                                 obs, 
                                 recurrent_hidden_statess, 
@@ -335,7 +343,6 @@ def main():
                 for o in obs:
                     share_obs.append(list(itertools.chain(*o)))
                 share_obs = np.array(share_obs)
-
                 for agent_id in range(num_agents):
                     rollouts[agent_id].insert(share_obs, 
                                             np.array(list(obs[:,agent_id])), 
@@ -346,9 +353,10 @@ def main():
                                             values[:,agent_id],
                                             rewards[:,agent_id], 
                                             masks[:,agent_id])
-                                            
-        with torch.no_grad():                 
-            if args.share_policy: 
+                                                                   
+        if args.share_policy:
+            # compute returns
+            with torch.no_grad(): 
                 actor_critic.eval()                
                 next_value, _, _ = actor_critic.get_value(torch.FloatTensor(np.concatenate(rollouts.share_obs[-1])), 
                                                         torch.FloatTensor(np.concatenate(rollouts.obs[-1])), 
@@ -363,8 +371,21 @@ def main():
                                                 args.use_proper_time_limits,
                                                 args.use_popart,
                                                 agents.value_normalizer)
-            else:
-                for agent_id in range(num_agents):
+            # update network
+            actor_critic.train()
+            value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents.shared_update(rollouts)
+            # clean the buffer and reset
+            rollouts.after_update()
+        else:  
+            value_losses = []
+            action_losses = []
+            dist_entropies = [] 
+            grad_norms = []
+            KL_divlosses = []
+            ratios = []  
+            for agent_id in range(num_agents):
+                # compute returns
+                with torch.no_grad():
                     actor_critic[agent_id].eval()
                     next_value, _, _ = actor_critic[agent_id].get_value(torch.FloatTensor(rollouts[agent_id].share_obs[-1]), 
                                                                         torch.FloatTensor(rollouts[agent_id].obs[-1]), 
@@ -379,22 +400,7 @@ def main():
                                                     args.use_proper_time_limits,
                                                     args.use_popart,
                                                     agents[agent_id].value_normalizer)
-        
-        # update the network
-        if args.share_policy:
-            actor_critic.train()
-            value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents.shared_update(rollouts)
-            # clean the buffer and reset
-            rollouts.after_update()
-        else:
-            value_losses = []
-            action_losses = []
-            dist_entropies = [] 
-            grad_norms = []
-            KL_divlosses = []
-            ratios = []
-            
-            for agent_id in range(num_agents):
+                # update network
                 actor_critic[agent_id].train()
                 value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents[agent_id].separated_update(agent_id, rollouts[agent_id])
                 value_losses.append(value_loss)
@@ -405,7 +411,8 @@ def main():
                 ratios.append(ratio)
                 
                 rollouts[agent_id].after_update()
-                                                                    
+
+        # post process                                                            
         total_num_steps = (episode + 1) * args.episode_length * args.n_rollout_threads
         
         # save model

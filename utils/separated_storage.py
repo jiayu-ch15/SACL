@@ -49,8 +49,6 @@ class SeparatedRolloutStorage(object):
         else:
             raise NotImplementedError
         self.actions = np.zeros((episode_length, n_rollout_threads, action_shape)).astype(np.float32)
-        #if action_space.__class__.__name__ == 'Discrete':
-            #self.actions = self.actions.long()
         self.masks = np.ones((episode_length + 1, n_rollout_threads, 1)).astype(np.float32)
 
         # Masks that indicate whether it's a true terminal state
