@@ -1,8 +1,8 @@
 #!/bin/sh
 env="MPE"
-scenario="simple_spread"
+scenario="simple_reference"
 num_landmarks=3
-num_agents=3
+num_agents=2
 algo="debug"
 seed_max=1
 

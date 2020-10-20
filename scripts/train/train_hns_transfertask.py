@@ -17,8 +17,7 @@ import torch.nn.functional as F
 
 from algorithm.ppo import PPO
 from config import get_config
-from utils.multi_discrete import MultiDiscrete
-from utils.util import update_linear_schedule
+from utils.util import update_linear_schedule, MultiDiscrete
 
 from envs import BlueprintConstructionEnv, BoxLockingEnv, ShelterConstructionEnv
 from utils.env_wrappers import SimplifySubprocVecEnv, DummyVecEnv

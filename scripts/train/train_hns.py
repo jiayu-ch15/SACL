@@ -15,10 +15,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.multi_discrete import MultiDiscrete
-from utils.util import update_linear_schedule
 from config import get_config
 from algorithm.ppo import PPO
+from utils.util import update_linear_schedule, MultiDiscrete
 
 from envs import HideAndSeekEnv
 from utils.env_wrappers import SimplifySubprocVecEnv, DummyVecEnv

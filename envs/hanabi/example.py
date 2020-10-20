@@ -17,7 +17,7 @@ from __future__ import print_function
 
 import sys
 import getopt
-import rl_env
+import Hanabi_Env
 from agents.random_agent import RandomAgent
 from agents.simple_agent import SimpleAgent
 
@@ -31,7 +31,7 @@ class Runner(object):
     """Initialize runner."""
     self.flags = flags
     self.agent_config = {'players': flags['players']}
-    self.environment = rl_env.make('Hanabi-Full', num_players=flags['players'])
+    self.environment = Hanabi_Env.make('Hanabi-Full', num_players=flags['players'])
     self.agent_class = AGENT_CLASSES[flags['agent_class']]
 
   def run(self):

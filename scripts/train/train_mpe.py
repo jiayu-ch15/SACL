@@ -20,7 +20,7 @@ from config import get_config
 from utils.util import update_linear_schedule
 from algorithm.model import Policy
 
-from envs.mpe.MPE import MPEEnv
+from envs import MPEEnv
 from utils.env_wrappers import SubprocVecEnv, DummyVecEnv
 from utils.shared_storage import SharedRolloutStorage
 from utils.separated_storage import SeparatedRolloutStorage
@@ -275,7 +275,7 @@ def main():
                 else:
                     values = []
                     actions= []
-                    actions_env = []
+                    temp_actions_env = []
                     action_log_probs = []
                     recurrent_hidden_statess = []
                     recurrent_hidden_statess_critic = []
@@ -291,7 +291,7 @@ def main():
                         # [agents, envs, dim]
                         values.append(value.detach().cpu().numpy())
                         action = action.detach().cpu().numpy()
-                        # rearrange action                  
+                        # rearrange action                 
                         if envs.action_space[agent_id].__class__.__name__ == 'MultiDiscrete':
                             for i in range(envs.action_space[agent_id].shape):
                                 uc_action_env = np.eye(envs.action_space[agent_id].high[i]+1)[action[:,i]]
@@ -300,19 +300,26 @@ def main():
                                 else:
                                     action_env = np.concatenate((action_env, uc_action_env), axis=1)                           
                         elif envs.action_space[agent_id].__class__.__name__ == 'Discrete':
-                            action_env = np.squeeze(np.eye(envs.action_space[agent_id].n)[action], 1)
+                            action_env = np.squeeze(np.eye(envs.action_space[agent_id].n)[action], 1) 
                         else:
                             raise NotImplementedError
-                        actions_env.append(action_env)
+    
                         actions.append(action)
+                        temp_actions_env.append(action_env)
                         action_log_probs.append(action_log_prob.detach().cpu().numpy())
                         recurrent_hidden_statess.append(recurrent_hidden_states.detach().cpu().numpy())
                         recurrent_hidden_statess_critic.append(recurrent_hidden_states_critic.detach().cpu().numpy())
 
                     # [envs, agents, dim]
+                    actions_env = []
+                    for i in range(args.n_rollout_threads):
+                        one_hot_action_env = []
+                        for temp_action_env in temp_actions_env:
+                            one_hot_action_env.append(temp_action_env[i])
+                        actions_env.append(one_hot_action_env)
+
                     values = np.array(values).transpose(1,0,2)
                     actions = np.array(actions).transpose(1,0,2)
-                    actions_env = np.array(actions_env).transpose(1,0,2)
                     action_log_probs = np.array(action_log_probs).transpose(1,0,2)
                     recurrent_hidden_statess = np.array(recurrent_hidden_statess).transpose(1,0,2)
                     recurrent_hidden_statess_critic = np.array(recurrent_hidden_statess_critic).transpose(1,0,2)

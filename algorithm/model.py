@@ -1,18 +1,13 @@
+import math
 import numpy as np
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from utils.distributions import Bernoulli, Categorical, DiagGaussian
-from utils.util import init
-import copy
-import math
-import pdb
-
-from .ppo import PopArt
-
-def get_clones(module, N):
-    return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
+from utils.popart import PopArt
+from utils.util import init, get_clones
 
 # [L,[1,2],[1,2],[1,2]]   
 def split_obs(obs, split_shape):
