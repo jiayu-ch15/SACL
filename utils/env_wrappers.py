@@ -35,7 +35,6 @@ def simplifyworker(remote, parent_remote, env_fn_wrapper):
         else:
             raise NotImplementedError
 
-
 class SimplifySubprocVecEnv(VecEnv):
     def __init__(self, env_fns, spaces=None):
         """
@@ -96,18 +95,18 @@ def worker(remote, parent_remote, env_fn_wrapper):
     while True:
         cmd, data = remote.recv()
         if cmd == 'step':
-            ob, reward, done, info, available_actions = env.step(data)
+            ob, reward, done, info = env.step(data)
             if done.__class__.__name__=='bool':
                 if done:
-                    ob, available_actions = env.reset()
+                    ob = env.reset()
             else:
                 if all(done):
-                    ob, available_actions = env.reset()
+                    ob = env.reset()
             
-            remote.send((ob, reward, done, info, available_actions))
+            remote.send((ob, reward, done, info))
         elif cmd == 'reset':
-            ob, available_actions = env.reset()           
-            remote.send((ob, available_actions))
+            ob = env.reset()           
+            remote.send((ob))
         elif cmd == 'reset_task':
             ob = env.reset_task()
             remote.send(ob)
@@ -116,11 +115,11 @@ def worker(remote, parent_remote, env_fn_wrapper):
             remote.close()
             break
         elif cmd == 'get_spaces':
-            remote.send((env.observation_space, env.action_space))
+            remote.send((env.observation_space, env.share_observation_space, env.action_space))
         else:
             raise NotImplementedError
 
-class SubprocVecEnv(VecEnv):
+class SubprocVecEnv(ShareVecEnv):
     def __init__(self, env_fns, spaces=None):
         """
         envs: list of gym environments to run in subprocesses
@@ -137,8 +136,8 @@ class SubprocVecEnv(VecEnv):
         for remote in self.work_remotes:
             remote.close()
         self.remotes[0].send(('get_spaces', None))
-        observation_space, action_space = self.remotes[0].recv()
-        VecEnv.__init__(self, len(env_fns), observation_space, action_space)
+        observation_space, share_observation_space, action_space = self.remotes[0].recv()
+        ShareVecEnv.__init__(self, len(env_fns), observation_space, share_observation_space, action_space)
 
     def step_async(self, actions):
         for remote, action in zip(self.remotes, actions):
@@ -148,15 +147,14 @@ class SubprocVecEnv(VecEnv):
     def step_wait(self):
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
-        obs, rews, dones, infos, available_actions = zip(*results)
-        return np.stack(obs), np.stack(rews), np.stack(dones), infos, np.stack(available_actions)
+        obs, rews, dones, infos = zip(*results)
+        return np.stack(obs), np.stack(rews), np.stack(dones), infos
 
     def reset(self):
         for remote in self.remotes:
             remote.send(('reset', None))
-        results = [remote.recv() for remote in self.remotes]
-        obs, available_actions = zip(*results)
-        return np.stack(obs), np.stack(available_actions)
+        obs = [remote.recv() for remote in self.remotes]
+        return np.stack(obs)
 
     def reset_task(self):
         for remote in self.remotes:
@@ -175,8 +173,7 @@ class SubprocVecEnv(VecEnv):
             p.join()
         self.closed = True
 
-
-def shareworker(remote, parent_remote, env_fn_wrapper):
+def sharedworker(remote, parent_remote, env_fn_wrapper):
     parent_remote.close()
     env = env_fn_wrapper.x()
     while True:
@@ -206,7 +203,7 @@ def shareworker(remote, parent_remote, env_fn_wrapper):
         else:
             raise NotImplementedError
 
-class ShareSubprocVecEnv(ShareVecEnv):
+class SharedSubprocVecEnv(ShareVecEnv):
     def __init__(self, env_fns, spaces=None):
         """
         envs: list of gym environments to run in subprocesses
@@ -215,7 +212,7 @@ class ShareSubprocVecEnv(ShareVecEnv):
         self.closed = False
         nenvs = len(env_fns)
         self.remotes, self.work_remotes = zip(*[Pipe() for _ in range(nenvs)])
-        self.ps = [Process(target=shareworker, args=(work_remote, remote, CloudpickleWrapper(env_fn)))
+        self.ps = [Process(target=sharedworker, args=(work_remote, remote, CloudpickleWrapper(env_fn)))
             for (work_remote, remote, env_fn) in zip(self.work_remotes, self.remotes, env_fns)]
         for p in self.ps:
             p.daemon = True # if the main process crashes, we should not cause things to hang
@@ -260,7 +257,6 @@ class ShareSubprocVecEnv(ShareVecEnv):
         for p in self.ps:
             p.join()
         self.closed = True
-
 
 def chooseworker(remote, parent_remote, env_fn_wrapper):
     parent_remote.close()

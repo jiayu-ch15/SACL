@@ -6,35 +6,26 @@ import time
 def _flatten_helper(T, N, _tensor):
     return _tensor.view(T * N, *_tensor.size()[2:])
 
-class SingleRolloutStorage(object):
-    def __init__(self, agent_id, episode_length, n_rollout_threads, all_obs_space, all_action_space,
+class SeparatedRolloutStorage(object):
+    def __init__(self, episode_length, n_rollout_threads, agent_obs_space, agent_share_obs_space, agent_action_space,
                  recurrent_hidden_state_size):
         
-        if all_obs_space[agent_id].__class__.__name__ == 'Box':
-            obs_shape = all_obs_space[agent_id].shape
-            share_obs_dim = 0
-            for obs_space in all_obs_space:
-                share_obs_dim += obs_space.shape[0]
-            if len(obs_shape) == 3:                
-                self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, share_obs_dim, obs_shape[1], obs_shape[2])).astype(np.float32)
-                self.obs = np.zeros((episode_length + 1, n_rollout_threads, *obs_shape)).astype(np.float32)
-            else:               
-                self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, share_obs_dim)).astype(np.float32)
-                self.obs = np.zeros((episode_length + 1, n_rollout_threads, obs_shape[0])).astype(np.float32)
-        elif all_obs_space[agent_id].__class__.__name__ == 'list':
-            obs_shape = all_obs_space[agent_id]
-            share_obs_dim = 0
-            for obs_space in all_obs_space:
-                share_obs_dim += obs_space[0]
-            if len(obs_shape) == 3:
-                self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, share_obs_dim, obs_shape[1], obs_shape[2])).astype(np.float32)
-                self.obs = np.zeros((episode_length + 1, n_rollout_threads, *obs_shape)).astype(np.float32)
-            else:
-                self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, share_obs_dim)).astype(np.float32)
-                self.obs = np.zeros((episode_length + 1, n_rollout_threads, obs_shape[0])).astype(np.float32)
+        if agent_obs_space.__class__.__name__ == 'Box':
+            agent_obs_shape = agent_obs_space.shape
+            agent_share_obs_shape = agent_share_obs_space.shape        
+        elif agent_obs_space.__class__.__name__ == 'list':
+            agent_obs_shape = agent_obs_space
+            agent_share_obs_shape = agent_share_obs_space 
         else:
             raise NotImplementedError
-               
+
+        if len(agent_obs_shape) == 3:                
+            self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, *agent_share_obs_shape)).astype(np.float32)
+            self.obs = np.zeros((episode_length + 1, n_rollout_threads, *agent_obs_shape)).astype(np.float32)
+        else:               
+            self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, agent_share_obs_shape[0])).astype(np.float32)
+            self.obs = np.zeros((episode_length + 1, n_rollout_threads, agent_obs_shape[0])).astype(np.float32)
+            
         self.recurrent_hidden_states = np.zeros((
             episode_length + 1, n_rollout_threads, recurrent_hidden_state_size)).astype(np.float32)
         self.recurrent_hidden_states_critic = np.zeros((
@@ -46,15 +37,15 @@ class SingleRolloutStorage(object):
         self.action_log_probs = np.zeros((episode_length, n_rollout_threads, 1)).astype(np.float32)
         
         self.available_actions = None
-        if all_action_space[agent_id].__class__.__name__ == 'Discrete':
-            self.available_actions = np.ones((episode_length + 1, n_rollout_threads, all_action_space[agent_id].n)).astype(np.float32)
+        if agent_action_space.__class__.__name__ == 'Discrete':
+            self.available_actions = np.ones((episode_length + 1, n_rollout_threads, agent_action_space.n)).astype(np.float32)
             action_shape = 1
-        elif all_action_space[agent_id].__class__.__name__ == "MultiDiscrete":
-            action_shape = all_action_space[agent_id].shape
-        elif all_action_space[agent_id].__class__.__name__ == "Box":
-            action_shape = all_action_space[agent_id].shape[0]
-        elif all_action_space[agent_id].__class__.__name__ == "MultiBinary":
-            action_shape = all_action_space[agent_id].shape[0]
+        elif agent_action_space.__class__.__name__ == "MultiDiscrete":
+            action_shape = agent_action_space.shape
+        elif agent_action_space.__class__.__name__ == "Box":
+            action_shape = agent_action_space.shape[0]
+        elif agent_action_space.__class__.__name__ == "MultiBinary":
+            action_shape = agent_action_space.shape[0]
         else:
             raise NotImplementedError
         self.actions = np.zeros((episode_length, n_rollout_threads, action_shape)).astype(np.float32)

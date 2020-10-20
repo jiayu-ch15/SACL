@@ -4,6 +4,9 @@ import copy
 import glob
 import os
 import time
+import shutil
+import wandb
+import socket
 import numpy as np
 from pathlib import Path
 
@@ -11,19 +14,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from envs import HanabiEnv
 from algorithm.ppo import PPO
-from algorithm.share_model import Policy
-
 from config import get_config
-from utils.env_wrappers import ChooseSubprocVecEnv
 from utils.util import update_linear_schedule
-from utils.share_storage import RolloutStorage
-import shutil
-import numpy as np
 
-import wandb
-import socket
+from envs import HanabiEnv
+from utils.env_wrappers import ChooseSubprocVecEnv
+from algorithm.model import Policy
+from utils.shared_storage import SharedRolloutStorage
+
 
 def make_parallel_env(args):
     def get_env_fn(rank):
@@ -45,7 +44,7 @@ def make_eval_env(args):
     def get_env_fn(rank):
         def init_env():
             if args.env_name == "Hanabi":
-                assert args.num_agents>1 and args.num_agents<6, ("num_agents can be only between 2-5.")
+                assert args.num_agents > 1 and args.num_agents < 6, ("num_agents can be only between 2-5.")
                 env = HanabiEnv(args)
             else:
                 print("Can not support the " + args.env_name + "environment." )
@@ -115,7 +114,8 @@ def main():
                                 'use_feature_popart':args.use_feature_popart,
                                 'use_orthogonal':args.use_orthogonal,
                                 'layer_N':args.layer_N,
-                                'use_ReLU':args.use_ReLU                                 
+                                'use_ReLU':args.use_ReLU,
+                                'use_cat_self': args.use_cat_self                                
                                 },
                     device = device)
         else:       
@@ -144,7 +144,7 @@ def main():
                 device=device)
                 
         #replay buffer
-        rollouts = RolloutStorage(num_agents,
+        rollouts = SharedRolloutStorage(num_agents,
                     args.episode_length, 
                     args.n_rollout_threads,
                     envs.observation_space[0],
@@ -175,7 +175,8 @@ def main():
                                 'use_feature_popart':args.use_feature_popart,
                                 'use_orthogonal':args.use_orthogonal,
                                 'layer_N':args.layer_N,
-                                'use_ReLU':args.use_ReLUm
+                                'use_ReLU':args.use_ReLU,
+                                'use_cat_self': args.use_cat_self
                                 },
                     device = device)
             else:       
@@ -206,7 +207,7 @@ def main():
             agents.append(agent) 
             
         #replay buffer
-        rollouts = RolloutStorage(num_agents,
+        rollouts = SharedRolloutStorage(num_agents,
                     args.episode_length, 
                     args.n_rollout_threads,
                     envs.observation_space[0],
@@ -385,7 +386,7 @@ def main():
         # update the network
         if args.share_policy:
             actor_critic.train()
-            value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents.update_share(num_agents, rollouts)
+            value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents.shared_update(rollouts)
             
         else:
             value_losses = []
@@ -396,7 +397,7 @@ def main():
             ratios = []        
             for agent_id in range(num_agents):
                 actor_critic[agent_id].train()
-                value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents[agent_id].update(agent_id, rollouts)
+                value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents[agent_id].single_update(agent_id, rollouts)
                 value_losses.append(value_loss)
                 action_losses.append(action_loss)
                 dist_entropies.append(dist_entropy)

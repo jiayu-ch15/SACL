@@ -52,6 +52,8 @@ class MultiAgentEnv(gym.Env):
         # configure spaces
         self.action_space = []
         self.observation_space = []
+        self.share_observation_space = []
+        share_obs_dim = 0
         for agent in self.agents:
             total_action_space = []
             # physical action space
@@ -83,9 +85,10 @@ class MultiAgentEnv(gym.Env):
                 self.action_space.append(total_action_space[0])
             # observation space
             obs_dim = len(observation_callback(agent, self.world))
+            share_obs_dim += obs_dim
             self.observation_space.append(spaces.Box(low=-np.inf, high=+np.inf, shape=(obs_dim,), dtype=np.float32))#[-inf,inf]
             agent.action.c = np.zeros(self.world.dim_c)
-
+        self.share_observation_space = [spaces.Box(low=-np.inf, high=+np.inf, shape=(share_obs_dim,), dtype=np.float32)] * self.n
         # rendering
         self.shared_viewer = shared_viewer
         if self.shared_viewer:
@@ -128,10 +131,8 @@ class MultiAgentEnv(gym.Env):
         
         if self.post_step_callback is not None:
             self.post_step_callback(self.world)
-        
-        available_action = [[None]] * self.n
            
-        return obs_n, reward_n, done_n, info_n, available_action
+        return obs_n, reward_n, done_n, info_n
 
     def reset(self):
         self.current_step = 0
@@ -146,9 +147,7 @@ class MultiAgentEnv(gym.Env):
         for agent in self.agents:
             obs_n.append(self._get_obs(agent))
         
-        available_action = [[None]] * self.n
-        
-        return obs_n, available_action
+        return obs_n
 
     # get info used for benchmarking
     def _get_info(self, agent):

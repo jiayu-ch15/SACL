@@ -6,30 +6,25 @@ import time
 def _flatten_helper(T, N, _tensor):
     return _tensor.view(T * N, *_tensor.size()[2:])
 
-class RolloutStorage(object):
+class SharedRolloutStorage(object):
     def __init__(self, num_agents, episode_length, n_rollout_threads, obs_space, share_obs_space, action_space,
                  recurrent_hidden_state_size):
         
         if obs_space.__class__.__name__ == 'Box':
             obs_shape = obs_space.shape
             share_obs_shape = share_obs_space.shape
-            if len(obs_shape) == 3:
-                self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, share_obs_shape[0], share_obs_shape[1], share_obs_shape[2])).astype(np.float32)
-                self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, *obs_shape)).astype(np.float32)
-            else:
-                self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, share_obs_shape[0])).astype(np.float32)
-                self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0])).astype(np.float32)
         elif obs_space.__class__.__name__ == 'list':
             obs_shape = obs_space
-            share_obs_shape = share_obs_space
-            if len(obs_shape) == 3:
-                self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, share_obs_shape[0], share_obs_shape[1], share_obs_shape[2])).astype(np.float32)
-                self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, *obs_shape)).astype(np.float32)
-            else:
-                self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, share_obs_shape[0])).astype(np.float32)
-                self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0])).astype(np.float32)
+            share_obs_shape = share_obs_space          
         else:
             raise NotImplementedError
+
+        if len(obs_shape) == 3:
+            self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, *share_obs_shape)).astype(np.float32)
+            self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, *obs_shape)).astype(np.float32)
+        else:
+            self.share_obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, share_obs_shape[0])).astype(np.float32)
+            self.obs = np.zeros((episode_length + 1, n_rollout_threads, num_agents, obs_shape[0])).astype(np.float32)
                
         self.recurrent_hidden_states = np.zeros((
             episode_length + 1, n_rollout_threads, num_agents, recurrent_hidden_state_size)).astype(np.float32)
@@ -51,11 +46,9 @@ class RolloutStorage(object):
             action_shape = action_space.shape[0]
         elif action_space.__class__.__name__ == "MultiBinary":
             action_shape = action_space.shape[0]
-        else:#agar
+        else: # agar
             action_shape = action_space[0].shape[0] + 1
         self.actions = np.zeros((episode_length, n_rollout_threads, num_agents, action_shape)).astype(np.float32)
-        #if action_space.__class__.__name__ == 'Discrete':
-            #self.actions = self.actions.long()
         self.masks = np.ones((episode_length + 1, n_rollout_threads, num_agents, 1)).astype(np.float32)
 
         # Masks that indicate whether it's a true terminal state
@@ -126,7 +119,7 @@ class RolloutStorage(object):
         self.bad_masks[0] = self.bad_masks[-1].copy()
         self.high_masks[0] = self.high_masks[-1].copy()       
         
-    def compute_returns(self,
+    def single_compute_returns(self,
                         agent_id,
                         next_value,
                         use_gae,
@@ -183,7 +176,68 @@ class RolloutStorage(object):
                     self.returns[step,:,agent_id] = self.returns[step + 1,:,agent_id] * \
                             gamma * self.masks[step + 1,:,agent_id] + self.rewards[step,:,agent_id]
 
-    def feed_forward_generator(self, agent_id, advantages, num_mini_batch=None, mini_batch_size=None):
+    def shared_compute_returns(self,
+                        next_value,
+                        use_gae,
+                        gamma,
+                        gae_lambda,
+                        use_proper_time_limits=True,
+                        use_popart=True,
+                        value_normalizer=None):
+        parallel_envs_num = self.rewards.shape[1]
+        if use_proper_time_limits:
+            if use_gae:
+                self.value_preds[-1] = next_value
+                gae = 0
+                for step in reversed(range(self.rewards.shape[0])):
+                    if use_popart:
+                        delta = np.concatenate(self.rewards[step]) + gamma \
+                                * value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[step + 1]))).cpu().numpy() \
+                                * np.concatenate(self.masks[step + 1]) \
+                                - value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[step]))).cpu().numpy()
+                        gae = delta + gamma * gae_lambda * np.concatenate(self.masks[step + 1]) * gae
+                        gae = gae * np.concatenate(self.bad_masks[step + 1])
+                        self.returns[step] = np.array(np.split((gae + value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[step]))).cpu().numpy()), parallel_envs_num))
+                    else:
+                        delta = np.concatenate(self.rewards[step]) + gamma * np.concatenate(self.value_preds[step + 1]) * np.concatenate(self.masks[step + 1]) - np.concatenate(self.value_preds[step])
+                        gae = delta + gamma * gae_lambda * np.concatenate(self.masks[step + 1]) * gae
+                        gae = gae * np.concatenate(self.bad_masks[step + 1])
+                        self.returns[step] = np.array(np.split((gae + np.concatenate(self.value_preds[step])), parallel_envs_num))
+            else:
+                self.returns[-1] = next_value
+                for step in reversed(range(self.rewards.shape[0])):
+                    if use_popart:
+                        self.returns[step] = np.array(np.split(((np.concatenate(self.returns[step + 1]) * gamma \
+                                             * np.concatenate(self.masks[step + 1]) + np.concatenate(self.rewards[step])) * np.concatenate(self.bad_masks[step + 1]) \
+                                             + (1 - np.concatenate(self.bad_masks[step + 1])) \
+                                             * value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[step]))).cpu().numpy()), parallel_envs_num))
+                    else:
+                        self.returns[step] = np.array(np.split(((np.concatenate(self.returns[step + 1]) * gamma \
+                                             * np.concatenate(self.masks[step + 1]) + np.concatenate(self.rewards[step])) \
+                                             * np.concatenate(self.bad_masks[step + 1]) \
+                                             + (1 - np.concatenate(self.bad_masks[step + 1])) * np.concatenate(self.value_preds[step])), parallel_envs_num))
+        else:
+            if use_gae:
+                self.value_preds[-1] = next_value
+                gae = 0
+                for step in reversed(range(self.rewards.shape[0])):
+                    if use_popart:
+                        delta = np.concatenate(self.rewards[step]) \
+                                + gamma * value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[step + 1]))).cpu().numpy() \
+                                * np.concatenate(self.masks[step + 1]) \
+                                - value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[step]))).cpu().numpy()
+                        gae = delta + gamma * gae_lambda * np.concatenate(self.masks[step + 1]) * gae                       
+                        self.returns[step] = np.array(np.split((gae + value_normalizer.denormalize(torch.tensor(np.concatenate(self.value_preds[step]))).cpu().numpy()), parallel_envs_num))
+                    else:
+                        delta = np.concatenate(self.rewards[step]) + gamma * np.concatenate(self.value_preds[step + 1]) * np.concatenate(self.masks[step + 1]) - np.concatenate(self.value_preds[step])
+                        gae = delta + gamma * gae_lambda * np.concatenate(self.masks[step + 1]) * gae
+                        self.returns[step] = np.array(np.split((gae + np.concatenate(self.value_preds[step])), parallel_envs_num))
+            else:
+                self.returns[-1] = next_value
+                for step in reversed(range(self.rewards.shape[0])):
+                    self.returns[step] = np.array(np.split((gamma * np.concatenate(self.returns[step + 1]) * np.concatenate(self.masks[step + 1]) + np.concatenate(self.rewards[step])), parallel_envs_num))
+    
+    def single_feed_forward_generator(self, agent_id, advantages, num_mini_batch=None, mini_batch_size=None):
         episode_length, n_rollout_threads = self.rewards.shape[0:2]
         batch_size = n_rollout_threads * episode_length
 
@@ -230,7 +284,7 @@ class RolloutStorage(object):
 
             yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, adv_targ
             
-    def feed_forward_generator_share(self, advantages, num_mini_batch=None, mini_batch_size=None):
+    def shared_feed_forward_generator(self, advantages, num_mini_batch=None, mini_batch_size=None):
         episode_length, n_rollout_threads, num_agents = self.rewards.shape[0:3]
         batch_size = n_rollout_threads * episode_length * num_agents
 
@@ -277,7 +331,7 @@ class RolloutStorage(object):
 
             yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, adv_targ
 
-    def naive_recurrent_generator(self, agent_id, advantages, num_mini_batch):
+    def single_naive_recurrent_generator(self, agent_id, advantages, num_mini_batch):
         n_rollout_threads = self.rewards.shape[1]
         assert n_rollout_threads >= num_mini_batch, (
             "PPO requires the number of processes ({}) "
@@ -324,15 +378,12 @@ class RolloutStorage(object):
             return_batch = torch.stack(return_batch, 1)
             masks_batch = torch.stack(masks_batch, 1)
             high_masks_batch = torch.stack(high_masks_batch, 1)
-            old_action_log_probs_batch = torch.stack(
-                old_action_log_probs_batch, 1)
+            old_action_log_probs_batch = torch.stack(old_action_log_probs_batch, 1)
             adv_targ = torch.stack(adv_targ, 1)
 
             # States is just a (N, -1) tensor
-            recurrent_hidden_states_batch = torch.stack(
-                recurrent_hidden_states_batch, 1).view(N, -1)
-            recurrent_hidden_states_critic_batch = torch.stack(
-                recurrent_hidden_states_critic_batch, 1).view(N, -1)
+            recurrent_hidden_states_batch = torch.stack(recurrent_hidden_states_batch, 1).view(N, -1)
+            recurrent_hidden_states_critic_batch = torch.stack(recurrent_hidden_states_critic_batch, 1).view(N, -1)
 
             # Flatten the (T, N, ...) tensors to (T * N, ...)
             share_obs_batch = _flatten_helper(T, N, share_obs_batch)
@@ -342,14 +393,12 @@ class RolloutStorage(object):
             return_batch = _flatten_helper(T, N, return_batch)
             masks_batch = _flatten_helper(T, N, masks_batch)
             high_masks_batch = _flatten_helper(T, N, high_masks_batch)
-            old_action_log_probs_batch = _flatten_helper(T, N, \
-                    old_action_log_probs_batch)
+            old_action_log_probs_batch = _flatten_helper(T, N, old_action_log_probs_batch)
             adv_targ = _flatten_helper(T, N, adv_targ)
             
-
             yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, adv_targ
             
-    def naive_recurrent_generator_share(self, advantages, num_mini_batch):
+    def shared_naive_recurrent_generator(self, advantages, num_mini_batch):
         episode_length, n_rollout_threads, num_agents = self.rewards.shape[0:3]
         batch_size = n_rollout_threads*num_agents
         assert n_rollout_threads*num_agents >= num_mini_batch, (
@@ -409,15 +458,12 @@ class RolloutStorage(object):
             return_batch = torch.stack(return_batch, 1)
             masks_batch = torch.stack(masks_batch, 1)
             high_masks_batch = torch.stack(high_masks_batch, 1)
-            old_action_log_probs_batch = torch.stack(
-                old_action_log_probs_batch, 1)
+            old_action_log_probs_batch = torch.stack(old_action_log_probs_batch, 1)
             adv_targ = torch.stack(adv_targ, 1)
 
             # States is just a (N, -1) tensor
-            recurrent_hidden_states_batch = torch.stack(
-                recurrent_hidden_states_batch, 1).view(N, -1)
-            recurrent_hidden_states_critic_batch = torch.stack(
-                recurrent_hidden_states_critic_batch, 1).view(N, -1)
+            recurrent_hidden_states_batch = torch.stack(recurrent_hidden_states_batch, 1).view(N, -1)
+            recurrent_hidden_states_critic_batch = torch.stack(recurrent_hidden_states_critic_batch, 1).view(N, -1)
 
             # Flatten the (T, N, ...) tensors to (T * N, ...)
             share_obs_batch = _flatten_helper(T, N, share_obs_batch)
@@ -427,14 +473,12 @@ class RolloutStorage(object):
             return_batch = _flatten_helper(T, N, return_batch)
             masks_batch = _flatten_helper(T, N, masks_batch)
             high_masks_batch = _flatten_helper(T, N, high_masks_batch)
-            old_action_log_probs_batch = _flatten_helper(T, N, \
-                    old_action_log_probs_batch)
+            old_action_log_probs_batch = _flatten_helper(T, N, old_action_log_probs_batch)
             adv_targ = _flatten_helper(T, N, adv_targ)
             
             yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, adv_targ
-                
-                
-    def recurrent_generator(self, agent_id, advantages, num_mini_batch, data_chunk_length):
+                            
+    def single_recurrent_generator(self, agent_id, advantages, num_mini_batch, data_chunk_length):
         episode_length, n_rollout_threads = self.rewards.shape[0:2]
         batch_size = n_rollout_threads * episode_length
         data_chunks = batch_size // data_chunk_length #[C=r*T/L]
@@ -500,16 +544,13 @@ class RolloutStorage(object):
             return_batch = torch.stack(return_batch)
             masks_batch = torch.stack(masks_batch)
             high_masks_batch = torch.stack(high_masks_batch)
-            old_action_log_probs_batch = torch.stack(
-                old_action_log_probs_batch)
+            old_action_log_probs_batch = torch.stack(old_action_log_probs_batch)
             adv_targ = torch.stack(adv_targ)
 
             # States is just a (N, -1) tensor
             
-            recurrent_hidden_states_batch = torch.stack(
-                recurrent_hidden_states_batch).view(N, -1)
-            recurrent_hidden_states_critic_batch = torch.stack(
-                recurrent_hidden_states_critic_batch).view(N, -1)
+            recurrent_hidden_states_batch = torch.stack(recurrent_hidden_states_batch).view(N, -1)
+            recurrent_hidden_states_critic_batch = torch.stack(recurrent_hidden_states_critic_batch).view(N, -1)
 
             # Flatten the (L, N, ...) tensors to (L * N, ...)
             share_obs_batch = _flatten_helper(L, N, share_obs_batch)
@@ -519,14 +560,12 @@ class RolloutStorage(object):
             return_batch = _flatten_helper(L, N, return_batch)
             masks_batch = _flatten_helper(L, N, masks_batch)
             high_masks_batch = _flatten_helper(L, N, high_masks_batch)
-            old_action_log_probs_batch = _flatten_helper(L, N, \
-                    old_action_log_probs_batch)
+            old_action_log_probs_batch = _flatten_helper(L, N, old_action_log_probs_batch)
             adv_targ = _flatten_helper(L, N, adv_targ)
             
             yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, adv_targ
- 
-            
-    def recurrent_generator_share(self, advantages, num_mini_batch, data_chunk_length):
+           
+    def shared_recurrent_generator(self, advantages, num_mini_batch, data_chunk_length):
         episode_length, n_rollout_threads, num_agents = self.rewards.shape[0:3]
         batch_size = n_rollout_threads * episode_length * num_agents
         data_chunks = batch_size // data_chunk_length #[C=r*T*M/L]
@@ -593,16 +632,13 @@ class RolloutStorage(object):
             return_batch = torch.stack(return_batch)
             masks_batch = torch.stack(masks_batch)
             high_masks_batch = torch.stack(high_masks_batch)
-            old_action_log_probs_batch = torch.stack(
-                old_action_log_probs_batch)
+            old_action_log_probs_batch = torch.stack(old_action_log_probs_batch)
             adv_targ = torch.stack(adv_targ)
 
             # States is just a (N, -1) tensor
             
-            recurrent_hidden_states_batch = torch.stack(
-                recurrent_hidden_states_batch).view(N, -1)
-            recurrent_hidden_states_critic_batch = torch.stack(
-                recurrent_hidden_states_critic_batch).view(N, -1)
+            recurrent_hidden_states_batch = torch.stack(recurrent_hidden_states_batch).view(N, -1)
+            recurrent_hidden_states_critic_batch = torch.stack(recurrent_hidden_states_critic_batch).view(N, -1)
 
             # Flatten the (L, N, ...) tensors to (L * N, ...)
             share_obs_batch = _flatten_helper(L, N, share_obs_batch)

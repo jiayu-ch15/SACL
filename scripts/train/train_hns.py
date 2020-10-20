@@ -4,28 +4,27 @@ import copy
 import glob
 import os
 import time
+import shutil
 import numpy as np
+import wandb
+import socket
+from functools import reduce
 from pathlib import Path
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from envs import HideAndSeekEnv
+from utils.multi_discrete import MultiDiscrete
+from utils.util import update_linear_schedule
+from config import get_config
 from algorithm.ppo import PPO
+
+from envs import HideAndSeekEnv
+from utils.env_wrappers import SimplifySubprocVecEnv, DummyVecEnv
+from utils.shared_storage import SharedRolloutStorage
 from algorithm.model import Policy
 
-from config import get_config
-from utils.env_wrappers import SimplifySubprocVecEnv, DummyVecEnv
-from utils.util import update_linear_schedule
-from utils.storage import RolloutStorage
-import shutil
-import numpy as np
-from utils.multi_discrete import MultiDiscrete
-from functools import reduce
-
-import wandb
-import socket
 
 def make_parallel_env(args):
     def get_env_fn(rank):
@@ -129,15 +128,14 @@ def main():
     if args.share_policy:
         if args.model_dir==None or args.model_dir=="":
             actor_critic = Policy(all_obs_space[0], 
+                    all_obs_space[0],
                     all_action_space[0],
-                    num_agents = num_agents,
                     gain = args.gain,
                     base_kwargs={'naive_recurrent': args.naive_recurrent_policy,
                                 'recurrent': args.recurrent_policy,
                                 'hidden_size': args.hidden_size,
                                 'recurrent_N': args.recurrent_N,
                                 'attn': args.attn,  
-                                'attn_only_critic': args.attn_only_critic,                                
                                 'attn_size': args.attn_size,
                                 'attn_N': args.attn_N,
                                 'attn_heads': args.attn_heads,
@@ -149,7 +147,7 @@ def main():
                                 'use_orthogonal':args.use_orthogonal,
                                 'layer_N':args.layer_N,
                                 'use_ReLU':args.use_ReLU,
-                                'use_same_dim':True
+                                'use_cat_self':args.use_cat_self
                                 },
                     device = device)
         else:       
@@ -178,28 +176,27 @@ def main():
                 device=device)
                 
         #replay buffer
-        rollouts = RolloutStorage(num_agents,
+        rollouts = SharedRolloutStorage(num_agents,
                     args.episode_length, 
                     args.n_rollout_threads,
+                    all_obs_space[0],
                     all_obs_space[0], 
                     all_action_space[0],
-                    args.hidden_size,
-                    use_same_dim=True)        
+                    args.hidden_size)        
     else:
         actor_critic = []
         agents = []
         for agent_id in range(num_agents):
             if args.model_dir==None or args.model_dir=="":
-                ac = Policy(all_obs_space[0], 
+                ac = Policy(all_obs_space[0],
+                        all_obs_space[0], 
                         all_action_space[0],
-                        num_agents = num_agents,
                         gain = args.gain,
                         base_kwargs={'naive_recurrent': args.naive_recurrent_policy,
                                     'recurrent': args.recurrent_policy,
                                     'hidden_size': args.hidden_size,
                                     'recurrent_N': args.recurrent_N,
                                     'attn': args.attn,  
-                                    'attn_only_critic': args.attn_only_critic,                                
                                     'attn_size': args.attn_size,
                                     'attn_N': args.attn_N,
                                     'attn_heads': args.attn_heads,
@@ -211,7 +208,7 @@ def main():
                                     'use_orthogonal':args.use_orthogonal,
                                     'layer_N':args.layer_N,
                                     'use_ReLU':args.use_ReLU,
-                                    'use_same_dim':True
+                                    'use_cat_self':args.use_cat_self
                                     },
                         device = device)
             else:
@@ -243,13 +240,13 @@ def main():
             agents.append(agent) 
             
         #replay buffer
-        rollouts = RolloutStorage(num_agents,
+        rollouts = SharedRolloutStorage(num_agents,
                     args.episode_length, 
                     args.n_rollout_threads,
+                    all_obs_space[0],
                     all_obs_space[0], 
                     all_action_space[0],
-                    args.hidden_size,
-                    use_same_dim=True)
+                    args.hidden_size)
     
     # reset env 
     dict_obs = envs.reset()
@@ -482,7 +479,7 @@ def main():
         # update the network
         if args.share_policy:
             actor_critic.train()
-            value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents.update_share(num_agents, rollouts)
+            value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents.shared_update(rollouts)
         else:
             value_losses = []
             action_losses = []
@@ -492,7 +489,7 @@ def main():
             ratios = []               
             for agent_id in range(num_agents):
                 actor_critic[agent_id].train()
-                value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents[agent_id].update(agent_id, rollouts)
+                value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents[agent_id].single_update(agent_id, rollouts)
                 value_losses.append(value_loss)
                 action_losses.append(action_loss)
                 dist_entropies.append(dist_entropy)

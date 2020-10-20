@@ -129,13 +129,12 @@ class PPO():
         else:
             self.value_normalizer = None
 
-    def update_single(self, agent_id, rollouts, turn_on=True):
+    def separated_update(self, agent_id, rollouts, turn_on=True):
         if self.use_popart:
             advantages = rollouts.returns[:-1,:] - self.value_normalizer.denormalize(torch.tensor(rollouts.value_preds[:-1,:])).cpu().numpy()
         else:
             advantages = rollouts.returns[:-1,:] - rollouts.value_preds[:-1,:]
-        advantages = (advantages - advantages.mean()) / (
-            advantages.std() + 1e-5)
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
 
         value_loss_epoch = 0
         action_loss_epoch = 0
@@ -144,7 +143,7 @@ class PPO():
         KL_divloss_epoch = 0
         ratio_epoch = 0
 
-        for e in range(self.ppo_epoch):
+        for _ in range(self.ppo_epoch):
             if self.actor_critic.is_recurrent:
                 data_generator = rollouts.recurrent_generator(
                      advantages, self.num_mini_batch, self.data_chunk_length)
@@ -167,7 +166,7 @@ class PPO():
                 high_masks_batch = high_masks_batch.to(self.device)
                 
                 # Reshape to do in a single forward pass for all steps
-                values, action_log_probs, dist_entropy, _, _ = self.actor_critic.evaluate_actions(agent_id, share_obs_batch, 
+                values, action_log_probs, dist_entropy, _, _ = self.actor_critic.evaluate_actions(share_obs_batch, 
                 obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, masks_batch, high_masks_batch)
 
                 ratio = torch.exp(action_log_probs - old_action_log_probs_batch)
@@ -253,13 +252,12 @@ class PPO():
 
         return value_loss_epoch, action_loss_epoch, dist_entropy_epoch, grad_norm_epoch, KL_divloss_epoch, ratio_epoch
 
-    def update(self, agent_id, rollouts, turn_on=True):
+    def single_update(self, agent_id, rollouts, turn_on=True):
         if self.use_popart:
             advantages = rollouts.returns[:-1,:,agent_id] - self.value_normalizer.denormalize(torch.tensor(rollouts.value_preds[:-1,:,agent_id])).cpu().numpy()
         else:
             advantages = rollouts.returns[:-1,:,agent_id] - rollouts.value_preds[:-1,:,agent_id]
-        advantages = (advantages - advantages.mean()) / (
-            advantages.std() + 1e-5)
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)
 
         value_loss_epoch = 0
         action_loss_epoch = 0
@@ -268,15 +266,15 @@ class PPO():
         KL_divloss_epoch = 0
         ratio_epoch = 0
 
-        for e in range(self.ppo_epoch):
+        for _ in range(self.ppo_epoch):
             if self.actor_critic.is_recurrent:
-                data_generator = rollouts.recurrent_generator(
+                data_generator = rollouts.single_recurrent_generator(
                     agent_id, advantages, self.num_mini_batch, self.data_chunk_length)
             elif self.actor_critic.is_naive_recurrent:
-                data_generator = rollouts.naive_recurrent_generator(
+                data_generator = rollouts.single_naive_recurrent_generator(
                     agent_id, advantages, self.num_mini_batch)
             else:
-                data_generator = rollouts.feed_forward_generator(
+                data_generator = rollouts.single_feed_forward_generator(
                     agent_id, advantages, self.num_mini_batch)
 
             for sample in data_generator:
@@ -291,7 +289,7 @@ class PPO():
                 high_masks_batch = high_masks_batch.to(self.device)
                 
                 # Reshape to do in a single forward pass for all steps
-                values, action_log_probs, dist_entropy, _, _ = self.actor_critic.evaluate_actions(agent_id, share_obs_batch, 
+                values, action_log_probs, dist_entropy, _, _ = self.actor_critic.evaluate_actions(share_obs_batch, 
                 obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, masks_batch, high_masks_batch)
 
                 ratio = torch.exp(action_log_probs - old_action_log_probs_batch)
@@ -377,18 +375,16 @@ class PPO():
 
         return value_loss_epoch, action_loss_epoch, dist_entropy_epoch, grad_norm_epoch, KL_divloss_epoch, ratio_epoch
 
-    def update_share(self, num_agents, rollouts, turn_on=True):
-        advantages = []
-        for agent_id in range(num_agents):
-            if self.use_popart:
-                advantage = rollouts.returns[:-1,:,agent_id] - self.value_normalizer.denormalize(torch.tensor(rollouts.value_preds[:-1,:,agent_id])).cpu().numpy()
-            else:
-                advantage = rollouts.returns[:-1,:,agent_id] - rollouts.value_preds[:-1,:,agent_id]           
-            advantages.append(advantage)
-        #agent ,step, parallel,1
-        advantages = np.array(advantages).transpose(1,2,0,3)
-        advantages = (advantages - advantages.mean()) / (
-                advantages.std() + 1e-5)      
+    def shared_update(self, rollouts, turn_on=True):
+        if self.use_popart:
+            temp_value_preds = self.value_normalizer.denormalize(torch.tensor(rollouts.value_preds[:-1].reshape(-1,1))).cpu().numpy()
+            advantages = rollouts.returns[:-1] - temp_value_preds.reshape(rollouts.value_preds[:-1].shape[0], 
+                                                                        rollouts.value_preds[:-1].shape[1], 
+                                                                        rollouts.value_preds[:-1].shape[2],
+                                                                        rollouts.value_preds[:-1].shape[3])
+        else:
+            advantages = rollouts.returns[:-1] - rollouts.value_preds[:-1]           
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5)      
 
         value_loss_epoch = 0
         action_loss_epoch = 0
@@ -397,16 +393,16 @@ class PPO():
         KL_divloss_epoch = 0
         ratio_epoch = 0
 
-        for e in range(self.ppo_epoch):
+        for _ in range(self.ppo_epoch):
             
             if self.actor_critic.is_recurrent:
-                data_generator = rollouts.recurrent_generator_share(
+                data_generator = rollouts.shared_recurrent_generator(
                     advantages, self.num_mini_batch, self.data_chunk_length)
             elif self.actor_critic.is_naive_recurrent:
-                data_generator = rollouts.naive_recurrent_generator_share(
+                data_generator = rollouts.shared_naive_recurrent_generator(
                     advantages, self.num_mini_batch)
             else:
-                data_generator = rollouts.feed_forward_generator_share(
+                data_generator = rollouts.shared_feed_forward_generator(
                     advantages, self.num_mini_batch)
 
             for sample in data_generator: 
@@ -423,7 +419,7 @@ class PPO():
   
                 # Reshape to do in a single forward pass for all steps
                 
-                values, action_log_probs, dist_entropy, _, _ = self.actor_critic.evaluate_actions(agent_id, share_obs_batch, 
+                values, action_log_probs, dist_entropy, _, _ = self.actor_critic.evaluate_actions(share_obs_batch, 
                 obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, masks_batch, None)
                 
                 ratio = torch.exp(action_log_probs - old_action_log_probs_batch)

@@ -1,9 +1,9 @@
 #!/bin/sh
 env="MPE"
 scenario="simple_spread"
-num_landmarks=10
-num_agents=10
-algo="10agent_batch"
+num_landmarks=3
+num_agents=3
+algo="original"
 seed_max=1
 
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, max seed is ${seed_max}"

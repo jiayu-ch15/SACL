@@ -4,6 +4,9 @@ import copy
 import glob
 import os
 import time
+import shutil
+import wandb
+import socket
 import numpy as np
 from pathlib import Path
 
@@ -11,19 +14,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from envs import StarCraft2Env, get_map_params
 from algorithm.ppo import PPO
-from algorithm.share_model import Policy
-
 from config import get_config
-from utils.env_wrappers import ShareSubprocVecEnv
 from utils.util import update_linear_schedule
-from utils.share_storage import RolloutStorage
-import shutil
-import numpy as np
 
-import wandb
-import socket
+from envs import StarCraft2Env, get_map_params
+from utils.env_wrappers import ShareSubprocVecEnv
+from algorithm.model import Policy
+from utils.shared_storage import SharedRolloutStorage
+
 
 def make_parallel_env(args):
     def get_env_fn(rank):
@@ -97,60 +96,61 @@ def main():
     if args.share_policy:
         if args.model_dir==None or args.model_dir=="":
             actor_critic = Policy(envs.observation_space[0], 
-                        envs.share_observation_space[0], 
-                        envs.action_space[0],
-                        gain = args.gain,
-                        base_kwargs={'naive_recurrent': args.naive_recurrent_policy,
-                                    'recurrent': args.recurrent_policy,
-                                    'hidden_size': args.hidden_size,
-                                    'recurrent_N': args.recurrent_N,
-                                    'attn': args.attn,                            
-                                    'attn_size': args.attn_size,
-                                    'attn_N': args.attn_N,
-                                    'attn_heads': args.attn_heads,
-                                    'dropout': args.dropout,
-                                    'use_average_pool': args.use_average_pool,
-                                    'use_common_layer':args.use_common_layer,
-                                    'use_feature_normlization':args.use_feature_normlization,
-                                    'use_feature_popart':args.use_feature_popart,
-                                    'use_orthogonal':args.use_orthogonal,
-                                    'layer_N':args.layer_N,
-                                    'use_ReLU':args.use_ReLU
-                                    },
-                        device = device)
+                                envs.share_observation_space[0], 
+                                envs.action_space[0],
+                                gain = args.gain,
+                                base_kwargs={'naive_recurrent': args.naive_recurrent_policy,
+                                            'recurrent': args.recurrent_policy,
+                                            'hidden_size': args.hidden_size,
+                                            'recurrent_N': args.recurrent_N,
+                                            'attn': args.attn,                            
+                                            'attn_size': args.attn_size,
+                                            'attn_N': args.attn_N,
+                                            'attn_heads': args.attn_heads,
+                                            'dropout': args.dropout,
+                                            'use_average_pool': args.use_average_pool,
+                                            'use_common_layer':args.use_common_layer,
+                                            'use_feature_normlization':args.use_feature_normlization,
+                                            'use_feature_popart':args.use_feature_popart,
+                                            'use_orthogonal':args.use_orthogonal,
+                                            'layer_N':args.layer_N,
+                                            'use_ReLU':args.use_ReLU,
+                                            'use_cat_self': args.use_cat_self
+                                            },
+                                device = device)
         else:       
             actor_critic = torch.load(str(args.model_dir) + "/agent_model.pt")['model']
         
         actor_critic.to(device)
         # algorithm
         agents = PPO(actor_critic,
-                args.clip_param,
-                args.ppo_epoch,
-                args.num_mini_batch,
-                args.data_chunk_length,
-                args.value_loss_coef,
-                args.entropy_coef,
-                lr=args.lr,
-                eps=args.eps,
-                weight_decay=args.weight_decay,
-                max_grad_norm=args.max_grad_norm,
-                use_max_grad_norm=args.use_max_grad_norm,
-                use_clipped_value_loss= args.use_clipped_value_loss,
-                use_common_layer=args.use_common_layer,
-                use_huber_loss=args.use_huber_loss,
-                huber_delta=args.huber_delta,
-                use_popart=args.use_popart,
-                use_value_high_masks=args.use_value_high_masks,
-                device=device)
+                    args.clip_param,
+                    args.ppo_epoch,
+                    args.num_mini_batch,
+                    args.data_chunk_length,
+                    args.value_loss_coef,
+                    args.entropy_coef,
+                    lr=args.lr,
+                    eps=args.eps,
+                    weight_decay=args.weight_decay,
+                    max_grad_norm=args.max_grad_norm,
+                    use_max_grad_norm=args.use_max_grad_norm,
+                    use_clipped_value_loss= args.use_clipped_value_loss,
+                    use_common_layer=args.use_common_layer,
+                    use_huber_loss=args.use_huber_loss,
+                    huber_delta=args.huber_delta,
+                    use_popart=args.use_popart,
+                    use_value_high_masks=args.use_value_high_masks,
+                    device=device)
                 
         #replay buffer
-        rollouts = RolloutStorage(num_agents,
-                    args.episode_length, 
-                    args.n_rollout_threads,
-                    envs.observation_space[0], 
-                    envs.share_observation_space[0], 
-                    envs.action_space[0],
-                    args.hidden_size)        
+        rollouts = SharedRolloutStorage(num_agents,
+                                        args.episode_length, 
+                                        args.n_rollout_threads,
+                                        envs.observation_space[0], 
+                                        envs.share_observation_space[0], 
+                                        envs.action_space[0],
+                                        args.hidden_size)        
     else:
         actor_critic = []
         agents = []
@@ -175,7 +175,8 @@ def main():
                                     'use_feature_popart':args.use_feature_popart,
                                     'use_orthogonal':args.use_orthogonal,
                                     'layer_N':args.layer_N,
-                                    'use_ReLU':args.use_ReLU
+                                    'use_ReLU':args.use_ReLU,
+                                    'use_cat_self': args.use_cat_self
                                     },
                         device = device)
             else:       
@@ -184,36 +185,36 @@ def main():
             ac.to(device)
             # algorithm
             agent = PPO(ac,
-                args.clip_param,
-                args.ppo_epoch,
-                args.num_mini_batch,
-                args.data_chunk_length,
-                args.value_loss_coef,
-                args.entropy_coef,
-                lr=args.lr,
-                eps=args.eps,
-                weight_decay=args.weight_decay,
-                max_grad_norm=args.max_grad_norm,
-                use_max_grad_norm=args.use_max_grad_norm,
-                use_clipped_value_loss= args.use_clipped_value_loss,
-                use_common_layer=args.use_common_layer,
-                use_huber_loss=args.use_huber_loss,
-                huber_delta=args.huber_delta,
-                use_popart=args.use_popart,
-                use_value_high_masks=args.use_value_high_masks,
-                device=device)
+                        args.clip_param,
+                        args.ppo_epoch,
+                        args.num_mini_batch,
+                        args.data_chunk_length,
+                        args.value_loss_coef,
+                        args.entropy_coef,
+                        lr=args.lr,
+                        eps=args.eps,
+                        weight_decay=args.weight_decay,
+                        max_grad_norm=args.max_grad_norm,
+                        use_max_grad_norm=args.use_max_grad_norm,
+                        use_clipped_value_loss= args.use_clipped_value_loss,
+                        use_common_layer=args.use_common_layer,
+                        use_huber_loss=args.use_huber_loss,
+                        huber_delta=args.huber_delta,
+                        use_popart=args.use_popart,
+                        use_value_high_masks=args.use_value_high_masks,
+                        device=device)
                             
             actor_critic.append(ac)
             agents.append(agent) 
             
         #replay buffer
-        rollouts = RolloutStorage(num_agents,
-                    args.episode_length, 
-                    args.n_rollout_threads,
-                    envs.observation_space[0],
-                    envs.share_observation_space[0],  
-                    envs.action_space[0],
-                    args.hidden_size)
+        rollouts = SharedRolloutStorage(num_agents,
+                                        args.episode_length, 
+                                        args.n_rollout_threads,
+                                        envs.observation_space[0],
+                                        envs.share_observation_space[0],  
+                                        envs.action_space[0],
+                                        args.hidden_size)
     
     # reset env 
     obs, share_obs, available_actions = envs.reset()
@@ -285,7 +286,7 @@ def main():
                 actions_env.append(one_hot_action_env)
                     
             # Obser reward and next obs
-            obs, share_obs, reward, dones, infos, available_actions = envs.step(actions_env)
+            obs, share_obs, rewards, dones, infos, available_actions = envs.step(actions_env)
 
             # If done then clean the history of observations.
             # insert data in buffer
@@ -318,37 +319,21 @@ def main():
                         high_mask.append([0.0])
                 bad_masks.append(bad_mask)
                 high_masks.append(high_mask)
-                            
-            if len(envs.observation_space[0]) == 3:
-                share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
-                
-                rollouts.insert(share_obs, 
-                                obs, 
-                                np.array(recurrent_hidden_statess).transpose(1,0,2), 
-                                np.array(recurrent_hidden_statess_critic).transpose(1,0,2), 
-                                np.array(actions).transpose(1,0,2),
-                                np.array(action_log_probs).transpose(1,0,2), 
-                                np.array(values).transpose(1,0,2),
-                                reward, 
-                                masks, 
-                                bad_masks,
-                                high_masks,
-                                available_actions)
-            else:
-                share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
-        
-                rollouts.insert(share_obs, 
-                                obs, 
-                                np.array(recurrent_hidden_statess).transpose(1,0,2), 
-                                np.array(recurrent_hidden_statess_critic).transpose(1,0,2), 
-                                np.array(actions).transpose(1,0,2),
-                                np.array(action_log_probs).transpose(1,0,2), 
-                                np.array(values).transpose(1,0,2),
-                                reward, 
-                                masks, 
-                                bad_masks,
-                                high_masks,
-                                available_actions)
+                                       
+            # insert data to buffer
+            share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
+            rollouts.insert(share_obs, 
+                            obs, 
+                            np.array(recurrent_hidden_statess).transpose(1,0,2), 
+                            np.array(recurrent_hidden_statess_critic).transpose(1,0,2), 
+                            np.array(actions).transpose(1,0,2),
+                            np.array(action_log_probs).transpose(1,0,2), 
+                            np.array(values).transpose(1,0,2),
+                            rewards, 
+                            masks, 
+                            bad_masks,
+                            high_masks,
+                            available_actions)
                         
         with torch.no_grad(): 
             for agent_id in range(num_agents):         
@@ -360,8 +345,7 @@ def main():
                                                 torch.tensor(rollouts.recurrent_hidden_states_critic[-1,:,agent_id]),
                                                 torch.tensor(rollouts.masks[-1,:,agent_id]))
                     next_value = next_value.detach().cpu().numpy()
-                    rollouts.compute_returns(agent_id,
-                                    next_value, 
+                    rollouts.shared_compute_returns(next_value, 
                                     args.use_gae, 
                                     args.gamma,
                                     args.gae_lambda, 
@@ -370,13 +354,13 @@ def main():
                                     agents.value_normalizer)
                 else:
                     actor_critic[agent_id].eval()
-                    next_value,_,_ = actor_critic[agent_id].get_value(torch.tensor(rollouts.share_obs[-1,:,agent_id]), 
+                    next_value, _, _ = actor_critic[agent_id].get_value(torch.tensor(rollouts.share_obs[-1,:,agent_id]), 
                                                 torch.tensor(rollouts.obs[-1,:,agent_id]), 
                                                 torch.tensor(rollouts.recurrent_hidden_states[-1,:,agent_id]),
                                                 torch.tensor(rollouts.recurrent_hidden_states_critic[-1,:,agent_id]),
                                                 torch.tensor(rollouts.masks[-1,:,agent_id]))
                     next_value = next_value.detach().cpu().numpy()
-                    rollouts.compute_returns(agent_id,
+                    rollouts.single_compute_returns(agent_id,
                                     next_value, 
                                     args.use_gae, 
                                     args.gamma,
@@ -389,7 +373,7 @@ def main():
         # update the network
         if args.share_policy:
             actor_critic.train()
-            value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents.update_share(num_agents, rollouts)
+            value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents.shared_update(rollouts)
         else:
             value_losses = []
             action_losses = []
@@ -400,7 +384,7 @@ def main():
             
             for agent_id in range(num_agents):
                 actor_critic[agent_id].train()
-                value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio  = agents[agent_id].update(agent_id, rollouts)
+                value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio  = agents[agent_id].single_update(agent_id, rollouts)
                 value_losses.append(value_loss)
                 action_losses.append(action_loss)
                 dist_entropies.append(dist_entropy)
