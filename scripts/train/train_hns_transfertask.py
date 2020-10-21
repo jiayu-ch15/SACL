@@ -20,7 +20,7 @@ from config import get_config
 from utils.util import update_linear_schedule, MultiDiscrete
 
 from envs import BlueprintConstructionEnv, BoxLockingEnv, ShelterConstructionEnv
-from utils.env_wrappers import SimplifySubprocVecEnv, DummyVecEnv
+from utils.env_wrappers import SimplifySubprocVecEnv, SimplifyDummyVecEnv
 from algorithm.model import Policy
 from utils.shared_storage import SharedRolloutStorage
 
@@ -39,7 +39,10 @@ def make_parallel_env(args):
             env.seed(args.seed + rank * 1000)
             return env
         return init_env
-    return SimplifySubprocVecEnv([get_env_fn(i) for i in range(args.n_rollout_threads)])
+    if args.n_rollout_threads == 1:
+        return SimplifyDummyVecEnv([get_env_fn(0)])
+    else:
+        return SimplifySubprocVecEnv([get_env_fn(i) for i in range(args.n_rollout_threads)])
         
 def make_eval_env(args):
     def get_env_fn(rank):
@@ -56,7 +59,10 @@ def make_eval_env(args):
             env.seed(args.seed + rank * 1000)
             return env
         return init_env
-    return SimplifySubprocVecEnv([get_env_fn(0)])
+    if args.n_eval_rollout_threads == 1:
+        return SimplifyDummyVecEnv([get_env_fn(0)])
+    else:
+        return SimplifySubprocVecEnv([get_env_fn(i) for i in range(args.n_eval_rollout_threads)])
 
 def main():
     args = get_config()
@@ -181,7 +187,7 @@ def main():
                 use_huber_loss=args.use_huber_loss,
                 huber_delta=args.huber_delta,
                 use_popart=args.use_popart,
-                use_value_high_masks=args.use_value_high_masks,
+                use_value_active_masks=args.use_value_active_masks,
                 device=device)
                 
         #replay buffer
@@ -242,7 +248,7 @@ def main():
                 use_huber_loss=args.use_huber_loss,
                 huber_delta=args.huber_delta,
                 use_popart=args.use_popart,
-                use_value_high_masks=args.use_value_high_masks,
+                use_value_active_masks=args.use_value_active_masks,
                 device=device)
                             
             actor_critic.append(ac)
@@ -312,36 +318,51 @@ def main():
 
         for step in range(args.episode_length):
             # Sample actions
-            values = []
-            actions= []
-            action_log_probs = []
-            recurrent_hidden_statess = []
-            recurrent_hidden_statess_critic = []
-            with torch.no_grad():                
-                for agent_id in range(num_agents):
-                    if args.share_policy:
-                        actor_critic.eval()
-                        value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(agent_id,
-                        torch.tensor(rollouts.share_obs[step,:,agent_id]), 
-                        torch.tensor(rollouts.obs[step,:,agent_id]), 
-                        torch.tensor(rollouts.recurrent_hidden_states[step,:,agent_id]), 
-                        torch.tensor(rollouts.recurrent_hidden_states_critic[step,:,agent_id]),
-                        torch.tensor(rollouts.masks[step,:,agent_id]))
-                    else:
+            with torch.no_grad():
+                if args.share_policy:
+                    actor_critic.eval()
+                    value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic \
+                        = actor_critic.act(torch.FloatTensor(np.concatenate(rollouts.share_obs[step])), 
+                                            torch.FloatTensor(np.concatenate(rollouts.obs[step])), 
+                                            torch.FloatTensor(np.concatenate(rollouts.recurrent_hidden_states[step])), 
+                                            torch.FloatTensor(np.concatenate(rollouts.recurrent_hidden_states_critic[step])),
+                                            torch.FloatTensor(np.concatenate(rollouts.masks[step])),
+                                            torch.FloatTensor(np.concatenate(rollouts.available_actions[step])))
+                    # [envs, agents, dim]
+                    values = np.array(np.split(value.detach().cpu().numpy(),args.n_rollout_threads))
+                    actions = np.array(np.split(action.detach().cpu().numpy(),args.n_rollout_threads))
+                    action_log_probs = np.array(np.split(action_log_prob.detach().cpu().numpy(),args.n_rollout_threads))
+                    recurrent_hidden_statess = np.array(np.split(recurrent_hidden_states.detach().cpu().numpy(),args.n_rollout_threads))
+                    recurrent_hidden_statess_critic = np.array(np.split(recurrent_hidden_states_critic.detach().cpu().numpy(),args.n_rollout_threads))            
+                else:
+                    values = []
+                    actions= []
+                    action_log_probs = []
+                    recurrent_hidden_statess = []
+                    recurrent_hidden_statess_critic = []
+
+                    for agent_id in range(num_agents):
                         actor_critic[agent_id].eval()
-                        value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic[agent_id].act(agent_id,
-                        torch.tensor(rollouts.share_obs[step,:,agent_id]), 
-                        torch.tensor(rollouts.obs[step,:,agent_id]), 
-                        torch.tensor(rollouts.recurrent_hidden_states[step,:,agent_id]), 
-                        torch.tensor(rollouts.recurrent_hidden_states_critic[step,:,agent_id]),
-                        torch.tensor(rollouts.masks[step,:,agent_id]))
+                        value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic \
+                            = actor_critic[agent_id].act(torch.FloatTensor(rollouts.share_obs[step,:,agent_id]), 
+                                                        torch.FloatTensor(rollouts.obs[step,:,agent_id]), 
+                                                        torch.FloatTensor(rollouts.recurrent_hidden_states[step,:,agent_id]), 
+                                                        torch.FloatTensor(rollouts.recurrent_hidden_states_critic[step,:,agent_id]),
+                                                        torch.FloatTensor(rollouts.masks[step,:,agent_id]),
+                                                        torch.FloatTensor(rollouts.available_actions[step,:,agent_id]))
                         
-                    values.append(value.detach().cpu().numpy())
-                    actions.append(action.detach().cpu().numpy())
-                    action_log_probs.append(action_log_prob.detach().cpu().numpy())
-                    recurrent_hidden_statess.append(recurrent_hidden_states.detach().cpu().numpy())
-                    recurrent_hidden_statess_critic.append(recurrent_hidden_states_critic.detach().cpu().numpy())
-            
+                        values.append(value.detach().cpu().numpy())
+                        actions.append(action.detach().cpu().numpy())
+                        action_log_probs.append(action_log_prob.detach().cpu().numpy())
+                        recurrent_hidden_statess.append(recurrent_hidden_states.detach().cpu().numpy())
+                        recurrent_hidden_statess_critic.append(recurrent_hidden_states_critic.detach().cpu().numpy())
+                    
+                    values = np.array(values).transpose(1,0,2)
+                    actions = np.array(actions).transpose(1,0,2)
+                    action_log_probs = np.array(action_log_probs).transpose(1,0,2)
+                    recurrent_hidden_statess = np.array(recurrent_hidden_statess).transpose(1,0,2)
+                    recurrent_hidden_statess_critic = np.array(recurrent_hidden_statess_critic).transpose(1,0,2)
+
             # rearrange action          
             actions_env = []
             for n_rollout_thread in range(args.n_rollout_threads):

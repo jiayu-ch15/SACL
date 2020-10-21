@@ -19,24 +19,24 @@ from config import get_config
 from utils.util import update_linear_schedule
 
 from envs import HanabiEnv
-from utils.env_wrappers import ChooseSubprocVecEnv
+from utils.env_wrappers import ChooseSubprocVecEnv, ChooseDummyVecEnv
 from algorithm.model import Policy
 from utils.shared_storage import SharedRolloutStorage
-
 
 def make_parallel_env(args):
     def get_env_fn(rank):
         def init_env():
             if args.env_name == "Hanabi":
                 assert args.num_agents>1 and args.num_agents<6, ("num_agents can be only between 2-5.")
-                env = HanabiEnv(args)
+                env = HanabiEnv(args, (args.seed + rank * 1000))
             else:
                 print("Can not support the " + args.env_name + "environment." )
                 raise NotImplementedError
-            return env
+            env.seed(args.seed + rank * 1000)
+            return env            
         return init_env
     if args.n_rollout_threads == 1:
-        return ChooseSubprocVecEnv([get_env_fn(0)])
+        return ChooseDummyVecEnv([get_env_fn(0)])
     else:
         return ChooseSubprocVecEnv([get_env_fn(i) for i in range(args.n_rollout_threads)])
         
@@ -45,13 +45,17 @@ def make_eval_env(args):
         def init_env():
             if args.env_name == "Hanabi":
                 assert args.num_agents > 1 and args.num_agents < 6, ("num_agents can be only between 2-5.")
-                env = HanabiEnv(args)
+                env = HanabiEnv(args, (args.seed + rank * 1000))
             else:
                 print("Can not support the " + args.env_name + "environment." )
                 raise NotImplementedError
+            env.seed(args.seed + rank * 1000)
             return env
         return init_env
-    return ChooseSubprocVecEnv([get_env_fn(0)])
+    if args.n_eval_rollout_threads == 1:
+        return ChooseDummyVecEnv([get_env_fn(0)])
+    else:
+        return ChooseSubprocVecEnv([get_env_fn(i) for i in range(args.n_eval_rollout_threads)])
 
 def main():
     args = get_config()
@@ -67,7 +71,7 @@ def main():
         device = torch.device("cpu")
         torch.set_num_threads(args.n_training_threads)
 
-    model_dir = Path(os.path.split(os.path.dirname(os.path.abspath(__file__)))[0] + "/results") / args.env_name / args.scenario_name / args.algorithm_name
+    model_dir = Path(os.path.split(os.path.dirname(os.path.abspath(__file__)))[0] + "/results") / args.env_name / args.hanabi_name / args.algorithm_name
     if not model_dir.exists():
         os.makedirs(str(model_dir))
 
@@ -76,7 +80,7 @@ def main():
             entity="yuchao",
             notes=socket.gethostname(),
             name=str(args.algorithm_name) + "_seed" + str(args.seed),
-            group=args.scenario_name,
+            group=args.hanabi_name,
             dir=str(model_dir),
             job_type="training",
             reinit=True)
@@ -140,7 +144,7 @@ def main():
                 use_huber_loss=args.use_huber_loss,
                 huber_delta=args.huber_delta,
                 use_popart=args.use_popart,
-                use_value_high_masks=args.use_value_high_masks,
+                use_value_active_masks=args.use_value_active_masks,
                 device=device)
                 
         #replay buffer
@@ -200,7 +204,7 @@ def main():
                 use_huber_loss=args.use_huber_loss,
                 huber_delta=args.huber_delta,
                 use_popart=args.use_popart,
-                use_value_high_masks=args.use_value_high_masks,
+                use_value_active_masks=args.use_value_active_masks,
                 device=device)
                             
             actor_critic.append(ac)
@@ -218,10 +222,12 @@ def main():
     # reset env 
     reset_choose = np.ones(args.n_rollout_threads)==1.0 
     obs, share_obs, available_actions = envs.reset(reset_choose)
+
     # replay buffer  
     use_obs = obs.copy()
     use_share_obs = share_obs.copy()
     use_available_actions = available_actions.copy()
+
     # run
     start = time.time()
     episodes = int(args.num_env_steps) // args.episode_length // args.n_rollout_threads
@@ -236,7 +242,7 @@ def main():
     turn_recurrent_hidden_states = np.zeros((args.n_rollout_threads, num_agents, *rollouts.recurrent_hidden_states.shape[3:])).astype(np.float32)
     turn_recurrent_hidden_states_critic = np.zeros((args.n_rollout_threads, num_agents, *rollouts.recurrent_hidden_states_critic.shape[3:])).astype(np.float32)
     turn_masks = np.ones((args.n_rollout_threads, num_agents, 1)).astype(np.float32)
-    turn_high_masks = np.ones((args.n_rollout_threads, num_agents, 1)).astype(np.float32)
+    turn_active_masks = np.ones((args.n_rollout_threads, num_agents, 1)).astype(np.float32)
     turn_bad_masks = np.ones((args.n_rollout_threads, num_agents, 1)).astype(np.float32)
     turn_rewards_since_last_action = np.zeros((args.n_rollout_threads, num_agents, 1)).astype(np.float32)
     turn_rewards = np.zeros((args.n_rollout_threads, num_agents, 1)).astype(np.float32)
@@ -288,40 +294,54 @@ def main():
                     
                     obs, share_obs, reward, done, infos, available_actions = envs.step(env_actions) 
                     
+                    # truly used value
                     use_obs = obs.copy()
                     use_share_obs = share_obs.copy()
                     use_available_actions = available_actions.copy()
                     
+                    # rearrange reward
                     turn_rewards_since_last_action[choose] += reward[choose]                    
                     turn_rewards[choose, current_agent_id] = turn_rewards_since_last_action[choose, current_agent_id].copy()
                     turn_rewards_since_last_action[choose, current_agent_id] = 0.0
                     
+                    # done==True env
+
+                    # deal with reset_choose
+                    reset_choose[done==True] = np.ones((done==True).sum(), dtype=bool)
+
+                    # deal with all agents 
+                    use_available_actions[done==True] = np.zeros(((done==True).sum(), num_agents, *rollouts.available_actions.shape[3:])).astype(np.float32)
+                    turn_masks[done==True] = np.zeros(((done==True).sum(), num_agents, 1)).astype(np.float32)
+                    turn_recurrent_hidden_states[done==True] = np.zeros(((done==True).sum(), num_agents, *rollouts.recurrent_hidden_states.shape[3:])).astype(np.float32)
+                    turn_recurrent_hidden_states_critic[done==True] = np.zeros(((done==True).sum(), num_agents, *rollouts.recurrent_hidden_states_critic.shape[3:])).astype(np.float32)
+        
+                    # deal with current agent
+                    turn_active_masks[done==True, current_agent_id] = np.ones(((done==True).sum(), 1)).astype(np.float32)
+                    
+                    # deal with left agents
+                    left_agent_id = current_agent_id + 1
+                    left_agents_num = num_agents - left_agent_id
+                    turn_active_masks[done==True, left_agent_id:] = np.zeros(((done==True).sum(), left_agents_num, 1)).astype(np.float32)
+                    turn_rewards[done==True, left_agent_id:] = turn_rewards_since_last_action[done==True, left_agent_id:]
+                    turn_rewards_since_last_action[done==True, left_agent_id:] = np.zeros(((done==True).sum(), left_agents_num, 1)).astype(np.float32)
+                    # other variables use what at last time, action will be useless.
+                    turn_values[done==True, left_agent_id:] = np.zeros(((done==True).sum(), left_agents_num, 1)).astype(np.float32)
+                    turn_obs[done==True, left_agent_id:] = use_obs[done==True,left_agent_id:]                                      
+                    turn_share_obs[done==True, left_agent_id:] = use_share_obs[done==True,left_agent_id:]                             
+                   
+                    # done==False env
+                    # deal with current agent
+                    turn_masks[done==False, current_agent_id] = np.ones(((done==False).sum(), 1)).astype(np.float32)
+                    turn_active_masks[done==False, current_agent_id] = np.ones(((done==False).sum(), 1)).astype(np.float32)
+
+                    # done==None
+                    # pass
+
                     for n_rollout_thread in range(args.n_rollout_threads):
                         if done[n_rollout_thread]:
-                            use_available_actions[n_rollout_thread] = np.zeros((num_agents, *rollouts.available_actions.shape[3:]))
-                            reset_choose[n_rollout_thread]=True
-                            turn_high_masks[n_rollout_thread, current_agent_id] = 1.0                              
-                            for left_agent_id in range(current_agent_id + 1, num_agents):
-                                turn_high_masks[n_rollout_thread, left_agent_id] = 0.0
-                                turn_rewards[n_rollout_thread, left_agent_id] = turn_rewards_since_last_action[n_rollout_thread, left_agent_id]
-                                turn_rewards_since_last_action[n_rollout_thread, left_agent_id] = 0.0
-                                # other variables use what at last time, action will be useless.
-                                
-                                turn_values[n_rollout_thread,left_agent_id] = 0.0
-                                turn_obs[n_rollout_thread,left_agent_id] = use_obs[n_rollout_thread,left_agent_id]                                      
-                                turn_share_obs[n_rollout_thread,left_agent_id] = use_share_obs[n_rollout_thread,left_agent_id]                             
-                            turn_masks[n_rollout_thread] = np.zeros((num_agents, 1)).astype(np.float32)
-                            turn_recurrent_hidden_states[n_rollout_thread] = np.zeros((num_agents, *rollouts.recurrent_hidden_states.shape[3:])).astype(np.float32)
-                            turn_recurrent_hidden_states_critic[n_rollout_thread] = np.zeros((num_agents, *rollouts.recurrent_hidden_states_critic.shape[3:])).astype(np.float32)                            
-                            
                             if 'score' in infos[n_rollout_thread].keys():
                                 scores.append(infos[n_rollout_thread]['score'])
-                        elif done[n_rollout_thread] == None:
-                            pass
-                        else:
-                            turn_masks[n_rollout_thread,current_agent_id]=1.0
-                            turn_high_masks[n_rollout_thread,current_agent_id] = 1.0
-            
+                     
             # insert turn data into buffer
             rollouts.chooseinsert(turn_share_obs, 
                                 turn_obs, 
@@ -333,7 +353,7 @@ def main():
                                 turn_rewards, 
                                 turn_masks,
                                 turn_bad_masks,
-                                turn_high_masks,
+                                turn_active_masks,
                                 turn_available_actions)
                             
             # env reset
@@ -345,46 +365,26 @@ def main():
                     
         rollouts.share_obs[-1] = use_share_obs.copy()
         rollouts.obs[-1] = use_obs.copy()
-        rollouts.available_actions[-1] = use_available_actions.copy()
-        
-        with torch.no_grad(): 
-            for agent_id in range(num_agents):         
-                if args.share_policy:
-                    actor_critic.eval()                 
-                    next_value, _, _ = actor_critic.get_value(torch.tensor(rollouts.share_obs[-1,:,agent_id]), 
-                                                torch.tensor(rollouts.obs[-1,:,agent_id]), 
-                                                torch.tensor(rollouts.recurrent_hidden_states[-1,:,agent_id]),
-                                                torch.tensor(rollouts.recurrent_hidden_states_critic[-1,:,agent_id]),
-                                                torch.tensor(rollouts.masks[-1,:,agent_id]))
-                    next_value = next_value.detach().cpu().numpy()
-                    rollouts.compute_returns(agent_id,
-                                    next_value, 
-                                    args.use_gae, 
-                                    args.gamma,
-                                    args.gae_lambda, 
-                                    args.use_proper_time_limits,
-                                    args.use_popart,
-                                    agents.value_normalizer)
-                else:
-                    actor_critic[agent_id].eval()
-                    next_value, _, _ = actor_critic[agent_id].get_value(torch.tensor(rollouts.share_obs[-1,:,agent_id]), 
-                                                torch.tensor(rollouts.obs[-1,:,agent_id]), 
-                                                torch.tensor(rollouts.recurrent_hidden_states[-1,:,agent_id]),
-                                                torch.tensor(rollouts.recurrent_hidden_states_critic[-1,:,agent_id]),
-                                                torch.tensor(rollouts.masks[-1,:,agent_id]))
-                    next_value = next_value.detach().cpu().numpy()
-                    rollouts.compute_returns(agent_id,
-                                    next_value, 
-                                    args.use_gae, 
-                                    args.gamma,
-                                    args.gae_lambda, 
-                                    args.use_proper_time_limits,
-                                    args.use_popart,
-                                    agents[agent_id].value_normalizer)
-        
-        # remove useless data in buffer
-        # update the network
+        rollouts.available_actions[-1] = use_available_actions.copy()        
+                     
         if args.share_policy:
+            # compute returns
+            with torch.no_grad(): 
+                actor_critic.eval()                
+                next_value, _, _ = actor_critic.get_value(torch.FloatTensor(np.concatenate(rollouts.share_obs[-1])), 
+                                                        torch.FloatTensor(np.concatenate(rollouts.obs[-1])), 
+                                                        torch.FloatTensor(np.concatenate(rollouts.recurrent_hidden_states[-1])),
+                                                        torch.FloatTensor(np.concatenate(rollouts.recurrent_hidden_states_critic[-1])),
+                                                        torch.FloatTensor(np.concatenate(rollouts.masks[-1])))
+                next_values = np.array(np.split(next_value.detach().cpu().numpy(), args.n_rollout_threads))
+                rollouts.shared_compute_returns(next_values, 
+                                                args.use_gae, 
+                                                args.gamma,
+                                                args.gae_lambda, 
+                                                args.use_proper_time_limits,
+                                                args.use_popart,
+                                                agents.value_normalizer)
+            # update network
             actor_critic.train()
             value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents.shared_update(rollouts)
             
@@ -394,8 +394,26 @@ def main():
             dist_entropies = [] 
             grad_norms = []
             KL_divlosses = []
-            ratios = []        
-            for agent_id in range(num_agents):
+            ratios = []
+                            
+            for agent_id in range(num_agents): 
+                with torch.no_grad(): 
+                    actor_critic[agent_id].eval()
+                    next_value, _, _ = actor_critic[agent_id].get_value(torch.FloatTensor(rollouts.share_obs[-1,:,agent_id]), 
+                                                torch.FloatTensor(rollouts.obs[-1,:,agent_id]), 
+                                                torch.FloatTensor(rollouts.recurrent_hidden_states[-1,:,agent_id]),
+                                                torch.FloatTensor(rollouts.recurrent_hidden_states_critic[-1,:,agent_id]),
+                                                torch.FloatTensor(rollouts.masks[-1,:,agent_id]))
+                    next_value = next_value.detach().cpu().numpy()
+                    rollouts.single_compute_returns(agent_id,
+                                    next_value, 
+                                    args.use_gae, 
+                                    args.gamma,
+                                    args.gae_lambda, 
+                                    args.use_proper_time_limits,
+                                    args.use_popart,
+                                    agents[agent_id].value_normalizer)
+                # update network
                 actor_critic[agent_id].train()
                 value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents[agent_id].single_update(agent_id, rollouts)
                 value_losses.append(value_loss)
@@ -403,11 +421,12 @@ def main():
                 dist_entropies.append(dist_entropy)
                 grad_norms.append(grad_norm)
                 KL_divlosses.append(KL_divloss)
-                ratios.append(ratio))
+                ratios.append(ratio)
                                                                     
         # clean the buffer and reset
         rollouts.chooseafter_update()
         
+        # post process
         total_num_steps = (episode + 1) * args.episode_length * args.n_rollout_threads
         
         # save model
@@ -416,13 +435,13 @@ def main():
                 torch.save({
                             'model': actor_critic
                             }, 
-                            str(save_dir) + "/agent_model.pt")
+                            str(wandb.run.dir) + "/agent_model.pt")
             else:
                 for agent_id in range(num_agents):                                                  
                     torch.save({
                                 'model': actor_critic[agent_id]
                                 }, 
-                                str(save_dir) + "/agent%i_model" % agent_id + ".pt")
+                                str(wandb.run.dir) + "/agent%i_model" % agent_id + ".pt")
 
         # log information
         if episode % args.log_interval == 0:
@@ -457,63 +476,67 @@ def main():
             if args.env_name == "Hanabi":  
                 if len(scores)>0: 
                     wandb.log({'score': np.mean(scores)}, step=total_num_steps)
-                    print("Mean score is {}.".format(np.mean(scores)))
+                    print("Train mean score is {}.".format(np.mean(scores)))
                 else:
                     wandb.log({'score': 0}, step=total_num_steps)
                     print("Can not access mean score.")
-                
-                
+                               
         if episode % args.eval_interval == 0 and args.eval:
+            eval_finish = False
+            eval_reset_choose = np.ones(args.n_eval_rollout_threads)==1.0 
             eval_scores = []
-            eval_episode = 0
-            eval_obs, eval_share_obs, eval_available_actions = eval_env.reset([True])
-            eval_actions = np.ones((1, num_agents, 1)).astype(np.float32)*(-1.0)
-            eval_recurrent_hidden_states = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
-            eval_recurrent_hidden_states_critic = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
-            eval_masks = np.ones((1,num_agents,1)).astype(np.float32)
+            eval_obs, eval_share_obs, eval_available_actions = eval_env.reset(eval_reset_choose)
+            eval_actions = np.ones((args.n_eval_rollout_threads, num_agents, 1)).astype(np.float32)*(-1.0)
+            eval_recurrent_hidden_states = np.zeros((args.n_eval_rollout_threads, num_agents, args.hidden_size)).astype(np.float32)
+            eval_recurrent_hidden_states_critic = np.zeros((args.n_eval_rollout_threads, num_agents, args.hidden_size)).astype(np.float32)
+            eval_masks = np.ones((args.n_eval_rollout_threads, num_agents, 1)).astype(np.float32)
             
-            while True:               
+            while True: 
+                if eval_finish:
+                    break              
                 for agent_id in range(num_agents):
+                    eval_actions[:, agent_id] = np.ones((args.n_eval_rollout_threads, 1)).astype(np.float32)*(-1.0) 
+                    eval_choose = np.any(eval_available_actions[:, agent_id]==1,axis=1) 
+                    
+                    if ~np.any(eval_choose):
+                        eval_finish = True
+                        break
                     if args.share_policy:
                         actor_critic.eval()
-                        _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(torch.FloatTensor(eval_share_obs[:,agent_id]), 
-                            torch.FloatTensor(eval_obs[:,agent_id]), 
-                            torch.FloatTensor(eval_recurrent_hidden_states[:,agent_id]), 
-                            torch.FloatTensor(eval_recurrent_hidden_states_critic[:,agent_id]),
-                            torch.FloatTensor(eval_masks[:,agent_id]),
-                            torch.FloatTensor(eval_available_actions[:,agent_id]),
+                        _, eval_action, _, eval_recurrent_hidden_state, eval_recurrent_hidden_state_critic = actor_critic.act(torch.FloatTensor(eval_share_obs[eval_choose,agent_id]), 
+                            torch.FloatTensor(eval_obs[eval_choose,agent_id]), 
+                            torch.FloatTensor(eval_recurrent_hidden_states[eval_choose,agent_id]), 
+                            torch.FloatTensor(eval_recurrent_hidden_states_critic[eval_choose,agent_id]),
+                            torch.FloatTensor(eval_masks[eval_choose,agent_id]),
+                            torch.FloatTensor(eval_available_actions[eval_choose,agent_id]),
                             deterministic=True)
                     else:
                         actor_critic[agent_id].eval()
-                        _, action, _, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic[agent_id].act(torch.FloatTensor(eval_share_obs[:,agent_id]), 
-                            torch.FloatTensor(eval_obs[:,agent_id]), 
-                            torch.FloatTensor(eval_recurrent_hidden_states[:,agent_id]), 
-                            torch.FloatTensor(eval_recurrent_hidden_states_critic[:,agent_id]),
-                            torch.FloatTensor(eval_masks[:,agent_id]),
-                            torch.FloatTensor(eval_available_actions[:,agent_id]),
+                        _, eval_action, _, eval_recurrent_hidden_state, eval_recurrent_hidden_state_critic = actor_critic[agent_id].act(torch.FloatTensor(eval_share_obs[eval_choose,agent_id]), 
+                            torch.FloatTensor(eval_obs[eval_choose,agent_id]), 
+                            torch.FloatTensor(eval_recurrent_hidden_states[eval_choose,agent_id]), 
+                            torch.FloatTensor(eval_recurrent_hidden_states_critic[eval_choose,agent_id]),
+                            torch.FloatTensor(eval_masks[eval_choose,agent_id]),
+                            torch.FloatTensor(eval_available_actions[eval_choose,agent_id]),
                             deterministic=True)
 
-                    eval_actions[:,agent_id] = action.detach().cpu().numpy()
-                    eval_recurrent_hidden_states[:,agent_id] = recurrent_hidden_states.detach().cpu().numpy()
-                    eval_recurrent_hidden_states_critic[:,agent_id] = recurrent_hidden_states_critic.detach().cpu().numpy()
+                    eval_actions[eval_choose,agent_id] = eval_action.detach().cpu().numpy()
+                    eval_recurrent_hidden_states[eval_choose,agent_id] = eval_recurrent_hidden_state.detach().cpu().numpy()
+                    eval_recurrent_hidden_states_critic[eval_choose,agent_id] = eval_recurrent_hidden_state_critic.detach().cpu().numpy()
                         
                     # Obser reward and next obs
                     eval_obs, eval_share_obs, eval_rewards, eval_dones, eval_infos, eval_available_actions = eval_env.step(eval_actions)
-                                                    
-                    if eval_dones[0]:                         
-                        eval_episode += 1
-                        if 'score' in eval_infos[0].keys():
-                            eval_scores.append(eval_infos[0]['score'])
-                        eval_obs, eval_share_obs, eval_available_actions = eval_env.reset([True])
-                        
-                        eval_recurrent_hidden_states = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
-                        eval_recurrent_hidden_states_critic = np.zeros((1,num_agents,args.hidden_size)).astype(np.float32)
-                        eval_actions = np.ones((1, num_agents, 1)).astype(np.float32)*(-1.0)
-                        break
-                
-                if eval_episode>=args.eval_episodes:
-                    wandb.log({'eval_score': np.mean(eval_scores)}, step=total_num_steps)
-                    break
+
+                    eval_available_actions[eval_dones==True] = np.zeros(((eval_dones==True).sum(), num_agents, *rollouts.available_actions.shape[3:])).astype(np.float32)   
+
+                    for n_eval_rollout_thread in range(args.n_eval_rollout_threads):
+                        if eval_dones[n_eval_rollout_thread]:
+                            if 'score' in eval_infos[n_eval_rollout_thread].keys():
+                                eval_scores.append(eval_infos[n_eval_rollout_thread]['score'])
+            
+            wandb.log({'eval_score': np.mean(eval_scores)}, step=total_num_steps)
+            print("Eval mean score is {}.".format(np.mean(eval_scores)))
+    
     envs.close()
     if args.eval:
         eval_env.close()

@@ -11,6 +11,7 @@ def get_config():
     parser.add_argument("--cuda_deterministic", action='store_false', default=True)
     parser.add_argument("--n_training_threads", type=int, default=1)
     parser.add_argument("--n_rollout_threads", type=int, default=32)
+    parser.add_argument("--n_eval_rollout_threads", type=int, default=1)
     parser.add_argument("--num_env_steps", type=int, default=10e6, help='number of environment steps to train (default: 10e6)') 
     
     # env
@@ -81,7 +82,7 @@ def get_config():
     parser.add_argument("--gae_lambda", type=float, default=0.95, help='gae lambda parameter (default: 0.95)')
     parser.add_argument("--use_proper_time_limits", action='store_true', default=False, help='compute returns taking into account time limits')
     parser.add_argument("--use_huber_loss", action='store_false', default=True)
-    parser.add_argument("--use_value_high_masks", action='store_false', default=True)
+    parser.add_argument("--use_value_active_masks", action='store_false', default=True)
     parser.add_argument("--huber_delta", type=float, default=10.0) 
 
     # optimizer

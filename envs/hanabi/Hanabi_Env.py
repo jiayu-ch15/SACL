@@ -34,6 +34,8 @@ class Environment(object):
   All concrete implementations of an environment should derive from this
   interface and implement the method stubs.
   """
+  def seed(self, seed):
+    raise NotImplementedError("Not implemented in Abstract Base class")
 
   def reset(self, config):
     r"""Reset the environment with a new config.
@@ -92,7 +94,7 @@ class HanabiEnv(Environment):
   ```
   """
 
-  def __init__(self, args):
+  def __init__(self, args, seed):
     r"""Creates an environment with the given game configuration.
 
     Args:
@@ -110,6 +112,7 @@ class HanabiEnv(Environment):
           - seed: int, Random seed.
           - random_start_player: bool, Random start player.
     """
+    self._seed = seed
     if (args.hanabi_name == "Hanabi-Full" or args.hanabi_name == "Hanabi-Full-CardKnowledge"): # max:action 48 obs=1380 min:action=20 obs=783 score=25
       config={
               "colors":5,
@@ -118,7 +121,7 @@ class HanabiEnv(Environment):
               "max_information_tokens":8,
               "max_life_tokens":3,
               "observation_type":pyhanabi.AgentObservationType.CARD_KNOWLEDGE.value,
-              "seed":args.seed
+              "seed":self._seed
           }
     elif args.hanabi_name == "Hanabi-Full-Minimal":# max:action 48 obs=680 min:action=20 obs=433 score=25 use memory
       config={
@@ -128,7 +131,7 @@ class HanabiEnv(Environment):
               "max_information_tokens": 8,
               "max_life_tokens": 3,
               "observation_type": pyhanabi.AgentObservationType.MINIMAL.value,
-              "seed":args.seed
+              "seed":self._seed
           }
     elif args.hanabi_name == "Hanabi-Small": # max:action=32 obs=356 min:action=11 obs=191 score=10
       config={
@@ -139,7 +142,7 @@ class HanabiEnv(Environment):
               "max_information_tokens":3,
               "max_life_tokens":1,
               "observation_type":pyhanabi.AgentObservationType.CARD_KNOWLEDGE.value,
-              "seed":args.seed
+              "seed":self._seed
           }
     elif args.hanabi_name == "Hanabi-Very-Small": # max:action=28 obs=215 min:action=10 obs=116 score=5
       config={
@@ -150,7 +153,7 @@ class HanabiEnv(Environment):
               "max_information_tokens":3,
               "max_life_tokens":1,
               "observation_type":pyhanabi.AgentObservationType.CARD_KNOWLEDGE.value,
-              "seed":args.seed
+              "seed":self._seed
           }
     else:
       raise ValueError("Unknown environment {}".format(args.hanabi_name))
@@ -169,6 +172,13 @@ class HanabiEnv(Environment):
         self.action_space.append(Discrete(self.num_moves()))
         self.observation_space.append([self.vectorized_observation_shape()[0]+self.players])
         self.share_observation_space.append([self.vectorized_share_observation_shape()[0]+self.players]) 
+
+  def seed(self, seed=None):
+    if seed is None:
+      np.random.seed(1)
+    else:
+      np.random.seed(seed)
+
   def reset(self, choose=True):
     """Resets the environment for a new game.
 

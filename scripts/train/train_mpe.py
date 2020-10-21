@@ -130,7 +130,7 @@ def main():
                     use_huber_loss=args.use_huber_loss,
                     huber_delta=args.huber_delta,
                     use_popart=args.use_popart,
-                    use_value_high_masks=args.use_value_high_masks,
+                    use_value_active_masks=args.use_value_active_masks,
                     device=device)
                 
         #replay buffer
@@ -192,7 +192,7 @@ def main():
                         use_huber_loss=args.use_huber_loss,
                         huber_delta=args.huber_delta,
                         use_popart=args.use_popart,
-                        use_value_high_masks=args.use_value_high_masks,
+                        use_value_active_masks=args.use_value_active_masks,
                         device=device)
                             
             actor_critic.append(ac)
@@ -247,7 +247,7 @@ def main():
                 if args.share_policy:
                     actor_critic.eval()
                     value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic \
-                         = actor_critic.act(torch.FloatTensor(np.concatenate(rollouts.share_obs[step])), 
+                        = actor_critic.act(torch.FloatTensor(np.concatenate(rollouts.share_obs[step])), 
                                             torch.FloatTensor(np.concatenate(rollouts.obs[step])), 
                                             torch.FloatTensor(np.concatenate(rollouts.recurrent_hidden_states[step])), 
                                             torch.FloatTensor(np.concatenate(rollouts.recurrent_hidden_states_critic[step])),
@@ -283,11 +283,11 @@ def main():
                     for agent_id in range(num_agents):
                         actor_critic[agent_id].eval()
                         value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic \
-                            = actor_critic[agent_id].act(torch.FloatTensor(rollouts[agent_id].share_obs[step,:]), 
-                                                        torch.FloatTensor(rollouts[agent_id].obs[step,:]), 
-                                                        torch.FloatTensor(rollouts[agent_id].recurrent_hidden_states[step,:]), 
-                                                        torch.FloatTensor(rollouts[agent_id].recurrent_hidden_states_critic[step,:]),
-                                                        torch.FloatTensor(rollouts[agent_id].masks[step,:]))
+                            = actor_critic[agent_id].act(torch.FloatTensor(rollouts[agent_id].share_obs[step]), 
+                                                        torch.FloatTensor(rollouts[agent_id].obs[step]), 
+                                                        torch.FloatTensor(rollouts[agent_id].recurrent_hidden_states[step]), 
+                                                        torch.FloatTensor(rollouts[agent_id].recurrent_hidden_states_critic[step]),
+                                                        torch.FloatTensor(rollouts[agent_id].masks[step]))
                         # [agents, envs, dim]
                         values.append(value.detach().cpu().numpy())
                         action = action.detach().cpu().numpy()

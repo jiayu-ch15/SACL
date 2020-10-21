@@ -159,15 +159,15 @@ class Policy(nn.Module):
         
         return value, rnn_hxs_actor, rnn_hxs_critic
 
-    def evaluate_actions(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, action, masks, high_masks=None):
+    def evaluate_actions(self, share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, action, masks, active_masks=None):
     
         share_inputs = share_inputs.to(self.device)
         inputs = inputs.to(self.device)
         rnn_hxs_actor = rnn_hxs_actor.to(self.device)
         rnn_hxs_critic = rnn_hxs_critic.to(self.device)
         masks = masks.to(self.device)
-        if high_masks is not None:
-            high_masks = high_masks.to(self.device)
+        if active_masks is not None:
+            active_masks = active_masks.to(self.device)
         action = action.to(self.device)
         value, actor_features, rnn_hxs_actor, rnn_hxs_critic = self.base(share_inputs, inputs, rnn_hxs_actor, rnn_hxs_critic, masks)
         
@@ -179,8 +179,8 @@ class Policy(nn.Module):
             for i in range(2):
                 dist[i] = self.dist[i](actor_features)
                 action_log_probs[i] = dist[i].log_probs(action[i])
-                if high_masks is not None:
-                    dist_entropy[i] = (dist[i].entropy()*high_masks.squeeze(-1)).sum()/high_masks.sum()
+                if active_masks is not None:
+                    dist_entropy[i] = (dist[i].entropy()*active_masks.squeeze(-1)).sum()/active_masks.sum()
                 else:
                     dist_entropy[i] = dist[i].entropy().mean()
             action_log_probs_out = torch.sum(torch.cat(action_log_probs, -1), -1, keepdim = True)
@@ -193,8 +193,8 @@ class Policy(nn.Module):
             for i in range(self.discrete_N):
                 dist = self.dists[i](actor_features)
                 action_log_probs.append(dist.log_probs(action[i]))
-                if high_masks is not None:
-                    dist_entropy.append( (dist.entropy()*high_masks.squeeze(-1)).sum()/high_masks.sum() )
+                if active_masks is not None:
+                    dist_entropy.append( (dist.entropy()*active_masks.squeeze(-1)).sum()/active_masks.sum() )
                 else:
                     dist_entropy.append(dist.entropy().mean())
                     
@@ -204,8 +204,8 @@ class Policy(nn.Module):
         else:
             dist = self.dist(actor_features)
             action_log_probs = dist.log_probs(action)
-            if high_masks is not None:
-                dist_entropy = (dist.entropy()*high_masks.squeeze(-1)).sum()/high_masks.sum()               
+            if active_masks is not None:
+                dist_entropy = (dist.entropy()*active_masks.squeeze(-1)).sum()/active_masks.sum()               
             else:
                 dist_entropy = dist.entropy().mean()
             action_log_probs_out = action_log_probs

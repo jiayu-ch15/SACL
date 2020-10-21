@@ -173,7 +173,7 @@ class SubprocVecEnv(ShareVecEnv):
             p.join()
         self.closed = True
 
-def sharedworker(remote, parent_remote, env_fn_wrapper):
+def shareworker(remote, parent_remote, env_fn_wrapper):
     parent_remote.close()
     env = env_fn_wrapper.x()
     while True:
@@ -203,7 +203,7 @@ def sharedworker(remote, parent_remote, env_fn_wrapper):
         else:
             raise NotImplementedError
 
-class SharedSubprocVecEnv(ShareVecEnv):
+class ShareSubprocVecEnv(ShareVecEnv):
     def __init__(self, env_fns, spaces=None):
         """
         envs: list of gym environments to run in subprocesses
@@ -212,7 +212,7 @@ class SharedSubprocVecEnv(ShareVecEnv):
         self.closed = False
         nenvs = len(env_fns)
         self.remotes, self.work_remotes = zip(*[Pipe() for _ in range(nenvs)])
-        self.ps = [Process(target=sharedworker, args=(work_remote, remote, CloudpickleWrapper(env_fn)))
+        self.ps = [Process(target=shareworker, args=(work_remote, remote, CloudpickleWrapper(env_fn)))
             for (work_remote, remote, env_fn) in zip(self.work_remotes, self.remotes, env_fns)]
         for p in self.ps:
             p.daemon = True # if the main process crashes, we should not cause things to hang
@@ -335,13 +335,13 @@ class ChooseSubprocVecEnv(ShareVecEnv):
         for p in self.ps:
             p.join()
         self.closed = True
-        
-class DummyVecEnv(VecEnv):
+
+# single env
+class SimplifyDummyVecEnv(VecEnv):
     def __init__(self, env_fns):
         self.envs = [fn() for fn in env_fns]
         env = self.envs[0]        
-        VecEnv.__init__(self, len(env_fns), env.observation_space, env.action_space)
-        self.ts = np.zeros(len(self.envs), dtype='int')        
+        VecEnv.__init__(self, len(env_fns), env.observation_space, env.action_space)       
         self.actions = None
 
     def step_async(self, actions):
@@ -349,32 +349,114 @@ class DummyVecEnv(VecEnv):
 
     def step_wait(self):
         results = [env.step(a) for (a,env) in zip(self.actions, self.envs)]
-        obs, rews, dones, infos, available_actions = map(np.array, zip(*results))
-        self.ts += 1
+        obs, rews, dones, infos = map(np.array, zip(*results))
         
         for (i, done) in enumerate(dones):
             if 'bool' in done.__class__.__name__:
                 if done:
-                    obs[i], available_actions[i] = self.envs[i].reset()                   
-                    self.ts[i] = 0
+                    obs[i] = self.envs[i].reset()                   
             else:
                 if all(done):
-                    obs[i], available_actions[i] = self.envs[i].reset()
-                    self.ts[i] = 0
-        
+                    obs[i] = self.envs[i].reset()      
         self.actions = None
-
-        return np.array(obs), np.array(rews), np.array(dones), infos, np.array(available_actions)
+        return obs, rews, dones, infos
 
     def reset(self):  
-        obs = []
-        available_actions = []
-        for env in self.envs:
-            o,s = env.reset()
-            obs.append(o)
-            available_actions.append(s) 
-        return np.array(obs), np.array(available_actions)
+        obs = [env.reset() for env in self.envs]
+        return np.array(obs)
 
     def close(self):
         for env in self.envs:
-            env.close()        
+            env.close() 
+
+class DummyVecEnv(ShareVecEnv):
+    def __init__(self, env_fns):
+        self.envs = [fn() for fn in env_fns]
+        env = self.envs[0]        
+        ShareVecEnv.__init__(self, len(env_fns), env.observation_space, env.share_observation_space, env.action_space)      
+        self.actions = None
+
+    def step_async(self, actions):
+        self.actions = actions
+
+    def step_wait(self):
+        results = [env.step(a) for (a,env) in zip(self.actions, self.envs)]
+        obs, rews, dones, infos = map(np.array, zip(*results))
+ 
+        for (i, done) in enumerate(dones):
+            if 'bool' in done.__class__.__name__:
+                if done:
+                    obs[i] = self.envs[i].reset()
+            else:
+                if all(done):
+                    obs[i] = self.envs[i].reset()
+        
+        self.actions = None
+        return obs, rews, dones, infos
+
+    def reset(self):  
+        obs = [env.reset() for env in self.envs]
+        return np.array(obs)
+
+    def close(self):
+        for env in self.envs:
+            env.close()     
+
+class ShareDummyVecEnv(ShareVecEnv):
+    def __init__(self, env_fns):
+        self.envs = [fn() for fn in env_fns]
+        env = self.envs[0]        
+        ShareVecEnv.__init__(self, len(env_fns), env.observation_space, env.share_observation_space, env.action_space)     
+        self.actions = None
+
+    def step_async(self, actions):
+        self.actions = actions
+
+    def step_wait(self):
+        results = [env.step(a) for (a,env) in zip(self.actions, self.envs)]
+        obs, share_obs, rews, dones, infos, available_actions = map(np.array, zip(*results))
+        
+        for (i, done) in enumerate(dones):
+            if 'bool' in done.__class__.__name__:
+                if done:
+                    obs[i], share_obs[i], available_actions[i] = self.envs[i].reset()                   
+            else:
+                if all(done):
+                    obs[i], share_obs[i], available_actions[i] = self.envs[i].reset()        
+        self.actions = None
+
+        return obs, share_obs, rews, dones, infos, available_actions
+
+    def reset(self):  
+        results = [env.reset() for env in self.envs]
+        obs, share_obs, available_actions = map(np.array, zip(*results))
+        return obs, share_obs, available_actions
+
+    def close(self):
+        for env in self.envs:
+            env.close()    
+
+class ChooseDummyVecEnv(ShareVecEnv):
+    def __init__(self, env_fns):
+        self.envs = [fn() for fn in env_fns]
+        env = self.envs[0]        
+        ShareVecEnv.__init__(self, len(env_fns), env.observation_space, env.share_observation_space, env.action_space)       
+        self.actions = None
+
+    def step_async(self, actions):
+        self.actions = actions
+
+    def step_wait(self):
+        results = [env.step(a) for (a,env) in zip(self.actions, self.envs)]
+        obs, share_obs, rews, dones, infos, available_actions = map(np.array, zip(*results))       
+        self.actions = None
+        return obs, share_obs, rews, dones, infos, available_actions
+
+    def reset(self, data): 
+        results = [env.reset(d) for (env,d) in zip(self.envs, data)]
+        obs, share_obs, available_actions = map(np.array, zip(*results)) 
+        return obs, share_obs, available_actions
+
+    def close(self):
+        for env in self.envs:
+            env.close() 

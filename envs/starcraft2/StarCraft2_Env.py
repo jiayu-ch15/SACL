@@ -417,11 +417,10 @@ class StarCraft2Env(MultiAgentEnv):
         bad_transition = False
         info = [{} for i in range(self.n_agents)]
         
-        actions_int = [int(np.argmax(a)) for a in actions]
+        actions_int = [int(a) for a in actions]
 
         self.last_action = np.eye(self.n_actions)[np.array(actions_int)]
         
-
         # Collect individual actions
         sc_actions = []
         if self.debug:
@@ -460,10 +459,10 @@ class StarCraft2Env(MultiAgentEnv):
                     "won":self.win_counted
                    }
                 if self.death_tracker_ally[i]:
-                    info[i]["high_masks"] = False
+                    info[i]["active_masks"] = False
                 else:
-                    info[i]["high_masks"] = True
-            return self.get_obs(),self.get_state(),[[0]]*self.n_agents, terminated, info, available_actions
+                    info[i]["active_masks"] = True
+            return self.get_obs(),self.get_state(),[[0]]*self.n_agents, [terminated]*self.n_agents, info, available_actions
 
         self._total_steps += 1
         self._episode_steps += 1
@@ -514,9 +513,9 @@ class StarCraft2Env(MultiAgentEnv):
                 "won":self.win_counted
                }
             if self.death_tracker_ally[i]:
-                info[i]["high_masks"] = False
+                info[i]["active_masks"] = False
             else:
-                info[i]["high_masks"] = True
+                info[i]["active_masks"] = True
 
         if self.debug:
             logging.debug("Reward = {}".format(reward).center(60, '-'))
@@ -527,7 +526,7 @@ class StarCraft2Env(MultiAgentEnv):
         if self.reward_scale:
             reward /= self.max_reward / self.reward_scale_rate
 
-        return self.get_obs(), self.get_state(), [[reward]]*self.n_agents, terminated, info, available_actions
+        return self.get_obs(), self.get_state(), [[reward]]*self.n_agents, [terminated]*self.n_agents, info, available_actions
 
     def get_agent_action(self, a_id, action):
         """Construct the action for agent a_id."""

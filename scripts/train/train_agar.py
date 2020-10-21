@@ -266,22 +266,22 @@ def main():
                 masks.append(mask)
                 
             bad_masks = []
-            high_masks = []
+            active_masks = []
             for info in infos: 
                 bad_mask = [] 
-                high_mask = []              
+                active_mask = []              
                 for i in range(num_agents): 
                     if info[i]['bad_transition']:              
                         bad_mask.append([0.0])
                     else:
                         bad_mask.append([1.0])
                         
-                    if info[i]['high_masks']:              
-                        high_mask.append([1.0])
+                    if info[i]['active_masks']:              
+                        active_mask.append([1.0])
                     else:
-                        high_mask.append([0.0])
+                        active_mask.append([0.0])
                 bad_masks.append(bad_mask)
-                high_masks.append(high_mask)
+                active_masks.append(active_mask)
                             
             if len(envs.observation_space[0]) == 3:
                 share_obs = obs.reshape(args.n_rollout_threads, -1, envs.observation_space[0][1], envs.observation_space[0][2])
@@ -297,7 +297,7 @@ def main():
                                 reward, 
                                 masks, 
                                 bad_masks,
-                                high_masks)
+                                active_masks)
             else:
                 share_obs = obs.reshape(args.n_rollout_threads, -1)
                 share_obs = np.expand_dims(share_obs,1).repeat(num_agents,axis=1)
@@ -312,7 +312,7 @@ def main():
                                 reward, 
                                 masks, 
                                 bad_masks,
-                                high_masks)
+                                active_masks)
                            
         with torch.no_grad(): 
             for i in range(num_agents):         
