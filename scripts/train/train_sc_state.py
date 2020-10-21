@@ -455,6 +455,7 @@ def main():
 
                 if np.sum(incre_battles_game) > 0:
                     wandb.log({"incre_win_rate": np.sum(incre_battles_won)/np.sum(incre_battles_game)}, step=total_num_steps)
+                    print("incre win rate is {}.".format(np.sum(incre_battles_won)/np.sum(incre_battles_game)))
                 else:
                     wandb.log({"incre_win_rate": 0}, step=total_num_steps)
                 last_battles_game = battles_game
@@ -517,6 +518,7 @@ def main():
                 
                 if eval_episode >= args.eval_episodes:
                     wandb.log({"eval_win_rate": eval_battles_won/eval_episode}, step=total_num_steps)
+                    print("eval win rate is {}.".format(eval_battles_won/eval_episode))
                     break
 
     envs.close()

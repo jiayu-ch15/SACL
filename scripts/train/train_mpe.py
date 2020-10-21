@@ -41,6 +41,22 @@ def make_parallel_env(args):
     else:
         return SubprocVecEnv([get_env_fn(i) for i in range(args.n_rollout_threads)])
 
+def make_eval_env(args):
+    def get_env_fn(rank):
+        def init_env():
+            if args.env_name == "MPE":
+                env = MPEEnv(args)
+            else:
+                print("Can not support the " + args.env_name + "environment." )
+                raise NotImplementedError
+            env.seed(args.seed + rank * 1000)
+            return env
+        return init_env
+    if args.n_eval_rollout_threads == 1:
+        return DummyVecEnv([get_env_fn(0)])
+    else:
+        return SubprocVecEnv([get_env_fn(i) for i in range(args.n_eval_rollout_threads)])
+
 def main():
     args = get_config()
     assert (args.share_policy == True and args.scenario_name == 'simple_speaker_listener') == False, ("The simple_speaker_listener scenario can not use shared policy. Please check the config.py.")
@@ -79,6 +95,8 @@ def main():
 
     # env init
     envs = make_parallel_env(args)
+    if args.eval:
+        eval_envs = make_eval_env(args)
     num_agents = args.num_agents  
     
     #Policy network
@@ -448,7 +466,6 @@ def main():
                         args.num_env_steps,
                         int(total_num_steps / (end - start))))
             if args.share_policy:
-                print("value loss of agent: " + str(value_loss))
                 wandb.log({"value_loss": value_loss}, step=total_num_steps)
                 wandb.log({"action_loss": action_loss}, step=total_num_steps)
                 wandb.log({"dist_entropy": dist_entropy}, step=total_num_steps)
@@ -456,9 +473,10 @@ def main():
                 wandb.log({"KL_divloss": KL_divloss}, step=total_num_steps)
                 wandb.log({"ratio": ratio}, step=total_num_steps)
                 wandb.log({"average_episode_rewards": np.mean(rollouts.rewards) * args.episode_length}, step=total_num_steps)
+                print("value loss of agent: " + str(value_loss))
+                print("average episode rewards of agent: " + str(np.mean(rollouts.rewards) * args.episode_length))
             else:
                 for agent_id in range(num_agents):
-                    print("value loss of agent%i: " % agent_id + str(value_losses[agent_id]))
                     wandb.log({"agent%i/value_loss" % agent_id: value_losses[agent_id]}, step=total_num_steps)
                     wandb.log({"agent%i/action_loss" % agent_id: action_losses[agent_id]}, step=total_num_steps)
                     wandb.log({"agent%i/dist_entropy" % agent_id: dist_entropies[agent_id]}, step=total_num_steps)
@@ -466,7 +484,8 @@ def main():
                     wandb.log({"agent%i/KL_divloss" % agent_id: KL_divlosses[agent_id]}, step=total_num_steps)
                     wandb.log({"agent%i/ratio"% agent_id: ratios[agent_id]}, step=total_num_steps)
                     wandb.log({"agent%i/average_episode_rewards" % agent_id: np.mean(rollouts[agent_id].rewards) * args.episode_length}, step=total_num_steps)
-
+                    print("value loss of agent%i: " % agent_id + str(value_losses[agent_id]))
+                    print("average episode rewards of agent%i: " % agent_id + str(np.mean(rollouts[agent_id].rewards) * args.episode_length))
             if args.env_name == "MPE":
                 for agent_id in range(num_agents):
                     show_rewards = []
@@ -474,8 +493,112 @@ def main():
                         if 'individual_reward' in info[agent_id].keys():
                             show_rewards.append(info[agent_id]['individual_reward'])  
                     wandb.log({'agent%i/individual_rewards' % agent_id: np.mean(show_rewards)}, step=total_num_steps)
+        
+        if episode % args.eval_interval == 0 and args.eval:
+            eval_episode_rewards = []
+            eval_obs = eval_envs.reset()
+            if args.share_policy: 
+                eval_share_obs = eval_obs.reshape(args.n_eval_rollout_threads, -1)        
+                eval_share_obs = np.expand_dims(eval_share_obs,1).repeat(num_agents,axis=1)    
+            else:       
+                eval_share_obs = []
+                for o in eval_obs:
+                    eval_share_obs.append(list(itertools.chain(*o)))
+                eval_share_obs = np.array(eval_share_obs)
+            eval_recurrent_hidden_states = np.zeros((args.n_eval_rollout_threads, num_agents, args.hidden_size)).astype(np.float32)
+            eval_recurrent_hidden_states_critic = np.zeros((args.n_eval_rollout_threads, num_agents, args.hidden_size)).astype(np.float32)
+            eval_masks = np.ones((args.n_eval_rollout_threads, num_agents, 1)).astype(np.float32)
             
+            for eval_step in range(args.episode_length):      
+                if args.share_policy:
+                    actor_critic.eval()
+                    _, eval_action, _, eval_recurrent_hidden_state, eval_recurrent_hidden_state_critic = actor_critic.act(torch.FloatTensor(np.concatenate(eval_share_obs)), 
+                                    torch.FloatTensor(np.concatenate(eval_obs)), 
+                                    torch.FloatTensor(np.concatenate(eval_recurrent_hidden_states)), 
+                                    torch.FloatTensor(np.concatenate(eval_recurrent_hidden_states_critic)),
+                                    torch.FloatTensor(np.concatenate(eval_masks)),
+                                    deterministic=True)
+                    eval_actions = np.array(np.split(eval_action.detach().cpu().numpy(), args.n_eval_rollout_threads))
+                    
+                    if eval_envs.action_space[0].__class__.__name__ == 'MultiDiscrete':
+                        for i in range(eval_envs.action_space[0].shape):
+                            eval_uc_actions_env = np.eye(eval_envs.action_space[0].high[i]+1)[eval_actions[:,:,i]]
+                            if i == 0:
+                                eval_actions_env = eval_uc_actions_env
+                            else:
+                                eval_actions_env = np.concatenate((eval_actions_env, eval_uc_actions_env), axis=2)                           
+                    elif eval_envs.action_space[0].__class__.__name__ == 'Discrete':
+                        eval_actions_env = np.squeeze(np.eye(eval_envs.action_space[0].n)[eval_actions], 2)
+                    else:
+                        raise NotImplementedError
+                else:
+                    eval_temp_actions_env = [] 
+                    for agent_id in range(num_agents):
+                        actor_critic[agent_id].eval()
+                        _, eval_action, _, eval_recurrent_hidden_state, eval_recurrent_hidden_state_critic = actor_critic[agent_id].act(torch.FloatTensor(eval_share_obs[:,agent_id]), 
+                                        torch.FloatTensor(eval_obs[:,agent_id]), 
+                                        torch.FloatTensor(eval_recurrent_hidden_states[:,agent_id]), 
+                                        torch.FloatTensor(eval_recurrent_hidden_states_critic[:,agent_id]),
+                                        torch.FloatTensor(eval_masks[:,agent_id]),
+                                        deterministic=True)
+
+                        eval_action = eval_action.detach().cpu().numpy()
+                        # rearrange action                 
+                        if eval_envs.action_space[agent_id].__class__.__name__ == 'MultiDiscrete':
+                            for i in range(eval_envs.action_space[agent_id].shape):
+                                eval_uc_action_env = np.eye(eval_envs.action_space[agent_id].high[i]+1)[eval_action[:,i]]
+                                if i == 0:
+                                    eval_action_env = eval_uc_action_env
+                                else:
+                                    eval_action_env = np.concatenate((eval_action_env, eval_uc_action_env), axis=1)                           
+                        elif eval_envs.action_space[agent_id].__class__.__name__ == 'Discrete':
+                            eval_action_env = np.squeeze(np.eye(eval_envs.action_space[agent_id].n)[eval_action], 1) 
+                        else:
+                            raise NotImplementedError
+                        eval_temp_actions_env.append(eval_action_env)
+                        eval_recurrent_hidden_states[:,agent_id] = eval_recurrent_hidden_state.detach().cpu().numpy()
+                        eval_recurrent_hidden_states_critic[:,agent_id] = eval_recurrent_hidden_state_critic.detach().cpu().numpy()
+                    
+                    eval_recurrent_hidden_states = np.array(eval_recurrent_hidden_states).transpose(1,0,2)
+                    eval_recurrent_hidden_states_critic = np.array(eval_recurrent_hidden_states_critic).transpose(1,0,2)
+
+                    # [envs, agents, dim]
+                    eval_actions_env = []
+                    for i in range(args.n_eval_rollout_threads):
+                        eval_one_hot_action_env = []
+                        for eval_temp_action_env in eval_temp_actions_env:
+                            eval_one_hot_action_env.append(eval_temp_action_env[i])
+                        eval_actions_env.append(eval_one_hot_action_env)
+
+                # Obser reward and next obs
+                eval_obs, eval_rewards, eval_dones, eval_infos = eval_envs.step(eval_actions_env)
+                eval_episode_rewards.append(eval_rewards)
+                if args.share_policy: 
+                    eval_share_obs = eval_obs.reshape(args.n_eval_rollout_threads, -1)        
+                    eval_share_obs = np.expand_dims(eval_share_obs,1).repeat(num_agents,axis=1)    
+                else:       
+                    eval_share_obs = []
+                    for o in eval_obs:
+                        eval_share_obs.append(list(itertools.chain(*o)))
+                    eval_share_obs = np.array(eval_share_obs)
+                
+                eval_recurrent_hidden_states[eval_dones==True] = np.zeros(((eval_dones==True).sum(),args.hidden_size)).astype(np.float32)
+                eval_recurrent_hidden_states_critic[eval_dones==True] = np.zeros(((eval_dones==True).sum(),args.hidden_size)).astype(np.float32)
+                eval_masks = np.ones((args.n_eval_rollout_threads, num_agents, 1)).astype(np.float32)
+                eval_masks[eval_dones==True] = np.zeros(((eval_dones==True).sum(), 1)).astype(np.float32)                                  
+                
+            eval_episode_rewards = np.array(eval_episode_rewards)
+            if args.share_policy:
+                print("eval average episode rewards of agent: " + str(np.mean(np.sum(eval_episode_rewards,axis=0))))
+                wandb.log({"eval_average_episode_rewards": np.mean(np.sum(eval_episode_rewards,axis=0))}, step=total_num_steps)
+            else:
+                for agent_id in range(num_agents):
+                    print("eval average episode rewards of agent%i: " % agent_id + str(np.mean(np.sum(eval_episode_rewards[agent_id],axis=0))))
+                    wandb.log({"agent%i/eval_average_episode_rewards" % agent_id: np.mean(np.sum(eval_episode_rewards[agent_id],axis=0))}, step=total_num_steps)
+
     envs.close()
+    if args.eval:
+        eval_envs.close()
     run.finish()
 
 if __name__ == "__main__":

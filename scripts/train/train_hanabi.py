@@ -93,7 +93,7 @@ def main():
     # env
     envs = make_parallel_env(args)
     if args.eval:
-        eval_env = make_eval_env(args)
+        eval_envs = make_eval_env(args)
     num_agents = args.num_agents
 
     #Policy network
@@ -337,10 +337,10 @@ def main():
                     # done==None
                     # pass
 
-                    for n_rollout_thread in range(args.n_rollout_threads):
-                        if done[n_rollout_thread]:
-                            if 'score' in infos[n_rollout_thread].keys():
-                                scores.append(infos[n_rollout_thread]['score'])
+                    for i in range(args.n_rollout_threads):
+                        if done[i]:
+                            if 'score' in infos[i].keys():
+                                scores.append(infos[i]['score'])
                      
             # insert turn data into buffer
             rollouts.chooseinsert(turn_share_obs, 
@@ -476,7 +476,7 @@ def main():
             if args.env_name == "Hanabi":  
                 if len(scores)>0: 
                     wandb.log({'score': np.mean(scores)}, step=total_num_steps)
-                    print("Train mean score is {}.".format(np.mean(scores)))
+                    print("mean score is {}.".format(np.mean(scores)))
                 else:
                     wandb.log({'score': 0}, step=total_num_steps)
                     print("Can not access mean score.")
@@ -485,7 +485,7 @@ def main():
             eval_finish = False
             eval_reset_choose = np.ones(args.n_eval_rollout_threads)==1.0 
             eval_scores = []
-            eval_obs, eval_share_obs, eval_available_actions = eval_env.reset(eval_reset_choose)
+            eval_obs, eval_share_obs, eval_available_actions = eval_envs.reset(eval_reset_choose)
             eval_actions = np.ones((args.n_eval_rollout_threads, num_agents, 1)).astype(np.float32)*(-1.0)
             eval_recurrent_hidden_states = np.zeros((args.n_eval_rollout_threads, num_agents, args.hidden_size)).astype(np.float32)
             eval_recurrent_hidden_states_critic = np.zeros((args.n_eval_rollout_threads, num_agents, args.hidden_size)).astype(np.float32)
@@ -525,21 +525,21 @@ def main():
                     eval_recurrent_hidden_states_critic[eval_choose,agent_id] = eval_recurrent_hidden_state_critic.detach().cpu().numpy()
                         
                     # Obser reward and next obs
-                    eval_obs, eval_share_obs, eval_rewards, eval_dones, eval_infos, eval_available_actions = eval_env.step(eval_actions)
+                    eval_obs, eval_share_obs, eval_rewards, eval_dones, eval_infos, eval_available_actions = eval_envs.step(eval_actions)
 
                     eval_available_actions[eval_dones==True] = np.zeros(((eval_dones==True).sum(), num_agents, *rollouts.available_actions.shape[3:])).astype(np.float32)   
 
-                    for n_eval_rollout_thread in range(args.n_eval_rollout_threads):
-                        if eval_dones[n_eval_rollout_thread]:
-                            if 'score' in eval_infos[n_eval_rollout_thread].keys():
-                                eval_scores.append(eval_infos[n_eval_rollout_thread]['score'])
+                    for i in range(args.n_eval_rollout_threads):
+                        if eval_dones[i]:
+                            if 'score' in eval_infos[i].keys():
+                                eval_scores.append(eval_infos[i]['score'])
             
             wandb.log({'eval_score': np.mean(eval_scores)}, step=total_num_steps)
-            print("Eval mean score is {}.".format(np.mean(eval_scores)))
+            print("eval mean score is {}.".format(np.mean(eval_scores)))
     
     envs.close()
     if args.eval:
-        eval_env.close()
+        eval_envs.close()
     run.finish()
 
 if __name__ == "__main__":
