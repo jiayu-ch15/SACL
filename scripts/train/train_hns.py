@@ -557,35 +557,37 @@ def main():
                 eval_choose = eval_dones==False
                 if ~np.any(eval_choose):
                     break  
-                if args.share_policy:
-                    eval_actions = np.ones((args.n_eval_rollout_threads, num_agents, action_shape)).astype(np.int)
-                    actor_critic.eval()
-                    _, eval_action, _, eval_recurrent_hidden_state, eval_recurrent_hidden_state_critic = actor_critic.act(torch.FloatTensor(np.concatenate(eval_share_obs[eval_choose])), 
-                                    torch.FloatTensor(np.concatenate(eval_obs[eval_choose])), 
-                                    torch.FloatTensor(np.concatenate(eval_recurrent_hidden_states[eval_choose])), 
-                                    torch.FloatTensor(np.concatenate(eval_recurrent_hidden_states_critic[eval_choose])),
-                                    torch.FloatTensor(np.concatenate(eval_masks[eval_choose])),
-                                    deterministic=True)
-                    eval_actions[eval_choose] = np.array(np.split(eval_action.detach().cpu().numpy(), args.n_eval_rollout_threads))         
-                else:
-                    eval_actions = [] 
-                    for agent_id in range(num_agents):
-                        agent_eval_actions = np.ones((args.n_eval_rollout_threads, action_shape)).astype(np.int)
-                        actor_critic[agent_id].eval()
-                        _, eval_action, _, eval_recurrent_hidden_state, eval_recurrent_hidden_state_critic = actor_critic[agent_id].act(torch.FloatTensor(eval_share_obs[eval_choose,agent_id]), 
-                                        torch.FloatTensor(eval_obs[eval_choose,agent_id]), 
-                                        torch.FloatTensor(eval_recurrent_hidden_states[eval_choose,agent_id]), 
-                                        torch.FloatTensor(eval_recurrent_hidden_states_critic[eval_choose,agent_id]),
-                                        torch.FloatTensor(eval_masks[eval_choose,agent_id]),
+                with torch.no_grad():
+                    if args.share_policy:
+                        eval_actions = np.ones((args.n_eval_rollout_threads, num_agents, action_shape)).astype(np.int)
+                        actor_critic.eval()
+                        _, eval_action, _, eval_recurrent_hidden_state, eval_recurrent_hidden_state_critic = actor_critic.act(torch.FloatTensor(np.concatenate(eval_share_obs[eval_choose])), 
+                                        torch.FloatTensor(np.concatenate(eval_obs[eval_choose])), 
+                                        torch.FloatTensor(np.concatenate(eval_recurrent_hidden_states[eval_choose])), 
+                                        torch.FloatTensor(np.concatenate(eval_recurrent_hidden_states_critic[eval_choose])),
+                                        torch.FloatTensor(np.concatenate(eval_masks[eval_choose])),
                                         deterministic=True)
-                        agent_eval_actions[eval_choose] = eval_action.detach().cpu().numpy()
-                        eval_actions.append(agent_eval_actions)
-                        eval_recurrent_hidden_states[eval_choose,agent_id] = eval_recurrent_hidden_state.detach().cpu().numpy()
-                        eval_recurrent_hidden_states_critic[eval_choose,agent_id] = eval_recurrent_hidden_state_critic.detach().cpu().numpy()
 
-                    eval_actions = np.array(eval_actions).transpose(1,0,2)
-                    eval_recurrent_hidden_states = np.array(eval_recurrent_hidden_states).transpose(1,0,2)
-                    eval_recurrent_hidden_states_critic = np.array(eval_recurrent_hidden_states_critic).transpose(1,0,2)
+                        eval_actions[eval_choose] = np.array(np.split(eval_action.detach().cpu().numpy(), (eval_choose==True).sum()))         
+                    else:
+                        eval_actions = [] 
+                        for agent_id in range(num_agents):
+                            agent_eval_actions = np.ones((args.n_eval_rollout_threads, action_shape)).astype(np.int)
+                            actor_critic[agent_id].eval()
+                            _, eval_action, _, eval_recurrent_hidden_state, eval_recurrent_hidden_state_critic = actor_critic[agent_id].act(torch.FloatTensor(eval_share_obs[eval_choose,agent_id]), 
+                                            torch.FloatTensor(eval_obs[eval_choose,agent_id]), 
+                                            torch.FloatTensor(eval_recurrent_hidden_states[eval_choose,agent_id]), 
+                                            torch.FloatTensor(eval_recurrent_hidden_states_critic[eval_choose,agent_id]),
+                                            torch.FloatTensor(eval_masks[eval_choose,agent_id]),
+                                            deterministic=True)
+                            agent_eval_actions[eval_choose] = eval_action.detach().cpu().numpy()
+                            eval_actions.append(agent_eval_actions)
+                            eval_recurrent_hidden_states[eval_choose,agent_id] = eval_recurrent_hidden_state.detach().cpu().numpy()
+                            eval_recurrent_hidden_states_critic[eval_choose,agent_id] = eval_recurrent_hidden_state_critic.detach().cpu().numpy()
+
+                        eval_actions = np.array(eval_actions).transpose(1,0,2)
+                        eval_recurrent_hidden_states = np.array(eval_recurrent_hidden_states).transpose(1,0,2)
+                        eval_recurrent_hidden_states_critic = np.array(eval_recurrent_hidden_states_critic).transpose(1,0,2)
 
                 # Obser reward and next obs
                 eval_obs, eval_share_obs, eval_rewards, eval_dones, eval_infos, _ = eval_envs.step(eval_actions)

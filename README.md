@@ -43,7 +43,7 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
   ./train_smac.sh
   ```
 
-  - local results are stored in fold `scripts/results`, if you want to see training curves, login wandb. Sometimes GPU memory may be leaked, you need to clear it manually.
+  - local results are stored in fold `scripts/results`, if you want to see training curves, login wandb first, see guide [here](https://docs.wandb.com/). Sometimes GPU memory may be leaked, you need to clear it manually.
 
    ```Bash
    ./clean_gpu.sh
