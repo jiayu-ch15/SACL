@@ -49,7 +49,7 @@ def make_eval_env(args):
             else:
                 print("Can not support the " + args.env_name + "environment." )
                 raise NotImplementedError
-            env.seed(args.seed + rank * 1000)
+            env.seed(args.seed * 50000 + rank * 10000)
             return env
         return init_env
     if args.n_eval_rollout_threads == 1:
@@ -546,6 +546,7 @@ def main():
             eval_episode_rewards = []
 
             eval_reset_choose = np.ones(args.n_eval_rollout_threads)==1.0
+            
             eval_obs, eval_share_obs, _ = eval_envs.reset(eval_reset_choose)
 
             eval_recurrent_hidden_states = np.zeros((args.n_eval_rollout_threads, num_agents, args.hidden_size)).astype(np.float32)
@@ -591,6 +592,7 @@ def main():
 
                 # Obser reward and next obs
                 eval_obs, eval_share_obs, eval_rewards, eval_dones, eval_infos, _ = eval_envs.step(eval_actions)
+                
                 eval_episode_rewards.append(eval_rewards)
 
                 eval_recurrent_hidden_states[eval_dones==True] = np.zeros(((eval_dones==True).sum(), num_agents, args.hidden_size)).astype(np.float32)
@@ -622,7 +624,6 @@ def main():
                                     eval_lock_rate.append(eval_infos[i]['lock_rate'])
                                 if "activated_sites" in eval_infos[i].keys():
                                     eval_activated_sites.append(eval_infos[i]['activated_sites'])
-
             eval_episode_rewards = np.array(eval_episode_rewards)
 
             if args.env_name == "HideAndSeek":

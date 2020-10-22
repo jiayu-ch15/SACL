@@ -47,7 +47,7 @@ def make_eval_env(args):
             else:
                 print("Can not support the " + args.env_name + "environment." )
                 raise NotImplementedError
-            env.seed(args.seed + rank * 1000)
+            env.seed(args.seed * 50000 + rank * 10000)
             return env
         return init_env
     if args.n_eval_rollout_threads == 1:
@@ -220,6 +220,8 @@ def main():
     
     # reset env 
     obs, share_obs, available_actions = envs.reset()
+    print(obs[0])
+    print(obs[1])
     
     # replay buffer       
     share_obs = np.expand_dims(share_obs, 1).repeat(num_agents, axis=1)    
@@ -292,7 +294,7 @@ def main():
                     recurrent_hidden_statess_critic = np.array(recurrent_hidden_statess_critic).transpose(1,0,2)
                   
             # Obser reward and next obs
-            obs, share_obs, rewards, dones, infos, available_actions = envs.step(actions)
+            obs, share_obs, rewards, dones, infos, available_actions = envs.step(actions)            
 
             # insert data in buffer
             recurrent_hidden_statess[dones==True] = np.zeros(((dones==True).sum(),args.hidden_size)).astype(np.float32)

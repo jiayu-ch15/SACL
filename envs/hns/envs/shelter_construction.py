@@ -72,7 +72,7 @@ class ShelterRewardWrapper(gym.Wrapper):
 def make_env(args):
     return ShelterConstructionEnv(args)
 
-def ShelterConstructionEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
+def ShelterConstructionEnv(args, n_substeps=15, horizon=80, deterministic_mode=True,
              floor_size=6.0, grid_size=30,
              n_agents=1,
              objective_diameter=[1, 1], objective_placement='center',

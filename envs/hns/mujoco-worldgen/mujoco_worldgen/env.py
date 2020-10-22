@@ -101,6 +101,7 @@ class Env(gym.Env):
             self.deterministic_mode = True
         else:
             start_seed = 0 if self.deterministic_mode else np.random.randint(2**32)
+        
         self._random_state = np.random.RandomState(start_seed)
         # Seed that will be used on next _reset()
         self._next_seed = start_seed

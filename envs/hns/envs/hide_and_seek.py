@@ -233,7 +233,7 @@ def nearwall_placement(grid, obj_size, metadata, random_state):
 def make_env(args):
     return HideAndSeekEnv(args)
 
-def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=False,
+def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=True,
              floor_size=6.0, grid_size=30, door_size=2,
              n_hiders=2, n_seekers=2, max_n_agents=None,
              n_boxes=2, n_ramps=1, n_elongated_boxes=0,

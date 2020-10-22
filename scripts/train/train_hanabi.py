@@ -27,7 +27,7 @@ def make_parallel_env(args):
     def get_env_fn(rank):
         def init_env():
             if args.env_name == "Hanabi":
-                assert args.num_agents>1 and args.num_agents<6, ("num_agents can be only between 2-5.")
+                assert args.num_agents > 1 and args.num_agents < 6, ("num_agents can be only between 2-5.")
                 env = HanabiEnv(args, (args.seed + rank * 1000))
             else:
                 print("Can not support the " + args.env_name + "environment." )
@@ -45,11 +45,11 @@ def make_eval_env(args):
         def init_env():
             if args.env_name == "Hanabi":
                 assert args.num_agents > 1 and args.num_agents < 6, ("num_agents can be only between 2-5.")
-                env = HanabiEnv(args, (args.seed + rank * 1000))
+                env = HanabiEnv(args, (args.seed * 50000 + rank * 10000))
             else:
                 print("Can not support the " + args.env_name + "environment." )
                 raise NotImplementedError
-            env.seed(args.seed + rank * 1000)
+            env.seed(args.seed * 50000 + rank * 10000)
             return env
         return init_env
     if args.n_eval_rollout_threads == 1:

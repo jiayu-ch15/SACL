@@ -138,7 +138,7 @@ class ConstructionCompletedRewardWrapper(gym.Wrapper):
 def make_env(args):
     return BlueprintConstructionEnv(args)
 
-def BlueprintConstructionEnv(args, n_substeps=15, horizon=200, deterministic_mode=False,
+def BlueprintConstructionEnv(args, n_substeps=15, horizon=200, deterministic_mode=True,
              floor_size=4.0, grid_size=30,
              n_agents=2,
              n_rooms=2, random_room_number=False, scenario='empty', door_size=2,
