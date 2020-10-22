@@ -95,7 +95,7 @@ class HNSEnv(object):
             return self.obs_store, self.share_obs_store, None
 
     def step(self, actions):
-        if self.choose:
+        if not np.all(actions == np.ones((self.num_agents, self.action_space[0].shape)).astype(np.int) * (-1)):
             action_movement = []
             action_pull = []
             action_glueall = []
@@ -141,7 +141,7 @@ class HNSEnv(object):
             return obs, share_obs, rewards, dones, infos, None
         else:
             return self.obs_store, self.share_obs_store, np.zeros_like(self.rewards_store), None, self.infos_store, None
-    
+   
     def close(self):
         self.env.close()
     

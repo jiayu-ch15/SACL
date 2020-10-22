@@ -324,6 +324,13 @@ def main():
             for i in range(args.n_rollout_threads):              
                 for agent_id in range(num_agents): 
                     if dones[i]: 
+                        if "discard_episode" in infos[i].keys():
+                            if infos[i]['discard_episode']:
+                                discard_episode += 1
+                            else:
+                                trials += 1
+                        else:
+                            trials += 1
                         # get info to tensorboard
                         if args.env_name == "HideAndSeek":
                             if args.num_boxes > 0:
@@ -350,14 +357,6 @@ def main():
                                 if 'food_eaten_prep' in infos[i].keys():
                                     food_eaten_prep.append(infos[i]['food_eaten_prep'])                            
                         if args.env_name == "BlueprintConstruction" or args.env_name == "BoxLocking":
-                            if "discard_episode" in infos[i].keys():
-                                if infos[i]['discard_episode']:
-                                    discard_episode += 1
-                                else:
-                                    trials += 1
-                            else:
-                                trials += 1
-
                             if "success" in infos[i].keys():
                                 if infos[i]['success']:
                                     success += 1
@@ -543,7 +542,7 @@ def main():
             eval_trials = 0
             eval_lock_rate = []
             eval_activated_sites = []
-            eval_episode_rewards = []
+            eval_episode_rewards = 0
 
             eval_reset_choose = np.ones(args.n_eval_rollout_threads)==1.0
             
@@ -560,7 +559,7 @@ def main():
                     break  
                 with torch.no_grad():
                     if args.share_policy:
-                        eval_actions = np.ones((args.n_eval_rollout_threads, num_agents, action_shape)).astype(np.int)
+                        eval_actions = np.ones((args.n_eval_rollout_threads, num_agents, action_shape)).astype(np.int) * (-1)
                         actor_critic.eval()
                         _, eval_action, _, eval_recurrent_hidden_state, eval_recurrent_hidden_state_critic = actor_critic.act(torch.FloatTensor(np.concatenate(eval_share_obs[eval_choose])), 
                                         torch.FloatTensor(np.concatenate(eval_obs[eval_choose])), 
@@ -573,7 +572,7 @@ def main():
                     else:
                         eval_actions = [] 
                         for agent_id in range(num_agents):
-                            agent_eval_actions = np.ones((args.n_eval_rollout_threads, action_shape)).astype(np.int)
+                            agent_eval_actions = np.ones((args.n_eval_rollout_threads, action_shape)).astype(np.int) * (-1)
                             actor_critic[agent_id].eval()
                             _, eval_action, _, eval_recurrent_hidden_state, eval_recurrent_hidden_state_critic = actor_critic[agent_id].act(torch.FloatTensor(eval_share_obs[eval_choose,agent_id]), 
                                             torch.FloatTensor(eval_obs[eval_choose,agent_id]), 
@@ -593,16 +592,24 @@ def main():
                 # Obser reward and next obs
                 eval_obs, eval_share_obs, eval_rewards, eval_dones, eval_infos, _ = eval_envs.step(eval_actions)
                 
-                eval_episode_rewards.append(eval_rewards)
+                eval_episode_rewards += eval_rewards
 
                 eval_recurrent_hidden_states[eval_dones==True] = np.zeros(((eval_dones==True).sum(), num_agents, args.hidden_size)).astype(np.float32)
                 eval_recurrent_hidden_states_critic[eval_dones==True] = np.zeros(((eval_dones==True).sum(), num_agents, args.hidden_size)).astype(np.float32)
                 eval_masks = np.ones((args.n_eval_rollout_threads, num_agents, 1)).astype(np.float32)
                 eval_masks[eval_dones==True] = np.zeros(((eval_dones==True).sum(), num_agents, 1)).astype(np.float32)                                  
                 
+                discard_reset_choose = np.zeros(args.n_eval_rollout_threads, dtype=bool)
                 for i in range(args.n_eval_rollout_threads):              
                     for agent_id in range(num_agents): 
                         if eval_dones[i]: 
+                            if "discard_episode" in eval_infos[i].keys():
+                                if eval_infos[i]['discard_episode']:
+                                    discard_reset_choose[i] = True                                      
+                                else:
+                                    eval_trials += 1
+                            else:
+                                eval_trials += 1
                             # get info to tensorboard
                             if args.env_name == "HideAndSeek":
                                 if args.num_boxes > 0:
@@ -610,13 +617,7 @@ def main():
                                         eval_num_box_lock_prep.append(eval_infos[i]['num_box_lock_prep'])
                                     if 'num_box_lock' in eval_infos[i].keys():
                                         eval_num_box_lock.append(eval_infos[i]['num_box_lock'])
-                            if args.env_name == "BlueprintConstruction" or args.env_name == "BoxLocking":
-                                if "discard_episode" in eval_infos[i].keys():
-                                    if not eval_infos[i]['discard_episode']:
-                                        eval_trials += 1
-                                else:
-                                    eval_trials += 1
-
+                            if args.env_name == "BlueprintConstruction" or args.env_name == "BoxLocking":              
                                 if "success" in eval_infos[i].keys():
                                     if eval_infos[i]['success']:
                                         eval_success += 1
@@ -624,20 +625,24 @@ def main():
                                     eval_lock_rate.append(eval_infos[i]['lock_rate'])
                                 if "activated_sites" in eval_infos[i].keys():
                                     eval_activated_sites.append(eval_infos[i]['activated_sites'])
-            eval_episode_rewards = np.array(eval_episode_rewards)
+                discard_obs, discard_share_obs, _ = eval_envs.reset(discard_reset_choose)
+
+                eval_obs[discard_reset_choose==True] = discard_obs[discard_reset_choose==True]
+                eval_share_obs[discard_reset_choose==True] = discard_share_obs[discard_reset_choose==True]
+                eval_dones[discard_reset_choose==True] = np.zeros(discard_reset_choose.sum(), dtype=bool)
 
             if args.env_name == "HideAndSeek":
                 for hider_id in range(num_hiders):
-                    wandb.log({'hider%i/eval_average_step_rewards' % hider_id: np.mean(eval_episode_rewards[:,:,hider_id])}, step=total_num_steps)
+                    wandb.log({'hider%i/eval_average_step_rewards' % hider_id: np.mean(eval_episode_rewards[:,hider_id])}, step=total_num_steps)
                 for seeker_id in range(num_seekers):
-                    wandb.log({'seeker%i/eval_average_step_rewards' % seeker_id: np.mean(eval_episode_rewards[:,:,num_hiders+seeker_id])}, step=total_num_steps)           
+                    wandb.log({'seeker%i/eval_average_step_rewards' % seeker_id: np.mean(eval_episode_rewards[:,num_hiders+seeker_id])}, step=total_num_steps)           
             
             if args.env_name == "BoxLocking" or args.env_name == "BlueprintConstruction":  
                 if args.share_policy:       
                     wandb.log({"eval_average_step_rewards": np.mean(eval_episode_rewards)}, step=total_num_steps)
                 else:
                     for agent_id in range(num_agents):
-                        wandb.log({"agent%i/eval_average_step_rewards" % agent_id: np.mean(eval_episode_rewards[:,:,agent_id])}, step=total_num_steps) 
+                        wandb.log({"agent%i/eval_average_step_rewards" % agent_id: np.mean(eval_episode_rewards[:,agent_id])}, step=total_num_steps) 
                             
                 if eval_trials > 0:
                     wandb.log({'eval_success_rate': eval_success/eval_trials}, step=total_num_steps) 
