@@ -220,8 +220,6 @@ def main():
     
     # reset env 
     obs, share_obs, available_actions = envs.reset()
-    print(obs[0])
-    print(obs[1])
     
     # replay buffer       
     share_obs = np.expand_dims(share_obs, 1).repeat(num_agents, axis=1)    
