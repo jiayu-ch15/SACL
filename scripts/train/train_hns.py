@@ -607,9 +607,7 @@ def main():
                                         eval_num_box_lock.append(eval_infos[i]['num_box_lock'])
                             if args.env_name == "BlueprintConstruction" or args.env_name == "BoxLocking":
                                 if "discard_episode" in eval_infos[i].keys():
-                                    if eval_infos[i]['discard_episode']:
-                                        eval_discard_episode += 1
-                                    else:
+                                    if not eval_infos[i]['discard_episode']:
                                         eval_trials += 1
                                 else:
                                     eval_trials += 1

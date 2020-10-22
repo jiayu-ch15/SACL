@@ -11,6 +11,7 @@ from envs.ssd.Harvest_Env import HarvestEnv
 if hostname == "ubuntu-SYS-4028GR-TR2":
     from envs.starcraft2.StarCraft2_Env import StarCraft2Env
     from envs.starcraft2.smac_maps import get_map_params
+    from envs.hns.HNS_Env import HNSEnv
     
     from envs.hns.envs.hide_and_seek import HideAndSeekEnv
     from envs.hns.envs.blueprint_construction import BlueprintConstructionEnv
