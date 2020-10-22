@@ -441,7 +441,7 @@ class PPO():
                 value_loss_epoch += value_loss.item()
                 action_loss_epoch += action_loss.item()
                 dist_entropy_epoch += dist_entropy.item() 
-                grad_norm_epoch += grad_norm.item()
+                grad_norm_epoch += grad_norm
                 KL_divloss_epoch += KL_divloss.item()
                 ratio_epoch += ratio.mean()
        

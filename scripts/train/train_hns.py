@@ -33,6 +33,7 @@ def make_parallel_env(args):
                 print("Can not support the " + args.env_name + "environment." )
                 raise NotImplementedError
             env.seed(args.seed + rank * 1000)
+            # TODO: check seed
             return env
         return init_env
     if args.n_rollout_threads == 1:

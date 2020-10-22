@@ -2,15 +2,15 @@
 
 ## 1.Install
 
-test on CUDA == 10.1
+   test on CUDA == 10.1
 
-```Bash
-cd MAPPO
-conda create -n mappo python==3.6.2
-conda activate mappo
-pip install torch==1.5.1+cu101 torchvision==0.6.1+cu101 -f https://download.pytorch.org/whl/torch_stable.html
-pip install -r requirements.txt
-```
+   ```Bash
+   cd MAPPO
+   conda create -n mappo-sc python==3.6.2
+   conda activate mappo-sc
+   pip install torch==1.5.1+cu101 torchvision==0.6.1+cu101 -f https://download.pytorch.org/whl/torch_stable.html
+   pip install wandb==0.10.5
+   ```
 
 - config.py: contains all hyper-parameters
 
@@ -32,80 +32,82 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
 
 ### 2.2 Train StarCraftII
 
-- train_sc_state.py: all train code
+- train_smac.py: all train code
 
   - Here is an example:
 
   ```Bash
-  conda activate mappo
-  chmod +x ./train_sc_state.sh
-  ./train_sc_state.sh
+  conda activate mappo-sc
+  cd scripts
+  chmod +x train_smac.sh
+  ./train_smac.sh
   ```
 
-  - You can use tensorboardX to see the training curve in fold `results`:
+  - local results are stored in fold `scripts/results`, if you want to see training curves, login wandb. Sometimes GPU memory may be leaked, you need to clear it manually.
 
-  ```Bash
-  tensorboard --logdir=./results/ --bind_all
-  ```
+   ```Bash
+   ./clean_gpu.sh
+   ```
 
 ### 2.3 Tips
 
    Sometimes StarCraftII exits abnormally, and you need to kill the program manually.
 
    ```Bash
-ps -ef | grep StarCraftII | grep -v grep | cut -c 9-15 | xargs kill -9
-# clear zombie process
-ps -A -ostat,ppid,pid,cmd | grep -e'^[Zz]' |awk '{print $2}' | xargs kill -9 
+   ./clean_smac.sh
+   ./clean_zombie.sh
    ```
 
 ## 3. Hanabi
 
   ### 3.1 Hanabi
 
-The environment code is reproduced from the hanabi open-source environment, but did some minor changes to fit the algorithms. Hanabi is a game for **2-5** players, best described as a type of cooperative solitaire.
+   The environment code is reproduced from the hanabi open-source environment, but did some minor changes to fit the algorithms. Hanabi is a game for **2-5** players, best described as a type of cooperative solitaire.
 
 ### 3.2 Install Hanabi 
 
-```Bash
-pip install cffi
-cd envs/hanabi
-mkdir build & cd build
-cmake ..
-make -j
-```
+   ```Bash
+   pip install cffi
+   cd envs/hanabi
+   mkdir build & cd build
+   cmake ..
+   make -j
+   ```
 
 ### 3.3 Train Hanabi
 
-After 3.2, we will see a libpyhanabi.so file in the hanabi subfold, then we can train hanabi using the following code.
+   After 3.2, we will see a libpyhanabi.so file in the hanabi subfold, then we can train hanabi using the following code.
 
-```Bash
-conda activate mappo
-chmod +x ./train_hanabi.sh
-./train_hanabi.sh
-```
+   ```Bash
+   conda activate mappo-sc
+   cd scripts
+   chmod +x train_hanabi.sh
+   ./train_hanabi.sh
+   ```
 
 ## 4. MPE
 
 ### 4.1 Install MPE
 
-```Bash
-# install this package first
-pip install seabon
-```
+   ```Bash
+   # install this package first
+   pip install seabon
+   ```
 
 3 Cooperative scenarios in MPE:
 
-- simple_spread
-- simple_speaker_listener
-- simple_reference
+- simple_spread: set num_agents=3
+- simple_speaker_listener: set num_agents=2, and use --share_policy
+- simple_reference: set num_agents=2
 
 ### 4.2 Train MPE
 
-```Bash
-conda activate mappo
-chmod +x ./train_mpe.sh
-./train_mpe.sh
-```
+   ```Bash
+   conda activate mappo-sc
+   cd scripts
+   chmod +x train_mpe.sh
+   ./train_mpe.sh
+   ```
 
 ## 5. Hide-And-Seek
 
@@ -145,13 +147,17 @@ we support multi-agent boxlocking and blueprint_construction tasks in the hide-a
 
 ### 5.2 Train Tasks
 
-```Bash
-conda activate mappo
-# boxlocking task, if u want to train simplified task, need to change hyper-parameters in box_locking.py first.
-chmod +x ./train_boxlocking.sh
-./train_boxlocking.sh
-# blueprint_construction task
-chmod +x ./train_bpc.sh
-./train_bpc.sh
-```
+   ```Bash
+   conda activate mappo-sc
+   # boxlocking task, if u want to train simplified task, need to change hyper-parameters in box_locking.py first.
+   cd scripts
+   chmod +x train_boxlocking.sh
+   ./train_boxlocking.sh
+   # blueprint_construction task
+   chmod +x train_bpc.sh
+   ./train_bpc.sh
+   # hide and seek task
+   chmod +x train_hns.sh
+   ./train_hns.sh
+   ```
 
