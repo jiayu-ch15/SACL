@@ -21,4 +21,11 @@ if hostname == "ubuntu-SYS-4028GR-TR2":
     from absl import flags
     FLAGS = flags.FLAGS
     FLAGS(['train_sc.py'])
+elif "c4130" in hostname:
+    from envs.starcraft2.StarCraft2_Env import StarCraft2Env
+    from envs.starcraft2.smac_maps import get_map_params
+    
+    from absl import flags
+    FLAGS = flags.FLAGS
+    FLAGS(['train_sc.py'])
 
