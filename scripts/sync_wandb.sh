@@ -1,2 +1,2 @@
 conda activate mappo-sc
-ls | grep -E "run|offline" | grep -v "latest" | xargs wandb sync --no-mark-synced
+find ./ -type d | grep -E "wandb/run|wandb/offline" | grep -v files | grep -v logs | xargs wandb sync --no-mark-synced

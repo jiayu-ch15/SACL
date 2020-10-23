@@ -93,7 +93,7 @@ class ConstructionCompletedRewardWrapper(gym.Wrapper):
                 at least one box within the site activation radius.
             reward_scale (float): scales the reward by this factor
     '''
-    def __init__(self, env, use_corners=True, site_activation_radius=0.1, reward_scale=3):
+    def __init__(self, env, use_corners=False, site_activation_radius=0.5, reward_scale=3):
         super().__init__(env)
         self.n_sites = self.metadata['curr_n_sites']
         self.n_agents = self.metadata['n_actors']
@@ -129,7 +129,7 @@ class ConstructionCompletedRewardWrapper(gym.Wrapper):
             if self.n_agents == 1:
                 rew += self.n_sites * self.reward_scale
             self.success = True
-            done = True
+            # done = True
         info['success'] = self.success
         info['activated_sites'] = activated_sites_num
         
@@ -152,7 +152,7 @@ def BlueprintConstructionEnv(args, n_substeps=15, horizon=200, deterministic_mod
              box_floor_friction=0.2, other_friction=0.01, gravity=[0, 0, -50],
              action_lims=(-0.9, 0.9), polar_obs=True,
              n_lidar_per_agent=0, visualize_lidar=False, compress_lidar_scale=None,
-             boxid_obs=True, boxsize_obs=True, team_size_obs=False, additional_obs={}):
+             boxid_obs=False, boxsize_obs=False, team_size_obs=False, additional_obs={}):
 
     scenario = args.scenario_name
     n_agents = args.num_agents
