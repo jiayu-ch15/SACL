@@ -633,16 +633,16 @@ def main():
 
             if args.env_name == "HideAndSeek":
                 for hider_id in range(num_hiders):
-                    wandb.log({'hider%i/eval_average_step_rewards' % hider_id: np.mean(eval_episode_rewards[:,hider_id])}, step=total_num_steps)
+                    wandb.log({'hider%i/eval_average_episode_rewards' % hider_id: np.mean(eval_episode_rewards[:,hider_id])}, step=total_num_steps)
                 for seeker_id in range(num_seekers):
-                    wandb.log({'seeker%i/eval_average_step_rewards' % seeker_id: np.mean(eval_episode_rewards[:,num_hiders+seeker_id])}, step=total_num_steps)           
+                    wandb.log({'seeker%i/eval_average_episode_rewards' % seeker_id: np.mean(eval_episode_rewards[:,num_hiders+seeker_id])}, step=total_num_steps)           
             
             if args.env_name == "BoxLocking" or args.env_name == "BlueprintConstruction":  
                 if args.share_policy:       
-                    wandb.log({"eval_average_step_rewards": np.mean(eval_episode_rewards)}, step=total_num_steps)
+                    wandb.log({"eval_average_episode_rewards": np.mean(eval_episode_rewards)}, step=total_num_steps)
                 else:
                     for agent_id in range(num_agents):
-                        wandb.log({"agent%i/eval_average_step_rewards" % agent_id: np.mean(eval_episode_rewards[:,agent_id])}, step=total_num_steps) 
+                        wandb.log({"agent%i/eval_average_episode_rewards" % agent_id: np.mean(eval_episode_rewards[:,agent_id])}, step=total_num_steps) 
                             
                 if eval_trials > 0:
                     wandb.log({'eval_success_rate': eval_success/eval_trials}, step=total_num_steps) 
