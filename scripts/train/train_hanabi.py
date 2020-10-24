@@ -23,188 +23,201 @@ from utils.env_wrappers import ChooseSubprocVecEnv, ChooseDummyVecEnv
 from algorithm.model import Policy
 from utils.shared_storage import SharedRolloutStorage
 
-def make_parallel_env(args):
+def make_parallel_env(all_args):
     def get_env_fn(rank):
         def init_env():
-            if args.env_name == "Hanabi":
-                assert args.num_agents > 1 and args.num_agents < 6, ("num_agents can be only between 2-5.")
-                env = HanabiEnv(args, (args.seed + rank * 1000))
+            if all_args.env_name == "Hanabi":
+                assert all_args.num_agents > 1 and all_args.num_agents < 6, ("num_agents can be only between 2-5.")
+                env = HanabiEnv(all_args, (all_args.seed + rank * 1000))
             else:
-                print("Can not support the " + args.env_name + "environment." )
+                print("Can not support the " + all_args.env_name + "environment." )
                 raise NotImplementedError
-            env.seed(args.seed + rank * 1000)
+            env.seed(all_args.seed + rank * 1000)
             return env            
         return init_env
-    if args.n_rollout_threads == 1:
+    if all_args.n_rollout_threads == 1:
         return ChooseDummyVecEnv([get_env_fn(0)])
     else:
-        return ChooseSubprocVecEnv([get_env_fn(i) for i in range(args.n_rollout_threads)])
+        return ChooseSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
         
-def make_eval_env(args):
+def make_eval_env(all_args):
     def get_env_fn(rank):
         def init_env():
-            if args.env_name == "Hanabi":
-                assert args.num_agents > 1 and args.num_agents < 6, ("num_agents can be only between 2-5.")
-                env = HanabiEnv(args, (args.seed * 50000 + rank * 10000))
+            if all_args.env_name == "Hanabi":
+                assert all_args.num_agents > 1 and all_args.num_agents < 6, ("num_agents can be only between 2-5.")
+                env = HanabiEnv(all_args, (all_args.seed * 50000 + rank * 10000))
             else:
-                print("Can not support the " + args.env_name + "environment." )
+                print("Can not support the " + all_args.env_name + "environment." )
                 raise NotImplementedError
-            env.seed(args.seed * 50000 + rank * 10000)
+            env.seed(all_args.seed * 50000 + rank * 10000)
             return env
         return init_env
-    if args.n_eval_rollout_threads == 1:
+    if all_args.n_eval_rollout_threads == 1:
         return ChooseDummyVecEnv([get_env_fn(0)])
     else:
-        return ChooseSubprocVecEnv([get_env_fn(i) for i in range(args.n_eval_rollout_threads)])
+        return ChooseSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_eval_rollout_threads)])
 
-def main():
-    args = get_config()
-    
+def parse_args(args, parser):
+    parser.add_argument('--hanabi_name', type=str, default='Hanabi-Very-Small', help="Which env to run on")
+    parser.add_argument('--num_agents', type=int, default=2, help="number of players")
+
+    all_args = parser.parse_known_args(args)[0]
+
+    return all_args
+
+def main(args):
+    parser = get_config() 
+    all_args = parse_args(args, parser)
+
+    assert all_args.algorithm_name=="rmappo" and (all_args.recurrent_policy or all_args.naive_recurrent_policy), ("check recurrent policy!")
+     
     # cuda
-    if args.cuda and torch.cuda.is_available():
+    if all_args.cuda and torch.cuda.is_available():
+        print("choose to use gpu...")
         device = torch.device("cuda:0")
-        torch.set_num_threads(args.n_training_threads)
-        if args.cuda_deterministic:
+        torch.set_num_threads(all_args.n_training_threads)
+        if all_args.cuda_deterministic:
             torch.backends.cudnn.benchmark = False
             torch.backends.cudnn.deterministic = True
     else:
+        print("choose to use cpu...")
         device = torch.device("cpu")
-        torch.set_num_threads(args.n_training_threads)
+        torch.set_num_threads(all_args.n_training_threads)
 
-    model_dir = Path(os.path.split(os.path.dirname(os.path.abspath(__file__)))[0] + "/results") / args.env_name / args.hanabi_name / args.algorithm_name
-    if not model_dir.exists():
-        os.makedirs(str(model_dir))
+    run_dir = Path(os.path.split(os.path.dirname(os.path.abspath(__file__)))[0] + "/results") / all_args.env_name / all_args.hanabi_name / all_args.algorithm_name / all_args.experiment_name
+    if not run_dir.exists():
+        os.makedirs(str(run_dir))
 
     run = wandb.init(config=args, 
-            project=args.env_name, 
+            project=all_args.env_name, 
             entity="yuchao",
             notes=socket.gethostname(),
-            name=str(args.algorithm_name) + "_seed" + str(args.seed),
-            group=args.hanabi_name,
-            dir=str(model_dir),
+            name=str(all_args.algorithm_name) + "_" + str(all_args.experiment_name) + "_seed" + str(all_args.seed),
+            group=all_args.hanabi_name,
+            dir=str(run_dir),
             job_type="training",
             reinit=True)
 
     # seed
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
-    np.random.seed(args.seed)
+    torch.manual_seed(all_args.seed)
+    torch.cuda.manual_seed_all(all_args.seed)
+    np.random.seed(all_args.seed)
 
     # env
-    envs = make_parallel_env(args)
-    if args.eval:
-        eval_envs = make_eval_env(args)
-    num_agents = args.num_agents
+    envs = make_parallel_env(all_args)
+    if all_args.use_eval:
+        eval_envs = make_eval_env(all_args)
+    num_agents = all_args.num_agents
 
     #Policy network
-    if args.share_policy:
-        if args.model_dir==None or args.model_dir=="":
+    if all_args.share_policy:
+        if all_args.model_dir==None or all_args.model_dir=="":
             actor_critic = Policy(envs.observation_space[0], 
                     envs.share_observation_space[0],
                     envs.action_space[0],
-                    gain = args.gain,
-                    base_kwargs={'naive_recurrent': args.naive_recurrent_policy,
-                                'recurrent': args.recurrent_policy,
-                                'hidden_size': args.hidden_size,
-                                'recurrent_N': args.recurrent_N,
-                                'attn': args.attn,                                 
-                                'attn_size': args.attn_size,
-                                'attn_N': args.attn_N,
-                                'attn_heads': args.attn_heads,
-                                'dropout': args.dropout,
-                                'use_average_pool': args.use_average_pool,
-                                'use_common_layer':args.use_common_layer,
-                                'use_feature_normlization':args.use_feature_normlization,
-                                'use_feature_popart':args.use_feature_popart,
-                                'use_orthogonal':args.use_orthogonal,
-                                'layer_N':args.layer_N,
-                                'use_ReLU':args.use_ReLU,
-                                'use_cat_self': args.use_cat_self                                
+                    gain = all_args.gain,
+                    base_kwargs={'naive_recurrent': all_args.naive_recurrent_policy,
+                                'recurrent': all_args.recurrent_policy,
+                                'hidden_size': all_args.hidden_size,
+                                'recurrent_N': all_args.recurrent_N,
+                                'attn': all_args.attn,                                 
+                                'attn_size': all_args.attn_size,
+                                'attn_N': all_args.attn_N,
+                                'attn_heads': all_args.attn_heads,
+                                'dropout': all_args.dropout,
+                                'use_average_pool': all_args.use_average_pool,
+                                'use_common_layer':all_args.use_common_layer,
+                                'use_feature_normlization':all_args.use_feature_normlization,
+                                'use_feature_popart':all_args.use_feature_popart,
+                                'use_orthogonal':all_args.use_orthogonal,
+                                'layer_N':all_args.layer_N,
+                                'use_ReLU':all_args.use_ReLU,
+                                'use_cat_self': all_args.use_cat_self                                
                                 },
                     device = device)
         else:       
-            actor_critic = torch.load(str(args.model_dir) + "/agent_model.pt")['model']
+            actor_critic = torch.load(str(all_args.model_dir) + "/agent_model.pt")['model']
         
         actor_critic.to(device)
         # algorithm
         agents = PPO(actor_critic,
-                args.clip_param,
-                args.ppo_epoch,
-                args.num_mini_batch,
-                args.data_chunk_length,
-                args.value_loss_coef,
-                args.entropy_coef,
-                lr=args.lr,
-                eps=args.eps,
-                weight_decay=args.weight_decay,
-                max_grad_norm=args.max_grad_norm,
-                use_max_grad_norm=args.use_max_grad_norm,
-                use_clipped_value_loss= args.use_clipped_value_loss,
-                use_common_layer=args.use_common_layer,
-                use_huber_loss=args.use_huber_loss,
-                huber_delta=args.huber_delta,
-                use_popart=args.use_popart,
-                use_value_active_masks=args.use_value_active_masks,
+                all_args.clip_param,
+                all_args.ppo_epoch,
+                all_args.num_mini_batch,
+                all_args.data_chunk_length,
+                all_args.value_loss_coef,
+                all_args.entropy_coef,
+                lr=all_args.lr,
+                eps=all_args.eps,
+                weight_decay=all_args.weight_decay,
+                max_grad_norm=all_args.max_grad_norm,
+                use_max_grad_norm=all_args.use_max_grad_norm,
+                use_clipped_value_loss= all_args.use_clipped_value_loss,
+                use_common_layer=all_args.use_common_layer,
+                use_huber_loss=all_args.use_huber_loss,
+                huber_delta=all_args.huber_delta,
+                use_popart=all_args.use_popart,
+                use_value_active_masks=all_args.use_value_active_masks,
                 device=device)
                 
         #replay buffer
         rollouts = SharedRolloutStorage(num_agents,
-                    args.episode_length, 
-                    args.n_rollout_threads,
+                    all_args.episode_length, 
+                    all_args.n_rollout_threads,
                     envs.observation_space[0],
                     envs.share_observation_space[0], 
                     envs.action_space[0],
-                    args.hidden_size)        
+                    all_args.hidden_size)        
     else:
         actor_critic = []
         agents = []
         for agent_id in range(num_agents):
-            if args.model_dir==None or args.model_dir=="":
+            if all_args.model_dir==None or all_args.model_dir=="":
                 ac = Policy(envs.observation_space[0],
                     envs.share_observation_space[0], 
                     envs.action_space[0],
-                    gain = args.gain,
-                    base_kwargs={'naive_recurrent': args.naive_recurrent_policy,
-                                'recurrent': args.recurrent_policy,
-                                'hidden_size': args.hidden_size,
-                                'recurrent_N': args.recurrent_N,
-                                'attn': args.attn,                                
-                                'attn_size': args.attn_size,
-                                'attn_N': args.attn_N,
-                                'attn_heads': args.attn_heads,
-                                'dropout': args.dropout,
-                                'use_average_pool': args.use_average_pool,
-                                'use_common_layer':args.use_common_layer,
-                                'use_feature_normlization':args.use_feature_normlization,
-                                'use_feature_popart':args.use_feature_popart,
-                                'use_orthogonal':args.use_orthogonal,
-                                'layer_N':args.layer_N,
-                                'use_ReLU':args.use_ReLU,
-                                'use_cat_self': args.use_cat_self
+                    gain = all_args.gain,
+                    base_kwargs={'naive_recurrent': all_args.naive_recurrent_policy,
+                                'recurrent': all_args.recurrent_policy,
+                                'hidden_size': all_args.hidden_size,
+                                'recurrent_N': all_args.recurrent_N,
+                                'attn': all_args.attn,                                
+                                'attn_size': all_args.attn_size,
+                                'attn_N': all_args.attn_N,
+                                'attn_heads': all_args.attn_heads,
+                                'dropout': all_args.dropout,
+                                'use_average_pool': all_args.use_average_pool,
+                                'use_common_layer':all_args.use_common_layer,
+                                'use_feature_normlization':all_args.use_feature_normlization,
+                                'use_feature_popart':all_args.use_feature_popart,
+                                'use_orthogonal':all_args.use_orthogonal,
+                                'layer_N':all_args.layer_N,
+                                'use_ReLU':all_args.use_ReLU,
+                                'use_cat_self': all_args.use_cat_self
                                 },
                     device = device)
             else:       
-                ac = torch.load(str(args.model_dir) + "/agent"+ str(agent_id) + "_model.pt")['model']
+                ac = torch.load(str(all_args.model_dir) + "/agent"+ str(agent_id) + "_model.pt")['model']
             ac.to(device)
             # algorithm
             agent = PPO(ac,
-                args.clip_param,
-                args.ppo_epoch,
-                args.num_mini_batch,
-                args.data_chunk_length,
-                args.value_loss_coef,
-                args.entropy_coef,
-                lr=args.lr,
-                eps=args.eps,
-                weight_decay=args.weight_decay,
-                max_grad_norm=args.max_grad_norm,
-                use_max_grad_norm=args.use_max_grad_norm,
-                use_clipped_value_loss= args.use_clipped_value_loss,
-                use_common_layer=args.use_common_layer,
-                use_huber_loss=args.use_huber_loss,
-                huber_delta=args.huber_delta,
-                use_popart=args.use_popart,
-                use_value_active_masks=args.use_value_active_masks,
+                all_args.clip_param,
+                all_args.ppo_epoch,
+                all_args.num_mini_batch,
+                all_args.data_chunk_length,
+                all_args.value_loss_coef,
+                all_args.entropy_coef,
+                lr=all_args.lr,
+                eps=all_args.eps,
+                weight_decay=all_args.weight_decay,
+                max_grad_norm=all_args.max_grad_norm,
+                use_max_grad_norm=all_args.use_max_grad_norm,
+                use_clipped_value_loss= all_args.use_clipped_value_loss,
+                use_common_layer=all_args.use_common_layer,
+                use_huber_loss=all_args.use_huber_loss,
+                huber_delta=all_args.huber_delta,
+                use_popart=all_args.use_popart,
+                use_value_active_masks=all_args.use_value_active_masks,
                 device=device)
                             
             actor_critic.append(ac)
@@ -212,15 +225,15 @@ def main():
             
         #replay buffer
         rollouts = SharedRolloutStorage(num_agents,
-                    args.episode_length, 
-                    args.n_rollout_threads,
+                    all_args.episode_length, 
+                    all_args.n_rollout_threads,
                     envs.observation_space[0],
                     envs.share_observation_space[0], 
                     envs.action_space[0],
-                    args.hidden_size)
+                    all_args.hidden_size)
     
     # reset env 
-    reset_choose = np.ones(args.n_rollout_threads)==1.0 
+    reset_choose = np.ones(all_args.n_rollout_threads)==1.0 
     obs, share_obs, available_actions = envs.reset(reset_choose)
 
     # replay buffer  
@@ -230,42 +243,42 @@ def main():
 
     # run
     start = time.time()
-    episodes = int(args.num_env_steps) // args.episode_length // args.n_rollout_threads
+    episodes = int(all_args.num_env_steps) // all_args.episode_length // all_args.n_rollout_threads
 
-    turn_obs = np.zeros((args.n_rollout_threads, num_agents, *rollouts.obs.shape[3:])).astype(np.float32)
-    turn_share_obs = np.zeros((args.n_rollout_threads, num_agents, *rollouts.share_obs.shape[3:])).astype(np.float32)
-    turn_available_actions = np.zeros((args.n_rollout_threads, num_agents, *rollouts.available_actions.shape[3:])).astype(np.float32)
-    turn_values =  np.zeros((args.n_rollout_threads, num_agents, 1)).astype(np.float32)
-    turn_actions = np.zeros((args.n_rollout_threads, num_agents, 1)).astype(np.float32)
-    env_actions = np.ones((args.n_rollout_threads, num_agents, 1)).astype(np.float32)*(-1.0)
-    turn_action_log_probs = np.zeros((args.n_rollout_threads, num_agents, 1)).astype(np.float32)
-    turn_recurrent_hidden_states = np.zeros((args.n_rollout_threads, num_agents, *rollouts.recurrent_hidden_states.shape[3:])).astype(np.float32)
-    turn_recurrent_hidden_states_critic = np.zeros((args.n_rollout_threads, num_agents, *rollouts.recurrent_hidden_states_critic.shape[3:])).astype(np.float32)
-    turn_masks = np.ones((args.n_rollout_threads, num_agents, 1)).astype(np.float32)
-    turn_active_masks = np.ones((args.n_rollout_threads, num_agents, 1)).astype(np.float32)
-    turn_bad_masks = np.ones((args.n_rollout_threads, num_agents, 1)).astype(np.float32)
-    turn_rewards_since_last_action = np.zeros((args.n_rollout_threads, num_agents, 1)).astype(np.float32)
-    turn_rewards = np.zeros((args.n_rollout_threads, num_agents, 1)).astype(np.float32)
+    turn_obs = np.zeros((all_args.n_rollout_threads, num_agents, *rollouts.obs.shape[3:])).astype(np.float32)
+    turn_share_obs = np.zeros((all_args.n_rollout_threads, num_agents, *rollouts.share_obs.shape[3:])).astype(np.float32)
+    turn_available_actions = np.zeros((all_args.n_rollout_threads, num_agents, *rollouts.available_actions.shape[3:])).astype(np.float32)
+    turn_values =  np.zeros((all_args.n_rollout_threads, num_agents, 1)).astype(np.float32)
+    turn_actions = np.zeros((all_args.n_rollout_threads, num_agents, 1)).astype(np.float32)
+    env_actions = np.ones((all_args.n_rollout_threads, num_agents, 1)).astype(np.float32)*(-1.0)
+    turn_action_log_probs = np.zeros((all_args.n_rollout_threads, num_agents, 1)).astype(np.float32)
+    turn_recurrent_hidden_states = np.zeros((all_args.n_rollout_threads, num_agents, *rollouts.recurrent_hidden_states.shape[3:])).astype(np.float32)
+    turn_recurrent_hidden_states_critic = np.zeros((all_args.n_rollout_threads, num_agents, *rollouts.recurrent_hidden_states_critic.shape[3:])).astype(np.float32)
+    turn_masks = np.ones((all_args.n_rollout_threads, num_agents, 1)).astype(np.float32)
+    turn_active_masks = np.ones((all_args.n_rollout_threads, num_agents, 1)).astype(np.float32)
+    turn_bad_masks = np.ones((all_args.n_rollout_threads, num_agents, 1)).astype(np.float32)
+    turn_rewards_since_last_action = np.zeros((all_args.n_rollout_threads, num_agents, 1)).astype(np.float32)
+    turn_rewards = np.zeros((all_args.n_rollout_threads, num_agents, 1)).astype(np.float32)
 
     for episode in range(episodes):
-        if args.use_linear_lr_decay:# decrease learning rate linearly
-            if args.share_policy:   
-                update_linear_schedule(agents.optimizer, episode, episodes, args.lr)  
+        if all_args.use_linear_lr_decay:# decrease learning rate linearly
+            if all_args.share_policy:   
+                update_linear_schedule(agents.optimizer, episode, episodes, all_args.lr)  
             else:     
                 for agent_id in range(num_agents):
-                    update_linear_schedule(agents[agent_id].optimizer, episode, episodes, args.lr)          
+                    update_linear_schedule(agents[agent_id].optimizer, episode, episodes, all_args.lr)          
         scores = []          
-        for step in range(args.episode_length):
+        for step in range(all_args.episode_length):
             # Sample actions
-            reset_choose = np.zeros(args.n_rollout_threads)==1.0          
+            reset_choose = np.zeros(all_args.n_rollout_threads)==1.0          
             with torch.no_grad():                  
                 for current_agent_id in range(num_agents):
-                    env_actions[:,current_agent_id] = np.ones((args.n_rollout_threads, 1)).astype(np.float32)*(-1.0)                                                               
+                    env_actions[:,current_agent_id] = np.ones((all_args.n_rollout_threads, 1)).astype(np.float32)*(-1.0)                                                               
                     choose = np.any(use_available_actions[:,current_agent_id]==1,axis=1) 
                     if ~np.any(choose):
-                        reset_choose = np.ones(args.n_rollout_threads)==1.0
+                        reset_choose = np.ones(all_args.n_rollout_threads)==1.0
                         break                 
-                    if args.share_policy:
+                    if all_args.share_policy:
                         actor_critic.eval()
                         value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(torch.FloatTensor(use_share_obs[choose,current_agent_id]), 
                             torch.FloatTensor(use_obs[choose,current_agent_id]), 
@@ -337,7 +350,7 @@ def main():
                     # done==None
                     # pass
 
-                    for i in range(args.n_rollout_threads):
+                    for i in range(all_args.n_rollout_threads):
                         if done[i]:
                             if 'score' in infos[i].keys():
                                 scores.append(infos[i]['score'])
@@ -367,7 +380,7 @@ def main():
         rollouts.obs[-1] = use_obs.copy()
         rollouts.available_actions[-1] = use_available_actions.copy()        
                      
-        if args.share_policy:
+        if all_args.share_policy:
             # compute returns
             with torch.no_grad(): 
                 actor_critic.eval()                
@@ -376,13 +389,13 @@ def main():
                                                         torch.FloatTensor(np.concatenate(rollouts.recurrent_hidden_states[-1])),
                                                         torch.FloatTensor(np.concatenate(rollouts.recurrent_hidden_states_critic[-1])),
                                                         torch.FloatTensor(np.concatenate(rollouts.masks[-1])))
-                next_values = np.array(np.split(next_value.detach().cpu().numpy(), args.n_rollout_threads))
+                next_values = np.array(np.split(next_value.detach().cpu().numpy(), all_args.n_rollout_threads))
                 rollouts.shared_compute_returns(next_values, 
-                                                args.use_gae, 
-                                                args.gamma,
-                                                args.gae_lambda, 
-                                                args.use_proper_time_limits,
-                                                args.use_popart,
+                                                all_args.use_gae, 
+                                                all_args.gamma,
+                                                all_args.gae_lambda, 
+                                                all_args.use_proper_time_limits,
+                                                all_args.use_popart,
                                                 agents.value_normalizer)
             # update network
             actor_critic.train()
@@ -407,11 +420,11 @@ def main():
                     next_value = next_value.detach().cpu().numpy()
                     rollouts.single_compute_returns(agent_id,
                                     next_value, 
-                                    args.use_gae, 
-                                    args.gamma,
-                                    args.gae_lambda, 
-                                    args.use_proper_time_limits,
-                                    args.use_popart,
+                                    all_args.use_gae, 
+                                    all_args.gamma,
+                                    all_args.gae_lambda, 
+                                    all_args.use_proper_time_limits,
+                                    all_args.use_popart,
                                     agents[agent_id].value_normalizer)
                 # update network
                 actor_critic[agent_id].train()
@@ -427,11 +440,11 @@ def main():
         rollouts.chooseafter_update()
         
         # post process
-        total_num_steps = (episode + 1) * args.episode_length * args.n_rollout_threads
+        total_num_steps = (episode + 1) * all_args.episode_length * all_args.n_rollout_threads
         
         # save model
-        if (episode % args.save_interval == 0 or episode == episodes - 1):# save for every interval-th episode or for the last epoch
-            if args.share_policy:
+        if (episode % all_args.save_interval == 0 or episode == episodes - 1):# save for every interval-th episode or for the last epoch
+            if all_args.share_policy:
                 torch.save({
                             'model': actor_critic
                             }, 
@@ -444,16 +457,16 @@ def main():
                                 str(wandb.run.dir) + "/agent%i_model" % agent_id + ".pt")
 
         # log information
-        if episode % args.log_interval == 0:
+        if episode % all_args.log_interval == 0:
             end = time.time()
             print("\n Algos {} Updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
-                .format(args.algorithm_name,
+                .format(all_args.algorithm_name,
                         episode, 
                         episodes,
                         total_num_steps,
-                        args.num_env_steps,
+                        all_args.num_env_steps,
                         int(total_num_steps / (end - start))))
-            if args.share_policy:
+            if all_args.share_policy:
                 print("value loss of agent: " + str(value_loss))
                 wandb.log({"value_loss": value_loss}, step=total_num_steps)
                 wandb.log({"action_loss": action_loss}, step=total_num_steps)
@@ -473,7 +486,7 @@ def main():
                     wandb.log({"agent%i/ratio"% agent_id: ratios[agent_id]}, step=total_num_steps)
                     wandb.log({"agent%i/average_step_rewards" % agent_id: np.mean(rollouts.rewards[:,:,agent_id])}, step=total_num_steps)
 
-            if args.env_name == "Hanabi":  
+            if all_args.env_name == "Hanabi":  
                 if len(scores)>0: 
                     wandb.log({'score': np.mean(scores)}, step=total_num_steps)
                     print("mean score is {}.".format(np.mean(scores)))
@@ -481,27 +494,27 @@ def main():
                     wandb.log({'score': 0}, step=total_num_steps)
                     print("Can not access mean score.")
                                
-        if episode % args.eval_interval == 0 and args.eval:
+        if episode % all_args.eval_interval == 0 and all_args.use_eval:
             eval_finish = False
-            eval_reset_choose = np.ones(args.n_eval_rollout_threads)==1.0 
+            eval_reset_choose = np.ones(all_args.n_eval_rollout_threads)==1.0 
             eval_scores = []
             eval_obs, eval_share_obs, eval_available_actions = eval_envs.reset(eval_reset_choose)
-            eval_actions = np.ones((args.n_eval_rollout_threads, num_agents, 1)).astype(np.float32)*(-1.0)
-            eval_recurrent_hidden_states = np.zeros((args.n_eval_rollout_threads, num_agents, args.hidden_size)).astype(np.float32)
-            eval_recurrent_hidden_states_critic = np.zeros((args.n_eval_rollout_threads, num_agents, args.hidden_size)).astype(np.float32)
-            eval_masks = np.ones((args.n_eval_rollout_threads, num_agents, 1)).astype(np.float32)
+            eval_actions = np.ones((all_args.n_eval_rollout_threads, num_agents, 1)).astype(np.float32)*(-1.0)
+            eval_recurrent_hidden_states = np.zeros((all_args.n_eval_rollout_threads, num_agents, all_args.hidden_size)).astype(np.float32)
+            eval_recurrent_hidden_states_critic = np.zeros((all_args.n_eval_rollout_threads, num_agents, all_args.hidden_size)).astype(np.float32)
+            eval_masks = np.ones((all_args.n_eval_rollout_threads, num_agents, 1)).astype(np.float32)
             
             while True: 
                 if eval_finish:
                     break              
                 for agent_id in range(num_agents):
-                    eval_actions[:, agent_id] = np.ones((args.n_eval_rollout_threads, 1)).astype(np.float32)*(-1.0) 
+                    eval_actions[:, agent_id] = np.ones((all_args.n_eval_rollout_threads, 1)).astype(np.float32)*(-1.0) 
                     eval_choose = np.any(eval_available_actions[:, agent_id]==1,axis=1) 
                     
                     if ~np.any(eval_choose):
                         eval_finish = True
                         break
-                    if args.share_policy:
+                    if all_args.share_policy:
                         actor_critic.eval()
                         _, eval_action, _, eval_recurrent_hidden_state, eval_recurrent_hidden_state_critic = actor_critic.act(torch.FloatTensor(eval_share_obs[eval_choose,agent_id]), 
                             torch.FloatTensor(eval_obs[eval_choose,agent_id]), 
@@ -529,7 +542,7 @@ def main():
 
                     eval_available_actions[eval_dones==True] = np.zeros(((eval_dones==True).sum(), num_agents, *rollouts.available_actions.shape[3:])).astype(np.float32)   
 
-                    for i in range(args.n_eval_rollout_threads):
+                    for i in range(all_args.n_eval_rollout_threads):
                         if eval_dones[i]:
                             if 'score' in eval_infos[i].keys():
                                 eval_scores.append(eval_infos[i]['score'])
@@ -538,9 +551,9 @@ def main():
             print("eval mean score is {}.".format(np.mean(eval_scores)))
     
     envs.close()
-    if args.eval:
+    if all_args.use_eval:
         eval_envs.close()
     run.finish()
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])

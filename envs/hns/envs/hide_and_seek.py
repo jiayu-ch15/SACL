@@ -220,7 +220,7 @@ def nearwall_placement(grid, obj_size, metadata, random_state):
     '''
     grid_size = len(grid)
     qsize = metadata['quadrant_size']
-    # left down corner is [1,1]([x,y],x is x-axis，y is y-axis)
+    # left down corner is [1,1]([x,y],x is x-axis is y-axis)
     poses = [
         np.array([random_state.randint(grid_size - qsize, grid_size - obj_size[0] - 1),
                 qsize + obj_size[0]]),
@@ -265,6 +265,7 @@ def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=True,
     n_boxes = args.num_boxes
     n_ramps = args.num_ramps
     n_food = args.num_food
+    floor_size = args.floor_size
       
     grab_radius_multiplier = lock_grab_radius / box_size
     lock_radius_multiplier = lock_grab_radius / box_size

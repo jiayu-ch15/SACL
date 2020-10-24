@@ -2,10 +2,10 @@ import argparse
 
 def get_config():
 
-    parser = argparse.ArgumentParser(description='MAPPO')
+    parser = argparse.ArgumentParser(description='MAPPO',formatter_class=argparse.RawDescriptionHelpFormatter)
 
     # prepare parameters
-    parser.add_argument("--algorithm_name", type=str, default='mappo')
+    parser.add_argument("--algorithm_name", type=str, default='mappo', choices=["rmappo","mappo"])
     parser.add_argument("--experiment_name", type=str, default="check")
     parser.add_argument("--seed", type=int, default=1, help="Random seed for numpy/torch")
     parser.add_argument("--cuda", action='store_false', default=True)
@@ -80,7 +80,7 @@ def get_config():
     parser.add_argument("--log_interval", type=int, default=5)    
     
     # eval parameters
-    parser.add_argument("--eval", action='store_true', default=False)
+    parser.add_argument("--use_eval", action='store_true', default=False)
     parser.add_argument("--eval_interval", type=int, default=25)
     parser.add_argument("--eval_episodes", type=int, default=32)
     
@@ -90,32 +90,5 @@ def get_config():
     
     # pretained parameters  
     parser.add_argument("--model_dir", type=str, default=None)
-    
-    # TODO
-    parser.add_argument("--num_agents", type=int, default=3)
-    parser.add_argument("--share_reward", action='store_false', default=True)
-    
-    # hanabi
-    parser.add_argument("--hanabi_name", type=str, default='Hanabi-Full-Minimal')
-    # mpe
-    parser.add_argument("--scenario_name", type=str, default='simple_spread')
-    parser.add_argument("--num_landmarks", type=int, default=3)
-    parser.add_argument("--num_good_agents", type=int, default=3)
-    parser.add_argument("--num_adversaries", type=int, default=1)
-    
-    # do not need num_agents
-    # starcraft2
-    parser.add_argument("--map_name", type=str, default='3m')
-    # hide and seek
-    parser.add_argument("--num_seekers", type=int, default=1)
-    parser.add_argument("--num_hiders", type=int, default=1)
-    parser.add_argument("--num_boxes", type=int, default=1)
-    parser.add_argument("--num_ramps", type=int, default=1)
-    parser.add_argument("--num_food", type=int, default=0)
-    # transfer task
-    parser.add_argument("--task_type", type=str, default='all')
-    parser.add_argument("--objective_placement", type=str, default='center')
-    
-    args = parser.parse_args()
 
-    return args
+    return parser

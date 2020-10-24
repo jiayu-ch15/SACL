@@ -55,13 +55,13 @@ class SharedRolloutStorage(object):
         # or time limit end state
         self.bad_masks = np.ones((episode_length + 1, n_rollout_threads, num_agents, 1)).astype(np.float32)
         
-        self.high_masks = np.ones((episode_length + 1, n_rollout_threads, num_agents, 1)).astype(np.float32)
+        self.active_masks = np.ones((episode_length + 1, n_rollout_threads, num_agents, 1)).astype(np.float32)
 
         self.episode_length = episode_length
         self.step = 0
 
     def insert(self, share_obs, obs, recurrent_hidden_states, recurrent_hidden_states_critic, actions, action_log_probs,
-               value_preds, rewards, masks, bad_masks=None, high_masks=None, available_actions=None):
+               value_preds, rewards, masks, bad_masks=None, active_masks=None, available_actions=None):
         
         self.share_obs[self.step + 1] = share_obs.copy()
         self.obs[self.step + 1] = obs.copy()
@@ -74,15 +74,15 @@ class SharedRolloutStorage(object):
         self.masks[self.step + 1] = masks.copy()
         if bad_masks is not None:
             self.bad_masks[self.step + 1] = bad_masks.copy()
-        if high_masks is not None:
-            self.high_masks[self.step + 1] = high_masks.copy()
+        if active_masks is not None:
+            self.active_masks[self.step + 1] = active_masks.copy()
         if available_actions is not None:
             self.available_actions[self.step + 1] = available_actions.copy()
 
         self.step = (self.step + 1) % self.episode_length
         
     def chooseinsert(self, share_obs, obs, recurrent_hidden_states, recurrent_hidden_states_critic, actions, action_log_probs,
-               value_preds, rewards, masks, bad_masks=None, high_masks=None, available_actions=None):
+               value_preds, rewards, masks, bad_masks=None, active_masks=None, available_actions=None):
         self.share_obs[self.step] = share_obs.copy()
         self.obs[self.step] = obs.copy()
         self.recurrent_hidden_states[self.step + 1] = recurrent_hidden_states.copy()
@@ -94,8 +94,8 @@ class SharedRolloutStorage(object):
         self.masks[self.step + 1] = masks.copy()
         if bad_masks is not None:
             self.bad_masks[self.step + 1] = bad_masks.copy()
-        if high_masks is not None:
-            self.high_masks[self.step + 1] = high_masks.copy()
+        if active_masks is not None:
+            self.active_masks[self.step + 1] = active_masks.copy()
         if available_actions is not None:
             self.available_actions[self.step] = available_actions.copy()
 
@@ -108,7 +108,7 @@ class SharedRolloutStorage(object):
         self.recurrent_hidden_states_critic[0] = self.recurrent_hidden_states_critic[-1].copy()
         self.masks[0] = self.masks[-1].copy()
         self.bad_masks[0] = self.bad_masks[-1].copy()
-        self.high_masks[0] = self.high_masks[-1].copy()
+        self.active_masks[0] = self.active_masks[-1].copy()
         if self.available_actions is not None:
             self.available_actions[0] = self.available_actions[-1].copy()
     
@@ -117,7 +117,7 @@ class SharedRolloutStorage(object):
         self.recurrent_hidden_states_critic[0] = self.recurrent_hidden_states_critic[-1].copy()
         self.masks[0] = self.masks[-1].copy()
         self.bad_masks[0] = self.bad_masks[-1].copy()
-        self.high_masks[0] = self.high_masks[-1].copy()       
+        self.active_masks[0] = self.active_masks[-1].copy()       
         
     def single_compute_returns(self,
                         agent_id,
@@ -256,7 +256,7 @@ class SharedRolloutStorage(object):
         value_preds = self.value_preds[:-1,:,agent_id].reshape(-1, 1)
         returns = self.returns[:-1,:,agent_id].reshape(-1, 1)
         masks = self.masks[:-1,:,agent_id].reshape(-1, 1)
-        high_masks = self.high_masks[:-1,:,agent_id].reshape(-1, 1)
+        active_masks = self.active_masks[:-1,:,agent_id].reshape(-1, 1)
         action_log_probs = self.action_log_probs[:,:,agent_id].reshape(-1, 1)
         advantages = advantages.reshape(-1, 1)
         
@@ -270,14 +270,14 @@ class SharedRolloutStorage(object):
             value_preds_batch = torch.tensor(value_preds[indices])
             return_batch = torch.tensor(returns[indices])
             masks_batch = torch.tensor(masks[indices])
-            high_masks_batch = torch.tensor(high_masks[indices])
+            active_masks_batch = torch.tensor(active_masks[indices])
             old_action_log_probs_batch = torch.tensor(action_log_probs[indices])
             if advantages is None:
                 adv_targ = None
             else:
                 adv_targ = torch.tensor(advantages[indices])
 
-            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, adv_targ
+            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ
             
     def shared_feed_forward_generator(self, advantages, num_mini_batch=None, mini_batch_size=None):
         episode_length, n_rollout_threads, num_agents = self.rewards.shape[0:3]
@@ -303,7 +303,7 @@ class SharedRolloutStorage(object):
         value_preds = self.value_preds[:-1].reshape(-1, 1)
         returns = self.returns[:-1].reshape(-1, 1)
         masks = self.masks[:-1].reshape(-1, 1)
-        high_masks = self.high_masks[:-1].reshape(-1, 1)
+        active_masks = self.active_masks[:-1].reshape(-1, 1)
         action_log_probs = self.action_log_probs.reshape(-1, 1)
         advantages = advantages.reshape(-1, 1)
         
@@ -317,14 +317,14 @@ class SharedRolloutStorage(object):
             value_preds_batch = torch.tensor(value_preds[indices])
             return_batch = torch.tensor(returns[indices])
             masks_batch = torch.tensor(masks[indices])
-            high_masks_batch = torch.tensor(high_masks[indices])
+            active_masks_batch = torch.tensor(active_masks[indices])
             old_action_log_probs_batch = torch.tensor(action_log_probs[indices])
             if advantages is None:
                 adv_targ = None
             else:
                 adv_targ = torch.tensor(advantages[indices])
 
-            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, adv_targ
+            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ
 
     def single_naive_recurrent_generator(self, agent_id, advantages, num_mini_batch):
         n_rollout_threads = self.rewards.shape[1]
@@ -343,7 +343,7 @@ class SharedRolloutStorage(object):
             value_preds_batch = []
             return_batch = []
             masks_batch = []
-            high_masks_batch = []
+            active_masks_batch = []
             old_action_log_probs_batch = []
             adv_targ = []
 
@@ -359,7 +359,7 @@ class SharedRolloutStorage(object):
                 value_preds_batch.append(torch.tensor(self.value_preds[:-1, ind, agent_id]))
                 return_batch.append(torch.tensor(self.returns[:-1, ind, agent_id]))
                 masks_batch.append(torch.tensor(self.masks[:-1, ind, agent_id]))
-                high_masks_batch.append(torch.tensor(self.high_masks[:-1, ind, agent_id]))
+                active_masks_batch.append(torch.tensor(self.active_masks[:-1, ind, agent_id]))
                 old_action_log_probs_batch.append(
                     torch.tensor(self.action_log_probs[:, ind, agent_id]))
                 adv_targ.append(torch.tensor(advantages[:, ind]))
@@ -372,7 +372,7 @@ class SharedRolloutStorage(object):
             value_preds_batch = torch.stack(value_preds_batch, 1)
             return_batch = torch.stack(return_batch, 1)
             masks_batch = torch.stack(masks_batch, 1)
-            high_masks_batch = torch.stack(high_masks_batch, 1)
+            active_masks_batch = torch.stack(active_masks_batch, 1)
             old_action_log_probs_batch = torch.stack(old_action_log_probs_batch, 1)
             adv_targ = torch.stack(adv_targ, 1)
 
@@ -387,11 +387,11 @@ class SharedRolloutStorage(object):
             value_preds_batch = _flatten_helper(T, N, value_preds_batch)
             return_batch = _flatten_helper(T, N, return_batch)
             masks_batch = _flatten_helper(T, N, masks_batch)
-            high_masks_batch = _flatten_helper(T, N, high_masks_batch)
+            active_masks_batch = _flatten_helper(T, N, active_masks_batch)
             old_action_log_probs_batch = _flatten_helper(T, N, old_action_log_probs_batch)
             adv_targ = _flatten_helper(T, N, adv_targ)
             
-            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, adv_targ
+            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ
             
     def shared_naive_recurrent_generator(self, advantages, num_mini_batch):
         episode_length, n_rollout_threads, num_agents = self.rewards.shape[0:3]
@@ -411,7 +411,7 @@ class SharedRolloutStorage(object):
         value_preds = self.value_preds.reshape(-1, batch_size, 1)
         returns = self.returns.reshape(-1, batch_size, 1)
         masks = self.masks.reshape(-1, batch_size, 1)
-        high_masks = self.high_masks.reshape(-1, batch_size, 1)
+        active_masks = self.active_masks.reshape(-1, batch_size, 1)
         action_log_probs = self.action_log_probs.reshape(-1, batch_size, 1)
         advantages = advantages.reshape(-1, batch_size, 1)
         
@@ -424,7 +424,7 @@ class SharedRolloutStorage(object):
             value_preds_batch = []
             return_batch = []
             masks_batch = []
-            high_masks_batch = []
+            active_masks_batch = []
             old_action_log_probs_batch = []
             adv_targ = []
 
@@ -440,7 +440,7 @@ class SharedRolloutStorage(object):
                 value_preds_batch.append(torch.tensor(value_preds[:-1, ind]))
                 return_batch.append(torch.tensor(returns[:-1, ind]))
                 masks_batch.append(torch.tensor(masks[:-1, ind]))
-                high_masks_batch.append(torch.tensor(high_masks[:-1, ind]))
+                active_masks_batch.append(torch.tensor(active_masks[:-1, ind]))
                 old_action_log_probs_batch.append(torch.tensor(action_log_probs[:, ind]))
                 adv_targ.append(torch.tensor(advantages[:, ind]))
 
@@ -452,7 +452,7 @@ class SharedRolloutStorage(object):
             value_preds_batch = torch.stack(value_preds_batch, 1)
             return_batch = torch.stack(return_batch, 1)
             masks_batch = torch.stack(masks_batch, 1)
-            high_masks_batch = torch.stack(high_masks_batch, 1)
+            active_masks_batch = torch.stack(active_masks_batch, 1)
             old_action_log_probs_batch = torch.stack(old_action_log_probs_batch, 1)
             adv_targ = torch.stack(adv_targ, 1)
 
@@ -467,11 +467,11 @@ class SharedRolloutStorage(object):
             value_preds_batch = _flatten_helper(T, N, value_preds_batch)
             return_batch = _flatten_helper(T, N, return_batch)
             masks_batch = _flatten_helper(T, N, masks_batch)
-            high_masks_batch = _flatten_helper(T, N, high_masks_batch)
+            active_masks_batch = _flatten_helper(T, N, active_masks_batch)
             old_action_log_probs_batch = _flatten_helper(T, N, old_action_log_probs_batch)
             adv_targ = _flatten_helper(T, N, adv_targ)
             
-            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, adv_targ
+            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ
                             
     def single_recurrent_generator(self, agent_id, advantages, num_mini_batch, data_chunk_length):
         episode_length, n_rollout_threads = self.rewards.shape[0:2]
@@ -493,7 +493,7 @@ class SharedRolloutStorage(object):
         value_preds = self.value_preds[:-1,:,agent_id].transpose(1,0,2).reshape(-1, 1)
         returns = self.returns[:-1,:,agent_id].transpose(1,0,2).reshape(-1, 1)
         masks = self.masks[:-1,:,agent_id].transpose(1,0,2).reshape(-1, 1)
-        high_masks = self.high_masks[:-1,:,agent_id].transpose(1,0,2).reshape(-1, 1)
+        active_masks = self.active_masks[:-1,:,agent_id].transpose(1,0,2).reshape(-1, 1)
         action_log_probs = self.action_log_probs[:,:,agent_id].transpose(1,0,2).reshape(-1, 1)
         advantages = advantages.transpose(1,0,2).reshape(-1, 1)
         recurrent_hidden_states = self.recurrent_hidden_states[:-1,:,agent_id].transpose(1,0,2).reshape(-1, self.recurrent_hidden_states.shape[-1])
@@ -508,7 +508,7 @@ class SharedRolloutStorage(object):
             value_preds_batch = []
             return_batch = []
             masks_batch = []
-            high_masks_batch = []
+            active_masks_batch = []
             old_action_log_probs_batch = []
             adv_targ = []
             
@@ -521,7 +521,7 @@ class SharedRolloutStorage(object):
                 value_preds_batch.append(torch.tensor(value_preds[ind:ind+data_chunk_length]))
                 return_batch.append(torch.tensor(returns[ind:ind+data_chunk_length]))
                 masks_batch.append(torch.tensor(masks[ind:ind+data_chunk_length]))
-                high_masks_batch.append(torch.tensor(high_masks[ind:ind+data_chunk_length]))
+                active_masks_batch.append(torch.tensor(active_masks[ind:ind+data_chunk_length]))
                 old_action_log_probs_batch.append(torch.tensor(action_log_probs[ind:ind+data_chunk_length]))
                 adv_targ.append(torch.tensor(advantages[ind:ind+data_chunk_length]))
                 # size [T+1 N Dim]-->[T N Dim]-->[T*N,Dim]-->[1,Dim]
@@ -538,7 +538,7 @@ class SharedRolloutStorage(object):
             value_preds_batch = torch.stack(value_preds_batch)
             return_batch = torch.stack(return_batch)
             masks_batch = torch.stack(masks_batch)
-            high_masks_batch = torch.stack(high_masks_batch)
+            active_masks_batch = torch.stack(active_masks_batch)
             old_action_log_probs_batch = torch.stack(old_action_log_probs_batch)
             adv_targ = torch.stack(adv_targ)
 
@@ -554,11 +554,11 @@ class SharedRolloutStorage(object):
             value_preds_batch = _flatten_helper(L, N, value_preds_batch)
             return_batch = _flatten_helper(L, N, return_batch)
             masks_batch = _flatten_helper(L, N, masks_batch)
-            high_masks_batch = _flatten_helper(L, N, high_masks_batch)
+            active_masks_batch = _flatten_helper(L, N, active_masks_batch)
             old_action_log_probs_batch = _flatten_helper(L, N, old_action_log_probs_batch)
             adv_targ = _flatten_helper(L, N, adv_targ)
             
-            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, adv_targ
+            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ
            
     def shared_recurrent_generator(self, advantages, num_mini_batch, data_chunk_length):
         episode_length, n_rollout_threads, num_agents = self.rewards.shape[0:3]
@@ -580,7 +580,7 @@ class SharedRolloutStorage(object):
         value_preds = self.value_preds[:-1].transpose(1,2,0,3).reshape(-1, 1)
         returns = self.returns[:-1].transpose(1,2,0,3).reshape(-1, 1)
         masks = self.masks[:-1].transpose(1,2,0,3).reshape(-1, 1)
-        high_masks = self.high_masks[:-1].transpose(1,2,0,3).reshape(-1, 1)
+        active_masks = self.active_masks[:-1].transpose(1,2,0,3).reshape(-1, 1)
         action_log_probs = self.action_log_probs.transpose(1,2,0,3).reshape(-1, 1)
         advantages = advantages.transpose(1,2,0,3).reshape(-1, 1)
         recurrent_hidden_states = self.recurrent_hidden_states[:-1].transpose(1,2,0,3).reshape(-1, self.recurrent_hidden_states.shape[-1])
@@ -595,7 +595,7 @@ class SharedRolloutStorage(object):
             value_preds_batch = []
             return_batch = []
             masks_batch = []
-            high_masks_batch = []
+            active_masks_batch = []
             old_action_log_probs_batch = []
             adv_targ = []
             
@@ -609,7 +609,7 @@ class SharedRolloutStorage(object):
                 value_preds_batch.append(torch.tensor(value_preds[ind:ind+data_chunk_length]))
                 return_batch.append(torch.tensor(returns[ind:ind+data_chunk_length]))
                 masks_batch.append(torch.tensor(masks[ind:ind+data_chunk_length]))
-                high_masks_batch.append(torch.tensor(high_masks[ind:ind+data_chunk_length]))
+                active_masks_batch.append(torch.tensor(active_masks[ind:ind+data_chunk_length]))
                 old_action_log_probs_batch.append(torch.tensor(action_log_probs[ind:ind+data_chunk_length]))
                 adv_targ.append(torch.tensor(advantages[ind:ind+data_chunk_length]))
                 # size [T+1 N M Dim]-->[T N M Dim]-->[N M T Dim]-->[N*M*T,Dim]-->[1,Dim]
@@ -626,7 +626,7 @@ class SharedRolloutStorage(object):
             value_preds_batch = torch.stack(value_preds_batch)
             return_batch = torch.stack(return_batch)
             masks_batch = torch.stack(masks_batch)
-            high_masks_batch = torch.stack(high_masks_batch)
+            active_masks_batch = torch.stack(active_masks_batch)
             old_action_log_probs_batch = torch.stack(old_action_log_probs_batch)
             adv_targ = torch.stack(adv_targ)
 
@@ -642,10 +642,10 @@ class SharedRolloutStorage(object):
             value_preds_batch = _flatten_helper(L, N, value_preds_batch)
             return_batch = _flatten_helper(L, N, return_batch)
             masks_batch = _flatten_helper(L, N, masks_batch)
-            high_masks_batch = _flatten_helper(L, N, high_masks_batch)
+            active_masks_batch = _flatten_helper(L, N, active_masks_batch)
             old_action_log_probs_batch = _flatten_helper(L, N, \
                     old_action_log_probs_batch)
             adv_targ = _flatten_helper(L, N, adv_targ)
             
-            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, adv_targ
+            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ
             

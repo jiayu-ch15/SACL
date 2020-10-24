@@ -157,6 +157,8 @@ def BlueprintConstructionEnv(args, n_substeps=15, horizon=200, deterministic_mod
     scenario = args.scenario_name
     n_agents = args.num_agents
     n_boxes = args.num_boxes
+    floor_size = args.floor_size
+    
     grab_radius_multiplier = lock_grab_radius / box_size
     lock_radius_multiplier = lock_grab_radius / box_size
 

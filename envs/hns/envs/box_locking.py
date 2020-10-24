@@ -252,6 +252,7 @@ def BoxLockingEnv(args, n_substeps=15, horizon=120, deterministic_mode=True,
     n_agents = args.num_agents
     task_type = args.task_type
     n_boxes = args.num_boxes
+    floor_size = args.floor_size
     #assert n_agents==1, ("only 1 agents is supported, check the config.py.")
 
     grab_radius_multiplier = lock_grab_radius / box_size
