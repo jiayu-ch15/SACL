@@ -102,7 +102,7 @@ def main(args):
 
     # env
     envs = make_parallel_env(all_args)
-    if all_args.use_eval:
+    if all_args.eval:
         eval_env = make_eval_env(all_args)
     num_agents = get_map_params(all_args.map_name)["n_agents"]
     
@@ -473,7 +473,7 @@ def main(args):
                 last_battles_game = battles_game
                 last_battles_won = battles_won
 
-        if episode % all_args.use_eval_interval == 0 and all_args.use_eval:
+        if episode % all_args.eval_interval == 0 and all_args.eval:
             eval_battles_won = 0
             eval_episode = 0
             eval_obs, eval_share_obs, eval_available_actions = eval_env.reset()
@@ -528,13 +528,13 @@ def main(args):
                         if eval_infos[eval_i][0]['won']:
                             eval_battles_won += 1
                 
-                if eval_episode >= all_args.use_eval_episodes:
+                if eval_episode >= all_args.eval_episodes:
                     wandb.log({"eval_win_rate": eval_battles_won/eval_episode}, step=total_num_steps)
                     print("eval win rate is {}.".format(eval_battles_won/eval_episode))
                     break
 
     envs.close()
-    if all_args.use_eval:
+    if all_args.eval:
         eval_env.close()
     run.finish()
 if __name__ == "__main__":

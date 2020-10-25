@@ -80,7 +80,7 @@ def get_config():
     parser.add_argument("--log_interval", type=int, default=5)    
     
     # eval parameters
-    parser.add_argument("--use_eval", action='store_true', default=False)
+    parser.add_argument("--eval", action='store_true', default=False)
     parser.add_argument("--eval_interval", type=int, default=25)
     parser.add_argument("--eval_episodes", type=int, default=32)
     

@@ -117,7 +117,7 @@ def main(args):
 
     # env
     envs = make_parallel_env(all_args)
-    if all_args.use_eval:
+    if all_args.eval:
         eval_envs = make_eval_env(all_args)
 
     if all_args.env_name == "HideAndSeek":
@@ -556,7 +556,7 @@ def main(args):
                     wandb.log({'activated_sites': np.mean(activated_sites)}, step=total_num_steps)  
                     
         # eval 
-        if episode % all_args.eval_interval == 0 and all_args.use_eval:
+        if episode % all_args.eval_interval == 0 and all_args.eval:
             action_shape = eval_envs.action_space[0].shape
             # hide and seek
             eval_num_box_lock_prep = []
@@ -680,7 +680,7 @@ def main(args):
                     wandb.log({'eval_activated_sites': np.mean(eval_activated_sites)}, step=total_num_steps)  
     
     envs.close()
-    if all_args.use_eval:
+    if all_args.eval:
         eval_envs.close()       
     run.finish()
 

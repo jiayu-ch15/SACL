@@ -109,7 +109,7 @@ def main(args):
 
     # env init
     envs = make_parallel_env(all_args)
-    if all_args.use_eval:
+    if all_args.eval:
         eval_envs = make_eval_env(args)
     num_agents = all_args.num_agents  
     
@@ -508,7 +508,7 @@ def main(args):
                             show_rewards.append(info[agent_id]['individual_reward'])  
                     wandb.log({'agent%i/individual_rewards' % agent_id: np.mean(show_rewards)}, step=total_num_steps)
         
-        if episode % all_args.eval_interval == 0 and all_args.use_eval:
+        if episode % all_args.eval_interval == 0 and all_args.eval:
             eval_episode_rewards = []
             eval_obs = eval_envs.reset()
             if all_args.share_policy: 
@@ -611,7 +611,7 @@ def main(args):
                     wandb.log({"agent%i/eval_average_episode_rewards" % agent_id: np.mean(np.sum(eval_episode_rewards[agent_id],axis=0))}, step=total_num_steps)
 
     envs.close()
-    if all_args.use_eval:
+    if all_args.eval:
         eval_envs.close()
     run.finish()
 

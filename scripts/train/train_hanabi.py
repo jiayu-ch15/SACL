@@ -105,7 +105,7 @@ def main(args):
 
     # env
     envs = make_parallel_env(all_args)
-    if all_args.use_eval:
+    if all_args.eval:
         eval_envs = make_eval_env(all_args)
     num_agents = all_args.num_agents
 
@@ -494,7 +494,7 @@ def main(args):
                     wandb.log({'score': 0}, step=total_num_steps)
                     print("Can not access mean score.")
                                
-        if episode % all_args.eval_interval == 0 and all_args.use_eval:
+        if episode % all_args.eval_interval == 0 and all_args.eval:
             eval_finish = False
             eval_reset_choose = np.ones(all_args.n_eval_rollout_threads)==1.0 
             eval_scores = []
@@ -551,7 +551,7 @@ def main(args):
             print("eval mean score is {}.".format(np.mean(eval_scores)))
     
     envs.close()
-    if all_args.use_eval:
+    if all_args.eval:
         eval_envs.close()
     run.finish()
 
