@@ -13,7 +13,7 @@ def worker(remote, parent_remote, env_fn_wrapper):
         cmd, data = remote.recv()
         if cmd == 'step':
             ob, reward, done, info = env.step(data)
-            if done.__class__.__name__=='bool':
+            if 'bool' in done.__class__.__name__:
                 if done:
                     ob = env.reset()
             else:
@@ -97,7 +97,7 @@ def shareworker(remote, parent_remote, env_fn_wrapper):
         cmd, data = remote.recv()
         if cmd == 'step':
             ob, s_ob, reward, done, info, available_actions = env.step(data)
-            if done.__class__.__name__=='bool':
+            if 'bool' in done.__class__.__name__:
                 if done:
                     ob, s_ob, available_actions = env.reset()
             else:

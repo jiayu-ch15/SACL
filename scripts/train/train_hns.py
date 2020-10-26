@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import sys
 import copy
 import glob
 import os
@@ -81,8 +81,13 @@ def main(args):
     parser = get_config() 
     all_args = parse_args(args, parser)
 
-    assert all_args.algorithm_name=="rmappo" and (all_args.recurrent_policy or all_args.naive_recurrent_policy), ("check recurrent policy!")
-       
+    if all_args.algorithm_name=="rmappo":
+        assert (all_args.recurrent_policy or all_args.naive_recurrent_policy), ("check recurrent policy!")  
+    elif all_args.algorithm_name=="mappo":
+        assert (all_args.recurrent_policy and all_args.naive_recurrent_policy) == False, ("check recurrent policy!")  
+    else:
+        raise NotImplementedError
+      
     # cuda
     if all_args.cuda and torch.cuda.is_available():
         print("choose to use gpu...")
@@ -100,7 +105,7 @@ def main(args):
     if not run_dir.exists():
         os.makedirs(str(run_dir))
 
-    run = wandb.init(config=args, 
+    run = wandb.init(config=all_args, 
             project=all_args.env_name, 
             entity="yuchao",
             notes=socket.gethostname(),

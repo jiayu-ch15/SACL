@@ -66,7 +66,12 @@ def main(args):
     parser = get_config() 
     all_args = parse_args(args, parser)
 
-    assert all_args.algorithm_name=="rmappo" and (all_args.recurrent_policy or all_args.naive_recurrent_policy), ("check recurrent policy!")
+    if all_args.algorithm_name=="rmappo":
+        assert (all_args.recurrent_policy or all_args.naive_recurrent_policy), ("check recurrent policy!")  
+    elif all_args.algorithm_name=="mappo":
+        assert (all_args.recurrent_policy and all_args.naive_recurrent_policy) == False, ("check recurrent policy!")  
+    else:
+        raise NotImplementedError
     
     # cuda
     if all_args.cuda and torch.cuda.is_available():

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import sys
 import copy
 import glob
 import os
@@ -70,7 +70,13 @@ def main(args):
     parser = get_config() 
     all_args = parse_args(args, parser)
 
-    assert all_args.algorithm_name=="rmappo" and (all_args.recurrent_policy or all_args.naive_recurrent_policy), ("check recurrent policy!")  
+    if all_args.algorithm_name=="rmappo":
+        assert (all_args.recurrent_policy or all_args.naive_recurrent_policy), ("check recurrent policy!")  
+    elif all_args.algorithm_name=="mappo":
+        assert (all_args.recurrent_policy and all_args.naive_recurrent_policy) == False, ("check recurrent policy!")  
+    else:
+        raise NotImplementedError 
+     
     assert (all_args.share_policy == True and all_args.scenario_name == 'simple_speaker_listener') == False, ("The simple_speaker_listener scenario can not use shared policy. Please check the config.py.")
 
     # cuda
@@ -92,7 +98,7 @@ def main(args):
         os.makedirs(str(run_dir))
     
     # wandb
-    run = wandb.init(config=args, 
+    run = wandb.init(config=all_args, 
             project=all_args.env_name,
             entity="yuchao",
             notes=socket.gethostname(),
@@ -110,7 +116,7 @@ def main(args):
     # env init
     envs = make_parallel_env(all_args)
     if all_args.eval:
-        eval_envs = make_eval_env(args)
+        eval_envs = make_eval_env(all_args)
     num_agents = all_args.num_agents  
     
     #Policy network
