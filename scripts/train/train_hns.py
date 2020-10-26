@@ -599,6 +599,8 @@ def main(args):
                                         deterministic=True)
 
                         eval_actions[eval_choose] = np.array(np.split(eval_action.detach().cpu().numpy(), (eval_choose==True).sum()))         
+                        eval_recurrent_hidden_states[eval_choose] = np.array(np.split(eval_recurrent_hidden_state.detach().cpu().numpy(), (eval_choose==True).sum()))
+                        eval_recurrent_hidden_states_critic[eval_choose] = np.array(np.split(eval_recurrent_hidden_state_critic.detach().cpu().numpy(), (eval_choose==True).sum()))
                     else:
                         eval_actions = [] 
                         for agent_id in range(num_agents):

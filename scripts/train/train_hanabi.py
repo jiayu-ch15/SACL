@@ -519,6 +519,7 @@ def main(args):
                     if ~np.any(eval_choose):
                         eval_finish = True
                         break
+                    
                     if all_args.share_policy:
                         actor_critic.eval()
                         _, eval_action, _, eval_recurrent_hidden_state, eval_recurrent_hidden_state_critic = actor_critic.act(torch.FloatTensor(eval_share_obs[eval_choose,agent_id]), 

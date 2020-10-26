@@ -539,6 +539,8 @@ def main(args):
                                     torch.FloatTensor(np.concatenate(eval_masks)),
                                     deterministic=True)
                     eval_actions = np.array(np.split(eval_action.detach().cpu().numpy(), all_args.n_eval_rollout_threads))
+                    eval_recurrent_hidden_states = np.array(np.split(eval_recurrent_hidden_state.detach().cpu().numpy(), all_args.n_eval_rollout_threads))
+                    eval_recurrent_hidden_states_critic = np.array(np.split(eval_recurrent_hidden_state_critic.detach().cpu().numpy(), all_args.n_eval_rollout_threads))
                     
                     if eval_envs.action_space[0].__class__.__name__ == 'MultiDiscrete':
                         for i in range(eval_envs.action_space[0].shape):
