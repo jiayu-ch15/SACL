@@ -3,7 +3,7 @@ env="MPE"
 scenario="simple_spread"
 num_landmarks=3
 num_agents=3
-algo="rmappo"
+algo="mappo"
 exp="debug"
 seed_max=1
 
