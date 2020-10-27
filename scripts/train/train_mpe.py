@@ -612,8 +612,8 @@ def main(args):
                 wandb.log({"eval_average_episode_rewards": np.mean(np.sum(eval_episode_rewards,axis=0))}, step=total_num_steps)
             else:
                 for agent_id in range(num_agents):
-                    print("eval average episode rewards of agent%i: " % agent_id + str(np.mean(np.sum(eval_episode_rewards[agent_id],axis=0))))
-                    wandb.log({"agent%i/eval_average_episode_rewards" % agent_id: np.mean(np.sum(eval_episode_rewards[agent_id],axis=0))}, step=total_num_steps)
+                    print("eval average episode rewards of agent%i: " % agent_id + str(np.mean(np.sum(eval_episode_rewards[:,:,agent_id],axis=0))))
+                    wandb.log({"agent%i/eval_average_episode_rewards" % agent_id: np.mean(np.sum(eval_episode_rewards[:,:,agent_id],axis=0))}, step=total_num_steps)
 
     envs.close()
     if all_args.eval:
