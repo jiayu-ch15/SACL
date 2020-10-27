@@ -558,7 +558,7 @@ def main(args):
                     for agent_id in range(num_agents):
                         actor_critic[agent_id].eval()
                         _, eval_action, _, eval_recurrent_hidden_state, eval_recurrent_hidden_state_critic = actor_critic[agent_id].act(torch.FloatTensor(eval_share_obs), 
-                                        torch.FloatTensor(eval_obs[:,agent_id]), 
+                                        torch.FloatTensor(np.array(list(eval_obs[:,agent_id]))), 
                                         torch.FloatTensor(eval_recurrent_hidden_states[:,agent_id]), 
                                         torch.FloatTensor(eval_recurrent_hidden_states_critic[:,agent_id]),
                                         torch.FloatTensor(eval_masks[:,agent_id]),
