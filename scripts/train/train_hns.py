@@ -618,9 +618,7 @@ def main(args):
                             eval_recurrent_hidden_states_critic[eval_choose,agent_id] = eval_recurrent_hidden_state_critic.detach().cpu().numpy()
 
                         eval_actions = np.array(eval_actions).transpose(1,0,2)
-                        eval_recurrent_hidden_states = np.array(eval_recurrent_hidden_states).transpose(1,0,2)
-                        eval_recurrent_hidden_states_critic = np.array(eval_recurrent_hidden_states_critic).transpose(1,0,2)
-
+   
                 # Obser reward and next obs
                 eval_obs, eval_share_obs, eval_rewards, eval_dones, eval_infos, _ = eval_envs.step(eval_actions)
                 
