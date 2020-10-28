@@ -1,12 +1,10 @@
 import torch
 import numpy as np
-from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
-import time
 
 def _flatten_helper(T, N, _tensor):
     return _tensor.view(T * N, *_tensor.size()[2:])
 
-class SeparatedRolloutStorage(object):
+class SeparatedReplayBuffer(object):
     def __init__(self, episode_length, n_rollout_threads, agent_obs_space, agent_share_obs_space, agent_action_space,
                  recurrent_hidden_state_size):
         

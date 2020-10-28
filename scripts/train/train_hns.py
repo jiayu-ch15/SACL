@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 import sys
-import copy
-import glob
 import os
 import time
+import copy
+import glob
 import shutil
 import numpy as np
 import wandb
@@ -17,12 +17,12 @@ import torch.nn.functional as F
 
 from config import get_config
 from algorithm.ppo import PPO
+from algorithm.model import Policy
 from utils.util import update_linear_schedule, MultiDiscrete
+from utils.shared_buffer import SharedReplayBuffer
 
 from envs import HNSEnv
-from utils.env_wrappers import ShareSubprocVecEnv, ChooseSubprocVecEnv, ShareDummyVecEnv, ChooseDummyVecEnv
-from utils.shared_storage import SharedRolloutStorage
-from algorithm.model import Policy
+from envs.env_wrappers import ShareSubprocVecEnv, ChooseSubprocVecEnv, ShareDummyVecEnv, ChooseDummyVecEnv
 
 def make_parallel_env(all_args):
     def get_env_fn(rank):
@@ -183,7 +183,7 @@ def main(args):
                 device=device)
                 
         #replay buffer
-        rollouts = SharedRolloutStorage(num_agents,
+        buffer = SharedReplayBuffer(num_agents,
                     all_args.episode_length, 
                     all_args.n_rollout_threads,
                     envs.observation_space[0],
@@ -247,7 +247,7 @@ def main(args):
             agents.append(agent) 
             
         #replay buffer
-        rollouts = SharedRolloutStorage(num_agents,
+        buffer = SharedReplayBuffer(num_agents,
                     all_args.episode_length, 
                     all_args.n_rollout_threads,
                     envs.observation_space[0],
@@ -259,10 +259,10 @@ def main(args):
     obs, share_obs, _ = envs.reset() 
 
     # replay buffer 
-    rollouts.share_obs[0] = share_obs.copy() 
-    rollouts.obs[0] = obs.copy()                
-    rollouts.recurrent_hidden_states = np.zeros(rollouts.recurrent_hidden_states.shape).astype(np.float32)
-    rollouts.recurrent_hidden_states_critic = np.zeros(rollouts.recurrent_hidden_states_critic.shape).astype(np.float32)
+    buffer.share_obs[0] = share_obs.copy() 
+    buffer.obs[0] = obs.copy()                
+    buffer.recurrent_hidden_states = np.zeros(buffer.recurrent_hidden_states.shape).astype(np.float32)
+    buffer.recurrent_hidden_states_critic = np.zeros(buffer.recurrent_hidden_states_critic.shape).astype(np.float32)
     
     # run
     start = time.time()
@@ -301,11 +301,11 @@ def main(args):
                 if all_args.share_policy:
                     actor_critic.eval()
                     value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic \
-                        = actor_critic.act(torch.FloatTensor(np.concatenate(rollouts.share_obs[step])), 
-                                            torch.FloatTensor(np.concatenate(rollouts.obs[step])), 
-                                            torch.FloatTensor(np.concatenate(rollouts.recurrent_hidden_states[step])), 
-                                            torch.FloatTensor(np.concatenate(rollouts.recurrent_hidden_states_critic[step])),
-                                            torch.FloatTensor(np.concatenate(rollouts.masks[step])))
+                        = actor_critic.act(torch.FloatTensor(np.concatenate(buffer.share_obs[step])), 
+                                            torch.FloatTensor(np.concatenate(buffer.obs[step])), 
+                                            torch.FloatTensor(np.concatenate(buffer.recurrent_hidden_states[step])), 
+                                            torch.FloatTensor(np.concatenate(buffer.recurrent_hidden_states_critic[step])),
+                                            torch.FloatTensor(np.concatenate(buffer.masks[step])))
                     # [envs, agents, dim]
                     values = np.array(np.split(value.detach().cpu().numpy(),all_args.n_rollout_threads))
                     actions = np.array(np.split(action.detach().cpu().numpy(),all_args.n_rollout_threads))
@@ -322,11 +322,11 @@ def main(args):
                     for agent_id in range(num_agents):
                         actor_critic[agent_id].eval()
                         value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic \
-                            = actor_critic[agent_id].act(torch.FloatTensor(rollouts.share_obs[step,:,agent_id]), 
-                                                        torch.FloatTensor(rollouts.obs[step,:,agent_id]), 
-                                                        torch.FloatTensor(rollouts.recurrent_hidden_states[step,:,agent_id]), 
-                                                        torch.FloatTensor(rollouts.recurrent_hidden_states_critic[step,:,agent_id]),
-                                                        torch.FloatTensor(rollouts.masks[step,:,agent_id]))
+                            = actor_critic[agent_id].act(torch.FloatTensor(buffer.share_obs[step,:,agent_id]), 
+                                                        torch.FloatTensor(buffer.obs[step,:,agent_id]), 
+                                                        torch.FloatTensor(buffer.recurrent_hidden_states[step,:,agent_id]), 
+                                                        torch.FloatTensor(buffer.recurrent_hidden_states_critic[step,:,agent_id]),
+                                                        torch.FloatTensor(buffer.masks[step,:,agent_id]))
                         
                         values.append(value.detach().cpu().numpy())
                         actions.append(action.detach().cpu().numpy())
@@ -395,7 +395,7 @@ def main(args):
                             if "activated_sites" in infos[i].keys():
                                 activated_sites.append(infos[i]['activated_sites'])
 
-            rollouts.insert(share_obs, 
+            buffer.insert(share_obs, 
                             obs, 
                             recurrent_hidden_statess, 
                             recurrent_hidden_statess_critic, 
@@ -408,13 +408,13 @@ def main(args):
         if all_args.share_policy: 
             with torch.no_grad():
                 actor_critic.eval()                
-                next_value, _, _ = actor_critic.get_value(torch.FloatTensor(np.concatenate(rollouts.share_obs[-1])), 
-                                                        torch.FloatTensor(np.concatenate(rollouts.obs[-1])), 
-                                                        torch.FloatTensor(np.concatenate(rollouts.recurrent_hidden_states[-1])),
-                                                        torch.FloatTensor(np.concatenate(rollouts.recurrent_hidden_states_critic[-1])),
-                                                        torch.FloatTensor(np.concatenate(rollouts.masks[-1])))
+                next_value, _, _ = actor_critic.get_value(torch.FloatTensor(np.concatenate(buffer.share_obs[-1])), 
+                                                        torch.FloatTensor(np.concatenate(buffer.obs[-1])), 
+                                                        torch.FloatTensor(np.concatenate(buffer.recurrent_hidden_states[-1])),
+                                                        torch.FloatTensor(np.concatenate(buffer.recurrent_hidden_states_critic[-1])),
+                                                        torch.FloatTensor(np.concatenate(buffer.masks[-1])))
                 next_values = np.array(np.split(next_value.detach().cpu().numpy(), all_args.n_rollout_threads))
-                rollouts.shared_compute_returns(next_values, 
+                buffer.shared_compute_returns(next_values, 
                                                 all_args.use_gae, 
                                                 all_args.gamma,
                                                 all_args.gae_lambda, 
@@ -423,7 +423,7 @@ def main(args):
                                                 agents.value_normalizer)
             # update network
             actor_critic.train()
-            value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents.shared_update(rollouts)
+            value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents.shared_update(buffer)
             
         else:
             value_losses = []
@@ -436,13 +436,13 @@ def main(args):
             for agent_id in range(num_agents): 
                 with torch.no_grad(): 
                     actor_critic[agent_id].eval()
-                    next_value, _, _ = actor_critic[agent_id].get_value(torch.FloatTensor(rollouts.share_obs[-1,:,agent_id]), 
-                                                torch.FloatTensor(rollouts.obs[-1,:,agent_id]), 
-                                                torch.FloatTensor(rollouts.recurrent_hidden_states[-1,:,agent_id]),
-                                                torch.FloatTensor(rollouts.recurrent_hidden_states_critic[-1,:,agent_id]),
-                                                torch.FloatTensor(rollouts.masks[-1,:,agent_id]))
+                    next_value, _, _ = actor_critic[agent_id].get_value(torch.FloatTensor(buffer.share_obs[-1,:,agent_id]), 
+                                                torch.FloatTensor(buffer.obs[-1,:,agent_id]), 
+                                                torch.FloatTensor(buffer.recurrent_hidden_states[-1,:,agent_id]),
+                                                torch.FloatTensor(buffer.recurrent_hidden_states_critic[-1,:,agent_id]),
+                                                torch.FloatTensor(buffer.masks[-1,:,agent_id]))
                     next_value = next_value.detach().cpu().numpy()
-                    rollouts.single_compute_returns(agent_id,
+                    buffer.single_compute_returns(agent_id,
                                     next_value, 
                                     all_args.use_gae, 
                                     all_args.gamma,
@@ -452,7 +452,7 @@ def main(args):
                                     agents[agent_id].value_normalizer)
                 # update network
                 actor_critic[agent_id].train()
-                value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents[agent_id].single_update(agent_id, rollouts)
+                value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents[agent_id].single_update(agent_id, buffer)
                 value_losses.append(value_loss)
                 action_losses.append(action_loss)
                 dist_entropies.append(dist_entropy)
@@ -461,7 +461,7 @@ def main(args):
                 ratios.append(ratio)                                                                      
         
         # clean the buffer and reset
-        rollouts.after_update()
+        buffer.after_update()
 
         # post process
         total_num_steps = (episode + 1) * all_args.episode_length * all_args.n_rollout_threads
@@ -511,9 +511,9 @@ def main(args):
 
             if all_args.env_name == "HideAndSeek":
                 for hider_id in range(num_hiders):
-                    wandb.log({'hider%i/average_step_rewards' % hider_id: np.mean(rollouts.rewards[:,:,hider_id])}, step=total_num_steps)
+                    wandb.log({'hider%i/average_step_rewards' % hider_id: np.mean(buffer.rewards[:,:,hider_id])}, step=total_num_steps)
                 for seeker_id in range(num_seekers):
-                    wandb.log({'seeker%i/average_step_rewards' % seeker_id: np.mean(rollouts.rewards[:,:,num_hiders+seeker_id])}, step=total_num_steps)           
+                    wandb.log({'seeker%i/average_step_rewards' % seeker_id: np.mean(buffer.rewards[:,:,num_hiders+seeker_id])}, step=total_num_steps)           
 
                 if all_args.num_boxes > 0:
                     if len(max_box_move_prep) > 0:
@@ -541,10 +541,10 @@ def main(args):
             
             if all_args.env_name == "BoxLocking" or all_args.env_name == "BlueprintConstruction":  
                 if all_args.share_policy:       
-                    wandb.log({"average_step_rewards": np.mean(rollouts.rewards)}, step=total_num_steps)
+                    wandb.log({"average_step_rewards": np.mean(buffer.rewards)}, step=total_num_steps)
                 else:
                     for agent_id in range(num_agents):
-                        wandb.log({"agent%i/average_step_rewards" % agent_id: np.mean(rollouts.rewards[:,:,agent_id])}, step=total_num_steps) 
+                        wandb.log({"agent%i/average_step_rewards" % agent_id: np.mean(buffer.rewards[:,:,agent_id])}, step=total_num_steps) 
                 
                 wandb.log({'discard_episode': discard_episode}, step=total_num_steps)
                 

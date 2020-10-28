@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 import sys
-import copy
-import glob
 import os
 import time
+import copy
+import glob
 import shutil
 import wandb
 import socket
@@ -14,14 +14,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from algorithm.ppo import PPO
 from config import get_config
+from algorithm.ppo import PPO
+from algorithm.model import Policy
+from utils.shared_buffer import SharedReplayBuffer
 from utils.util import update_linear_schedule
 
 from envs import HanabiEnv
-from utils.env_wrappers import ChooseSubprocVecEnv, ChooseDummyVecEnv
-from algorithm.model import Policy
-from utils.shared_storage import SharedRolloutStorage
+from envs.env_wrappers import ChooseSubprocVecEnv, ChooseDummyVecEnv
 
 def make_parallel_env(all_args):
     def get_env_fn(rank):
@@ -166,7 +166,7 @@ def main(args):
                 device=device)
                 
         #replay buffer
-        rollouts = SharedRolloutStorage(num_agents,
+        buffer = SharedReplayBuffer(num_agents,
                     all_args.episode_length, 
                     all_args.n_rollout_threads,
                     envs.observation_space[0],
@@ -229,7 +229,7 @@ def main(args):
             agents.append(agent) 
             
         #replay buffer
-        rollouts = SharedRolloutStorage(num_agents,
+        buffer = SharedReplayBuffer(num_agents,
                     all_args.episode_length, 
                     all_args.n_rollout_threads,
                     envs.observation_space[0],
@@ -250,15 +250,15 @@ def main(args):
     start = time.time()
     episodes = int(all_args.num_env_steps) // all_args.episode_length // all_args.n_rollout_threads
 
-    turn_obs = np.zeros((all_args.n_rollout_threads, num_agents, *rollouts.obs.shape[3:])).astype(np.float32)
-    turn_share_obs = np.zeros((all_args.n_rollout_threads, num_agents, *rollouts.share_obs.shape[3:])).astype(np.float32)
-    turn_available_actions = np.zeros((all_args.n_rollout_threads, num_agents, *rollouts.available_actions.shape[3:])).astype(np.float32)
+    turn_obs = np.zeros((all_args.n_rollout_threads, num_agents, *buffer.obs.shape[3:])).astype(np.float32)
+    turn_share_obs = np.zeros((all_args.n_rollout_threads, num_agents, *buffer.share_obs.shape[3:])).astype(np.float32)
+    turn_available_actions = np.zeros((all_args.n_rollout_threads, num_agents, *buffer.available_actions.shape[3:])).astype(np.float32)
     turn_values =  np.zeros((all_args.n_rollout_threads, num_agents, 1)).astype(np.float32)
     turn_actions = np.zeros((all_args.n_rollout_threads, num_agents, 1)).astype(np.float32)
     env_actions = np.ones((all_args.n_rollout_threads, num_agents, 1)).astype(np.float32)*(-1.0)
     turn_action_log_probs = np.zeros((all_args.n_rollout_threads, num_agents, 1)).astype(np.float32)
-    turn_recurrent_hidden_states = np.zeros((all_args.n_rollout_threads, num_agents, *rollouts.recurrent_hidden_states.shape[3:])).astype(np.float32)
-    turn_recurrent_hidden_states_critic = np.zeros((all_args.n_rollout_threads, num_agents, *rollouts.recurrent_hidden_states_critic.shape[3:])).astype(np.float32)
+    turn_recurrent_hidden_states = np.zeros((all_args.n_rollout_threads, num_agents, *buffer.recurrent_hidden_states.shape[3:])).astype(np.float32)
+    turn_recurrent_hidden_states_critic = np.zeros((all_args.n_rollout_threads, num_agents, *buffer.recurrent_hidden_states_critic.shape[3:])).astype(np.float32)
     turn_masks = np.ones((all_args.n_rollout_threads, num_agents, 1)).astype(np.float32)
     turn_active_masks = np.ones((all_args.n_rollout_threads, num_agents, 1)).astype(np.float32)
     turn_bad_masks = np.ones((all_args.n_rollout_threads, num_agents, 1)).astype(np.float32)
@@ -328,10 +328,10 @@ def main(args):
                     reset_choose[done==True] = np.ones((done==True).sum(), dtype=bool)
 
                     # deal with all agents 
-                    use_available_actions[done==True] = np.zeros(((done==True).sum(), num_agents, *rollouts.available_actions.shape[3:])).astype(np.float32)
+                    use_available_actions[done==True] = np.zeros(((done==True).sum(), num_agents, *buffer.available_actions.shape[3:])).astype(np.float32)
                     turn_masks[done==True] = np.zeros(((done==True).sum(), num_agents, 1)).astype(np.float32)
-                    turn_recurrent_hidden_states[done==True] = np.zeros(((done==True).sum(), num_agents, *rollouts.recurrent_hidden_states.shape[3:])).astype(np.float32)
-                    turn_recurrent_hidden_states_critic[done==True] = np.zeros(((done==True).sum(), num_agents, *rollouts.recurrent_hidden_states_critic.shape[3:])).astype(np.float32)
+                    turn_recurrent_hidden_states[done==True] = np.zeros(((done==True).sum(), num_agents, *buffer.recurrent_hidden_states.shape[3:])).astype(np.float32)
+                    turn_recurrent_hidden_states_critic[done==True] = np.zeros(((done==True).sum(), num_agents, *buffer.recurrent_hidden_states_critic.shape[3:])).astype(np.float32)
         
                     # deal with current agent
                     turn_active_masks[done==True, current_agent_id] = np.ones(((done==True).sum(), 1)).astype(np.float32)
@@ -361,7 +361,7 @@ def main(args):
                                 scores.append(infos[i]['score'])
                      
             # insert turn data into buffer
-            rollouts.chooseinsert(turn_share_obs, 
+            buffer.chooseinsert(turn_share_obs, 
                                 turn_obs, 
                                 turn_recurrent_hidden_states, 
                                 turn_recurrent_hidden_states_critic, 
@@ -381,21 +381,21 @@ def main(args):
             use_share_obs[reset_choose] = share_obs[reset_choose]
             use_available_actions[reset_choose] = available_actions[reset_choose]
                     
-        rollouts.share_obs[-1] = use_share_obs.copy()
-        rollouts.obs[-1] = use_obs.copy()
-        rollouts.available_actions[-1] = use_available_actions.copy()        
+        buffer.share_obs[-1] = use_share_obs.copy()
+        buffer.obs[-1] = use_obs.copy()
+        buffer.available_actions[-1] = use_available_actions.copy()        
                      
         if all_args.share_policy:
             # compute returns
             with torch.no_grad(): 
                 actor_critic.eval()                
-                next_value, _, _ = actor_critic.get_value(torch.FloatTensor(np.concatenate(rollouts.share_obs[-1])), 
-                                                        torch.FloatTensor(np.concatenate(rollouts.obs[-1])), 
-                                                        torch.FloatTensor(np.concatenate(rollouts.recurrent_hidden_states[-1])),
-                                                        torch.FloatTensor(np.concatenate(rollouts.recurrent_hidden_states_critic[-1])),
-                                                        torch.FloatTensor(np.concatenate(rollouts.masks[-1])))
+                next_value, _, _ = actor_critic.get_value(torch.FloatTensor(np.concatenate(buffer.share_obs[-1])), 
+                                                        torch.FloatTensor(np.concatenate(buffer.obs[-1])), 
+                                                        torch.FloatTensor(np.concatenate(buffer.recurrent_hidden_states[-1])),
+                                                        torch.FloatTensor(np.concatenate(buffer.recurrent_hidden_states_critic[-1])),
+                                                        torch.FloatTensor(np.concatenate(buffer.masks[-1])))
                 next_values = np.array(np.split(next_value.detach().cpu().numpy(), all_args.n_rollout_threads))
-                rollouts.shared_compute_returns(next_values, 
+                buffer.shared_compute_returns(next_values, 
                                                 all_args.use_gae, 
                                                 all_args.gamma,
                                                 all_args.gae_lambda, 
@@ -404,7 +404,7 @@ def main(args):
                                                 agents.value_normalizer)
             # update network
             actor_critic.train()
-            value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents.shared_update(rollouts)
+            value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents.shared_update(buffer)
             
         else:
             value_losses = []
@@ -417,13 +417,13 @@ def main(args):
             for agent_id in range(num_agents): 
                 with torch.no_grad(): 
                     actor_critic[agent_id].eval()
-                    next_value, _, _ = actor_critic[agent_id].get_value(torch.FloatTensor(rollouts.share_obs[-1,:,agent_id]), 
-                                                torch.FloatTensor(rollouts.obs[-1,:,agent_id]), 
-                                                torch.FloatTensor(rollouts.recurrent_hidden_states[-1,:,agent_id]),
-                                                torch.FloatTensor(rollouts.recurrent_hidden_states_critic[-1,:,agent_id]),
-                                                torch.FloatTensor(rollouts.masks[-1,:,agent_id]))
+                    next_value, _, _ = actor_critic[agent_id].get_value(torch.FloatTensor(buffer.share_obs[-1,:,agent_id]), 
+                                                torch.FloatTensor(buffer.obs[-1,:,agent_id]), 
+                                                torch.FloatTensor(buffer.recurrent_hidden_states[-1,:,agent_id]),
+                                                torch.FloatTensor(buffer.recurrent_hidden_states_critic[-1,:,agent_id]),
+                                                torch.FloatTensor(buffer.masks[-1,:,agent_id]))
                     next_value = next_value.detach().cpu().numpy()
-                    rollouts.single_compute_returns(agent_id,
+                    buffer.single_compute_returns(agent_id,
                                     next_value, 
                                     all_args.use_gae, 
                                     all_args.gamma,
@@ -433,7 +433,7 @@ def main(args):
                                     agents[agent_id].value_normalizer)
                 # update network
                 actor_critic[agent_id].train()
-                value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents[agent_id].single_update(agent_id, rollouts)
+                value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents[agent_id].single_update(agent_id, buffer)
                 value_losses.append(value_loss)
                 action_losses.append(action_loss)
                 dist_entropies.append(dist_entropy)
@@ -442,7 +442,7 @@ def main(args):
                 ratios.append(ratio)
                                                                     
         # clean the buffer and reset
-        rollouts.chooseafter_update()
+        buffer.chooseafter_update()
         
         # post process
         total_num_steps = (episode + 1) * all_args.episode_length * all_args.n_rollout_threads
@@ -479,7 +479,7 @@ def main(args):
                 wandb.log({"grad_norm": grad_norm}, step=total_num_steps)
                 wandb.log({"KL_divloss": KL_divloss}, step=total_num_steps)
                 wandb.log({"ratio": ratio}, step=total_num_steps)
-                wandb.log({"average_step_rewards": np.mean(rollouts.rewards)}, step=total_num_steps)
+                wandb.log({"average_step_rewards": np.mean(buffer.rewards)}, step=total_num_steps)
             else:
                 for agent_id in range(num_agents):
                     print("value loss of agent%i: " % agent_id + str(value_losses[agent_id]))
@@ -489,7 +489,7 @@ def main(args):
                     wandb.log({"agent%i/grad_norm" % agent_id: grad_norms[agent_id]}, step=total_num_steps)
                     wandb.log({"agent%i/KL_divloss" % agent_id: KL_divlosses[agent_id]}, step=total_num_steps)
                     wandb.log({"agent%i/ratio"% agent_id: ratios[agent_id]}, step=total_num_steps)
-                    wandb.log({"agent%i/average_step_rewards" % agent_id: np.mean(rollouts.rewards[:,:,agent_id])}, step=total_num_steps)
+                    wandb.log({"agent%i/average_step_rewards" % agent_id: np.mean(buffer.rewards[:,:,agent_id])}, step=total_num_steps)
 
             if all_args.env_name == "Hanabi":  
                 if len(scores)>0: 
@@ -546,7 +546,7 @@ def main(args):
                     # Obser reward and next obs
                     eval_obs, eval_share_obs, eval_rewards, eval_dones, eval_infos, eval_available_actions = eval_envs.step(eval_actions)
 
-                    eval_available_actions[eval_dones==True] = np.zeros(((eval_dones==True).sum(), num_agents, *rollouts.available_actions.shape[3:])).astype(np.float32)   
+                    eval_available_actions[eval_dones==True] = np.zeros(((eval_dones==True).sum(), num_agents, *buffer.available_actions.shape[3:])).astype(np.float32)   
 
                     for i in range(all_args.n_eval_rollout_threads):
                         if eval_dones[i]:
