@@ -351,49 +351,48 @@ def main(args):
             masks = np.ones((all_args.n_rollout_threads, num_agents, 1)).astype(np.float32)
             masks[dones==True] = np.zeros(((dones==True).sum(), num_agents, 1)).astype(np.float32)
              
-            for i in range(all_args.n_rollout_threads):              
-                for agent_id in range(num_agents): 
-                    if dones[i]: 
-                        if "discard_episode" in infos[i].keys():
-                            if infos[i]['discard_episode']:
-                                discard_episode += 1
-                            else:
-                                trials += 1
+            for i in range(all_args.n_rollout_threads): 
+                if dones[i]: 
+                    if "discard_episode" in infos[i].keys():
+                        if infos[i]['discard_episode']:
+                            discard_episode += 1
                         else:
                             trials += 1
-                        # get info to tensorboard
-                        if all_args.env_name == "HideAndSeek":
-                            if all_args.num_boxes > 0:
-                                if 'max_box_move_prep' in infos[i].keys():
-                                    max_box_move_prep.append(infos[i]['max_box_move_prep'])
-                                if 'max_box_move' in infos[i].keys():
-                                    max_box_move.append(infos[i]['max_box_move'])
-                                if 'num_box_lock_prep' in infos[i].keys():
-                                    num_box_lock_prep.append(infos[i]['num_box_lock_prep'])
-                                if 'num_box_lock' in infos[i].keys():
-                                    num_box_lock.append(infos[i]['num_box_lock'])
-                            if all_args.num_ramps > 0:
-                                if 'max_ramp_move_prep' in infos[i].keys():
-                                    max_ramp_move_prep.append(infos[i]['max_ramp_move_prep'])
-                                if 'max_ramp_move' in infos[i].keys():
-                                    max_ramp_move.append(infos[i]['max_ramp_move'])
-                                if 'num_ramp_lock_prep' in infos[i].keys():
-                                    max_ramp_move.append(infos[i]['num_ramp_lock_prep'])
-                                if 'num_ramp_lock' in infos[i].keys():
-                                    max_ramp_move.append(infos[i]['num_ramp_lock'])
-                            if all_args.num_food > 0:
-                                if 'food_eaten' in infos[i].keys():
-                                    food_eaten.append(infos[i]['food_eaten'])
-                                if 'food_eaten_prep' in infos[i].keys():
-                                    food_eaten_prep.append(infos[i]['food_eaten_prep'])                            
-                        if all_args.env_name == "BlueprintConstruction" or all_args.env_name == "BoxLocking":
-                            if "success" in infos[i].keys():
-                                if infos[i]['success']:
-                                    success += 1
-                            if "lock_rate" in infos[i].keys():
-                                lock_rate.append(infos[i]['lock_rate'])
-                            if "activated_sites" in infos[i].keys():
-                                activated_sites.append(infos[i]['activated_sites'])
+                    else:
+                        trials += 1
+                    # get info to tensorboard
+                    if all_args.env_name == "HideAndSeek":
+                        if all_args.num_boxes > 0:
+                            if 'max_box_move_prep' in infos[i].keys():
+                                max_box_move_prep.append(infos[i]['max_box_move_prep'])
+                            if 'max_box_move' in infos[i].keys():
+                                max_box_move.append(infos[i]['max_box_move'])
+                            if 'num_box_lock_prep' in infos[i].keys():
+                                num_box_lock_prep.append(infos[i]['num_box_lock_prep'])
+                            if 'num_box_lock' in infos[i].keys():
+                                num_box_lock.append(infos[i]['num_box_lock'])
+                        if all_args.num_ramps > 0:
+                            if 'max_ramp_move_prep' in infos[i].keys():
+                                max_ramp_move_prep.append(infos[i]['max_ramp_move_prep'])
+                            if 'max_ramp_move' in infos[i].keys():
+                                max_ramp_move.append(infos[i]['max_ramp_move'])
+                            if 'num_ramp_lock_prep' in infos[i].keys():
+                                max_ramp_move.append(infos[i]['num_ramp_lock_prep'])
+                            if 'num_ramp_lock' in infos[i].keys():
+                                max_ramp_move.append(infos[i]['num_ramp_lock'])
+                        if all_args.num_food > 0:
+                            if 'food_eaten' in infos[i].keys():
+                                food_eaten.append(infos[i]['food_eaten'])
+                            if 'food_eaten_prep' in infos[i].keys():
+                                food_eaten_prep.append(infos[i]['food_eaten_prep'])                            
+                    if all_args.env_name == "BlueprintConstruction" or all_args.env_name == "BoxLocking":
+                        if "success" in infos[i].keys():
+                            if infos[i]['success']:
+                                success += 1
+                        if "lock_rate" in infos[i].keys():
+                            lock_rate.append(infos[i]['lock_rate'])
+                        if "activated_sites" in infos[i].keys():
+                            activated_sites.append(infos[i]['activated_sites'])
 
             buffer.insert(share_obs, 
                             obs, 
