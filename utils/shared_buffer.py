@@ -189,13 +189,13 @@ class SharedReplayBuffer(object):
                 for step in reversed(range(self.rewards.shape[0])):
                     if use_popart:
                         delta = self.rewards[step] + gamma * value_normalizer.denormalize(torch.tensor(self.value_preds[
-                        step + 1,:,agent_id])).cpu().numpy() * self.masks[step + 1] - value_normalizer.denormalize(torch.tensor(self.value_preds[step])).cpu().numpy()
+                        step + 1])).cpu().numpy() * self.masks[step + 1] - value_normalizer.denormalize(torch.tensor(self.value_preds[step])).cpu().numpy()
                         gae = delta + gamma * gae_lambda * self.masks[step + 1] * gae
                         gae = gae * self.bad_masks[step + 1]
                         self.returns[step] = gae + value_normalizer.denormalize(torch.tensor(self.value_preds[step])).cpu().numpy()
                     else:
                         delta = self.rewards[step] + gamma * self.value_preds[
-                            step + 1,:,agent_id] * self.masks[step + 1] - self.value_preds[step]
+                            step + 1] * self.masks[step + 1] - self.value_preds[step]
                         gae = delta + gamma * gae_lambda * self.masks[step + 1] * gae
                         gae = gae * self.bad_masks[step + 1]
                         self.returns[step] = gae + self.value_preds[step]

@@ -4,9 +4,9 @@ scenario_name="quadrant"
 task_type="all" # "all" "order" "order-return" "all-return"
 num_agents=2
 num_boxes=4
-floor_size=6.0
+floor_size=4.0
 algo="rmappo"
-exp="boxlocking"
+exp="boxlocking-easy"
 seed_max=1
 
 echo "env is ${env}, scenario is ${scenario_name}, num_agents is ${num_agents}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"

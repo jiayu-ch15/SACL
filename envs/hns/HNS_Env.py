@@ -57,7 +57,7 @@ class HNSEnv(object):
             obs_space.insert(0, obs_dim)
             self.observation_space.append(obs_space)
             self.share_observation_space.append(obs_space)
-    # TODO: 
+    
     def seed(self, seed=None):
         if seed is None:
             self.env.seed(1)

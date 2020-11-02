@@ -93,7 +93,7 @@ class ConstructionCompletedRewardWrapper(gym.Wrapper):
                 at least one box within the site activation radius.
             reward_scale (float): scales the reward by this factor
     '''
-    def __init__(self, env, use_corners=False, site_activation_radius=0.5, reward_scale=3):
+    def __init__(self, env, use_corners=False, site_activation_radius=0.5, reward_scale=0.1):
         super().__init__(env)
         self.n_sites = self.metadata['curr_n_sites']
         self.n_agents = self.metadata['n_actors']
