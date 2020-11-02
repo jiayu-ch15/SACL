@@ -67,7 +67,7 @@ class PPO():
         else:
             self.value_normalizer = None
 
-    def ppo_update(self, sample):
+    def ppo_update(self, sample, turn_on=True):
 
         share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, \
             value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, \
@@ -157,7 +157,7 @@ class PPO():
 
             for sample in data_generator:
                 
-                value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = self.ppo_update(sample)
+                value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = self.ppo_update(sample, turn_on)
 
                 value_loss_epoch += value_loss.item()
                 action_loss_epoch += action_loss.item()
@@ -204,7 +204,7 @@ class PPO():
 
             for sample in data_generator:
 
-                value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = self.ppo_update(sample)
+                value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = self.ppo_update(sample, turn_on)
 
                 value_loss_epoch += value_loss.item()
                 action_loss_epoch += action_loss.item()
@@ -251,8 +251,8 @@ class PPO():
                     advantages, self.num_mini_batch)
 
             for sample in data_generator: 
-                
-                value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = self.ppo_update(sample)
+
+                value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = self.ppo_update(sample, turn_on)
                 
                 value_loss_epoch += value_loss.item()
                 action_loss_epoch += action_loss.item()
