@@ -309,16 +309,21 @@ def main(args):
                     recurrent_hidden_statess_critic = np.array(recurrent_hidden_statess_critic).transpose(1,0,2)
                   
             # Obser reward and next obs
-            obs, share_obs, rewards, dones, infos, available_actions = envs.step(actions)            
+            obs, share_obs, rewards, dones, infos, available_actions = envs.step(actions) 
+
+            dones_env = np.all(dones, axis=1) 
 
             # insert data in buffer
-            recurrent_hidden_statess[dones==True] = np.zeros(((dones==True).sum(),all_args.hidden_size)).astype(np.float32)
-            recurrent_hidden_statess_critic[dones==True] = np.zeros(((dones==True).sum(),all_args.hidden_size)).astype(np.float32)
+            recurrent_hidden_statess[dones_env==True] = np.zeros(((dones_env==True).sum(), num_agents, all_args.hidden_size)).astype(np.float32)
+            recurrent_hidden_statess_critic[dones_env==True] = np.zeros(((dones_env==True).sum(), num_agents, all_args.hidden_size)).astype(np.float32)
             masks = np.ones((all_args.n_rollout_threads, num_agents, 1)).astype(np.float32)
-            masks[dones==True] = np.zeros(((dones==True).sum(), 1)).astype(np.float32)
-                
+            masks[dones_env==True] = np.zeros(((dones_env==True).sum(), num_agents, 1)).astype(np.float32)
+
+            active_masks = np.ones((all_args.n_rollout_threads, num_agents, 1)).astype(np.float32)
+            active_masks[dones==True] = np.zeros(((dones==True).sum(), 1)).astype(np.float32)
+            active_masks[dones_env==True] = np.ones(((dones_env==True).sum(), num_agents, 1)).astype(np.float32)
+            
             bad_masks = []
-            active_masks = []
             for info in infos: 
                 bad_mask = []  
                 active_mask = []             
@@ -327,13 +332,7 @@ def main(args):
                         bad_mask.append([0.0])
                     else:
                         bad_mask.append([1.0])
-                        
-                    if info[agent_id]['active_masks']:              
-                        active_mask.append([1.0])
-                    else:
-                        active_mask.append([0.0])
                 bad_masks.append(bad_mask)
-                active_masks.append(active_mask)
                                        
             # insert data to buffer
             share_obs = np.expand_dims(share_obs, 1).repeat(num_agents,axis=1)
@@ -521,14 +520,16 @@ def main(args):
                 # Obser reward and next obs
                 eval_obs, eval_share_obs, eval_rewards, eval_dones, eval_infos, eval_available_actions = eval_env.step(eval_actions)
                 eval_share_obs = np.expand_dims(eval_share_obs, 1).repeat(num_agents, axis=1)
+
+                eval_dones_env = np.all(eval_dones, axis=1)
                 
-                eval_recurrent_hidden_states[eval_dones==True] = np.zeros(((eval_dones==True).sum(),all_args.hidden_size)).astype(np.float32)
-                eval_recurrent_hidden_states_critic[eval_dones==True] = np.zeros(((eval_dones==True).sum(),all_args.hidden_size)).astype(np.float32)
+                eval_recurrent_hidden_states[eval_dones_env==True] = np.zeros(((eval_dones_env==True).sum(), num_agents, all_args.hidden_size)).astype(np.float32)
+                eval_recurrent_hidden_states_critic[eval_dones_env==True] = np.zeros(((eval_dones_env==True).sum(), num_agents, all_args.hidden_size)).astype(np.float32)
                 eval_masks = np.ones((all_args.n_eval_rollout_threads, num_agents, 1)).astype(np.float32)
-                eval_masks[eval_dones==True] = np.zeros(((eval_dones==True).sum(), 1)).astype(np.float32)                                  
+                eval_masks[eval_dones_env==True] = np.zeros(((eval_dones_env==True).sum(), num_agents, 1)).astype(np.float32)                                  
                 
                 for eval_i in range(all_args.n_eval_rollout_threads):
-                    if eval_dones[eval_i][0]:
+                    if eval_dones_env[eval_i]:
                         eval_episode += 1
                         if eval_infos[eval_i][0]['won']:
                             eval_battles_won += 1

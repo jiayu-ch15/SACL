@@ -415,7 +415,8 @@ class StarCraft2Env(MultiAgentEnv):
         """A single environment step. Returns reward, terminated, info."""
         terminated = False
         bad_transition = False
-        info = [{} for i in range(self.n_agents)]
+        infos = [{} for i in range(self.n_agents)]
+        dones = np.zeros((self.n_agents), dtype=bool)
         
         actions_int = [int(a) for a in actions]
 
@@ -450,7 +451,7 @@ class StarCraft2Env(MultiAgentEnv):
             available_actions = []
             for i in range(self.n_agents):
                 available_actions.append(self.get_avail_agent_actions(i))
-                info[i] = {
+                infos[i] = {
                     "battles_won": self.battles_won,
                     "battles_game": self.battles_game,
                     "battles_draw": self.timeouts,
@@ -458,11 +459,14 @@ class StarCraft2Env(MultiAgentEnv):
                     "bad_transition":bad_transition,
                     "won":self.win_counted
                    }
-                if self.death_tracker_ally[i]:
-                    info[i]["active_masks"] = False
+                if terminated:
+                    dones[i] = True
                 else:
-                    info[i]["active_masks"] = True
-            return self.get_obs(),self.get_state(),[[0]]*self.n_agents, [terminated]*self.n_agents, info, available_actions
+                    if self.death_tracker_ally[i]:
+                        dones[i] = True
+                    else:
+                        dones[i] = False
+            return self.get_obs(),self.get_state(),[[0]]*self.n_agents, dones, infos, available_actions
 
         self._total_steps += 1
         self._episode_steps += 1
@@ -504,7 +508,7 @@ class StarCraft2Env(MultiAgentEnv):
             self.timeouts += 1
             
         for i in range(self.n_agents):
-            info[i] = {
+            infos[i] = {
                 "battles_won": self.battles_won,
                 "battles_game": self.battles_game,
                 "battles_draw": self.timeouts,
@@ -512,10 +516,14 @@ class StarCraft2Env(MultiAgentEnv):
                 "bad_transition":bad_transition,
                 "won":self.win_counted
                }
-            if self.death_tracker_ally[i]:
-                info[i]["active_masks"] = False
+            
+            if terminated:
+                dones[i] = True
             else:
-                info[i]["active_masks"] = True
+                if self.death_tracker_ally[i]:
+                    dones[i] = True
+                else:
+                    dones[i] = False
 
         if self.debug:
             logging.debug("Reward = {}".format(reward).center(60, '-'))
@@ -526,7 +534,9 @@ class StarCraft2Env(MultiAgentEnv):
         if self.reward_scale:
             reward /= self.max_reward / self.reward_scale_rate
 
-        return self.get_obs(), self.get_state(), [[reward]]*self.n_agents, [terminated]*self.n_agents, info, available_actions
+        rewards = [[reward]]*self.n_agents
+
+        return self.get_obs(), self.get_state(), rewards, dones, infos, available_actions
 
     def get_agent_action(self, a_id, action):
         """Construct the action for agent a_id."""

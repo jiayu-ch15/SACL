@@ -93,7 +93,7 @@ class SharedReplayBuffer(object):
         if bad_masks is not None:
             self.bad_masks[self.step + 1] = bad_masks.copy()
         if active_masks is not None:
-            self.active_masks[self.step + 1] = active_masks.copy()
+            self.active_masks[self.step] = active_masks.copy()
         if available_actions is not None:
             self.available_actions[self.step] = available_actions.copy()
 
@@ -114,8 +114,7 @@ class SharedReplayBuffer(object):
         self.recurrent_hidden_states[0] = self.recurrent_hidden_states[-1].copy()
         self.recurrent_hidden_states_critic[0] = self.recurrent_hidden_states_critic[-1].copy()
         self.masks[0] = self.masks[-1].copy()
-        self.bad_masks[0] = self.bad_masks[-1].copy()
-        self.active_masks[0] = self.active_masks[-1].copy()       
+        self.bad_masks[0] = self.bad_masks[-1].copy()       
         
     def single_compute_returns(self,
                         agent_id,
