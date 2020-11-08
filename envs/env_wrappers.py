@@ -146,7 +146,7 @@ def worker(remote, parent_remote, env_fn_wrapper):
                 if done:
                     ob = env.reset()
             else:
-                if all(done):
+                if np.all(done):
                     ob = env.reset()
             
             remote.send((ob, reward, done, info))
@@ -230,7 +230,7 @@ def shareworker(remote, parent_remote, env_fn_wrapper):
                 if done:
                     ob, s_ob, available_actions = env.reset()
             else:
-                if all(done):
+                if np.all(done):
                     ob, s_ob, available_actions = env.reset()
             
             remote.send((ob, s_ob, reward, done, info, available_actions))
@@ -402,7 +402,7 @@ class DummyVecEnv(ShareVecEnv):
                 if done:
                     obs[i] = self.envs[i].reset()
             else:
-                if all(done):
+                if np.all(done):
                     obs[i] = self.envs[i].reset()
         
         self.actions = None
@@ -435,7 +435,7 @@ class ShareDummyVecEnv(ShareVecEnv):
                 if done:
                     obs[i], share_obs[i], available_actions[i] = self.envs[i].reset()                   
             else:
-                if all(done):
+                if np.all(done):
                     obs[i], share_obs[i], available_actions[i] = self.envs[i].reset()        
         self.actions = None
 
