@@ -1,11 +1,10 @@
 program: train/train_mpe.py
 project: sweep_MPE
-name: simple_spread_mlp
+name: simple_spread
 command:
   - ${env}
   - python3
   - ${program}
-  - --recurrent_policy
   - ${args}
 method: grid
 metric:
