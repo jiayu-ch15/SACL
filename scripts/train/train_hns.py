@@ -482,9 +482,10 @@ def main(args):
         # log information
         if episode % all_args.log_interval == 0:
             end = time.time()
-            print("\n Scenario {} Algo {} updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
+            print("\n Scenario {} Algo {} Exp {} updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
                 .format(all_args.scenario_name,
                         all_args.algorithm_name,
+                        all_args.experiment_name,
                         episode, 
                         episodes,
                         total_num_steps,

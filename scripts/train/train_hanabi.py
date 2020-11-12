@@ -464,8 +464,10 @@ def main(args):
         # log information
         if episode % all_args.log_interval == 0:
             end = time.time()
-            print("\n Algos {} Updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
-                .format(all_args.algorithm_name,
+            print("\n Env {} Algos {} Exp {} Updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
+                .format( all_args.hanabi_name,
+                        all_args.algorithm_name,
+                        all_args.experiment_name,
                         episode, 
                         episodes,
                         total_num_steps,

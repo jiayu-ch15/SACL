@@ -427,9 +427,10 @@ def main(args):
         # log information
         if episode % all_args.log_interval == 0:
             end = time.time()
-            print("\n Map {} Algo {} updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
+            print("\n Map {} Algo {} Exp {} updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
                 .format(all_args.map_name,
                         all_args.algorithm_name,
+                        all_args.experiment_name,
                         episode, 
                         episodes,
                         total_num_steps,
