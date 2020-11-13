@@ -7,6 +7,7 @@ import time
 import shutil
 import wandb
 import socket
+import setproctitle
 import numpy as np
 from pathlib import Path
 
@@ -92,13 +93,14 @@ def main(args):
 
     run = wandb.init(config=all_args, 
             project=all_args.env_name, 
-            entity="yuchao",
+            entity=all_args.user_name,
             notes=socket.gethostname(),
             name=str(all_args.algorithm_name) + "_" + str(all_args.experiment_name) + "_seed" + str(all_args.seed),
             group=all_args.map_name,
             dir=str(run_dir),
             job_type="training",
             reinit=True)
+    setproctitle.setproctitle(str(all_args.algorithm_name) + "-" + str(all_args.env_name) + "-" + str(all_args.experiment_name) + "@" + str(all_args.user_name))
 
     # seed
     torch.manual_seed(all_args.seed)

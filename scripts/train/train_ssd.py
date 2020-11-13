@@ -4,6 +4,7 @@ import copy
 import glob
 import os
 import time
+import setproctitle
 import numpy as np
 from pathlib import Path
 
