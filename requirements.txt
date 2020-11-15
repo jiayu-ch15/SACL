@@ -61,7 +61,6 @@ Keras-Applications==1.0.8
 Keras-Preprocessing==1.1.2
 kiwisolver==1.0.1
 lockfile==0.12.2
--e git+https://github.com/zoeyuchao/mappo-sc.git@2694e7d0eaaeda7ae81c74fc5fcaec5023ea66f8#egg=MAPPO
 Markdown==3.1.1
 matplotlib==3.0.0
 mkl-fft==1.1.0
@@ -74,7 +73,6 @@ mpi4py==3.0.3
 mpyq==0.2.5
 msgpack==1.0.0
 mujoco-py==2.0.2.13
--e git+https://github.com/zoeyuchao/mappo-sc.git@2694e7d0eaaeda7ae81c74fc5fcaec5023ea66f8#egg=mujoco_worldgen&subdirectory=envs/hns/mujoco-worldgen
 multidict==4.7.6
 munch==2.3.2
 numpy==1.18.5
@@ -128,6 +126,7 @@ sacred==0.7.2
 scipy==1.4.1
 seaborn==0.10.1
 sentry-sdk==0.18.0
+setproctitle==1.1.10
 shortuuid==1.0.1
 six==1.15.0
 sk-video==1.1.10

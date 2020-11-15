@@ -388,7 +388,7 @@ class NNBase(nn.Module):
         return x, hxs
                
 class CNNBase(NNBase):
-    def __init__(self, obs_shape, num_agents, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_feature_normlization=False, use_feature_popart=False, use_orthogonal=True, layer_N=1, use_ReLU=False):
+    def __init__(self, obs_shape, num_agents, naive_recurrent = False, recurrent=False, hidden_size=64, attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, use_common_layer=False, use_feature_normalization=False, use_feature_popart=False, use_orthogonal=True, layer_N=1, use_ReLU=False):
         super(CNNBase, self).__init__(obs_shape, num_agents, naive_recurrent, recurrent, hidden_size, attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, use_common_layer, use_orthogonal)
         
         self._use_common_layer = use_common_layer
@@ -461,21 +461,21 @@ class CNNBase(NNBase):
 class MLPBase(NNBase):
     def __init__(self, obs_shape, share_obs_shape, naive_recurrent = False, recurrent=False, hidden_size=64, recurrent_N=1,
                 attn=False, attn_size=512, attn_N=2, attn_heads=8, dropout=0.05, use_average_pool=True, 
-                use_common_layer=False, use_feature_normlization=True, use_feature_popart=True, 
+                use_common_layer=False, use_feature_normalization=True, use_feature_popart=True, 
                 use_orthogonal=True, layer_N=1, use_ReLU=False, use_cat_self=True):
         super(MLPBase, self).__init__(obs_shape, share_obs_shape, naive_recurrent, recurrent, hidden_size, recurrent_N,
                                       attn, attn_size, attn_N, attn_heads, dropout, use_average_pool, 
                                       use_common_layer, use_orthogonal, use_ReLU, use_cat_self)
 
         self._use_common_layer = use_common_layer
-        self._use_feature_normlization = use_feature_normlization
+        self._use_feature_normalization = use_feature_normalization
         self._use_feature_popart = use_feature_popart
         self._use_orthogonal = use_orthogonal
         self._layer_N = layer_N
         self._use_ReLU = use_ReLU
         self._attn = attn
         
-        assert (self._use_feature_normlization and self._use_feature_popart) == False, ("--use_feature_normlization and --use_feature_popart can not be set True simultaneously.")
+        assert (self._use_feature_normalization and self._use_feature_popart) == False, ("--use_feature_normalization and --use_feature_popart can not be set True simultaneously.")
         
         obs_dim = obs_shape[0]
         share_obs_dim = share_obs_shape[0]
@@ -484,7 +484,7 @@ class MLPBase(NNBase):
             self.actor_norm = PopArt(obs_dim)
             self.critic_norm = PopArt(share_obs_dim)
             
-        if self._use_feature_normlization:
+        if self._use_feature_normalization:
             self.actor_norm = nn.LayerNorm(obs_dim)
             self.critic_norm = nn.LayerNorm(share_obs_dim)
             
@@ -547,7 +547,7 @@ class MLPBase(NNBase):
         x = inputs
         share_x = share_inputs
         
-        if self._use_feature_popart or self._use_feature_normlization:
+        if self._use_feature_popart or self._use_feature_normalization:
             x = self.actor_norm(x)
             share_x = self.critic_norm(share_x)
 

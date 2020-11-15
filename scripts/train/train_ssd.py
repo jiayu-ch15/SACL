@@ -82,7 +82,7 @@ def main():
                                  'dropout': args.dropout,
                                  'use_average_pool': args.use_average_pool,
                                  'use_common_layer':args.use_common_layer,
-                                 'use_feature_normlization':args.use_feature_normlization,
+                                 'use_feature_normalization':args.use_feature_normalization,
                                  'use_feature_popart':args.use_feature_popart,
                                  'use_orthogonal':args.use_orthogonal
                                  },
@@ -133,7 +133,7 @@ def main():
                                  'dropout': args.dropout,
                                  'use_average_pool': args.use_average_pool,
                                  'use_common_layer':args.use_common_layer,
-                                 'use_feature_normlization':args.use_feature_normlization,
+                                 'use_feature_normalization':args.use_feature_normalization,
                                  'use_feature_popart':args.use_feature_popart,
                                  'use_orthogonal':args.use_orthogonal
                                  },

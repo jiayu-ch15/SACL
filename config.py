@@ -30,7 +30,7 @@ def get_config():
     parser.add_argument("--use_common_layer", action='store_true', default=False)
     parser.add_argument("--use_popart", action='store_false', default=True)
     parser.add_argument("--use_feature_popart", action='store_true', default=False, help="Whether to apply popart to the inputs")
-    parser.add_argument("--use_feature_normlization", action='store_false', default=True, help="Whether to apply layernorm to the inputs")   
+    parser.add_argument("--use_feature_normalization", action='store_false', default=True, help="Whether to apply layernorm to the inputs")   
     parser.add_argument("--use_orthogonal", action='store_false', default=True, help="Whether to use Orthogonal initialization for weights and 0 initialization for biases") 
     parser.add_argument("--gain", type=float, default=0.01, help="The gain # of last action layer")   
         
