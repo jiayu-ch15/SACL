@@ -8,6 +8,7 @@ import shutil
 import numpy as np
 import itertools
 import wandb
+from tensorboardX import SummaryWriter
 import socket
 import setproctitle
 from pathlib import Path
@@ -99,15 +100,34 @@ def main(args):
         os.makedirs(str(run_dir))
     
     # wandb
-    run = wandb.init(config=all_args, 
-            project=all_args.env_name,
-            entity=all_args.user_name,
-            notes=socket.gethostname(),
-            name=str(all_args.algorithm_name) + "_" + str(all_args.experiment_name) + "_seed" + str(all_args.seed),
-            group=all_args.scenario_name,
-            dir=str(run_dir),
-            job_type="training",
-            reinit=True)
+    if all_args.use_wandb:
+        run = wandb.init(config=all_args, 
+                project=all_args.env_name,
+                entity=all_args.user_name,
+                notes=socket.gethostname(),
+                name=str(all_args.algorithm_name) + "_" + str(all_args.experiment_name) + "_seed" + str(all_args.seed),
+                group=all_args.scenario_name,
+                dir=str(run_dir),
+                job_type="training",
+                reinit=True)
+    else:
+        if not run_dir.exists():
+            curr_run = 'run1'
+        else:
+            exst_run_nums = [int(str(folder.name).split('run')[1]) for folder in run_dir.iterdir() if str(folder.name).startswith('run')]
+            if len(exst_run_nums) == 0:
+                curr_run = 'run1'
+            else:
+                curr_run = 'run%i' % (max(exst_run_nums) + 1)
+        run_dir = run_dir / curr_run
+        if not run_dir.exists():
+            os.makedirs(str(run_dir))
+
+        log_dir = str(run_dir / 'logs')       
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+        writter = SummaryWriter(log_dir)
+
     setproctitle.setproctitle(str(all_args.algorithm_name) + "-" + str(all_args.env_name) + "-" + str(all_args.experiment_name) + "@" + str(all_args.user_name))                  
     
     # seed
@@ -468,13 +488,13 @@ def main(args):
                 torch.save({
                             'model': actor_critic
                             }, 
-                            str(wandb.run.dir) + "/agent_model.pt")               
+                            str(run_dir) + "/agent_model.pt")               
             else:
                 for agent_id in range(num_agents):                                                  
                     torch.save({
                                 'model': actor_critic[agent_id]
                                 }, 
-                                str(wandb.run.dir) + "/agent%i_model" % agent_id + ".pt")
+                                str(run_dir) + "/agent%i_model" % agent_id + ".pt")
 
         # log information
         if episode % all_args.log_interval == 0:
@@ -489,34 +509,55 @@ def main(args):
                         all_args.num_env_steps,
                         int(total_num_steps / (end - start))))
             if all_args.share_policy:
-                wandb.log({"value_loss": value_loss}, step=total_num_steps)
-                wandb.log({"action_loss": action_loss}, step=total_num_steps)
-                wandb.log({"dist_entropy": dist_entropy}, step=total_num_steps)
-                wandb.log({"grad_norm": grad_norm}, step=total_num_steps)
-                wandb.log({"KL_divloss": KL_divloss}, step=total_num_steps)
-                wandb.log({"ratio": ratio}, step=total_num_steps)
-                wandb.log({"average_episode_rewards": np.mean(buffer.rewards) * all_args.episode_length}, step=total_num_steps)
                 print("value loss of agent: " + str(value_loss))
                 print("average episode rewards of agent: " + str(np.mean(buffer.rewards) * all_args.episode_length))
+                if all_args.use_wandb:
+                    wandb.log({"value_loss": value_loss}, step=total_num_steps)
+                    wandb.log({"action_loss": action_loss}, step=total_num_steps)
+                    wandb.log({"dist_entropy": dist_entropy}, step=total_num_steps)
+                    wandb.log({"grad_norm": grad_norm}, step=total_num_steps)
+                    wandb.log({"KL_divloss": KL_divloss}, step=total_num_steps)
+                    wandb.log({"ratio": ratio}, step=total_num_steps)
+                    wandb.log({"average_episode_rewards": np.mean(buffer.rewards) * all_args.episode_length}, step=total_num_steps)
+                else:
+                    writter.add_scalars("value_loss", {"value_loss": value_loss}, total_num_steps)
+                    writter.add_scalars("action_loss", {"action_loss": action_loss}, total_num_steps)
+                    writter.add_scalars("dist_entropy", {"dist_entropy": dist_entropy}, total_num_steps)
+                    writter.add_scalars("grad_norm", {"grad_norm": grad_norm}, total_num_steps)
+                    writter.add_scalars("KL_divloss", {"KL_divloss": KL_divloss}, total_num_steps)
+                    writter.add_scalars("ratio", {"ratio": ratio}, total_num_steps)
+                    writter.add_scalars("average_episode_rewards", {"average_episode_rewards": np.mean(buffer.rewards) * all_args.episode_length}, total_num_steps)
             else:
                 for agent_id in range(num_agents):
-                    wandb.log({"agent%i/value_loss" % agent_id: value_losses[agent_id]}, step=total_num_steps)
-                    wandb.log({"agent%i/action_loss" % agent_id: action_losses[agent_id]}, step=total_num_steps)
-                    wandb.log({"agent%i/dist_entropy" % agent_id: dist_entropies[agent_id]}, step=total_num_steps)
-                    wandb.log({"agent%i/grad_norm" % agent_id: grad_norms[agent_id]}, step=total_num_steps)
-                    wandb.log({"agent%i/KL_divloss" % agent_id: KL_divlosses[agent_id]}, step=total_num_steps)
-                    wandb.log({"agent%i/ratio"% agent_id: ratios[agent_id]}, step=total_num_steps)
-                    wandb.log({"agent%i/average_episode_rewards" % agent_id: np.mean(buffer[agent_id].rewards) * all_args.episode_length}, step=total_num_steps)
                     print("value loss of agent%i: " % agent_id + str(value_losses[agent_id]))
                     print("average episode rewards of agent%i: " % agent_id + str(np.mean(buffer[agent_id].rewards) * all_args.episode_length))
+                    if all_args.use_wandb:
+                        wandb.log({"agent%i/value_loss" % agent_id: value_losses[agent_id]}, step=total_num_steps)
+                        wandb.log({"agent%i/action_loss" % agent_id: action_losses[agent_id]}, step=total_num_steps)
+                        wandb.log({"agent%i/dist_entropy" % agent_id: dist_entropies[agent_id]}, step=total_num_steps)
+                        wandb.log({"agent%i/grad_norm" % agent_id: grad_norms[agent_id]}, step=total_num_steps)
+                        wandb.log({"agent%i/KL_divloss" % agent_id: KL_divlosses[agent_id]}, step=total_num_steps)
+                        wandb.log({"agent%i/ratio"% agent_id: ratios[agent_id]}, step=total_num_steps)
+                        wandb.log({"agent%i/average_episode_rewards" % agent_id: np.mean(buffer[agent_id].rewards) * all_args.episode_length}, step=total_num_steps)
+                    else:
+                        writter.add_scalars("agent%i/value_loss" % agent_id,{"agent%i/value_loss" % agent_id: value_losses[agent_id]}, total_num_steps)
+                        writter.add_scalars("agent%i/action_loss" % agent_id,{"agent%i/action_loss" % agent_id: action_losses[agent_id]}, total_num_steps)
+                        writter.add_scalars("agent%i/dist_entropy" % agent_id,{"agent%i/dist_entropy" % agent_id: dist_entropies[agent_id]}, total_num_steps)
+                        writter.add_scalars("agent%i/grad_norm" % agent_id,{"agent%i/grad_norm" % agent_id: grad_norms[agent_id]}, total_num_steps)
+                        writter.add_scalars("agent%i/KL_divloss" % agent_id,{"agent%i/KL_divloss" % agent_id: KL_divlosses[agent_id]}, total_num_steps)
+                        writter.add_scalars("agent%i/ratio"% agent_id,{"agent%i/ratio"% agent_id: ratios[agent_id]}, total_num_steps)
+                        writter.add_scalars("agent%i/average_episode_rewards" % agent_id,{"agent%i/average_episode_rewards" % agent_id: np.mean(buffer[agent_id].rewards) * all_args.episode_length}, total_num_steps)
+                    
             if all_args.env_name == "MPE":
                 for agent_id in range(num_agents):
                     show_rewards = []
                     for info in infos:                        
                         if 'individual_reward' in info[agent_id].keys():
-                            show_rewards.append(info[agent_id]['individual_reward'])  
-                    wandb.log({'agent%i/individual_rewards' % agent_id: np.mean(show_rewards)}, step=total_num_steps)
-        
+                            show_rewards.append(info[agent_id]['individual_reward']) 
+                    if all_args.use_wandb: 
+                        wandb.log({'agent%i/individual_rewards' % agent_id: np.mean(show_rewards)}, step=total_num_steps)
+                    else:
+                        writter.add_scalars('agent%i/individual_rewards' % agent_id,{'agent%i/individual_rewards' % agent_id: np.mean(show_rewards)}, total_num_steps)
         if episode % all_args.eval_interval == 0 and all_args.eval:
             eval_episode_rewards = []
             eval_obs = eval_envs.reset()
@@ -612,16 +653,26 @@ def main(args):
             eval_episode_rewards = np.array(eval_episode_rewards)
             if all_args.share_policy:
                 print("eval average episode rewards of agent: " + str(np.mean(np.sum(eval_episode_rewards,axis=0))))
-                wandb.log({"eval_average_episode_rewards": np.mean(np.sum(eval_episode_rewards,axis=0))}, step=total_num_steps)
+                if all_args.use_wandb:
+                    wandb.log({"eval_average_episode_rewards": np.mean(np.sum(eval_episode_rewards,axis=0))}, step=total_num_steps)
+                else:
+                    writter.add_scalars("eval_average_episode_rewards",{"eval_average_episode_rewards": np.mean(np.sum(eval_episode_rewards,axis=0))}, total_num_steps)
             else:
                 for agent_id in range(num_agents):
                     print("eval average episode rewards of agent%i: " % agent_id + str(np.mean(np.sum(eval_episode_rewards[:,:,agent_id],axis=0))))
-                    wandb.log({"agent%i/eval_average_episode_rewards" % agent_id: np.mean(np.sum(eval_episode_rewards[:,:,agent_id],axis=0))}, step=total_num_steps)
-
+                    if all_args.use_wandb:
+                        wandb.log({"agent%i/eval_average_episode_rewards" % agent_id: np.mean(np.sum(eval_episode_rewards[:,:,agent_id],axis=0))}, step=total_num_steps)
+                    else:
+                        writter.add_scalars("agent%i/eval_average_episode_rewards" % agent_id,{"agent%i/eval_average_episode_rewards" % agent_id: np.mean(np.sum(eval_episode_rewards[:,:,agent_id],axis=0))}, total_num_steps)
     envs.close()
     if all_args.eval:
         eval_envs.close()
-    run.finish()
+        
+    if all_args.use_wandb:
+        run.finish()
+    else:
+        writter.export_scalars_to_json(str(log_dir + '/summary.json'))
+        writter.close()
 
 if __name__ == "__main__":
     main(sys.argv[1:])

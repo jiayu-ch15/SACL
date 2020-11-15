@@ -7,6 +7,7 @@ import glob
 import shutil
 import numpy as np
 import wandb
+from tensorboardX import SummaryWriter
 import socket
 import setproctitle
 from functools import reduce
@@ -106,15 +107,34 @@ def main(args):
     if not run_dir.exists():
         os.makedirs(str(run_dir))
 
-    run = wandb.init(config=all_args, 
-            project=all_args.env_name, 
-            entity=all_args.user_name,
-            notes=socket.gethostname(),
-            name=str(all_args.algorithm_name) + "_" + str(all_args.experiment_name) + "_seed" + str(all_args.seed),
-            group=all_args.scenario_name,
-            dir=str(run_dir),
-            job_type="training",
-            reinit=True)
+    if all_args.use_wandb:
+        run = wandb.init(config=all_args, 
+                project=all_args.env_name, 
+                entity=all_args.user_name,
+                notes=socket.gethostname(),
+                name=str(all_args.algorithm_name) + "_" + str(all_args.experiment_name) + "_seed" + str(all_args.seed),
+                group=all_args.scenario_name,
+                dir=str(run_dir),
+                job_type="training",
+                reinit=True)
+    else:
+        if not run_dir.exists():
+            curr_run = 'run1'
+        else:
+            exst_run_nums = [int(str(folder.name).split('run')[1]) for folder in run_dir.iterdir() if str(folder.name).startswith('run')]
+            if len(exst_run_nums) == 0:
+                curr_run = 'run1'
+            else:
+                curr_run = 'run%i' % (max(exst_run_nums) + 1)
+        run_dir = run_dir / curr_run
+        if not run_dir.exists():
+            os.makedirs(str(run_dir))
+
+        log_dir = str(run_dir / 'logs')       
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+        writter = SummaryWriter(log_dir)
+
     setproctitle.setproctitle(str(all_args.algorithm_name) + "-" + str(all_args.env_name) + "-" + str(all_args.experiment_name) + "@" + str(all_args.user_name))
 
     # seed
@@ -473,13 +493,13 @@ def main(args):
                 torch.save({
                             'model': actor_critic
                             }, 
-                            str(wandb.run.dir) + "/agent_model.pt")
+                            str(run_dir) + "/agent_model.pt")
             else:
                 for agent_id in range(num_agents):                                                  
                     torch.save({
                                 'model': actor_critic[agent_id]
                                 }, 
-                                str(wandb.run.dir) + "/agent%i_model" % agent_id + ".pt")
+                                str(run_dir) + "/agent%i_model" % agent_id + ".pt")
 
         # log information
         if episode % all_args.log_interval == 0:
@@ -495,72 +515,116 @@ def main(args):
                         int(total_num_steps / (end - start))))
             if all_args.share_policy:
                 print("value loss of agent: " + str(value_loss))
-                wandb.log({"value_loss": value_loss}, step=total_num_steps)
-                wandb.log({"action_loss": action_loss}, step=total_num_steps)
-                wandb.log({"dist_entropy": dist_entropy}, step=total_num_steps)
-                wandb.log({"grad_norm": grad_norm}, step=total_num_steps)
-                wandb.log({"KL_divloss": KL_divloss}, step=total_num_steps)
-                wandb.log({"ratio": ratio}, step=total_num_steps)
+                if all_args.use_wandb:
+                    wandb.log({"value_loss": value_loss}, step=total_num_steps)
+                    wandb.log({"action_loss": action_loss}, step=total_num_steps)
+                    wandb.log({"dist_entropy": dist_entropy}, step=total_num_steps)
+                    wandb.log({"grad_norm": grad_norm}, step=total_num_steps)
+                    wandb.log({"KL_divloss": KL_divloss}, step=total_num_steps)
+                    wandb.log({"ratio": ratio}, step=total_num_steps)
+                else:
+                    writter.add_scalars("value_loss", {"value_loss": value_loss}, total_num_steps)
+                    writter.add_scalars("action_loss", {"action_loss": action_loss}, total_num_steps)
+                    writter.add_scalars("dist_entropy", {"dist_entropy": dist_entropy}, total_num_steps)
+                    writter.add_scalars("grad_norm", {"grad_norm": grad_norm}, total_num_steps)
+                    writter.add_scalars("KL_divloss", {"KL_divloss": KL_divloss}, total_num_steps)
+                    writter.add_scalars("ratio", {"ratio": ratio}, total_num_steps)
             else:
                 for agent_id in range(num_agents):
                     print("value loss of agent%i: " % agent_id + str(value_losses[agent_id])) 
-                    wandb.log({"agent%i/value_loss" % agent_id: value_losses[agent_id]}, step=total_num_steps)
-                    wandb.log({"agent%i/action_loss" % agent_id: action_losses[agent_id]}, step=total_num_steps)
-                    wandb.log({"agent%i/dist_entropy" % agent_id: dist_entropies[agent_id]}, step=total_num_steps)
-                    wandb.log({"agent%i/grad_norm" % agent_id: grad_norms[agent_id]}, step=total_num_steps)
-                    wandb.log({"agent%i/KL_divloss" % agent_id: KL_divlosses[agent_id]}, step=total_num_steps)
-                    wandb.log({"agent%i/ratio"% agent_id: ratios[agent_id]}, step=total_num_steps)
+                    if all_args.use_wandb:
+                        wandb.log({"agent%i/value_loss" % agent_id: value_losses[agent_id]}, step=total_num_steps)
+                        wandb.log({"agent%i/action_loss" % agent_id: action_losses[agent_id]}, step=total_num_steps)
+                        wandb.log({"agent%i/dist_entropy" % agent_id: dist_entropies[agent_id]}, step=total_num_steps)
+                        wandb.log({"agent%i/grad_norm" % agent_id: grad_norms[agent_id]}, step=total_num_steps)
+                        wandb.log({"agent%i/KL_divloss" % agent_id: KL_divlosses[agent_id]}, step=total_num_steps)
+                        wandb.log({"agent%i/ratio"% agent_id: ratios[agent_id]}, step=total_num_steps)
+                    else:
+                        writter.add_scalars("agent%i/value_loss" % agent_id,{"agent%i/value_loss" % agent_id: value_losses[agent_id]}, total_num_steps)
+                        writter.add_scalars("agent%i/action_loss" % agent_id,{"agent%i/action_loss" % agent_id: action_losses[agent_id]}, total_num_steps)
+                        writter.add_scalars("agent%i/dist_entropy" % agent_id,{"agent%i/dist_entropy" % agent_id: dist_entropies[agent_id]}, total_num_steps)
+                        writter.add_scalars("agent%i/grad_norm" % agent_id,{"agent%i/grad_norm" % agent_id: grad_norms[agent_id]}, total_num_steps)
+                        writter.add_scalars("agent%i/KL_divloss" % agent_id,{"agent%i/KL_divloss" % agent_id: KL_divlosses[agent_id]}, total_num_steps)
+                        writter.add_scalars("agent%i/ratio"% agent_id,{"agent%i/ratio"% agent_id: ratios[agent_id]}, total_num_steps)
 
             if all_args.env_name == "HideAndSeek":
                 for hider_id in range(num_hiders):
-                    wandb.log({'hider%i/average_step_rewards' % hider_id: np.mean(buffer.rewards[:,:,hider_id])}, step=total_num_steps)
+                    if all_args.use_wandb:
+                        wandb.log({'hider%i/average_step_rewards' % hider_id: np.mean(buffer.rewards[:,:,hider_id])}, step=total_num_steps)
+                    else:
+                        writter.add_scalars({'hider%i/average_step_rewards' % hider_id: np.mean(buffer.rewards[:,:,hider_id])}, total_num_steps)
                 for seeker_id in range(num_seekers):
-                    wandb.log({'seeker%i/average_step_rewards' % seeker_id: np.mean(buffer.rewards[:,:,num_hiders+seeker_id])}, step=total_num_steps)           
-
-                if all_args.num_boxes > 0:
-                    if len(max_box_move_prep) > 0:
-                        wandb.log({'max_box_move_prep': np.mean(max_box_move_prep)}, step=total_num_steps)
-                    if len(max_box_move) > 0:
-                        wandb.log({'max_box_move': np.mean(max_box_move)}, step=total_num_steps)
-                    if len(num_box_lock_prep) > 0:
-                        wandb.log({'num_box_lock_prep': np.mean(num_box_lock_prep)}, step=total_num_steps)
-                    if len(num_box_lock) > 0:
-                        wandb.log({'num_box_lock': np.mean(num_box_lock)}, step=total_num_steps)
-                if all_args.num_ramps > 0:
-                    if len(max_ramp_move_prep) > 0:
-                        wandb.log({'max_ramp_move_prep': np.mean(max_ramp_move_prep)}, step=total_num_steps)
-                    if len(max_ramp_move) > 0:
-                        wandb.log({'max_ramp_move': np.mean(max_ramp_move)}, step=total_num_steps)
-                    if len(num_ramp_lock_prep) > 0:
-                        wandb.log({'num_ramp_lock_prep': np.mean(num_ramp_lock_prep)}, step=total_num_steps)
-                    if len(num_ramp_lock) > 0:
-                        wandb.log({'num_ramp_lock': np.mean(num_ramp_lock)}, step=total_num_steps)
-                if all_args.num_food > 0:
-                    if len(food_eaten) > 0:
-                        wandb.log({'food_eaten': np.mean(food_eaten)}, step=total_num_steps)
-                    if len(food_eaten_prep) > 0:
-                        wandb.log({'food_eaten_prep': np.mean(food_eaten_prep)}, step=total_num_steps)
-            
+                    if all_args.use_wandb:
+                        wandb.log({'seeker%i/average_step_rewards' % seeker_id: np.mean(buffer.rewards[:,:,num_hiders+seeker_id])}, step=total_num_steps)           
+                    else:
+                        writter.add_scalars({'seeker%i/average_step_rewards' % seeker_id: np.mean(buffer.rewards[:,:,num_hiders+seeker_id])}, total_num_steps)           
+                
+                if all_args.use_wandb:
+                    if all_args.num_boxes > 0:
+                        if len(max_box_move_prep) > 0:
+                            wandb.log({'max_box_move_prep': np.mean(max_box_move_prep)}, step=total_num_steps)
+                        if len(max_box_move) > 0:
+                            wandb.log({'max_box_move': np.mean(max_box_move)}, step=total_num_steps)
+                        if len(num_box_lock_prep) > 0:
+                            wandb.log({'num_box_lock_prep': np.mean(num_box_lock_prep)}, step=total_num_steps)
+                        if len(num_box_lock) > 0:
+                            wandb.log({'num_box_lock': np.mean(num_box_lock)}, step=total_num_steps)
+                    if all_args.num_ramps > 0:
+                        if len(max_ramp_move_prep) > 0:
+                            wandb.log({'max_ramp_move_prep': np.mean(max_ramp_move_prep)}, step=total_num_steps)
+                        if len(max_ramp_move) > 0:
+                            wandb.log({'max_ramp_move': np.mean(max_ramp_move)}, step=total_num_steps)
+                        if len(num_ramp_lock_prep) > 0:
+                            wandb.log({'num_ramp_lock_prep': np.mean(num_ramp_lock_prep)}, step=total_num_steps)
+                        if len(num_ramp_lock) > 0:
+                            wandb.log({'num_ramp_lock': np.mean(num_ramp_lock)}, step=total_num_steps)
+                    if all_args.num_food > 0:
+                        if len(food_eaten) > 0:
+                            wandb.log({'food_eaten': np.mean(food_eaten)}, step=total_num_steps)
+                        if len(food_eaten_prep) > 0:
+                            wandb.log({'food_eaten_prep': np.mean(food_eaten_prep)}, step=total_num_steps)
+                
             if all_args.env_name == "BoxLocking" or all_args.env_name == "BlueprintConstruction":  
-                if all_args.share_policy:       
-                    wandb.log({"average_step_rewards": np.mean(buffer.rewards)}, step=total_num_steps)
+                if all_args.share_policy:
+                    if all_args.use_wandb:   
+                        wandb.log({"average_step_rewards": np.mean(buffer.rewards)}, step=total_num_steps)
+                    else:
+                        writter.add_scalars("average_step_rewards",{"average_step_rewards": np.mean(buffer.rewards)}, total_num_steps)
                 else:
                     for agent_id in range(num_agents):
-                        wandb.log({"agent%i/average_step_rewards" % agent_id: np.mean(buffer.rewards[:,:,agent_id])}, step=total_num_steps) 
-                
-                wandb.log({'discard_episode': discard_episode}, step=total_num_steps)
-                
-                if trials > 0:
-                    wandb.log({'success_rate': success/trials}, step=total_num_steps) 
-                    print("success rate is {}.".format(success/trials))
+                        if all_args.use_wandb:
+                            wandb.log({"agent%i/average_step_rewards" % agent_id: np.mean(buffer.rewards[:,:,agent_id])}, step=total_num_steps) 
+                        else:
+                            writter.add_scalars("agent%i/average_step_rewards" % agent_id,{"agent%i/average_step_rewards" % agent_id: np.mean(buffer.rewards[:,:,agent_id])}, total_num_steps) 
+
+                if all_args.use_wandb:
+                    wandb.log({'discard_episode': discard_episode}, step=total_num_steps)
                 else:
-                    wandb.log({'success_rate': 0.0}, step=total_num_steps) 
+                    writter.add_scalars('discard_episode',{'discard_episode': discard_episode}, total_num_steps)
+
+                if trials > 0:
+                    print("success rate is {}.".format(success/trials))
+                    if all_args.use_wandb:
+                        wandb.log({'success_rate': success/trials}, step=total_num_steps)
+                    else:  
+                        writter.add_scalars('success_rate',{'success_rate': success/trials}, total_num_steps)               
+                else:
+                    if all_args.use_wandb:
+                        wandb.log({'success_rate': 0.0}, step=total_num_steps) 
+                    else:
+                        writter.add_scalars('success_rate',{'success_rate': 0.0}, total_num_steps) 
                         
-                if len(lock_rate) > 0: 
-                    wandb.log({'lock_rate': np.mean(lock_rate)}, step=total_num_steps)  
+                if len(lock_rate) > 0:
+                    if all_args.use_wandb: 
+                        wandb.log({'lock_rate': np.mean(lock_rate)}, step=total_num_steps) 
+                    else:
+                        writter.add_scalars('lock_rate',{'lock_rate': np.mean(lock_rate)}, total_num_steps) 
  
-                if len(activated_sites) > 0: 
-                    wandb.log({'activated_sites': np.mean(activated_sites)}, step=total_num_steps)  
+                if len(activated_sites) > 0:
+                    if all_args.use_wandb:
+                        wandb.log({'activated_sites': np.mean(activated_sites)}, step=total_num_steps) 
+                    else:
+                        writter.add_scalars('activated_sites',{'activated_sites': np.mean(activated_sites)}, total_num_steps)
                     
         # eval 
         if episode % all_args.eval_interval == 0 and all_args.eval:
@@ -665,27 +729,49 @@ def main(args):
 
             if all_args.env_name == "HideAndSeek":
                 for hider_id in range(num_hiders):
-                    wandb.log({'hider%i/eval_average_episode_rewards' % hider_id: np.mean(eval_episode_rewards[:,hider_id])}, step=total_num_steps)
+                    if all_args.use_wandb:
+                        wandb.log({'hider%i/eval_average_episode_rewards' % hider_id: np.mean(eval_episode_rewards[:,hider_id])}, step=total_num_steps)
+                    else:
+                        writter.add_scalars('hider%i/eval_average_episode_rewards' % hider_id,{'hider%i/eval_average_episode_rewards' % hider_id: np.mean(eval_episode_rewards[:,hider_id])}, total_num_steps)
                 for seeker_id in range(num_seekers):
-                    wandb.log({'seeker%i/eval_average_episode_rewards' % seeker_id: np.mean(eval_episode_rewards[:,num_hiders+seeker_id])}, step=total_num_steps)           
+                    if all_args.use_wandb:
+                        wandb.log({'seeker%i/eval_average_episode_rewards' % seeker_id: np.mean(eval_episode_rewards[:,num_hiders+seeker_id])}, step=total_num_steps)
+                    else:
+                        writter.add_scalars('seeker%i/eval_average_episode_rewards' % seeker_id,{'seeker%i/eval_average_episode_rewards' % seeker_id: np.mean(eval_episode_rewards[:,num_hiders+seeker_id])}, total_num_steps)                     
             
             if all_args.env_name == "BoxLocking" or all_args.env_name == "BlueprintConstruction":  
-                if all_args.share_policy:       
-                    wandb.log({"eval_average_episode_rewards": np.mean(eval_episode_rewards)}, step=total_num_steps)
+                if all_args.share_policy:
+                    if all_args.use_wandb:      
+                        wandb.log({"eval_average_episode_rewards": np.mean(eval_episode_rewards)}, step=total_num_steps)
+                    else:
+                        writter.add_scalars("eval_average_episode_rewards",{"eval_average_episode_rewards": np.mean(eval_episode_rewards)}, total_num_steps)
                 else:
                     for agent_id in range(num_agents):
-                        wandb.log({"agent%i/eval_average_episode_rewards" % agent_id: np.mean(eval_episode_rewards[:,agent_id])}, step=total_num_steps) 
-                            
+                        if all_args.use_wandb:
+                            wandb.log({"agent%i/eval_average_episode_rewards" % agent_id: np.mean(eval_episode_rewards[:,agent_id])}, step=total_num_steps) 
+                        else:
+                            writter.add_scalars("agent%i/eval_average_episode_rewards" % agent_id,{"agent%i/eval_average_episode_rewards" % agent_id: np.mean(eval_episode_rewards[:,agent_id])}, total_num_steps)   
                 if eval_trials > 0:
-                    wandb.log({'eval_success_rate': eval_success/eval_trials}, step=total_num_steps) 
                     print("eval success rate is {}.".format(eval_success/eval_trials))
+                    if all_args.use_wandb:
+                        wandb.log({'eval_success_rate': eval_success/eval_trials}, step=total_num_steps)                
+                    else:
+                        writter.add_scalars('eval_success_rate',{'eval_success_rate': eval_success/eval_trials}, total_num_steps)                
                 else:
-                    wandb.log({'eval_success_rate': 0.0}, step=total_num_steps)                       
+                    if all_args.use_wandb:
+                        wandb.log({'eval_success_rate': 0.0}, step=total_num_steps) 
+                    else:
+                        writter.add_scalars('eval_success_rate',{'eval_success_rate': 0.0}, total_num_steps)            
                 if len(eval_lock_rate) > 0: 
-                    wandb.log({'eval_lock_rate': np.mean(eval_lock_rate)}, step=total_num_steps)  
-                if len(eval_activated_sites) > 0: 
-                    wandb.log({'eval_activated_sites': np.mean(eval_activated_sites)}, step=total_num_steps)  
-    
+                    if all_args.use_wandb:
+                        wandb.log({'eval_lock_rate': np.mean(eval_lock_rate)}, step=total_num_steps)  
+                    else:
+                        writter.add_scalars('eval_lock_rate',{'eval_lock_rate': np.mean(eval_lock_rate)}, total_num_steps)  
+                if len(eval_activated_sites) > 0:
+                    if all_args.use_wandb: 
+                        wandb.log({'eval_activated_sites': np.mean(eval_activated_sites)}, step=total_num_steps)  
+                    else:
+                        writter.add_scalars('eval_activated_sites',{'eval_activated_sites': np.mean(eval_activated_sites)}, total_num_steps)  
     envs.close()
     if all_args.eval:
         eval_envs.close()       
