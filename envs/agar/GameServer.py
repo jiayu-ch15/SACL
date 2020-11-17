@@ -1,10 +1,10 @@
 import math
-from .Config import Config
+from envs.agar.Config import Config
 import random
-from .modules import *
-from .entity import *
-from .gamemodes import *
-from .players import Player, Bot
+from envs.agar.modules import *
+from envs.agar.entity import *
+from envs.agar.gamemodes import *
+from envs.agar.players import Player, Bot
 import numpy as np
 
 # noinspection PyAttributeOutsideInit

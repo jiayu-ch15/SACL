@@ -184,7 +184,7 @@ def main(args):
                     use_value_active_masks=all_args.use_value_active_masks,
                     device=device)
                 
-        #replay buffer
+        # replay buffer
         buffer = SharedReplayBuffer(num_agents,
                                     all_args.episode_length, 
                                     all_args.n_rollout_threads,
@@ -197,9 +197,9 @@ def main(args):
         agents = []
         for agent_id in range(num_agents):
             if all_args.model_dir==None or all_args.model_dir=="":
-                ac = Policy(envs.observation_space[0],
-                            envs.share_observation_space[0],  
-                            envs.action_space[0],
+                ac = Policy(envs.observation_space[agent_id],
+                            envs.share_observation_space[agent_id],  
+                            envs.action_space[agent_id],
                             gain = all_args.gain,
                             base_kwargs={'naive_recurrent': all_args.naive_recurrent_policy,
                                     'recurrent': all_args.recurrent_policy,
@@ -248,13 +248,13 @@ def main(args):
             actor_critic.append(ac)
             agents.append(agent) 
             
-        #replay buffer
+        # replay buffer
         buffer = SharedReplayBuffer(num_agents,
                                     all_args.episode_length, 
                                     all_args.n_rollout_threads,
-                                    envs.observation_space[0],
-                                    envs.share_observation_space[0],  
-                                    envs.action_space[0],
+                                    envs.observation_space[agent_id],
+                                    envs.share_observation_space[agent_id],  
+                                    envs.action_space[agent_id],
                                     all_args.hidden_size)
     
     # reset env 
@@ -501,7 +501,7 @@ def main(args):
                 incre_battles_won = []
                 incre_battles_game = []
 
-                for i,info in enumerate(infos):
+                for i, info in enumerate(infos):
                     if 'battles_won' in info[0].keys():
                         battles_won.append(info[0]['battles_won'])
                         incre_battles_won.append(info[0]['battles_won']-last_battles_won[i])                         

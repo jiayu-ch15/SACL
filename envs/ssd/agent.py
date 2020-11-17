@@ -184,7 +184,7 @@ class HarvestAgent(Agent):
         #return None
         #return Box(low=0.0, high=0.0, shape=(2 * self.view_len + 1,
         #                                     2 * self.view_len + 1, 3), dtype=np.float32) #[]
-
+    
     def hit(self, char):
         if char == 'F':
             self.reward_this_turn -= 50

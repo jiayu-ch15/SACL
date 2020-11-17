@@ -1,4 +1,4 @@
-from ..modules import *
+from envs.agar.modules import *
 import math
 
 class Player:

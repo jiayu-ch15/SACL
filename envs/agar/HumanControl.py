@@ -1,6 +1,6 @@
 from pyglet.window import key
 import numpy as np
-from agar.Agar_Env import AgarEnv
+from envs.agar.Agar_Env import AgarEnv
 import time
 
 render = True

@@ -1,5 +1,5 @@
-from .Mode import Mode
-from ..modules import *
+from envs.agar.gamemodes.Mode import Mode
+from envs.agar.modules import *
 import random
 import math
 

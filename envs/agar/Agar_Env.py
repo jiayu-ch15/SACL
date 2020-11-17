@@ -5,8 +5,8 @@
 # Original Ogar-Edited project https://github.com/m-byte918/MultiOgar-Edited
 import gym
 from gym import spaces
-from .GameServer import GameServer
-from .players import Player, Bot
+from envs.agar.GameServer import GameServer
+from envs.agar.players import Player, Bot
 import numpy as np
 from copy import deepcopy
 
@@ -65,7 +65,7 @@ class AgarEnv(gym.Env):
     def step(self, actions_):    
         actions = deepcopy(actions_)
         reward = np.zeros((self.num_agents, ))
-        done = np.zeros((self.num_agents, ))
+        done = np.zeros((self.num_agents, 1))
         info = [{} for i in range(self.num_agents)]
         
         first = True
@@ -110,7 +110,7 @@ class AgarEnv(gym.Env):
         if self.share_reward:
             reward = [[global_reward]] * self.num_agents
         
-        return o, reward, done, info, [[None]]*self.num_agents
+        return o, reward, done, info
     
     def step_(self, actions_):
         actions = deepcopy(actions_)
@@ -190,7 +190,7 @@ class AgarEnv(gym.Env):
             #observations = np.array(observations)
             #observations = {'agent-'+str(i): observations[i] for i in range(self.num_agents)}
             if success:break
-        return observations, [[None]]*self.num_agents
+        return observations
 
     def parse_obs(self, player, id, action = None):       
         '''

@@ -1,8 +1,8 @@
-from .Food import Food
-from .Cell import Cell
+from envs.agar.entity.Food import Food
+from envs.agar.entity.Cell import Cell
 import math
 import random
-from ..modules import *
+from envs.agar.modules import *
 
 class MotherCell(Cell):
     def __init__(self, gameServer, owner, position, radius):

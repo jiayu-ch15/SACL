@@ -193,7 +193,7 @@ def main(args):
                     use_value_active_masks=all_args.use_value_active_masks,
                     device=device)
                 
-        #replay buffer
+        # replay buffer
         buffer = SharedReplayBuffer(num_agents,
                                 all_args.episode_length, 
                                 all_args.n_rollout_threads,
@@ -258,7 +258,7 @@ def main(args):
             actor_critic.append(ac)
             agents.append(agent) 
             
-            #replay buffer
+            # replay buffer
             ro = SeparatedReplayBuffer(all_args.episode_length, 
                                     all_args.n_rollout_threads,
                                     envs.observation_space[agent_id], 

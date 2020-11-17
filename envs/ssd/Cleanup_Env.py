@@ -1,9 +1,9 @@
 import numpy as np
 import random
 
-from .constants import CLEANUP_MAP
-from .MapEnv import MapEnv, ACTIONS
-from .Agent import CleanupAgent  # CLEANUP_VIEW_SIZE
+from envs.ssd.constants import CLEANUP_MAP
+from envs.ssd.map import Map, ACTIONS
+from envs.ssd.agent import CleanupAgent  # CLEANUP_VIEW_SIZE
 
 # Add custom actions to the agent
 ACTIONS['FIRE'] = 5  # length of firing beam
@@ -23,7 +23,7 @@ wasteSpawnProbability = 0.5
 appleRespawnProbability = 0.05
 
 
-class CleanupEnv(MapEnv):
+class CleanupEnv(Map):
 
     def __init__(self, args, ascii_map=CLEANUP_MAP):
         super().__init__(args, ascii_map)
@@ -75,6 +75,15 @@ class CleanupEnv(MapEnv):
         for agent in self.agents.values():
             observation_space.append(agent.observation_space)
         return observation_space
+
+    @property
+    def share_observation_space(self):
+        share_observation_space = []
+        for agent in self.agents.values():
+            channel_dim = agent.observation_space[0]
+            space = [channel_dim * self.num_agents, agent.observation_space[1], agent.observation_space[2]]
+            share_observation_space.append(space)
+        return share_observation_space
 
     def custom_reset(self):
         """Initialize the walls and the waste"""

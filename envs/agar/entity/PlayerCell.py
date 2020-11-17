@@ -1,4 +1,4 @@
-from .Cell import Cell
+from envs.agar.entity.Cell import Cell
 import math
 
 class PlayerCell(Cell):

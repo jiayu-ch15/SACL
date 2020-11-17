@@ -200,9 +200,9 @@ def main(args):
         agents = []
         for agent_id in range(num_agents):
             if all_args.model_dir==None or all_args.model_dir=="":
-                ac = Policy(envs.observation_space[0],
-                    envs.share_observation_space[0], 
-                    envs.action_space[0],
+                ac = Policy(envs.observation_space[agent_id],
+                    envs.share_observation_space[agent_id], 
+                    envs.action_space[agent_id],
                     gain = all_args.gain,
                     base_kwargs={'naive_recurrent': all_args.naive_recurrent_policy,
                                 'recurrent': all_args.recurrent_policy,
@@ -254,9 +254,9 @@ def main(args):
         buffer = SharedReplayBuffer(num_agents,
                     all_args.episode_length, 
                     all_args.n_rollout_threads,
-                    envs.observation_space[0],
-                    envs.share_observation_space[0], 
-                    envs.action_space[0],
+                    envs.observation_space[agent_id],
+                    envs.share_observation_space[agent_id], 
+                    envs.action_space[agent_id],
                     all_args.hidden_size)
     
     # reset env 

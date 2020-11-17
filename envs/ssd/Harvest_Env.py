@@ -1,8 +1,8 @@
 import numpy as np
 
-from .Agent import HarvestAgent  # HARVEST_VIEW_SIZE
-from .constants import HARVEST_MAP
-from .MapEnv import MapEnv, ACTIONS
+from envs.ssd.agent import HarvestAgent  # HARVEST_VIEW_SIZE
+from envs.ssd.constants import HARVEST_MAP
+from envs.ssd.map import Map, ACTIONS
 
 APPLE_RADIUS = 2
 
@@ -12,10 +12,11 @@ ACTIONS['FIRE'] = 5  # length of firing range
 SPAWN_PROB = [0, 0.005, 0.02, 0.05]
 
 
-class HarvestEnv(MapEnv):
+class HarvestEnv(Map):
 
     def __init__(self, args, ascii_map=HARVEST_MAP):
-        super().__init__(args, ascii_map)        
+        super().__init__(args, ascii_map) 
+        self.num_agents = args.num_agents       
         self.apple_points = []
         for row in range(self.base_map.shape[0]):
             for col in range(self.base_map.shape[1]):
@@ -35,6 +36,15 @@ class HarvestEnv(MapEnv):
         for agent in self.agents.values():
             observation_space.append(agent.observation_space)
         return observation_space
+
+    @property
+    def share_observation_space(self):
+        share_observation_space = []
+        for agent in self.agents.values():
+            channel_dim = agent.observation_space[0]
+            space = [channel_dim * self.num_agents, agent.observation_space[1], agent.observation_space[2]]
+            share_observation_space.append(space)
+        return share_observation_space
 
     def setup_agents(self):
         map_with_agents = self.get_map_with_agents()

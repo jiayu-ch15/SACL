@@ -55,7 +55,7 @@ DEFAULT_COLOURS = {' ': [0, 0, 0],  # Black background
 #         N
 #         |
 
-class MapEnv(object):
+class Map(object):
 
     def __init__(self, args, ascii_map, color_map = None):
         """
@@ -146,89 +146,7 @@ class MapEnv(object):
             for col in range(arr.shape[1]):
                 arr[row, col] = ascii_list[row][col]
         return arr
-    '''
-    def _step(self, actions):
-        """Takes in a dict of actions and converts them to a map update
 
-        Parameters
-        ----------
-        actions: dict {agent-id: int}
-            dict of actions, keyed by agent-id that are passed to the agent. The agent
-            interprets the int and converts it to a command
-
-        Returns
-        -------
-        observations: dict of arrays representing agent observations
-        rewards: dict of rewards for each agent
-        dones: dict indicating whether each agent is done
-        info: dict to pass extra info to gym
-        """
-
-        self.beam_pos = []
-        agent_actions = {}
-        for agent_id, action in actions.items():
-            agent_action = self.agents[agent_id].action_map(action) # such as 'FIRE'
-            agent_actions[agent_id] = agent_action
-
-        # move
-        self.update_moves(agent_actions)
-
-        for agent in self.agents.values():
-            pos = agent.get_pos()
-            new_char = agent.consume(self.world_map[pos[0], pos[1]]) # whether comsume an apple
-            self.world_map[pos[0], pos[1]] = new_char
-
-        # execute custom moves like firing
-        self.update_custom_moves(agent_actions)
-
-        # execute spawning events
-        self.custom_map_update()
-
-        map_with_agents = self.get_map_with_agents()
-
-        observations = {}
-        rewards = {}
-        dones = {}
-        info = {}
-        for agent in self.agents.values():
-            agent.grid = map_with_agents
-            rgb_arr = self.map_to_colors(agent.get_state(), self.color_map)
-            rgb_arr = self.rotate_view(agent.orientation, rgb_arr)
-            observations[agent.agent_id] = rgb_arr
-            rewards[agent.agent_id] = agent.compute_reward()
-            dones[agent.agent_id] = agent.get_done()
-        dones["__all__"] = np.any(list(dones.values()))
-        return observations, rewards, dones, info
-
-    def _reset(self):
-        """Reset the environment.
-
-        This method is performed in between rollouts. It resets the state of
-        the environment.
-
-        Returns
-        -------
-        observation: dict of numpy ndarray
-            the initial observation of the space. The initial reward is assumed
-            to be zero.
-        """
-        self.beam_pos = []
-        self.agents = {}
-        self.setup_agents()
-        self.reset_map()
-        self.custom_map_update()
-
-        map_with_agents = self.get_map_with_agents()
-
-        observations = {}
-        for agent in self.agents.values():
-            agent.grid = map_with_agents
-            # agent.grid = util.return_view(map_with_agents, agent.pos,
-            #                               agent.row_size, agent.col_size)
-            rgb_arr = self.map_to_colors(agent.get_state(), self.color_map)
-            observations[agent.agent_id] = rgb_arr
-        return observations
-    '''
     @property
     def agent_pos(self):
         return [agent.get_pos().tolist() for agent in self.agents.values()]
@@ -731,11 +649,8 @@ class MapEnv(object):
         else:
             return True
 
-    # maddpg
-
     def step(self, actions): #action [1,2,4,3,7]
         """A single environment step. Returns reward, terminated, info."""
-        actions = [np.argmax(a) for a in actions]
         actions_ssd={'agent-{}'.format(i):actions[i] for i in range(self.num_agents)}
         
         self.beam_pos = []
@@ -801,7 +716,7 @@ class MapEnv(object):
             global_reward = np.sum(rewards)
             rewards = [global_reward] * self.num_agents
 
-        return observations, rewards, dones, infos, [[None]]*self.num_agents
+        return observations, rewards, dones, infos
 
     def get_obs_agent(self, agent_id):
         """Returns observation for agent_id.
@@ -834,7 +749,7 @@ class MapEnv(object):
             self.agents['agent-' + str(i)].grid = self.get_map_with_agents()
             observations.append(self.get_obs_agent(i))
         
-        return observations, [[None]]*self.num_agents
+        return observations
 
     def close(self):
         return

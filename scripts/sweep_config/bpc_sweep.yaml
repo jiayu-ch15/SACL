@@ -1,40 +1,46 @@
-program: train_hns_transfertask.py
-project: sweep_BPC
-name: blueprintconstruction
+program: train/train_hns.py
+project: sweep_BoxLocking
+name: boxlocking
 command:
   - ${env}
   - python3
   - ${program}
-  - --attn --use_feature_normlization
   - ${args}
-early_terminate:
-  type: hyperband
-  s: 2
-  eta: 3
-  max_iter: 27
 method: grid
 metric:
   goal: maximize
-  name: hider0/average_step_rewards
+  name: success_rate
 parameters:
   env_name:
     distribution: constant
     value: "BlueprintConstruction"
   scenario_name:
     distribution: constant
-    value: "empty"
+    value: "quadrant"
   algorithm_name:
     distribution: constant
-    value: "hyper_sweep"
+    value: "rmappo"
+  experiment_name:
+    distribution: constant
+    value: "ablation"
   num_agents:
     distribution: constant
     value: 2
-  seed:
+  num_boxes:
     distribution: constant
-    value: 1
+    value: 4
+  floor_size:
+    distribution: constant
+    value: 6.0
+  task_type:
+    distribution: constant
+    value: "all"
+  seed:
+    distribution: categorical
+    values: [1,2,3,4,5]
   n_rollout_threads:
     distribution: constant
-    value: 600
+    value: 250
   data_chunk_length:
     distribution: constant
     value: 10
@@ -43,27 +49,18 @@ parameters:
     value: 50000000
   episode_length:
     distribution: constant
-    value: 400
-  hidden_size:
-    distribution: constant
-    value: 64 
-  layer_N:
-    distribution: constant
-    value: 1
-  attn_size:
-    distribution: constant
-    value: 64
+    value: 240
   num_mini_batch:
     distribution: constant
     value: 1 
   gain:
     distribution: constant
-    value: 1
+    value: 0.01
   lr:
-    distribution: categorical
-    values: [0.01, 0.001, 0.0001]
+    distribution: constant
+    value: 0.0007
   ppo_epoch:
     distribution: categorical
-    values: [5, 15, 20] 
+    values: [5, 10, 15, 20] 
   
 

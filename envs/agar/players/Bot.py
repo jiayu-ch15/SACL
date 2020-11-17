@@ -1,7 +1,7 @@
-from .Player import Player
+from envs.agar.players.Player import Player
 import numpy as np
-from ..modules import *
-from ..entity.Cell import Cell
+from envs.agar.modules import *
+from envs.agar.entity.Cell import Cell
 import random
 from copy import deepcopy
 import numpy as np
