@@ -15,8 +15,8 @@ SPAWN_PROB = [0, 0.005, 0.02, 0.05]
 class HarvestEnv(Map):
 
     def __init__(self, args, ascii_map=HARVEST_MAP):
-        super().__init__(args, ascii_map) 
-        self.num_agents = args.num_agents       
+        super().__init__(args, ascii_map)
+        self.num_agents = args.num_agents
         self.apple_points = []
         for row in range(self.base_map.shape[0]):
             for col in range(self.base_map.shape[1]):
@@ -42,7 +42,8 @@ class HarvestEnv(Map):
         share_observation_space = []
         for agent in self.agents.values():
             channel_dim = agent.observation_space[0]
-            space = [channel_dim * self.num_agents, agent.observation_space[1], agent.observation_space[2]]
+            space = [channel_dim * self.num_agents,
+                     agent.observation_space[1], agent.observation_space[2]]
             share_observation_space.append(space)
         return share_observation_space
 
@@ -77,7 +78,7 @@ class HarvestEnv(Map):
         "See parent class"
         # spawn the apples
         new_apples = self.spawn_apples()
-        self.update_map(new_apples)        
+        self.update_map(new_apples)
 
     def spawn_apples(self):
         """Construct the apples spawned in this step.

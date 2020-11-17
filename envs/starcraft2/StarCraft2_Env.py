@@ -64,6 +64,7 @@ class StarCraft2Env(MultiAgentEnv):
     """The StarCraft II environment for decentralised multi-agent
     micromanagement scenarios.
     """
+
     def __init__(
         self,
         args,
@@ -80,7 +81,7 @@ class StarCraft2Env(MultiAgentEnv):
         obs_terrain_height=False,
         obs_instead_of_state=False,
         obs_timestep_number=False,
-        obs_agent_id = True,
+        obs_agent_id=True,
         state_last_action=True,
         state_timestep_number=False,
         reward_sparse=False,
@@ -208,9 +209,9 @@ class StarCraft2Env(MultiAgentEnv):
         # Observations and state
         self.obs_own_health = obs_own_health
         self.obs_all_health = obs_all_health
-        self.obs_instead_of_state = obs_instead_of_state
+        self.obs_instead_of_state = args.use_obs_instead_of_state
         self.obs_last_action = obs_last_action
-        
+
         self.obs_pathing_grid = obs_pathing_grid
         self.obs_terrain_height = obs_terrain_height
         self.obs_timestep_number = obs_timestep_number
@@ -295,7 +296,7 @@ class StarCraft2Env(MultiAgentEnv):
 
         # Try to avoid leaking SC2 processes on shutdown
         atexit.register(lambda: self.close())
-        
+
         self.action_space = []
         self.observation_space = []
         self.share_observation_space = []
@@ -352,7 +353,7 @@ class StarCraft2Env(MultiAgentEnv):
 
         self.terrain_height = np.flip(
             np.transpose(np.array(list(map_info.terrain_height.data))
-                .reshape(self.map_x, self.map_y)), 1) / 255
+                         .reshape(self.map_x, self.map_y)), 1) / 255
 
     def reset(self):
         """Reset the environment. Required after each full episode.
@@ -384,10 +385,10 @@ class StarCraft2Env(MultiAgentEnv):
         except (protocol.ProtocolError, protocol.ConnectionError):
             self.full_restart()
 
-        available_actions = []     
+        available_actions = []
         for i in range(self.n_agents):
             available_actions.append(self.get_avail_agent_actions(i))
-            
+
         if self.debug:
             logging.debug("Started Episode {}"
                           .format(self._episode_count).center(60, "*"))
@@ -417,11 +418,11 @@ class StarCraft2Env(MultiAgentEnv):
         bad_transition = False
         infos = [{} for i in range(self.n_agents)]
         dones = np.zeros((self.n_agents), dtype=bool)
-        
+
         actions_int = [int(a) for a in actions]
 
         self.last_action = np.eye(self.n_actions)[np.array(actions_int)]
-        
+
         # Collect individual actions
         sc_actions = []
         if self.debug:
@@ -456,9 +457,9 @@ class StarCraft2Env(MultiAgentEnv):
                     "battles_game": self.battles_game,
                     "battles_draw": self.timeouts,
                     "restarts": self.force_restarts,
-                    "bad_transition":bad_transition,
-                    "won":self.win_counted
-                   }
+                    "bad_transition": bad_transition,
+                    "won": self.win_counted
+                }
                 if terminated:
                     dones[i] = True
                 else:
@@ -466,20 +467,20 @@ class StarCraft2Env(MultiAgentEnv):
                         dones[i] = True
                     else:
                         dones[i] = False
-            return self.get_obs(),self.get_state(),[[0]]*self.n_agents, dones, infos, available_actions
+            return self.get_obs(), self.get_state(), [[0]]*self.n_agents, dones, infos, available_actions
 
         self._total_steps += 1
         self._episode_steps += 1
 
         # Update units
         game_end_code = self.update_units()
-        
+
         reward = self.reward_battle()
-        
+
         available_actions = []
         for i in range(self.n_agents):
             available_actions.append(self.get_avail_agent_actions(i))
-            
+
         if game_end_code is not None:
             # Battle is over
             terminated = True
@@ -506,17 +507,17 @@ class StarCraft2Env(MultiAgentEnv):
                 info["episode_limit"] = True
             self.battles_game += 1
             self.timeouts += 1
-            
+
         for i in range(self.n_agents):
             infos[i] = {
                 "battles_won": self.battles_won,
                 "battles_game": self.battles_game,
                 "battles_draw": self.timeouts,
                 "restarts": self.force_restarts,
-                "bad_transition":bad_transition,
-                "won":self.win_counted
-               }
-            
+                "bad_transition": bad_transition,
+                "won": self.win_counted
+            }
+
             if terminated:
                 dones[i] = True
             else:
@@ -542,7 +543,7 @@ class StarCraft2Env(MultiAgentEnv):
         """Construct the action for agent a_id."""
         avail_actions = self.get_avail_agent_actions(a_id)
         assert avail_actions[action] == 1, \
-                "Agent {} cannot perform action {}".format(a_id, action)
+            "Agent {} cannot perform action {}".format(a_id, action)
 
         unit = self.get_unit_by_id(a_id)
         tag = unit.tag
@@ -640,14 +641,14 @@ class StarCraft2Env(MultiAgentEnv):
         target = self.heuristic_targets[a_id]
         if unit.unit_type == self.medivac_id:
             if (target is None or self.agents[target].health == 0 or
-                self.agents[target].health == self.agents[target].health_max):
+                    self.agents[target].health == self.agents[target].health_max):
                 min_dist = math.hypot(self.max_distance_x, self.max_distance_y)
                 min_id = -1
                 for al_id, al_unit in self.agents.items():
                     if al_unit.unit_type == self.medivac_id:
                         continue
                     if (al_unit.health != 0 and
-                        al_unit.health != al_unit.health_max):
+                            al_unit.health != al_unit.health_max):
                         dist = self.distance(unit.pos.x, unit.pos.y,
                                              al_unit.pos.x, al_unit.pos.y)
                         if dist < min_dist:
@@ -665,7 +666,7 @@ class StarCraft2Env(MultiAgentEnv):
                 min_id = -1
                 for e_id, e_unit in self.enemies.items():
                     if (unit.unit_type == self.marauder_id and
-                        e_unit.unit_type == self.medivac_id):
+                            e_unit.unit_type == self.medivac_id):
                         continue
                     if e_unit.health > 0:
                         dist = self.distance(unit.pos.x, unit.pos.y,
@@ -684,7 +685,7 @@ class StarCraft2Env(MultiAgentEnv):
 
         # Check if the action is available
         if (self.heuristic_rest and
-            self.get_avail_agent_actions(a_id)[action_num] == 0):
+                self.get_avail_agent_actions(a_id)[action_num] == 0):
 
             # Move towards the target rather than attacking/healing
             if unit.unit_type == self.medivac_id:
@@ -695,37 +696,37 @@ class StarCraft2Env(MultiAgentEnv):
             delta_x = target_unit.pos.x - unit.pos.x
             delta_y = target_unit.pos.y - unit.pos.y
 
-            if abs(delta_x) > abs(delta_y): # east or west
-                if delta_x > 0: # east
-                    target_pos=sc_common.Point2D(
+            if abs(delta_x) > abs(delta_y):  # east or west
+                if delta_x > 0:  # east
+                    target_pos = sc_common.Point2D(
                         x=unit.pos.x + self._move_amount, y=unit.pos.y)
                     action_num = 4
-                else: # west
-                    target_pos=sc_common.Point2D(
+                else:  # west
+                    target_pos = sc_common.Point2D(
                         x=unit.pos.x - self._move_amount, y=unit.pos.y)
                     action_num = 5
-            else: # north or south
-                if delta_y > 0: # north
-                    target_pos=sc_common.Point2D(
+            else:  # north or south
+                if delta_y > 0:  # north
+                    target_pos = sc_common.Point2D(
                         x=unit.pos.x, y=unit.pos.y + self._move_amount)
                     action_num = 2
-                else: # south
-                    target_pos=sc_common.Point2D(
+                else:  # south
+                    target_pos = sc_common.Point2D(
                         x=unit.pos.x, y=unit.pos.y - self._move_amount)
                     action_num = 3
 
             cmd = r_pb.ActionRawUnitCommand(
-                ability_id = actions['move'],
-                target_world_space_pos = target_pos,
-                unit_tags = [tag],
-                queue_command = False)
+                ability_id=actions['move'],
+                target_world_space_pos=target_pos,
+                unit_tags=[tag],
+                queue_command=False)
         else:
             # Attack/heal the target
             cmd = r_pb.ActionRawUnitCommand(
-                ability_id = action_id,
-                target_unit_tag = target_tag,
-                unit_tags = [tag],
-                queue_command = False)
+                ability_id=action_id,
+                target_unit_tag=target_tag,
+                unit_tags=[tag],
+                queue_command=False)
 
         sc_action = sc_pb.Action(action_raw=r_pb.ActionRaw(unit_command=cmd))
         return sc_action, action_num
@@ -935,7 +936,7 @@ class StarCraft2Env(MultiAgentEnv):
         enemy_feats = np.zeros(enemy_feats_dim, dtype=np.float32)
         ally_feats = np.zeros(ally_feats_dim, dtype=np.float32)
         own_feats = np.zeros(own_feats_dim, dtype=np.float32)
-        agent_id_feats = np.zeros(self.n_agents,dtype=np.float32)
+        agent_id_feats = np.zeros(self.n_agents, dtype=np.float32)
 
         if unit.health > 0:  # otherwise dead, return all zeros
             x = unit.pos.x
@@ -951,7 +952,7 @@ class StarCraft2Env(MultiAgentEnv):
 
             if self.obs_pathing_grid:
                 move_feats[
-                    ind : ind + self.n_obs_pathing
+                    ind: ind + self.n_obs_pathing
                 ] = self.get_surrounding_pathing(unit)
                 ind += self.n_obs_pathing
 
@@ -1032,17 +1033,16 @@ class StarCraft2Env(MultiAgentEnv):
                         type_id = self.get_unit_type_id(al_unit, True)
                         ally_feats[i, ind + type_id] = 1
                         ind += self.unit_type_bits
-                    
+
                     if self.obs_last_action:
                         ally_feats[i, ind:] = self.last_action[al_id]
-                        
 
             # Own features
             ind = 0
-            own_feats[0]=1 # visible
-            own_feats[1]=0 # distance
-            own_feats[2]=0 # X
-            own_feats[3]=0 # Y
+            own_feats[0] = 1  # visible
+            own_feats[1] = 0  # distance
+            own_feats[2] = 0  # X
+            own_feats[3] = 0  # Y
             ind = 4
             if self.obs_own_health:
                 own_feats[ind] = unit.health / unit.health_max
@@ -1056,31 +1056,31 @@ class StarCraft2Env(MultiAgentEnv):
                 type_id = self.get_unit_type_id(unit, True)
                 own_feats[ind + type_id] = 1
                 ind += self.unit_type_bits
-  
+
             if self.obs_last_action:
                 own_feats[ind:] = self.last_action[agent_id]
-                
+
         agent_obs = np.concatenate(
                                   (
                                       ally_feats.flatten(),
                                       enemy_feats.flatten(),
-                                      move_feats.flatten(),               
+                                      move_feats.flatten(),
                                       own_feats.flatten()
                                   )
-                              )
-        
+        )
+
         # Agent id features
         if self.obs_agent_id:
-            agent_id_feats[agent_id]=1.
+            agent_id_feats[agent_id] = 1.
             agent_obs = np.concatenate(
                                       (
                                           ally_feats.flatten(),
                                           enemy_feats.flatten(),
-                                          move_feats.flatten(),               
+                                          move_feats.flatten(),
                                           own_feats.flatten(),
                                           agent_id_feats.flatten()
                                       )
-                                  )
+            )
 
         if self.obs_timestep_number:
             agent_obs = np.append(agent_obs,
@@ -1237,7 +1237,7 @@ class StarCraft2Env(MultiAgentEnv):
         own_feats = 4 + self.unit_type_bits
         if self.obs_own_health:
             own_feats += 1 + self.shield_bits_ally
-            
+
         if self.obs_last_action:
             own_feats += self.n_actions
 
@@ -1263,26 +1263,26 @@ class StarCraft2Env(MultiAgentEnv):
 
         enemy_feats = n_enemies * n_enemy_feats
         ally_feats = n_allies * n_ally_feats
-        
+
         all_feats = move_feats + enemy_feats + ally_feats + own_feats
-        
-        agent_id_feats=0
-        timestep_feats=0
+
+        agent_id_feats = 0
+        timestep_feats = 0
 
         if self.obs_agent_id:
             agent_id_feats = self.n_agents
             all_feats += agent_id_feats
-            
+
         if self.obs_timestep_number:
-            timestep_feats=1
+            timestep_feats = 1
             all_feats += timestep_feats
-            
-        return [all_feats, [n_allies, n_ally_feats], [n_enemies, n_enemy_feats], [1, move_feats], [1,own_feats+agent_id_feats+timestep_feats]]
+
+        return [all_feats, [n_allies, n_ally_feats], [n_enemies, n_enemy_feats], [1, move_feats], [1, own_feats+agent_id_feats+timestep_feats]]
 
     def get_state_size(self):
         """Returns the size of the global state."""
         if self.obs_instead_of_state:
-            return self.get_obs_size() * self.n_agents
+            return [self.get_obs_size() * self.n_agents, [self.n_agents, self.get_obs_size()]]
 
         nf_al = 4 + self.shield_bits_ally + self.unit_type_bits
         nf_en = 3 + self.shield_bits_enemy + self.unit_type_bits
@@ -1292,8 +1292,8 @@ class StarCraft2Env(MultiAgentEnv):
 
         size = enemy_state + ally_state
 
-        last_action_state=0
-        timestep_state=0
+        last_action_state = 0
+        timestep_state = 0
 
         if self.state_last_action:
             last_action_state = self.n_agents * self.n_actions
@@ -1302,7 +1302,7 @@ class StarCraft2Env(MultiAgentEnv):
             timestep_state = 1
             size += timestep_state
 
-        return [size, [self.n_agents, nf_al], [self.n_enemies, nf_en], [1,last_action_state+timestep_state]]
+        return [size, [self.n_agents, nf_al], [self.n_enemies, nf_en], [1, last_action_state+timestep_state]]
 
     def get_visibility_matrix(self):
         """Returns a boolean numpy array of dimensions 
@@ -1310,7 +1310,7 @@ class StarCraft2Env(MultiAgentEnv):
         are visible to each agent.
         """
         arr = np.zeros(
-            (self.n_agents, self.n_agents + self.n_enemies), 
+            (self.n_agents, self.n_agents + self.n_enemies),
             dtype=np.bool,
         )
 
@@ -1333,7 +1333,7 @@ class StarCraft2Env(MultiAgentEnv):
 
                 # The matrix for allies is filled symmetrically
                 al_ids = [
-                    al_id for al_id in range(self.n_agents) 
+                    al_id for al_id in range(self.n_agents)
                     if al_id > agent_id
                 ]
                 for i, al_id in enumerate(al_ids):
@@ -1342,7 +1342,7 @@ class StarCraft2Env(MultiAgentEnv):
                     al_y = al_unit.pos.y
                     dist = self.distance(x, y, al_x, al_y)
 
-                    if (dist < sight_range and al_unit.health > 0):  
+                    if (dist < sight_range and al_unit.health > 0):
                         # visible and alive
                         arr[agent_id, al_id] = arr[al_id, agent_id] = 1
 

@@ -47,7 +47,7 @@ class Entity(object):
     def __init__(self):
         # index among all entities (important to set for distance caching)
         self.i = 0
-        # name 
+        # name
         self.name = ''
         # properties:
         self.size = 0.050
@@ -77,7 +77,7 @@ class Entity(object):
 
 # properties of landmark entities
 class Landmark(Entity):
-     def __init__(self):
+    def __init__(self):
         super(Landmark, self).__init__()
 
 # properties of agent entities
@@ -137,7 +137,7 @@ class World(object):
         self.world_length = 25
         self.world_step = 0
         self.num_agents = 0
-        self.num_landmarks = 0        
+        self.num_landmarks = 0
 
     # return all entities in the world
     @property
@@ -153,16 +153,14 @@ class World(object):
     @property
     def scripted_agents(self):
         return [agent for agent in self.agents if agent.action_callback is not None]
-    
 
-    # 新增函数 计算world中所有entity（包括agent and landmarks）的距离并判断是否collide?    
     def calculate_distances(self):
         if self.cached_dist_vect is None:
             # initialize distance data structure
             self.cached_dist_vect = np.zeros((len(self.entities),
                                               len(self.entities),
                                               self.dim_p))
-            # calculate minimum distance for a collision between all entities （size相加�?           
+            # calculate minimum distance for a collision between all entities （size相加�?
             self.min_dists = np.zeros((len(self.entities), len(self.entities)))
             for ia, entity_a in enumerate(self.entities):
                 for ib in range(ia + 1, len(self.entities)):
@@ -171,7 +169,6 @@ class World(object):
                     self.min_dists[ia, ib] = min_dist
                     self.min_dists[ib, ia] = min_dist
 
-        # cached_dist_vect 保存了两�?entity 之间的每一维坐标差，还未计算距�?        
         for ia, entity_a in enumerate(self.entities):
             for ib in range(ia + 1, len(self.entities)):
                 entity_b = self.entities[ib]
@@ -179,13 +176,10 @@ class World(object):
                 self.cached_dist_vect[ia, ib, :] = delta_pos
                 self.cached_dist_vect[ib, ia, :] = -delta_pos
 
-        # cached_dist_mag �?cached_dist_vect 中的两两距离求平方开根，得到2维距离矩�?        
         self.cached_dist_mag = np.linalg.norm(self.cached_dist_vect, axis=2)
 
-        # cached_collisions 是一个二�?/1矩阵�?表示两个 entity 相撞
         self.cached_collisions = (self.cached_dist_mag <= self.min_dists)
 
-    # 新增函数
     def assign_agent_colors(self):
         n_dummies = 0
         if hasattr(self.agents[0], 'dummy'):
@@ -196,22 +190,24 @@ class World(object):
         n_good_agents = len(self.agents) - n_adversaries - n_dummies
         # r g b
         dummy_colors = [(0.25, 0.75, 0.25)] * n_dummies
-        adv_colors = [(0.75, 0.25, 0.25)] * n_adversaries #sns.color_palette("OrRd_d", n_adversaries)
-        good_colors = [(0.25, 0.25, 0.75)] * n_good_agents#sns.color_palette("GnBu_d", n_good_agents)
+        # sns.color_palette("OrRd_d", n_adversaries)
+        adv_colors = [(0.75, 0.25, 0.25)] * n_adversaries
+        # sns.color_palette("GnBu_d", n_good_agents)
+        good_colors = [(0.25, 0.25, 0.75)] * n_good_agents
         colors = dummy_colors + adv_colors + good_colors
         for color, agent in zip(colors, self.agents):
             agent.color = color
-    
+
     # landmark color
     def assign_landmark_colors(self):
         for landmark in self.landmarks:
             landmark.color = np.array([0.25, 0.25, 0.25])
-    
+
     # update state of the world
     def step(self):
         # zoe 20200420
         self.world_step += 1
-        # set actions for scripted agents 
+        # set actions for scripted agents
         for agent in self.scripted_agents:
             agent.action = agent.action_callback(agent, self)
         # gather forces applied to entities
@@ -229,30 +225,33 @@ class World(object):
         if self.cache_dists:
             self.calculate_distances()
 
-
     # gather agent action forces
     def apply_action_force(self, p_force):
         # set applied forces
-        for i,agent in enumerate(self.agents):
+        for i, agent in enumerate(self.agents):
             if agent.movable:
-                noise = np.random.randn(*agent.action.u.shape) * agent.u_noise if agent.u_noise else 0.0
+                noise = np.random.randn(
+                    *agent.action.u.shape) * agent.u_noise if agent.u_noise else 0.0
                 # force = mass * a * action + n
-                p_force[i] = (agent.mass * agent.accel if agent.accel is not None else agent.mass) * agent.action.u + noise
+                p_force[i] = (
+                    agent.mass * agent.accel if agent.accel is not None else agent.mass) * agent.action.u + noise
         return p_force
 
     # gather physical forces acting on entities
-    # 考虑了两个entity，一个entity和wall相撞的反弹力和外界力
     def apply_environment_force(self, p_force):
         # simple (but inefficient) collision response
-        for a,entity_a in enumerate(self.entities):
-            for b,entity_b in enumerate(self.entities):
-                if(b <= a): continue
+        for a, entity_a in enumerate(self.entities):
+            for b, entity_b in enumerate(self.entities):
+                if(b <= a):
+                    continue
                 [f_a, f_b] = self.get_entity_collision_force(a, b)
                 if(f_a is not None):
-                    if(p_force[a] is None): p_force[a] = 0.0
-                    p_force[a] = f_a + p_force[a] 
+                    if(p_force[a] is None):
+                        p_force[a] = 0.0
+                    p_force[a] = f_a + p_force[a]
                 if(f_b is not None):
-                    if(p_force[b] is None): p_force[b] = 0.0
+                    if(p_force[b] is None):
+                        p_force[b] = 0.0
                     p_force[b] = f_b + p_force[b]
             if entity_a.movable:
                 for wall in self.walls:
@@ -263,20 +262,19 @@ class World(object):
                         p_force[a] = p_force[a] + wf
         return p_force
 
-    # integrate physical state (对所有entitiy: agent & landmark)
-    # 根据 force �?已有速度 p_vel 计算下一次的速度 = p_vel * (1-damping) + (force / m) * dt
-    # 根据 p_vel 计算下一次的位置 p_pos = p_vel * dt
     def integrate_state(self, p_force):
-        for i,entity in enumerate(self.entities):
-            if not entity.movable: continue
+        for i, entity in enumerate(self.entities):
+            if not entity.movable:
+                continue
             entity.state.p_vel = entity.state.p_vel * (1 - self.damping)
             if (p_force[i] is not None):
                 entity.state.p_vel += (p_force[i] / entity.mass) * self.dt
             if entity.max_speed is not None:
-                speed = np.sqrt(np.square(entity.state.p_vel[0]) + np.square(entity.state.p_vel[1]))
+                speed = np.sqrt(
+                    np.square(entity.state.p_vel[0]) + np.square(entity.state.p_vel[1]))
                 if speed > entity.max_speed:
                     entity.state.p_vel = entity.state.p_vel / np.sqrt(np.square(entity.state.p_vel[0]) +
-                                                                  np.square(entity.state.p_vel[1])) * entity.max_speed
+                                                                      np.square(entity.state.p_vel[1])) * entity.max_speed
             entity.state.p_pos += entity.state.p_vel * self.dt
 
     def update_agent_state(self, agent):
@@ -284,20 +282,20 @@ class World(object):
         if agent.silent:
             agent.state.c = np.zeros(self.dim_c)
         else:
-            noise = np.random.randn(*agent.action.c.shape) * agent.c_noise if agent.c_noise else 0.0
-            agent.state.c = agent.action.c + noise      
+            noise = np.random.randn(*agent.action.c.shape) * \
+                agent.c_noise if agent.c_noise else 0.0
+            agent.state.c = agent.action.c + noise
 
     # get collision forces for any contact between two entities
     def get_entity_collision_force(self, ia, ib):
         entity_a = self.entities[ia]
         entity_b = self.entities[ib]
         if (not entity_a.collide) or (not entity_b.collide):
-            return [None, None] # not a collider
+            return [None, None]  # not a collider
         if (not entity_a.movable) and (not entity_b.movable):
-            return [None, None] # neither entity moves
-        # is 比较的是两个实例对象是不是完全相同，它们是不是同一个对象，占用的内存地址是否相同
+            return [None, None]  # neither entity moves
         if (entity_a is entity_b):
-            return [None, None] # don't collide against itself
+            return [None, None]  # don't collide against itself
         if self.cache_dists:
             delta_pos = self.cached_dist_vect[ia, ib]
             dist = self.cached_dist_mag[ia, ib]
@@ -334,7 +332,7 @@ class World(object):
             perp_dim = 0
         ent_pos = entity.state.p_pos
         if (ent_pos[prll_dim] < wall.endpoints[0] - entity.size or
-            ent_pos[prll_dim] > wall.endpoints[1] + entity.size):
+                ent_pos[prll_dim] > wall.endpoints[1] + entity.size):
             return None  # entity is beyond endpoints of wall
         elif (ent_pos[prll_dim] < wall.endpoints[0] or
               ent_pos[prll_dim] > wall.endpoints[1]):

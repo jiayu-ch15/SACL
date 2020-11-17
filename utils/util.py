@@ -13,6 +13,8 @@ import torch.nn as nn
 import gym
 
 # Necessary for KFAC implementation.
+
+
 class AddBias(nn.Module):
     def __init__(self, bias):
         super(AddBias, self).__init__()
@@ -26,23 +28,28 @@ class AddBias(nn.Module):
 
         return x + bias
 
+
 def get_gard_norm(it):
     sum_grad = 0
     for x in it:
-        if x.grad is None:continue
-        sum_grad += x.grad.norm() ** 2    
+        if x.grad is None:
+            continue
+        sum_grad += x.grad.norm() ** 2
     return math.sqrt(sum_grad)
-    
+
+
 def update_linear_schedule(optimizer, epoch, total_num_epochs, initial_lr):
     """Decreases the learning rate linearly"""
     lr = initial_lr - (initial_lr * (epoch / float(total_num_epochs)))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
+
 def init(module, weight_init, bias_init, gain=1):
     weight_init(module.weight.data, gain=gain)
     bias_init(module.bias.data)
     return module
+
 
 def get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
@@ -65,6 +72,7 @@ class MultiDiscrete(gym.Space):
     - Can be initialized as
         MultiDiscrete([ [0,4], [0,1], [0,1] ])
     """
+
     def __init__(self, array_of_param_array):
         self.low = np.array([x[0] for x in array_of_param_array])
         self.high = np.array([x[1] for x in array_of_param_array])
@@ -76,31 +84,36 @@ class MultiDiscrete(gym.Space):
         # For each row: round(random .* (max - min) + min, 0)
         random_array = np.random.rand(self.num_discrete_space)
         return [int(x) for x in np.floor(np.multiply((self.high - self.low + 1.), random_array) + self.low)]
+
     def contains(self, x):
         return len(x) == self.num_discrete_space and (np.array(x) >= self.low).all() and (np.array(x) <= self.high).all()
 
     @property
     def shape(self):
         return self.num_discrete_space
+
     def __repr__(self):
         return "MultiDiscrete" + str(self.num_discrete_space)
+
     def __eq__(self, other):
         return np.array_equal(self.low, other.low) and np.array_equal(self.high, other.high)
+
 
 def save_img(rgb_arr, path, name):
     plt.imshow(rgb_arr, interpolation='nearest')
     plt.savefig(path + name)
 
+
 def make_gif_from_image_dir(gif_path, img_folder, gif_name='trajectory', duration=0.2):
     """
     Create a video from a directory of images
     """
-    
+
     print("Rendering gif...")
     if gif_path[-1] != '/':
         gif_path += '/'
     gif_path = gif_path + gif_name + '.gif'
-    
+
     images = [img for img in os.listdir(img_folder) if img.endswith(".png")]
     images.sort()
 
@@ -108,8 +121,9 @@ def make_gif_from_image_dir(gif_path, img_folder, gif_name='trajectory', duratio
     for i, image in enumerate(images):
         img = cv2.imread(os.path.join(img_folder, image))
         rgb_imgs.append(img)
- 
-    imageio.mimsave(gif_path, rgb_imgs, 'GIF', duration = duration)
+
+    imageio.mimsave(gif_path, rgb_imgs, 'GIF', duration=duration)
+
 
 def make_video_from_image_dir(vid_path, img_folder, video_name='trajectory', fps=5):
     """
@@ -123,7 +137,9 @@ def make_video_from_image_dir(vid_path, img_folder, video_name='trajectory', fps
         img = cv2.imread(os.path.join(img_folder, image))
         rgb_imgs.append(img)
 
-    make_video_from_rgb_imgs(rgb_imgs, vid_path, video_name=video_name, fps=fps)
+    make_video_from_rgb_imgs(
+        rgb_imgs, vid_path, video_name=video_name, fps=fps)
+
 
 def make_video_from_rgb_imgs(rgb_arrs, vid_path, video_name='trajectory',
                              fps=5, format="mp4v", resize=(640, 480)):
@@ -155,6 +171,7 @@ def make_video_from_rgb_imgs(rgb_arrs, vid_path, video_name='trajectory',
     video.release()
     cv2.destroyAllWindows()
 
+
 def return_view(grid, pos, row_size, col_size):
     """Given a map grid, position and view window, returns correct map part
 
@@ -179,8 +196,8 @@ def return_view(grid, pos, row_size, col_size):
     x, y = pos
     left_edge = x - col_size
     right_edge = x + col_size
-    top_edge = y - row_size #top=down ? #TODOSSD: why
-    bot_edge = y + row_size #bot=up ?
+    top_edge = y - row_size  # top=down ? #TODOSSD: why
+    bot_edge = y + row_size  # bot=up ?
     pad_mat, left_pad, top_pad = pad_if_needed(left_edge, right_edge,
                                                top_edge, bot_edge, grid)
     x += left_pad
@@ -188,6 +205,7 @@ def return_view(grid, pos, row_size, col_size):
     view = pad_mat[x - col_size: x + col_size + 1,
                    y - row_size: y + row_size + 1]
     return view
+
 
 def tile_images(img_nhwc):
     """
@@ -203,7 +221,8 @@ def tile_images(img_nhwc):
     N, h, w, c = img_nhwc.shape
     H = int(np.ceil(np.sqrt(N)))
     W = int(np.ceil(float(N)/H))
-    img_nhwc = np.array(list(img_nhwc) + [img_nhwc[0]*0 for _ in range(N, H*W)])
+    img_nhwc = np.array(
+        list(img_nhwc) + [img_nhwc[0]*0 for _ in range(N, H*W)])
     img_HWhwc = img_nhwc.reshape(H, W, h, w, c)
     img_HhWwc = img_HWhwc.transpose(0, 2, 1, 3, 4)
     img_Hh_Ww_c = img_HhWwc.reshape(H*h, W*w, c)

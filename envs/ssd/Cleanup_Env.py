@@ -30,10 +30,11 @@ class CleanupEnv(Map):
 
         # compute potential waste area
         #print("cleanup render:")
-        #print(render)
+        # print(render)
         unique, counts = np.unique(self.base_map, return_counts=True)
         counts_dict = dict(zip(unique, counts))
-        self.potential_waste_area = counts_dict.get('H', 0) + counts_dict.get('R', 0)
+        self.potential_waste_area = counts_dict.get(
+            'H', 0) + counts_dict.get('R', 0)
         self.current_apple_spawn_prob = appleRespawnProbability
         self.current_waste_spawn_prob = wasteSpawnProbability
         self.compute_probabilities()
@@ -81,7 +82,8 @@ class CleanupEnv(Map):
         share_observation_space = []
         for agent in self.agents.values():
             channel_dim = agent.observation_space[0]
-            space = [channel_dim * self.num_agents, agent.observation_space[1], agent.observation_space[2]]
+            space = [channel_dim * self.num_agents,
+                     agent.observation_space[1], agent.observation_space[2]]
             share_observation_space.append(space)
         return share_observation_space
 
@@ -103,8 +105,9 @@ class CleanupEnv(Map):
             agent.fire_beam('F')
             agent.fire += 1
             updates = self.update_map_fire(agent.get_pos().tolist(),
-                                           agent.get_orientation(), ACTIONS['FIRE'],
-                                           fire_char='F')
+                                           agent.get_orientation(
+            ), ACTIONS['FIRE'],
+                fire_char='F')
         elif action == 'CLEAN':
             agent.fire_beam('C')
             updates = self.update_map_fire(agent.get_pos().tolist(),
@@ -132,7 +135,8 @@ class CleanupEnv(Map):
             # grid = util.return_view(map_with_agents, spawn_point,
             #                         CLEANUP_VIEW_SIZE, CLEANUP_VIEW_SIZE)
             # agent = CleanupAgent(agent_id, spawn_point, rotation, grid)
-            agent = CleanupAgent(agent_id, spawn_point, rotation, map_with_agents)
+            agent = CleanupAgent(agent_id, spawn_point,
+                                 rotation, map_with_agents)
             self.agents[agent_id] = agent
 
     def spawn_apples_and_waste(self):
@@ -173,7 +177,7 @@ class CleanupEnv(Map):
             else:
                 spawn_prob = (1 - (waste_density - thresholdRestoration)
                               / (thresholdDepletion - thresholdRestoration)) \
-                             * appleRespawnProbability
+                    * appleRespawnProbability
                 self.current_apple_spawn_prob = spawn_prob
 
     def compute_permitted_area(self):

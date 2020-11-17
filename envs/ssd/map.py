@@ -55,9 +55,10 @@ DEFAULT_COLOURS = {' ': [0, 0, 0],  # Black background
 #         N
 #         |
 
+
 class Map(object):
 
-    def __init__(self, args, ascii_map, color_map = None):
+    def __init__(self, args, ascii_map, color_map=None):
         """
 
         Parameters
@@ -73,9 +74,11 @@ class Map(object):
             Specifies how to convert between ascii chars and colors
         """
         self.num_agents = args.num_agents
-        self.base_map = self.ascii_to_numpy(ascii_map) # list to numpy actually
+        self.base_map = self.ascii_to_numpy(
+            ascii_map)  # list to numpy actually
         # map without agents or beams
-        self.world_map = np.full((len(self.base_map), len(self.base_map[0])), ' ')
+        self.world_map = np.full(
+            (len(self.base_map), len(self.base_map[0])), ' ')
         self.beam_pos = []
 
         self.agents = {}
@@ -95,10 +98,10 @@ class Map(object):
         self.setup_agents()
 
         self.env_name = args.env_name
-        self.share_reward = args.share_reward        
+        self.share_reward = args.share_reward
         self.shape_reward = args.shape_reward
         self.shape_beta = args.shape_beta
-        
+
     def custom_reset(self):
         """Reset custom elements of the map. For example, spawn apples and build walls"""
         pass
@@ -186,17 +189,18 @@ class Map(object):
         grid = np.copy(self.world_map)
 
         for agent_id, agent in self.agents.items():
-            char_id = str(int(agent_id[-1]) + 1) # agent-i
+            char_id = str(int(agent_id[-1]) + 1)  # agent-i
 
             # If agent is not within map, skip.
-            if not(agent.pos[0] >= 0 and agent.pos[0] < grid.shape[0] and # not in the map
+            if not(agent.pos[0] >= 0 and agent.pos[0] < grid.shape[0] and  # not in the map
                    agent.pos[1] >= 0 and agent.pos[1] < grid.shape[1]):
                 continue
 
             grid[agent.pos[0], agent.pos[1]] = char_id
 
         for beam_pos in self.beam_pos:
-            grid[beam_pos[0], beam_pos[1]] = beam_pos[2] # TODOSSD: structure of self.beam_pos
+            # TODOSSD: structure of self.beam_pos
+            grid[beam_pos[0], beam_pos[1]] = beam_pos[2]
 
         return grid
 
@@ -233,7 +237,8 @@ class Map(object):
         rgb_arr = np.zeros((map.shape[0], map.shape[1], 3), dtype=int)
         for row_elem in range(map.shape[0]):
             for col_elem in range(map.shape[1]):
-                rgb_arr[row_elem, col_elem, :] = color_map[map[row_elem, col_elem]]
+                rgb_arr[row_elem, col_elem,
+                        :] = color_map[map[row_elem, col_elem]]
 
         return rgb_arr
 
@@ -248,10 +253,10 @@ class Map(object):
 
         rgb_arr = self.map_to_colors(map_with_agents)
         plt.imshow(rgb_arr, interpolation='nearest')
-        
+
         if filename is not None:
             plt.savefig(filename)
-        
+
         return rgb_arr.astype(np.uint8)
 
     def update_moves(self, agent_actions):
@@ -282,10 +287,11 @@ class Map(object):
             # TODO(ev) these two parts of the actions
             if 'MOVE' in action or 'STAY' in action:
                 # rotate the selected action appropriately
-                rot_action = self.rotate_action(selected_action, agent.get_orientation())
+                rot_action = self.rotate_action(
+                    selected_action, agent.get_orientation())
                 new_pos = agent.get_pos() + rot_action
                 # allow the agents to confirm what position they can move to
-                
+
                 new_pos = agent.return_valid_pos(new_pos)
                 reserved_slots.append((*new_pos, 'P', agent_id))
             elif 'TURN' in action:
@@ -295,7 +301,8 @@ class Map(object):
         # now do the conflict resolution part of the process
 
         # helpful for finding the agent in the conflicting slot
-        agent_by_pos = {tuple(agent.get_pos()): agent.agent_id for agent in self.agents.values()}
+        agent_by_pos = {
+            tuple(agent.get_pos()): agent.agent_id for agent in self.agents.values()}
 
         # agent moves keyed by ids
         agent_moves = {}
@@ -339,8 +346,10 @@ class Map(object):
                         # contain an agent that isn't going to move for one of the agents
                         # If it does, all the agents commands should become STAY
                         # since no moving will be possible
-                        conflict_indices = np.where((search_list == move).all(axis=1))[0]
-                        all_agents_id = [agent_to_slot[i] for i in conflict_indices]
+                        conflict_indices = np.where(
+                            (search_list == move).all(axis=1))[0]
+                        all_agents_id = [agent_to_slot[i]
+                                         for i in conflict_indices]
                         # all other agents now stay in place so update their moves
                         # to reflect this
                         conflict_cell_free = True
@@ -350,8 +359,10 @@ class Map(object):
                             if move.tolist() in self.agent_pos:
                                 # find the agent that is currently at that spot and make sure
                                 # that the move is possible. If it won't be, remove it.
-                                conflicting_agent_id = agent_by_pos[tuple(move)]
-                                curr_pos = self.agents[agent_id].get_pos().tolist()
+                                conflicting_agent_id = agent_by_pos[tuple(
+                                    move)]
+                                curr_pos = self.agents[agent_id].get_pos(
+                                ).tolist()
                                 curr_conflict_pos = self.agents[conflicting_agent_id]. \
                                     get_pos().tolist()
                                 conflict_move = agent_moves.get(conflicting_agent_id,
@@ -379,17 +390,21 @@ class Map(object):
                         # if the conflict cell is open, let one of the conflicting agents
                         # move into it
                         if conflict_cell_free:
-                            self.agents[agent_to_slot[index]].update_agent_pos(move)
+                            self.agents[agent_to_slot[index]
+                                        ].update_agent_pos(move)
                             agent_by_pos = {tuple(agent.get_pos()):
                                             agent.agent_id for agent in self.agents.values()}
                         # ------------------------------------
                         # remove all the other moves that would have conflicted
-                        remove_indices = np.where((search_list == move).all(axis=1))[0]
-                        all_agents_id = [agent_to_slot[i] for i in remove_indices]
+                        remove_indices = np.where(
+                            (search_list == move).all(axis=1))[0]
+                        all_agents_id = [agent_to_slot[i]
+                                         for i in remove_indices]
                         # all other agents now stay in place so update their moves
                         # to stay in place
                         for agent_id in all_agents_id:
-                            agent_moves[agent_id] = self.agents[agent_id].get_pos().tolist()
+                            agent_moves[agent_id] = self.agents[agent_id].get_pos(
+                            ).tolist()
 
             # make the remaining un-conflicted moves
             while len(agent_moves.items()) > 0:
@@ -406,8 +421,10 @@ class Map(object):
                         # that the move is possible. If it won't be, remove it.
                         conflicting_agent_id = agent_by_pos[tuple(move)]
                         curr_pos = self.agents[agent_id].get_pos().tolist()
-                        curr_conflict_pos = self.agents[conflicting_agent_id].get_pos().tolist()
-                        conflict_move = agent_moves.get(conflicting_agent_id, curr_conflict_pos)
+                        curr_conflict_pos = self.agents[conflicting_agent_id].get_pos(
+                        ).tolist()
+                        conflict_move = agent_moves.get(
+                            conflicting_agent_id, curr_conflict_pos)
                         # Condition (1):
                         # a STAY command has been issued
                         if agent_id == conflicting_agent_id:
@@ -461,7 +478,8 @@ class Map(object):
     def reset_map(self):
         """Resets the map to be empty as well as a custom reset set by subclasses"""
         # del self.world_map
-        self.world_map = np.full((len(self.base_map), len(self.base_map[0])), ' ')
+        self.world_map = np.full(
+            (len(self.base_map), len(self.base_map[0])), ' ')
         self.build_walls()
         self.custom_reset()
 
@@ -502,7 +520,8 @@ class Map(object):
         updates: (tuple (row, col, char))
             the cells that have been hit by the beam and what char will be placed there
         """
-        agent_by_pos = {tuple(agent.get_pos()): agent_id for agent_id, agent in self.agents.items()}
+        agent_by_pos = {
+            tuple(agent.get_pos()): agent_id for agent_id, agent in self.agents.items()}
         start_pos = np.asarray(firing_pos)
         firing_direction = ORIENTATIONS[firing_orientation]
         # compute the other two starting positions
@@ -523,20 +542,25 @@ class Map(object):
                     if [next_cell[0], next_cell[1]] in self.agent_pos:
                         agent_id = agent_by_pos[(next_cell[0], next_cell[1])]
                         self.agents[agent_id].hit(fire_char)
-                        firing_points.append((next_cell[0], next_cell[1], fire_char))
+                        firing_points.append(
+                            (next_cell[0], next_cell[1], fire_char))
                         if self.world_map[next_cell[0], next_cell[1]] in cell_types:
                             type_index = cell_types.index(self.world_map[next_cell[0],
                                                                          next_cell[1]])
-                            updates.append((next_cell[0], next_cell[1], update_char[type_index]))
+                            updates.append(
+                                (next_cell[0], next_cell[1], update_char[type_index]))
                         break
 
                     # update the cell if needed
                     if self.world_map[next_cell[0], next_cell[1]] in cell_types:
                         self.waste_cleared += 1
-                        type_index = cell_types.index(self.world_map[next_cell[0], next_cell[1]])
-                        updates.append((next_cell[0], next_cell[1], update_char[type_index]))
+                        type_index = cell_types.index(
+                            self.world_map[next_cell[0], next_cell[1]])
+                        updates.append(
+                            (next_cell[0], next_cell[1], update_char[type_index]))
 
-                    firing_points.append((next_cell[0], next_cell[1], fire_char))
+                    firing_points.append(
+                        (next_cell[0], next_cell[1], fire_char))
 
                     # check if the cell blocks beams. For example, waste blocks beams.
                     if self.world_map[next_cell[0], next_cell[1]] in blocking_cells:
@@ -555,7 +579,8 @@ class Map(object):
         """Returns a randomly selected spawn point."""
         spawn_index = 0
         is_free_cell = False
-        curr_agent_pos = [agent.get_pos().tolist() for agent in self.agents.values()]
+        curr_agent_pos = [agent.get_pos().tolist()
+                          for agent in self.agents.values()]
         random.shuffle(self.spawn_points)
         for i, spawn_point in enumerate(self.spawn_points):
             if [spawn_point[0], spawn_point[1]] not in curr_agent_pos:
@@ -649,22 +674,25 @@ class Map(object):
         else:
             return True
 
-    def step(self, actions): #action [1,2,4,3,7]
+    def step(self, actions):  # action [1,2,4,3,7]
         """A single environment step. Returns reward, terminated, info."""
-        actions_ssd={'agent-{}'.format(i):actions[i] for i in range(self.num_agents)}
-        
+        actions_ssd = {
+            'agent-{}'.format(i): actions[i] for i in range(self.num_agents)}
+
         self.beam_pos = []
         agent_actions = {}
         for agent_id, action in actions_ssd.items():
-            agent_action = self.agents[agent_id].action_map(action) # such as 'FIRE'
+            agent_action = self.agents[agent_id].action_map(
+                action)  # such as 'FIRE'
             agent_actions[agent_id] = agent_action
 
         # move
         self.update_moves(agent_actions)
 
-        for agent in self.agents.values():           
+        for agent in self.agents.values():
             pos = agent.get_pos()
-            new_char = agent.consume(self.world_map[pos[0], pos[1]]) # whether comsume an apple
+            # whether comsume an apple
+            new_char = agent.consume(self.world_map[pos[0], pos[1]])
             self.world_map[pos[0], pos[1]] = new_char
 
         # execute custom moves like firing
@@ -676,11 +704,11 @@ class Map(object):
         observations = []
         rewards = []
         dones = []
-        infos = {'collective_return': [], 
-                'waste_cleared': [], 
-                'apple_consumption': [],
-                'sustainability': [],
-                'fire': []}
+        infos = {'collective_return': [],
+                 'waste_cleared': [],
+                 'apple_consumption': [],
+                 'sustainability': [],
+                 'fire': []}
         for i in range(self.num_agents):
             # del self.agents['agent-' + str(i)].grid
             self.agents['agent-' + str(i)].grid = self.get_map_with_agents()
@@ -690,28 +718,30 @@ class Map(object):
             if reward > 0:
                 self.agents['agent-' + str(i)].sustainability += 1
             dones.append(self.agents['agent-' + str(i)].get_done())
-        
+
         # update infos
         collective_return = 0
         sustainability = 0
         fire = 0
         apple_consumption = 0
         for i in range(self.num_agents):
-            collective_return += self.agents['agent-' + str(i)].collective_return
+            collective_return += self.agents['agent-' +
+                                             str(i)].collective_return
             sustainability += self.agents['agent-' + str(i)].sustainability
             fire += self.agents['agent-' + str(i)].fire
             if self.env_name == "Harvest":
-                apple_consumption += self.agents['agent-' + str(i)].apple_consumption
-        
+                apple_consumption += self.agents['agent-' +
+                                                 str(i)].apple_consumption
+
         infos['collective_return'] = collective_return
         infos['sustainability'] = sustainability/self.num_agents
         infos['fire'] = fire
-                
+
         if self.env_name == "Cleanup":
             infos['waste_cleared'] = self.waste_cleared
         if self.env_name == "Harvest":
             infos['apple_consumption'] = apple_consumption
-                   
+
         if self.share_reward:
             global_reward = np.sum(rewards)
             rewards = [global_reward] * self.num_agents
@@ -724,13 +754,13 @@ class Map(object):
         during decentralised execution.
         """
         # TODOSSD: RGB values or precise info ?
-        _agent_id = 'agent-' + str(agent_id) # consistent with pymarl
+        _agent_id = 'agent-' + str(agent_id)  # consistent with pymarl
         agent = self.agents[_agent_id]
         state = agent.get_state()
         rgb_arr = self.map_to_colors(state, self.color_map)
         # del state
         rgb_arr = self.rotate_view(agent.orientation, rgb_arr)
-        return rgb_arr.transpose(2,0,1)
+        return rgb_arr.transpose(2, 0, 1)
 
     def reset(self):
         """Reset the environment. Required after each full episode.
@@ -741,14 +771,14 @@ class Map(object):
         self.setup_agents()
         self.reset_map()
         self.custom_map_update()
-        
+
         observations = []
-        
+
         for i in range(self.num_agents):
             # del self.agents['agent-' + str(i)].grid
             self.agents['agent-' + str(i)].grid = self.get_map_with_agents()
             observations.append(self.get_obs_agent(i))
-        
+
         return observations
 
     def close(self):
@@ -759,4 +789,3 @@ class Map(object):
             np.random.seed(1)
         else:
             np.random.seed(seed)
-

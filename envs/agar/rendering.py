@@ -40,6 +40,7 @@ import numpy as np
 
 RAD2DEG = 57.29577951308232
 
+
 def get_display(spec):
     """Convert a display specification (such as :0) into an actual Display
     object.
@@ -51,7 +52,9 @@ def get_display(spec):
     elif isinstance(spec, six.string_types):
         return pyglet.canvas.Display(spec)
     else:
-        raise error.Error('Invalid display specification: {}. (Must be a string like :0 or None.)'.format(spec))
+        raise error.Error(
+            'Invalid display specification: {}. (Must be a string like :0 or None.)'.format(spec))
+
 
 class Viewer(object):
     def __init__(self, width, height, display=None):
@@ -59,8 +62,10 @@ class Viewer(object):
 
         self.width = width
         self.height = height
-        self.window = pyglet.window.Window(width=width, height=height, display=display, fullscreen = False)#, style = WINDOW_STYLE_BORDERLESS)
-        #self.window.set_location(500,500)
+        # , style = WINDOW_STYLE_BORDERLESS)
+        self.window = pyglet.window.Window(
+            width=width, height=height, display=display, fullscreen=False)
+        # self.window.set_location(500,500)
         self.window.on_close = self.window_closed_by_user
         self.isopen = True
         self.geoms = []
@@ -73,8 +78,10 @@ class Viewer(object):
 
     def close(self):
         if self.his_graph is not []:
-            l_g = [Im.fromarray(self.his_graph[i]).resize((640, 360)) for i in range(len(self.his_graph))]
-            l_g[0].save(self.name_str+'.gif', save_all = True, append_images = l_g[1:], loop = 100, duration = 100)
+            l_g = [Im.fromarray(self.his_graph[i]).resize((640, 360))
+                   for i in range(len(self.his_graph))]
+            l_g[0].save(self.name_str+'.gif', save_all=True,
+                        append_images=l_g[1:], loop=100, duration=100)
             for i in range(len(l_g)):
                 l_g[i].close()
             self.his_graph = []
@@ -97,9 +104,9 @@ class Viewer(object):
     def add_onetime(self, geom):
         self.onetime_geoms.append(geom)
 
-    def render(self, return_rgb_array=False, name = ""):
+    def render(self, return_rgb_array=False, name=""):
         self.name_str = name
-        glClearColor(1,1,1,1)
+        glClearColor(1, 1, 1, 1)
         self.window.clear()
         self.window.switch_to()
         self.window.dispatch_events()
@@ -121,7 +128,7 @@ class Viewer(object):
             # the boundary.) So we use the buffer height/width rather
             # than the requested one.
             arr = arr.reshape(buffer.height, buffer.width, 4)
-            arr = arr[::-1,:,0:3]
+            arr = arr[::-1, :, 0:3]
             self.his_graph.append(copy.deepcopy(arr))
         self.window.flip()
         self.onetime_geoms = []
@@ -163,94 +170,124 @@ class Viewer(object):
     def __del__(self):
         self.close()
 
+
 def _add_attrs(geom, attrs):
     if "color" in attrs:
         geom.set_color(*attrs["color"])
     if "linewidth" in attrs:
         geom.set_linewidth(attrs["linewidth"])
 
+
 class Geom(object):
     def __init__(self):
-        self._color=Color((0, 0, 0, 1.0))
+        self._color = Color((0, 0, 0, 1.0))
         self.attrs = [self._color]
+
     def render(self):
         for attr in reversed(self.attrs):
             attr.enable()
         self.render1()
         for attr in self.attrs:
             attr.disable()
+
     def render1(self):
         raise NotImplementedError
+
     def add_attr(self, attr):
         self.attrs.append(attr)
-    def set_color(self, r, g, b, alpha = 1):
+
+    def set_color(self, r, g, b, alpha=1):
         self._color.vec4 = (r, g, b, alpha)
+
 
 class Attr(object):
     def enable(self):
         raise NotImplementedError
+
     def disable(self):
         pass
 
+
 class Transform(Attr):
-    def __init__(self, translation=(0.0, 0.0), rotation=0.0, scale=(1,1)):
+    def __init__(self, translation=(0.0, 0.0), rotation=0.0, scale=(1, 1)):
         self.set_translation(*translation)
         self.set_rotation(rotation)
         self.set_scale(*scale)
+
     def enable(self):
         glPushMatrix()
-        glTranslatef(self.translation[0], self.translation[1], 0) # translate to GL loc ppint
+        # translate to GL loc ppint
+        glTranslatef(self.translation[0], self.translation[1], 0)
         glRotatef(RAD2DEG * self.rotation, 0, 0, 1.0)
         glScalef(self.scale[0], self.scale[1], 1)
+
     def disable(self):
         glPopMatrix()
+
     def set_translation(self, newx, newy):
         self.translation = (float(newx), float(newy))
+
     def set_rotation(self, new):
         self.rotation = float(new)
+
     def set_scale(self, newx, newy):
         self.scale = (float(newx), float(newy))
+
 
 class Color(Attr):
     def __init__(self, vec4):
         self.vec4 = vec4
+
     def enable(self):
         glColor4f(*self.vec4)
+
 
 class LineStyle(Attr):
     def __init__(self, style):
         self.style = style
+
     def enable(self):
         glEnable(GL_LINE_STIPPLE)
         glLineStipple(1, self.style)
+
     def disable(self):
         glDisable(GL_LINE_STIPPLE)
+
 
 class LineWidth(Attr):
     def __init__(self, stroke):
         self.stroke = stroke
+
     def enable(self):
         glLineWidth(self.stroke)
+
 
 class Point(Geom):
     def __init__(self):
         Geom.__init__(self)
+
     def render1(self):
-        glBegin(GL_POINTS) # draw point
+        glBegin(GL_POINTS)  # draw point
         glVertex3f(0.0, 0.0, 0.0)
         glEnd()
+
 
 class FilledPolygon(Geom):
     def __init__(self, v):
         Geom.__init__(self)
         self.v = v
+
     def render1(self):
-        if   len(self.v) == 4 : glBegin(GL_QUADS)
-        elif len(self.v)  > 4 : glBegin(GL_POLYGON)
-        else: glBegin(GL_TRIANGLES)
+        if len(self.v) == 4:
+            glBegin(GL_QUADS)
+        elif len(self.v) > 4:
+            glBegin(GL_POLYGON)
+        else:
+            glBegin(GL_TRIANGLES)
         for p in self.v:
-            glVertex3f(p[0], p[1],0)  # draw each vertex
+            glVertex3f(p[0], p[1], 0)  # draw each vertex
         glEnd()
+
 
 def make_circle(radius=10, res=30, filled=True):
     points = []
@@ -262,21 +299,27 @@ def make_circle(radius=10, res=30, filled=True):
     else:
         return PolyLine(points, True)
 
+
 def make_polygon(v, filled=True):
-    if filled: return FilledPolygon(v)
-    else: return PolyLine(v, True)
+    if filled:
+        return FilledPolygon(v)
+    else:
+        return PolyLine(v, True)
+
 
 def make_polyline(v):
     return PolyLine(v, False)
 
+
 def make_capsule(length, width):
     l, r, t, b = 0, length, width/2, -width/2
-    box = make_polygon([(l,b), (l,t), (r,t), (r,b)])
+    box = make_polygon([(l, b), (l, t), (r, t), (r, b)])
     circ0 = make_circle(width/2)
     circ1 = make_circle(width/2)
     circ1.add_attr(Transform(translation=(length, 0)))
     geom = Compound([box, circ0, circ1])
     return geom
+
 
 class Compound(Geom):
     def __init__(self, gs):
@@ -284,9 +327,11 @@ class Compound(Geom):
         self.gs = gs
         for g in self.gs:
             g.attrs = [a for a in g.attrs if not isinstance(a, Color)]
+
     def render1(self):
         for g in self.gs:
             g.render()
+
 
 class PolyLine(Geom):
     def __init__(self, v, close):
@@ -295,13 +340,16 @@ class PolyLine(Geom):
         self.close = close
         self.linewidth = LineWidth(1)
         self.add_attr(self.linewidth)
+
     def render1(self):
         glBegin(GL_LINE_LOOP if self.close else GL_LINE_STRIP)
         for p in self.v:
-            glVertex3f(p[0], p[1],0)  # draw each vertex
+            glVertex3f(p[0], p[1], 0)  # draw each vertex
         glEnd()
+
     def set_linewidth(self, x):
         self.linewidth.stroke = x
+
 
 class Line(Geom):
     def __init__(self, start=(0.0, 0.0), end=(0.0, 0.0)):
@@ -317,6 +365,7 @@ class Line(Geom):
         glVertex2f(*self.end)
         glEnd()
 
+
 class Image(Geom):
     def __init__(self, fname, width, height):
         Geom.__init__(self)
@@ -325,10 +374,13 @@ class Image(Geom):
         img = pyglet.image.load(fname)
         self.img = img
         self.flip = False
+
     def render1(self):
-        self.img.blit(-self.width/2, -self.height/2, width=self.width, height=self.height)
+        self.img.blit(-self.width/2, -self.height/2,
+                      width=self.width, height=self.height)
 
 # ================================================================
+
 
 class SimpleImageViewer(object):
     def __init__(self, display=None, maxwidth=500):
@@ -336,6 +388,7 @@ class SimpleImageViewer(object):
         self.isopen = False
         self.display = display
         self.maxwidth = maxwidth
+
     def imshow(self, arr):
         if self.window is None:
             height, width, _channels = arr.shape
@@ -344,7 +397,7 @@ class SimpleImageViewer(object):
                 width = int(scale * width)
                 height = int(scale * height)
             self.window = pyglet.window.Window(width=width, height=height,
-                display=self.display, vsync=False, resizable=True)
+                                               display=self.display, vsync=False, resizable=True)
             self.width = width
             self.height = height
             self.isopen = True
@@ -358,19 +411,21 @@ class SimpleImageViewer(object):
             def on_close():
                 self.isopen = False
 
-        assert len(arr.shape) == 3, "You passed in an image with the wrong number shape"
+        assert len(
+            arr.shape) == 3, "You passed in an image with the wrong number shape"
         image = pyglet.image.ImageData(arr.shape[1], arr.shape[0],
-            'RGB', arr.tobytes(), pitch=arr.shape[1]*-3)
+                                       'RGB', arr.tobytes(), pitch=arr.shape[1]*-3)
         gl.glTexParameteri(gl.GL_TEXTURE_2D,
-            gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST)
+                           gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST)
         texture = image.get_texture()
         texture.width = self.width
         texture.height = self.height
         self.window.clear()
         self.window.switch_to()
         self.window.dispatch_events()
-        texture.blit(0, 0) # draw
+        texture.blit(0, 0)  # draw
         self.window.flip()
+
     def close(self):
         if self.isopen and sys.meta_path:
             # ^^^ check sys.meta_path to avoid 'ImportError: sys.meta_path is None, Python is likely shutting down'

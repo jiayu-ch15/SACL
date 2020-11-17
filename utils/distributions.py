@@ -15,6 +15,8 @@ Modify standard PyTorch distributions so they are compatible with this code.
 #
 
 # Categorical
+
+
 class FixedCategorical(torch.distributions.Categorical):
     def sample(self):
         return super().sample().unsqueeze(-1)
@@ -60,7 +62,7 @@ class Categorical(nn.Module):
     def __init__(self, num_inputs, num_outputs, gain=1):
         super(Categorical, self).__init__()
 
-        init_ = lambda m: init(
+        def init_(m): return init(
             m,
             nn.init.orthogonal_,
             lambda x: nn.init.constant_(x, 0),
@@ -70,7 +72,7 @@ class Categorical(nn.Module):
 
     def forward(self, x, available_actions=None):
         x = self.linear(x)
-        x[available_actions==0]=-1e10
+        x[available_actions == 0] = -1e10
         return FixedCategorical(logits=x)
 
 
@@ -78,8 +80,8 @@ class DiagGaussian(nn.Module):
     def __init__(self, num_inputs, num_outputs):
         super(DiagGaussian, self).__init__()
 
-        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
-                               constant_(x, 0))
+        def init_(m): return init(m, nn.init.orthogonal_, lambda x: nn.init.
+                                  constant_(x, 0))
 
         self.fc_mean = init_(nn.Linear(num_inputs, num_outputs))
         self.logstd = AddBias(torch.zeros(num_outputs))
@@ -100,8 +102,8 @@ class Bernoulli(nn.Module):
     def __init__(self, num_inputs, num_outputs):
         super(Bernoulli, self).__init__()
 
-        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
-                               constant_(x, 0))
+        def init_(m): return init(m, nn.init.orthogonal_, lambda x: nn.init.
+                                  constant_(x, 0))
 
         self.linear = init_(nn.Linear(num_inputs, num_outputs))
 

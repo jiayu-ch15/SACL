@@ -8,6 +8,8 @@ from envs.agar.players import Player, Bot
 import numpy as np
 
 # noinspection PyAttributeOutsideInit
+
+
 class GameServer:
     def __init__(self, env):
         self.srcFiles = "../src"
@@ -120,8 +122,9 @@ class GameServer:
                     pass
                     #self.players.insert(i, Player(self, id = id))
                     #self.env.players[i] = self.players[i]
-                    #self.env.agents[i] = self.players[i] # reborn of outside agent
-                else:self.players.append(Bot(self, id = id))
+                    # self.env.agents[i] = self.players[i] # reborn of outside agent
+                else:
+                    self.players.append(Bot(self, id=id))
             else:
                 i += 1
         # update
@@ -142,6 +145,7 @@ class GameServer:
                 # Scan and check for ejected mass / virus collisions
                 self.boostCell(cell)
                 self.updateNodeQuad(cell)
+
                 def callback_fun(check):
                     collision = self.checkCellCollision(cell, check)
                     if cell.cellType == 3 and check.cellType == 3 and not self.config.mobilePhysics:
@@ -159,6 +163,7 @@ class GameServer:
                 if cell.isRemoved:
                     continue
                 # Scan for eat/rigid collisions and resolve them
+
                 def callback_fun(check):
                     collision = self.checkCellCollision(cell, check)
                     if self.checkRigidCollision(collision):
@@ -177,7 +182,6 @@ class GameServer:
                     # print('decay')
                     self.updateRadiusDecay(cell)
                 # Remove external minions if necessary
-
 
             for m in eatCollisions:
                 self.resolveCollision(m)
@@ -206,7 +210,7 @@ class GameServer:
         if dis > self.config.r:
             pos *= self.config.r / dis
         return pos
-    
+
     def limit_pos2(self, pos):
 
         dis = pos.sqDist()
@@ -223,7 +227,7 @@ class GameServer:
         cell.position.add(d, move)
         self.limit_cell(cell)
         # self.updateNodeQuad(cell)
-        
+
         # update remerge
         time = self.config.playerRecombineTime
         base = max(time, cell.radius * 0.2) * 25
@@ -262,7 +266,6 @@ class GameServer:
 
         # update boundries
         cell.checkBorder(self.border)
-
 
     def autoSplit(self, cell, player):
         # get radius limit based off of rec mode
@@ -306,7 +309,8 @@ class GameServer:
 
         if m.cell.owner != m.check.owner:
             # Minions don't collide with their team when the config value is 0
-            return self.gameMode.haveTeams and m.cell.owner.team == m.check.owner.team # Different owners => same team
+            # Different owners => same team
+            return self.gameMode.haveTeams and m.cell.owner.team == m.check.owner.team
 
         r = 1 if self.config.mobilePhysics else 13
         if m.cell.getAge() < r or m.check.getAge() < r:
@@ -322,7 +326,8 @@ class GameServer:
             m.p = Vec2(math.cos(rand_angle) * 1, math.sin(rand_angle) * 1)
             m.d = 1
 
-        push = min((m.cell.radius + m.check.radius - m.d) / m.d, m.cell.radius + m.check.radius - m.d)
+        push = min((m.cell.radius + m.check.radius - m.d) /
+                   m.d, m.cell.radius + m.check.radius - m.d)
         if push <= 0:
             return
 
@@ -391,7 +396,8 @@ class GameServer:
         return Vec2(r * np.cos(theta), r * np.sin(theta))
 
     def randomPos2(self):
-        if len(self.players) == 0:return self.randomPos()
+        if len(self.players) == 0:
+            return self.randomPos()
         id = random.randint(0, self.env.num_agents - 1)
         box = self.players[id].viewBox
         pos = Vec2(box.minx + random.random() * (box.maxx - box.minx),
@@ -405,7 +411,8 @@ class GameServer:
         minCount = self.foodMinAmount - len(self.nodesFood)
         spawnCount = max(min(maxCount, self.config.foodSpawnAmount), minCount)
         for i in range(spawnCount):
-            cell = Food(self, None, self.randomPos(), self.config.foodMinRadius)
+            cell = Food(self, None, self.randomPos(),
+                        self.config.foodMinRadius)
             if self.config.foodMassGrow:
                 maxGrow = self.config.foodMaxRadius - cell.radius
                 cell.setRadius(cell.radius + maxGrow * random.random())
@@ -415,7 +422,8 @@ class GameServer:
 
         # spawn viruses (safely)
         if len(self.nodesVirus) < self.config.virusMinAmount:
-            virus = Virus(self, None, self.randomPos(), self.config.virusMinRadius)
+            virus = Virus(self, None, self.randomPos(),
+                          self.config.virusMinRadius)
             if not self.willCollide(virus):
                 self.addNode(virus)
 
@@ -425,10 +433,13 @@ class GameServer:
 
         # Check for special starting radius
         if player.name == 'dummy':
-            radius = self.config.playerStartRadius * (0.6 + 0.6 * random.random())
-            p_c = 70 + player.pID * 70 # outside agent are all grey or black
+            radius = self.config.playerStartRadius * \
+                (0.6 + 0.6 * random.random())
+            p_c = 70 + player.pID * 70  # outside agent are all grey or black
             player.color = Color(p_c, p_c, p_c)
-        else:radius = self.config.playerStartRadius * (0.4 + 0.2 * random.random())
+        else:
+            radius = self.config.playerStartRadius * \
+                (0.4 + 0.2 * random.random())
 
         if player.spawnmass:
             radius = player.spawnmass
@@ -472,7 +483,7 @@ class GameServer:
     def splitCells(self, player):
         # Split cell order decided by cell age
         # cellToSplit = [cell for cell in player.cells]
-        cellToSplit = sorted(player.cells, key=lambda x : -x.getAge())
+        cellToSplit = sorted(player.cells, key=lambda x: -x.getAge())
 
         for cell in cellToSplit:
             d = player.mouse.clone().sub(cell.position)
@@ -526,7 +537,8 @@ class GameServer:
             cell.setRadius(math.sqrt(loss))
 
             # Get starting position
-            pos = Vec2(cell.position.x + d.x * cell.radius, cell.position.y + d.y * cell.radius)
+            pos = Vec2(cell.position.x + d.x * cell.radius,
+                       cell.position.y + d.y * cell.radius)
             angle = d.angle() + (random.random() * .6) - .3
 
             # Create cell and add it to node list

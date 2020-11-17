@@ -1,10 +1,12 @@
 # MAPPO(Multi-agent PPO for StarCraftII/Hanabi/MPE/Hide-and-Seek)
 
-## 1.Install
+## 1. Install
 
    test on CUDA == 10.1
 
-   ```Bash
+   
+
+``` Bash
    cd MAPPO
    conda create -n mappo-sc python==3.6.2
    conda activate mappo-sc
@@ -12,40 +14,46 @@
    pip install wandb==0.10.5
    ```
 
-- config.py: contains all hyper-parameters
+* config.py: contains all hyper-parameters
 
-- default: use GPU, chunk-version recurrent policy and shared policy
+* default: use GPU, chunk-version recurrent policy and shared policy
 
 ## 2. StarCraftII
 
 ### 2.1 Install StarCraftII [4.10](http://blzdistsc2-a.akamaihd.net/Linux/SC2.4.10.zip)
 
-   ```Bash
+   
+
+``` Bash
 unzip SC2.4.10.zip
 # password is iagreetotheeula
 echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
    ```
 
--  download SMAC Maps, and move it to `~/StarCraftII/Maps/`.
+*  download SMAC Maps, and move it to `~/StarCraftII/Maps/`.
 
--  If you want stable id, you can copy the `stableid.json` from https://github.com/Blizzard/s2client-proto.git to `~/StarCraftII/`.
+*  If you want stable id, you can copy the `stableid.json` from https://github.com/Blizzard/s2client-proto.git to `~/StarCraftII/`.
 
 ### 2.2 Train StarCraftII
 
-- train_smac.py: all train code
+* train_smac.py: all train code
 
-  - Here is an example:
+  + Here is an example:
 
-  ```Bash
+  
+
+``` Bash
   conda activate mappo-sc
   cd scripts
   chmod +x train_smac.sh
   ./train_smac.sh
   ```
 
-  - local results are stored in fold `scripts/results`, if you want to see training curves, login wandb first, see guide [here](https://docs.wandb.com/). Sometimes GPU memory may be leaked, you need to clear it manually.
+  + local results are stored in fold `scripts/results`, if you want to see training curves, login wandb first, see guide [here](https://docs.wandb.com/). Sometimes GPU memory may be leaked, you need to clear it manually.
 
-   ```Bash
+   
+
+``` Bash
    ./clean_gpu.sh
    ```
 
@@ -53,7 +61,9 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
 
    Sometimes StarCraftII exits abnormally, and you need to kill the program manually.
 
-   ```Bash
+   
+
+``` Bash
    ./clean_smac.sh
    ./clean_zombie.sh
    ```
@@ -66,7 +76,9 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
 
 ### 3.2 Install Hanabi 
 
-   ```Bash
+   
+
+``` Bash
    pip install cffi
    cd envs/hanabi
    mkdir build & cd build
@@ -78,7 +90,9 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
 
    After 3.2, we will see a libpyhanabi.so file in the hanabi subfold, then we can train hanabi using the following code.
 
-   ```Bash
+   
+
+``` Bash
    conda activate mappo-sc
    cd scripts
    chmod +x train_hanabi.sh
@@ -89,20 +103,24 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
 
 ### 4.1 Install MPE
 
-   ```Bash
+   
+
+``` Bash
    # install this package first
    pip install seabon
    ```
 
 3 Cooperative scenarios in MPE:
 
-- simple_spread: set num_agents=3
-- simple_speaker_listener: set num_agents=2, and use --share_policy
-- simple_reference: set num_agents=2
+* simple_spread: set num_agents=3
+* simple_speaker_listener: set num_agents=2, and use --share_policy
+* simple_reference: set num_agents=2
 
 ### 4.2 Train MPE
 
-   ```Bash
+   
+
+``` Bash
    conda activate mappo-sc
    cd scripts
    chmod +x train_mpe.sh
@@ -125,7 +143,9 @@ we support multi-agent boxlocking and blueprint_construction tasks in the hide-a
 
 4. Add this to your `.bashrc` and source your `.bashrc`.
 
-   ```
+   
+
+``` 
    export LD_LIBRARY_PATH=~/.mujoco/mujoco200/bin${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
    export MUJOCO_KEY_PATH=~/.mujoco${MUJOCO_KEY_PATH}
    ```
@@ -136,7 +156,9 @@ we support multi-agent boxlocking and blueprint_construction tasks in the hide-a
 
 2. To install mujoco-worldgen, follow these steps:
 
-   ```Bash
+   
+
+``` Bash
     # install mujuco_worldgen
     cd envs/hns/mujoco-worldgen/
     pip install -e .
@@ -147,7 +169,9 @@ we support multi-agent boxlocking and blueprint_construction tasks in the hide-a
 
 ### 5.2 Train Tasks
 
-   ```Bash
+   
+
+``` Bash
    conda activate mappo-sc
    # boxlocking task, if u want to train simplified task, need to change hyper-parameters in box_locking.py first.
    cd scripts
@@ -160,4 +184,3 @@ we support multi-agent boxlocking and blueprint_construction tasks in the hide-a
    chmod +x train_hns.sh
    ./train_hns.sh
    ```
-

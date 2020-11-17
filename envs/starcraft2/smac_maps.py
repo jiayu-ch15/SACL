@@ -222,7 +222,7 @@ map_param_registry = {
         "map_type": "colossus",
     },
 
-    #This is adhoc environment
+    # This is adhoc environment
     "1c2z_vs_1c1s1z": {
         "n_agents": 3,
         "n_enemies": 3,
@@ -451,8 +451,8 @@ def get_smac_map_registry():
 
 for name in map_param_registry.keys():
     globals()[name] = type(name, (SMACMap,), dict(filename=name))
-    
-    
+
+
 def get_map_params(map_name):
     map_param_registry = get_smac_map_registry()
     return map_param_registry[map_name]

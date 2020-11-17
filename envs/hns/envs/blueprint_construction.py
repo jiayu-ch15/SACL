@@ -29,6 +29,7 @@ class ConstructionDistancesWrapper(gym.ObservationWrapper):
         mark_box_corners set to True) and the ConstructionSites module have been
         added to the environment.
     '''
+
     def __init__(self, env):
         super().__init__(env)
 
@@ -38,8 +39,10 @@ class ConstructionDistancesWrapper(gym.ObservationWrapper):
         site_pos = obs['construction_site_pos']
         sitecorner_pos = obs['construction_site_corner_pos']
 
-        box_box_dist = np.linalg.norm(box_xpos[..., None] - box_xpos.T[None, ...], axis=1)
-        box_site_dist = np.linalg.norm(box_xpos[..., None] - site_pos.T[None, ...], axis=1)
+        box_box_dist = np.linalg.norm(
+            box_xpos[..., None] - box_xpos.T[None, ...], axis=1)
+        box_site_dist = np.linalg.norm(
+            box_xpos[..., None] - site_pos.T[None, ...], axis=1)
         boxcorner_sitecorner_dist = (
             np.linalg.norm(boxcorner_pos[..., None] - sitecorner_pos.T[None, ...], axis=1))
 
@@ -61,6 +64,7 @@ class ConstructionDenseRewardWrapper(gym.Wrapper):
             alpha (float): Smoothing parameter. Should be nonpositive.
             reward_scale (float): scales the reward by this factor
     '''
+
     def __init__(self, env, use_corners=True, alpha=-1.5, reward_scale=0.05):
         super().__init__(env)
         assert alpha < 0, 'alpha must be negative for the SmoothMin function to work'
@@ -93,6 +97,7 @@ class ConstructionCompletedRewardWrapper(gym.Wrapper):
                 at least one box within the site activation radius.
             reward_scale (float): scales the reward by this factor
     '''
+
     def __init__(self, env, use_corners=False, site_activation_radius=0.5, reward_scale=0.1):
         super().__init__(env)
         self.n_sites = self.metadata['curr_n_sites']
@@ -112,7 +117,8 @@ class ConstructionCompletedRewardWrapper(gym.Wrapper):
     def step(self, action):
         obs, rew, done, info = self.env.step(action)
         site_dist_to_closest_box = obs['box_site_dist'].min(axis=0)
-        sitecorner_dist_to_closest_boxcorner = obs['boxcorner_sitecorner_dist'].min(axis=0)
+        sitecorner_dist_to_closest_boxcorner = obs['boxcorner_sitecorner_dist'].min(
+            axis=0)
         activated_sites = site_dist_to_closest_box < self.site_activation_radius
         aligned_corners = sitecorner_dist_to_closest_boxcorner < self.site_activation_radius
 
@@ -132,33 +138,36 @@ class ConstructionCompletedRewardWrapper(gym.Wrapper):
             # done = True
         info['success'] = self.success
         info['activated_sites'] = activated_sites_num
-        
+
         return obs, rew, done, info
+
 
 def make_env(args):
     return BlueprintConstructionEnv(args)
 
+
 def BlueprintConstructionEnv(args, n_substeps=15, horizon=200, deterministic_mode=True,
-             floor_size=4.0, grid_size=30,
-             n_agents=2,
-             n_rooms=2, random_room_number=False, scenario='empty', door_size=2,
-             n_sites=2, n_elongated_sites=0, site_placement='uniform_away_from_walls',
-             reward_infos=[{'type': 'construction_dense'}, {'type': 'construction_completed'}],
-             n_boxes=4, n_elongated_boxes=0,
-             n_min_boxes=None, box_size=0.5, box_only_z_rot=False,
-             lock_box=True, grab_box=True, grab_selective=False, lock_grab_radius=0.25,
-             lock_type='all_lock_team_specific', grab_exclusive=False,
-             grab_out_of_vision=True, lock_out_of_vision=True,
-             box_floor_friction=0.2, other_friction=0.01, gravity=[0, 0, -50],
-             action_lims=(-0.9, 0.9), polar_obs=True,
-             n_lidar_per_agent=0, visualize_lidar=False, compress_lidar_scale=None,
-             boxid_obs=False, boxsize_obs=False, team_size_obs=False, additional_obs={}):
+                             floor_size=4.0, grid_size=30,
+                             n_agents=2,
+                             n_rooms=2, random_room_number=False, scenario='empty', door_size=2,
+                             n_sites=2, n_elongated_sites=0, site_placement='uniform_away_from_walls',
+                             reward_infos=[{'type': 'construction_dense'}, {
+                                 'type': 'construction_completed'}],
+                             n_boxes=4, n_elongated_boxes=0,
+                             n_min_boxes=None, box_size=0.5, box_only_z_rot=False,
+                             lock_box=True, grab_box=True, grab_selective=False, lock_grab_radius=0.25,
+                             lock_type='all_lock_team_specific', grab_exclusive=False,
+                             grab_out_of_vision=True, lock_out_of_vision=True,
+                             box_floor_friction=0.2, other_friction=0.01, gravity=[0, 0, -50],
+                             action_lims=(-0.9, 0.9), polar_obs=True,
+                             n_lidar_per_agent=0, visualize_lidar=False, compress_lidar_scale=None,
+                             boxid_obs=False, boxsize_obs=False, team_size_obs=False, additional_obs={}):
 
     scenario = args.scenario_name
     n_agents = args.num_agents
     n_boxes = args.num_boxes
     floor_size = args.floor_size
-    
+
     grab_radius_multiplier = lock_grab_radius / box_size
     lock_radius_multiplier = lock_grab_radius / box_size
 
@@ -182,7 +191,8 @@ def BlueprintConstructionEnv(args, n_substeps=15, horizon=200, deterministic_mod
 
     env.add_module(Agents(n_agents,
                           placement_fn=uniform_placement,
-                          color=[np.array((66., 235., 244., 255.)) / 255] * n_agents,
+                          color=[
+                              np.array((66., 235., 244., 255.)) / 255] * n_agents,
                           friction=other_friction,
                           polar_obs=polar_obs))
     if np.max(n_boxes) > 0:
@@ -208,14 +218,15 @@ def BlueprintConstructionEnv(args, n_substeps=15, horizon=200, deterministic_mod
                                          site_size=box_size, site_height=box_size / 2,
                                          n_elongated_sites=n_elongated_sites))
     if n_lidar_per_agent > 0 and visualize_lidar:
-        env.add_module(LidarSites(n_agents=n_agents, n_lidar_per_agent=n_lidar_per_agent))
+        env.add_module(LidarSites(n_agents=n_agents,
+                                  n_lidar_per_agent=n_lidar_per_agent))
     if np.max(n_boxes) > 0 and grab_box:
         env.add_module(AgentManipulation())
     if box_floor_friction is not None:
         env.add_module(FloorAttributes(friction=box_floor_friction))
     env.add_module(WorldConstants(gravity=gravity))
     env.reset()
-    keys_self = ['agent_qpos_qvel','current_step']
+    keys_self = ['agent_qpos_qvel', 'current_step']
     keys_mask_self = ['mask_aa_obs']
     keys_external = ['agent_qpos_qvel', 'construction_site_obs']
     keys_copy = ['you_lock', 'team_lock', 'ramp_you_lock', 'ramp_team_lock']
@@ -237,7 +248,8 @@ def BlueprintConstructionEnv(args, n_substeps=15, horizon=200, deterministic_mod
         keys_external += ['mask_ab_obs', 'box_obs']
         keys_mask_external.append('mask_ab_obs')
     if lock_box and np.max(n_boxes) > 0:
-        agent_allowed_to_lock_keys = None if lock_out_of_vision else ["mask_ab_obs"]
+        agent_allowed_to_lock_keys = None if lock_out_of_vision else [
+            "mask_ab_obs"]
         env = LockObjWrapper(env, body_names=[f'moveable_box{i}' for i in range(n_boxes)],
                              agent_idx_allowed_to_lock=np.arange(n_agents),
                              lock_type=lock_type,
@@ -269,17 +281,20 @@ def BlueprintConstructionEnv(args, n_substeps=15, horizon=200, deterministic_mod
         del rew_info['type']
         env = reward_wrappers[rew_type](env, **rew_info)
     env = TimeWrapper(env, horizon)
-    env = SplitObservations(env, keys_self + keys_mask_self, keys_copy=keys_copy)
+    env = SplitObservations(
+        env, keys_self + keys_mask_self, keys_copy=keys_copy)
     if n_agents == 1:
         env = SpoofEntityWrapper(env, 2, ['agent_qpos_qvel'], ['mask_aa_obs'])
     env = SpoofEntityWrapper(env, n_boxes,
                              ['box_obs', 'you_lock', 'team_lock', 'obj_lock'],
                              ['mask_ab_obs'])
-    env = SpoofEntityWrapper(env, n_sites[1], ['construction_site_obs'], ['mask_acs_obs'])
+    env = SpoofEntityWrapper(
+        env, n_sites[1], ['construction_site_obs'], ['mask_acs_obs'])
     keys_mask_external += ['mask_ab_obs_spoof', 'mask_acs_obs_spoof']
     env = LockAllWrapper(env, remove_object_specific_lock=True)
     if not grab_out_of_vision and grab_box:
-        env = MaskActionWrapper(env, 'action_pull', ['mask_ab_obs'])  # Can only pull if in vision
+        # Can only pull if in vision
+        env = MaskActionWrapper(env, 'action_pull', ['mask_ab_obs'])
     if not grab_selective and grab_box:
         env = GrabClosestWrapper(env)
     env = DiscardMujocoExceptionEpisodes(env, n_agents)

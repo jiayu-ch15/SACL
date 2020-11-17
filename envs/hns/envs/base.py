@@ -23,6 +23,7 @@ class Base(Env):
             action_lims (float tuple): lower and upper limit of mujoco actions
             deterministic_mode (bool): if True, seeds are incremented rather than randomly sampled.
     '''
+
     def __init__(self, horizon=250, n_substeps=5, n_agents=2,
                  floor_size=6., grid_size=30,
                  action_lims=(-1.0, 1.0), deterministic_mode=False,
@@ -67,7 +68,8 @@ class Base(Env):
         failures = 0
         while not successful_placement:
             if (failures + 1) % 10 == 0:
-                logging.warning(f"Failed {failures} times in creating environment")
+                logging.warning(
+                    f"Failed {failures} times in creating environment")
             builder = WorldBuilder(world_params, seed)
             floor = Floor()
 
@@ -95,7 +97,8 @@ def make_env(n_substeps=5, horizon=250, deterministic_mode=False, n_agents=2,
     '''
     env = Base(n_agents=n_agents, n_substeps=n_substeps, horizon=horizon,
                deterministic_mode=deterministic_mode)
-    env.add_module(RandomWalls(grid_size=30, num_rooms=4, min_room_size=6, door_size=2))
+    env.add_module(RandomWalls(grid_size=30, num_rooms=4,
+                               min_room_size=6, door_size=2))
     if n_boxes > 0:
         env.add_module(Boxes(n_boxes=n_boxes))
     if n_ramps > 0:
