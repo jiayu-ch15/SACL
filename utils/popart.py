@@ -16,7 +16,6 @@ class PopArt(nn.Module):
         self.epsilon = epsilon
         self.beta = beta
         self.per_element_update = per_element_update
-        self.train = True
         self.device = device
 
         self.running_mean = nn.Parameter(torch.zeros(
@@ -39,11 +38,11 @@ class PopArt(nn.Module):
         debiased_var = (debiased_mean_sq - debiased_mean ** 2).clamp(min=1e-2)
         return debiased_mean, debiased_var
 
-    def forward(self, input_vector):
+    def forward(self, input_vector, train=True):
         # Make sure input is float32
         input_vector = input_vector.to(torch.float).to(self.device)
 
-        if self.train:
+        if train:
             # Detach input before adding it to running means to avoid backpropping through it on
             # subsequent batches.
             detached_input = input_vector.detach()
