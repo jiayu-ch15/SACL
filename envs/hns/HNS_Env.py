@@ -63,7 +63,10 @@ class HNSEnv(object):
                     obs_dim += reduce(lambda x, y: x*y, space)
             obs_space.insert(0, obs_dim)
             self.observation_space.append(obs_space)
-            self.share_observation_space.append(obs_space)
+            if self.obs_instead_of_state:
+                self.share_observation_space.append([obs_space[0] * self.num_agents, [self.num_agents, obs_space[0]]])
+            else:
+                self.share_observation_space.append(obs_space)
 
     def seed(self, seed=None):
         if seed is None:
