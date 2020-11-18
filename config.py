@@ -28,8 +28,8 @@ def get_config():
 
     # env parameters
     parser.add_argument("--env_name", type=str, default='StarCraft2')
-    parser.add_argument("--use_obs_instead_of_state", action='store_false',
-                        default=True, help="Whether to use global state or concatenated obs")
+    parser.add_argument("--use_obs_instead_of_state", action='store_true',
+                        default=False, help="Whether to use global state or concatenated obs")
 
     # replay buffer parameters
     parser.add_argument("--episode_length", type=int,
