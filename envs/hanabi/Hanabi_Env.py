@@ -176,12 +176,8 @@ class HanabiEnv(Environment):
             self.action_space.append(Discrete(self.num_moves()))
             self.observation_space.append(
                 [self.vectorized_observation_shape()[0]+self.players])
-            if self.obs_instead_of_state:
-                self.share_observation_space.append(
-                    self.vectorized_share_observation_shape())
-            else:
-                self.share_observation_space.append(
-                    [self.vectorized_share_observation_shape()[0]+self.players])
+            self.share_observation_space.append(
+                [self.vectorized_share_observation_shape()[0]+self.players])
 
     def seed(self, seed=None):
         if seed is None:
@@ -306,23 +302,24 @@ class HanabiEnv(Environment):
             for i in range(self.players):
                 obs.append(observation['player_observations']
                            [i]['vectorized']+agent_turn)
-                share_obs.append(observation['player_observations'][i]['vectorized_ownhand'] +
+                if self.obs_instead_of_state:
+                    share_obs.append(observation['player_observations'][i]['vectorized'])
+                else:
+                    share_obs.append(observation['player_observations'][i]['vectorized_ownhand'] +
                                  observation['player_observations'][i]['vectorized']+agent_turn)
                 available_actions[i][observation['player_observations']
                                      [i]['legal_moves_as_int']] = 1.0
             if self.obs_instead_of_state:
-                concat_obs = np.concatenate(obs, axis=0)
+                
+                concat_obs = np.concatenate(share_obs, axis=0)
+                concat_obs = np.concatenate((concat_obs,agent_turn), axis=0)
                 share_obs = np.expand_dims(
                     concat_obs, 0).repeat(self.players, axis=0)
         else:
             obs = np.zeros(
                 (self.players, self.vectorized_observation_shape()[0]+self.players))
-            if self.obs_instead_of_state:
-                share_obs = np.zeros(
-                    (self.players, self.vectorized_share_observation_shape()))
-            else:
-                share_obs = np.zeros(
-                    (self.players, self.vectorized_share_observation_shape()[0]+self.players))
+            share_obs = np.zeros(
+                (self.players, self.vectorized_share_observation_shape()[0]+self.players))
             available_actions = np.zeros((self.players, self.num_moves()))
         return obs, share_obs, available_actions
 
@@ -501,12 +498,16 @@ class HanabiEnv(Environment):
         for i in range(self.players):
             obs.append(observation['player_observations']
                        [i]['vectorized'] + agent_turn)
-            share_obs.append(observation['player_observations'][i]['vectorized_ownhand'] +
-                             observation['player_observations'][i]['vectorized']+agent_turn)
+            if self.obs_instead_of_state:
+                share_obs.append(observation['player_observations'][i]['vectorized'])
+            else:
+                share_obs.append(observation['player_observations'][i]['vectorized_ownhand'] +
+                                observation['player_observations'][i]['vectorized']+agent_turn)                
             available_actions[i][observation['player_observations']
                                  [i]['legal_moves_as_int']] = 1.0
         if self.obs_instead_of_state:
-            concat_obs = np.concatenate(obs, axis=0)
+            concat_obs = np.concatenate(share_obs, axis=0)
+            concat_obs = np.concatenate((concat_obs,agent_turn), axis=0)
             share_obs = np.expand_dims(
                 concat_obs, 0).repeat(self.players, axis=0)
 

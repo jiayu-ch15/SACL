@@ -1282,7 +1282,7 @@ class StarCraft2Env(MultiAgentEnv):
     def get_state_size(self):
         """Returns the size of the global state."""
         if self.obs_instead_of_state:
-            return [self.get_obs_size() * self.n_agents, [self.n_agents, self.get_obs_size()]]
+            return [self.get_obs_size()[0] * self.n_agents, [self.n_agents, self.get_obs_size()[0]]]
 
         nf_al = 4 + self.shield_bits_ally + self.unit_type_bits
         nf_en = 3 + self.shield_bits_enemy + self.unit_type_bits

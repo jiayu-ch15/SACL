@@ -160,6 +160,7 @@ def main(args):
             share_observation_space = envs.share_observation_space[0]
         else:
             share_observation_space = envs.observation_space[0]
+        
         if all_args.model_dir == None or all_args.model_dir == "":
             actor_critic = Policy(envs.observation_space[0],
                                   share_observation_space,
