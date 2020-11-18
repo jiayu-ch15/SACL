@@ -12,7 +12,7 @@
    conda activate mappo-sc
    pip install torch==1.5.1+cu101 torchvision==0.6.1+cu101 -f https://download.pytorch.org/whl/torch_stable.html
    pip install wandb==0.10.5
-   ```
+```
 
 * config.py: contains all hyper-parameters
 
@@ -28,7 +28,7 @@
 unzip SC2.4.10.zip
 # password is iagreetotheeula
 echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
-   ```
+```
 
 *  download SMAC Maps, and move it to `~/StarCraftII/Maps/`.
 
@@ -47,7 +47,7 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
   cd scripts
   chmod +x train_smac.sh
   ./train_smac.sh
-  ```
+```
 
   + local results are stored in fold `scripts/results`, if you want to see training curves, login wandb first, see guide [here](https://docs.wandb.com/). Sometimes GPU memory may be leaked, you need to clear it manually.
 
@@ -55,7 +55,7 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
 
 ``` Bash
    ./clean_gpu.sh
-   ```
+```
 
 ### 2.3 Tips
 
@@ -66,7 +66,7 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
 ``` Bash
    ./clean_smac.sh
    ./clean_zombie.sh
-   ```
+```
 
 ## 3. Hanabi
 
@@ -84,7 +84,7 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
    mkdir build & cd build
    cmake ..
    make -j
-   ```
+```
 
 ### 3.3 Train Hanabi
 
@@ -97,7 +97,7 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
    cd scripts
    chmod +x train_hanabi.sh
    ./train_hanabi.sh
-   ```
+```
 
 ## 4. MPE
 
@@ -108,7 +108,7 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
 ``` Bash
    # install this package first
    pip install seabon
-   ```
+```
 
 3 Cooperative scenarios in MPE:
 
@@ -125,7 +125,7 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
    cd scripts
    chmod +x train_mpe.sh
    ./train_mpe.sh
-   ```
+```
 
 ## 5. Hide-And-Seek
 
@@ -148,11 +148,17 @@ we support multi-agent boxlocking and blueprint_construction tasks in the hide-a
 ``` 
    export LD_LIBRARY_PATH=~/.mujoco/mujoco200/bin${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
    export MUJOCO_KEY_PATH=~/.mujoco${MUJOCO_KEY_PATH}
-   ```
+```
 
 #### 5.1.2 Intsall mujoco-py and mujoco-worldgen
 
 1. You can install mujoco-py by running `pip install mujoco-py==2.0.2.13`. If you encounter some bugs, refer this official [repo](https://github.com/openai/mujoco-py) for help.
+
+   ```
+   sudo apt-get install libgl1-mesa-dev libosmesa6-dev
+   ```
+
+   
 
 2. To install mujoco-worldgen, follow these steps:
 
@@ -165,7 +171,7 @@ we support multi-agent boxlocking and blueprint_construction tasks in the hide-a
     pip install xmltodict
     # if encounter enum error, excute uninstall
     pip uninstall enum34
-   ```
+```
 
 ### 5.2 Train Tasks
 
@@ -183,4 +189,4 @@ we support multi-agent boxlocking and blueprint_construction tasks in the hide-a
    # hide and seek task
    chmod +x train_hns.sh
    ./train_hns.sh
-   ```
+```
