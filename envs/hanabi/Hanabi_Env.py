@@ -309,8 +309,7 @@ class HanabiEnv(Environment):
                                  observation['player_observations'][i]['vectorized']+agent_turn)
                 available_actions[i][observation['player_observations']
                                      [i]['legal_moves_as_int']] = 1.0
-            if self.obs_instead_of_state:
-                
+            if self.obs_instead_of_state:               
                 concat_obs = np.concatenate(share_obs, axis=0)
                 concat_obs = np.concatenate((concat_obs,agent_turn), axis=0)
                 share_obs = np.expand_dims(
