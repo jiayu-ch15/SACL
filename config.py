@@ -79,6 +79,8 @@ def get_config():
     # optimizer parameters
     parser.add_argument("--lr", type=float, default=5e-4,
                         help='learning rate (default: 7e-4)')
+    parser.add_argument("--critic_lr", type=float, default=5e-4,
+                        help='learning rate (default: 7e-4)')
     parser.add_argument("--opti_eps", type=float, default=1e-5,
                         help='RMSprop optimizer epsilon (default: 1e-5)')
     parser.add_argument("--weight_decay", type=float, default=0)

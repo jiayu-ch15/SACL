@@ -25,13 +25,13 @@ class R_MAPPOPolicy:
             self.actor_optimizer = torch.optim.Adam(self.actor.parameters(
             ), lr=self.lr, eps=self.opti_eps, weight_decay=self.weight_decay)
             self.critic_optimizer = torch.optim.Adam(self.critic.parameters(
-            ), lr=self.lr, eps=self.opti_eps, weight_decay=self.weight_decay)
+            ), lr=self.critic_lr, eps=self.opti_eps, weight_decay=self.weight_decay)
 
     def lr_decay(self, episode, episodes):
         update_linear_schedule(self.actor_optimizer,
                                episode, episodes, self.lr)
         update_linear_schedule(self.critic_optimizer,
-                               episode, episodes, self.lr)
+                               episode, episodes, self.critic_lr)
 
     def act(self, share_obs, obs, actor_hidden_states, critic_hidden_states, masks, available_actions=None, deterministic=False):
         action_out, action_log_probs_out, actor_hidden_states = self.actor(
