@@ -162,6 +162,7 @@ def main(args):
                             envs.observation_space[0],
                             share_observation_space,
                             envs.action_space[0],
+                            cat_self=False,
                             device=device)
         else:
             policy = torch.load(
@@ -187,6 +188,7 @@ def main(args):
                             envs.observation_space[agent_id],
                             share_observation_space,
                             envs.action_space[agent_id],
+                            cat_self=False,
                             device=device)
             else:
                 po = torch.load(str(all_args.model_dir) +
@@ -311,12 +313,11 @@ def main(args):
                             rewards, 
                             masks, 
                             bad_masks,
-                            active_masks,
-                            available_actions)
+                            active_masks)
                                               
         if all_args.share_policy: 
             with torch.no_grad():
-                trainer.eval()                
+                trainer.prep_rollout()                
                 next_value = trainer.policy.get_value(torch.FloatTensor(np.concatenate(buffer.share_obs[-1])),
                                                         torch.FloatTensor(np.concatenate(buffer.recurrent_hidden_states_critic[-1])),
                                                         torch.FloatTensor(np.concatenate(buffer.masks[-1])))
@@ -357,7 +358,7 @@ def main(args):
                                     all_args.use_popart,
                                     trainer[agent_id].value_normalizer)
                 # update network
-                trainer[agent_id].train()
+                trainer[agent_id].prep_training()
                 value_loss, critic_grad_norm, action_loss, dist_entropy, actor_grad_norm, KL_divloss, ratio = trainer[agent_id].single_update(agent_id, buffer)
                 value_losses.append(value_loss)
                 action_losses.append(action_loss)
@@ -390,8 +391,8 @@ def main(args):
         # log information
         if episode % all_args.log_interval == 0:
             end = time.time()
-            print("\n Map {} Algo {} Exp {} updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
-                .format(all_args.map_name,
+            print("\n Env {} Algo {} Exp {} updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
+                .format(all_args.env_name,
                         all_args.algorithm_name,
                         all_args.experiment_name,
                         episode, 
@@ -441,8 +442,7 @@ def main(args):
                         writter.add_scalars("agent%i/ratio"% agent_id,{"agent%i/ratio"% agent_id: ratios[agent_id]}, total_num_steps)
                         writter.add_scalars("agent%i/average_step_rewards" % agent_id,{"agent%i/average_step_rewards" % agent_id: np.mean(buffer.rewards[:,:,agent_id])}, total_num_steps)
 
-
-            if args.env_name == "Agar":                
+            if all_args.env_name == "Agar":                
                 for agent_id in range(num_agents):
                     collective_return = []
                     split = []

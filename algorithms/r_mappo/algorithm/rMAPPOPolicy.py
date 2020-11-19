@@ -5,10 +5,11 @@ from utils.util import update_linear_schedule
 
 
 class R_MAPPOPolicy:
-    def __init__(self, args, obs_space, share_obs_space, action_space, device=torch.device("cpu"), train=True):
+    def __init__(self, args, obs_space, share_obs_space, action_space, cat_self=True, device=torch.device("cpu"), train=True):
 
         self.device = device
         self.lr = args.lr
+        self.critic_lr = args.critic_lr
         self.opti_eps = args.opti_eps
         self.weight_decay = args.weight_decay
 
@@ -18,7 +19,7 @@ class R_MAPPOPolicy:
 
         self.actor = R_Actor(args, self.obs_space,
                              self.act_space, self.device).to(self.device)
-        self.critic = R_Critic(args, self.share_obs_space,
+        self.critic = R_Critic(args, self.share_obs_space, cat_self,
                                self.device).to(self.device)
 
         if train:

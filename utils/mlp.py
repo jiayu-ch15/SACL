@@ -48,7 +48,7 @@ class MLPLayer(nn.Module):
 
 
 class MLPBase(nn.Module):
-    def __init__(self, args, obs_shape):
+    def __init__(self, args, obs_shape, cat_self=True):
         super(MLPBase, self).__init__()
 
         self._use_feature_normalization = args.use_feature_normalization
@@ -74,14 +74,17 @@ class MLPBase(nn.Module):
 
         if self._use_attn:
             if self._use_average_pool:
-                inputs_dim = self._attn_size + obs_shape[-1][1]
+                if cat_self:
+                    inputs_dim = self._attn_size + obs_shape[-1][1]
+                else:
+                    inputs_dim = self._attn_size
             else:
                 split_inputs_dim = 0
                 split_shape = obs_shape[1:]
                 for i in range(len(split_shape)):
                     split_inputs_dim += split_shape[i][0]
                 inputs_dim = split_inputs_dim * self._attn_size
-            self.attn = Encoder(args, obs_shape)
+            self.attn = Encoder(args, obs_shape, cat_self)
             self.attn_norm = nn.LayerNorm(inputs_dim)
         else:
             inputs_dim = obs_dim

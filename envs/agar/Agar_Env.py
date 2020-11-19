@@ -78,7 +78,7 @@ class AgarEnv(gym.Env):
     def step(self, actions_):
         actions = deepcopy(actions_)
         reward = np.zeros((self.num_agents, ))
-        done = np.zeros((self.num_agents, 1))
+        done = np.zeros((self.num_agents, ))
         info = [{} for i in range(self.num_agents)]
 
         first = True

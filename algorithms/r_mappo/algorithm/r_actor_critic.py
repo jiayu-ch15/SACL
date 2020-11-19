@@ -150,8 +150,12 @@ class R_Actor(nn.Module):
                 action_outs[i] = self.action_outs[i](actor_features)
                 action_log_probs[i] = action_outs[i].log_probs(action[i])
                 if active_masks is not None:
-                    dist_entropy[i] = (
-                        action_outs[i].entropy()*active_masks.squeeze(-1)).sum()/active_masks.sum()
+                    if len(action_outs[i].entropy().shape) == len(active_masks.shape):
+                        dist_entropy[i] = (
+                            action_outs[i].entropy() * active_masks).sum()/active_masks.sum()
+                    else:
+                        dist_entropy[i] = (
+                            action_outs[i].entropy() * active_masks.squeeze(-1)).sum()/active_masks.sum()
                 else:
                     dist_entropy[i] = action_outs[i].entropy().mean()
             action_log_probs_out = torch.sum(
@@ -190,7 +194,7 @@ class R_Actor(nn.Module):
 
 
 class R_Critic(nn.Module):
-    def __init__(self, args, share_obs_space, device=torch.device("cpu")):
+    def __init__(self, args, share_obs_space, cat_self, device=torch.device("cpu")):
         super(R_Critic, self).__init__()
         self._use_orthogonal = args.use_orthogonal
         self.hidden_size = args.hidden_size
@@ -206,7 +210,7 @@ class R_Critic(nn.Module):
         if len(share_obs_shape) == 3:
             self.base = CNNBase(args, share_obs_shape)
         else:
-            self.base = MLPBase(args, share_obs_shape)
+            self.base = MLPBase(args, share_obs_shape, cat_self)
 
         self.rnn = RNNLayer(args, self.hidden_size, self.hidden_size)
 
