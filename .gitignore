@@ -6,3 +6,4 @@ build
 png
 *.egg-info
 wandb
+.vscode
