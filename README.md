@@ -1,4 +1,27 @@
-# MAPPO(Multi-agent PPO for StarCraftII/Hanabi/MPE/Hide-and-Seek)
+# ON-POLICY
+
+## support algorithms
+
+| Algorithms | recurrent-verison | mlp-version | cnn-version |
+| :--------: | :---------------: | :---------: | :---------: |
+| MAPPO      | yes     | yes | yes |
+| MAPPG |                   |             |             |
+|            |                   |             |             |
+
+
+## support environments:
+- StarCraftII
+- Hanabi
+- MPE
+- Hide-and-Seek
+- social dilemmas
+- agar.io
+
+## TODOs:
+- [ ] SMARTS
+- [ ] multi-agent FLOW
+
+
 
 ## 1. Install
 
@@ -8,8 +31,8 @@
 
 ``` Bash
    cd MAPPO
-   conda create -n mappo-sc python==3.6.2
-   conda activate mappo-sc
+   conda create -n onpolicy python==3.6.2
+   conda activate onpolicy
    pip install torch==1.5.1+cu101 torchvision==0.6.1+cu101 -f https://download.pytorch.org/whl/torch_stable.html
    pip install wandb==0.10.5
 ```
@@ -43,7 +66,7 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
   
 
 ``` Bash
-  conda activate mappo-sc
+  conda activate onpolicy
   cd scripts
   chmod +x train_smac.sh
   ./train_smac.sh
@@ -93,7 +116,7 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
    
 
 ``` Bash
-   conda activate mappo-sc
+   conda activate onpolicy
    cd scripts
    chmod +x train_hanabi.sh
    ./train_hanabi.sh
@@ -121,7 +144,7 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
    
 
 ``` Bash
-   conda activate mappo-sc
+   conda activate onpolicy
    cd scripts
    chmod +x train_mpe.sh
    ./train_mpe.sh
@@ -178,7 +201,7 @@ we support multi-agent boxlocking and blueprint_construction tasks in the hide-a
    
 
 ``` Bash
-   conda activate mappo-sc
+   conda activate onpolicy
    # boxlocking task, if u want to train simplified task, need to change hyper-parameters in box_locking.py first.
    cd scripts
    chmod +x train_boxlocking.sh
