@@ -13,8 +13,6 @@ import torch.nn as nn
 import gym
 
 # Necessary for KFAC implementation.
-
-
 class AddBias(nn.Module):
     def __init__(self, bias):
         super(AddBias, self).__init__()
@@ -97,3 +95,14 @@ class MultiDiscrete(gym.Space):
 
     def __eq__(self, other):
         return np.array_equal(self.low, other.low) and np.array_equal(self.high, other.high)
+
+
+def huber_loss(e, d):
+    a = (abs(e) <= d).float()
+    b = (e > d).float()
+    return a*e**2/2 + b*d*(abs(e)-d/2)
+
+
+def mse_loss(e):
+    return e**2/2
+

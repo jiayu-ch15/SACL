@@ -28,30 +28,33 @@ def onehot(d, ndim):
 
 
 class AgarEnv(gym.Env):
-    def __init__(self, args, obs_size=531, action_repeat=5, gamemode=0, kill_reward_eps=0, coop_eps=1, reward_settings="std", curriculum_learning=True):
+    def __init__(self, args, obs_size=531, gamemode=0, kill_reward_eps=0, coop_eps=1, reward_settings="std"):
         super(AgarEnv, self).__init__()
         self.args = args
-        self.action_repeat = action_repeat
-        self.gamemode = gamemode  # We only implemented FFA (gamemode = 0)
+        self.action_repeat = args.action_repeat
         self.g = args.gamma  # discount rate of RL (gamma)
+        self.share_reward = args.share_reward
+        self.gamemode = gamemode  # We only implemented FFA (gamemode = 0)
         self.reward_settings = reward_settings
         self.total_step = 0
         # total_step > up_step,up = [0,1] total_step = 10e6, up = 1
         # total_step > low_step, low = [0,1] total_step = 15e6, low=1
         self.up_step = 5e6
         self.low_step = 15e6
-        self.curriculum_learning = curriculum_learning
-        self.num_bots = 5
+        self.curriculum_learning = args.use_curriculum_learning
         self.num_agents = args.num_agents
+        self.num_bots = 5
 
         #self.observation_space = spaces.Dict( {'agent-'+str(i):spaces.Box(low=-100, high=100, shape=(obs_size,)) for i in range(self.num_agents)}  )
         self.action_space = []
         self.observation_space = []
+        self.share_observation_space = []
         for i in range(self.num_agents):
             self.action_space.append(spaces.Tuple(
                 [spaces.Box(low=-1, high=1, shape=(2,)), spaces.Discrete(2)]))
             self.observation_space.append(
                 [obs_size, [10, 15], [5, 7], [5, 5], [10, 15], [10, 15], [1, 21]])
+            self.share_observation_space.append([obs_size * self.num_agents, [self.num_agents, obs_size]])
 
         self.viewer = None
 
@@ -68,7 +71,7 @@ class AgarEnv(gym.Env):
         self.kill_reward_eps = np.ones(
             self.num_agents) * 0.33 * kill_reward_eps
         self.coop_eps = np.ones(self.num_agents) * coop_eps
-        self.share_reward = args.share_reward
+        
         # if self.share_reward:
         #self.coop_eps = np.zeros(self.num_agents)
 

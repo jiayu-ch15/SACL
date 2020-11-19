@@ -676,8 +676,9 @@ class Map(object):
 
     def step(self, actions):  # action [1,2,4,3,7]
         """A single environment step. Returns reward, terminated, info."""
+        
         actions_ssd = {
-            'agent-{}'.format(i): actions[i] for i in range(self.num_agents)}
+            'agent-{}'.format(i): actions[i][0] for i in range(self.num_agents)}
 
         self.beam_pos = []
         agent_actions = {}
@@ -714,7 +715,7 @@ class Map(object):
             self.agents['agent-' + str(i)].grid = self.get_map_with_agents()
             observations.append(self.get_obs_agent(i))
             reward = self.agents['agent-' + str(i)].compute_reward()
-            rewards.append(reward)
+            rewards.append([reward])
             if reward > 0:
                 self.agents['agent-' + str(i)].sustainability += 1
             dones.append(self.agents['agent-' + str(i)].get_done())
@@ -742,9 +743,9 @@ class Map(object):
         if self.env_name == "Harvest":
             infos['apple_consumption'] = apple_consumption
 
-        if self.share_reward:
+        if self.share_reward:          
             global_reward = np.sum(rewards)
-            rewards = [global_reward] * self.num_agents
+            rewards = [[global_reward]] * self.num_agents
 
         return observations, rewards, dones, infos
 

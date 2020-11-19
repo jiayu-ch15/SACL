@@ -15,8 +15,6 @@ Modify standard PyTorch distributions so they are compatible with this code.
 #
 
 # Categorical
-
-
 class FixedCategorical(torch.distributions.Categorical):
     def sample(self):
         return super().sample().unsqueeze(-1)
@@ -59,34 +57,45 @@ class FixedBernoulli(torch.distributions.Bernoulli):
 
 
 class Categorical(nn.Module):
-    def __init__(self, num_inputs, num_outputs, gain=1):
+    def __init__(self, num_inputs, num_outputs, use_orthogonal=True, gain=0.01):
         super(Categorical, self).__init__()
+        self._use_orthogonal = use_orthogonal
+        self._gain = gain
 
-        def init_(m): return init(
-            m,
-            nn.init.orthogonal_,
-            lambda x: nn.init.constant_(x, 0),
-            gain=gain)
+        if self._use_orthogonal:
+            def init_(m): return init(m, nn.init.orthogonal_,
+                                      lambda x: nn.init.constant_(x, 0), self._gain)
+        else:
+            def init_(m): return init(m, nn.init.xavier_uniform_,
+                                      lambda x: nn.init.constant_(x, 0), self._gain)
 
         self.linear = init_(nn.Linear(num_inputs, num_outputs))
 
     def forward(self, x, available_actions=None):
         x = self.linear(x)
-        x[available_actions == 0] = -1e10
+        if available_actions is not None:
+            x[available_actions == 0] = -1e10
         return FixedCategorical(logits=x)
 
 
 class DiagGaussian(nn.Module):
-    def __init__(self, num_inputs, num_outputs):
+    def __init__(self, num_inputs, num_outputs, use_orthogonal=True, gain=0.01):
         super(DiagGaussian, self).__init__()
 
-        def init_(m): return init(m, nn.init.orthogonal_, lambda x: nn.init.
-                                  constant_(x, 0))
+        self._use_orthogonal = use_orthogonal
+        self._gain = gain
+
+        if self._use_orthogonal:
+            def init_(m): return init(m, nn.init.orthogonal_,
+                                      lambda x: nn.init.constant_(x, 0), self._gain)
+        else:
+            def init_(m): return init(m, nn.init.xavier_uniform_,
+                                      lambda x: nn.init.constant_(x, 0), self._gain)
 
         self.fc_mean = init_(nn.Linear(num_inputs, num_outputs))
         self.logstd = AddBias(torch.zeros(num_outputs))
 
-    def forward(self, x, available_actions=None):
+    def forward(self, x):
         action_mean = self.fc_mean(x)
 
         #  An ugly hack for my KFAC implementation.
@@ -99,11 +108,18 @@ class DiagGaussian(nn.Module):
 
 
 class Bernoulli(nn.Module):
-    def __init__(self, num_inputs, num_outputs):
+    def __init__(self, num_inputs, num_outputs, use_orthogonal=True, gain=0.01):
         super(Bernoulli, self).__init__()
 
-        def init_(m): return init(m, nn.init.orthogonal_, lambda x: nn.init.
-                                  constant_(x, 0))
+        self._use_orthogonal = use_orthogonal
+        self._gain = gain
+
+        if self._use_orthogonal:
+            def init_(m): return init(m, nn.init.orthogonal_,
+                                      lambda x: nn.init.constant_(x, 0), self._gain)
+        else:
+            def init_(m): return init(m, nn.init.xavier_uniform_,
+                                      lambda x: nn.init.constant_(x, 0), self._gain)
 
         self.linear = init_(nn.Linear(num_inputs, num_outputs))
 

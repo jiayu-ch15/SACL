@@ -7,8 +7,10 @@ def _flatten_helper(T, N, _tensor):
 
 
 class SharedReplayBuffer(object):
-    def __init__(self, num_agents, episode_length, n_rollout_threads, obs_space, share_obs_space, action_space,
-                 recurrent_hidden_state_size):
+    def __init__(self, args, num_agents, obs_space, share_obs_space, action_space):
+        self.episode_length = args.episode_length
+        self.n_rollout_threads = args.n_rollout_threads
+        self.rnn_hidden_size = args.hidden_size
 
         if obs_space.__class__.__name__ == 'Box':
             obs_shape = obs_space.shape
@@ -21,33 +23,33 @@ class SharedReplayBuffer(object):
 
         if len(obs_shape) == 3:
             self.share_obs = np.zeros(
-                (episode_length + 1, n_rollout_threads, num_agents, *share_obs_shape)).astype(np.float32)
+                (self.episode_length + 1, self.n_rollout_threads, num_agents, *share_obs_shape)).astype(np.float32)
             self.obs = np.zeros(
-                (episode_length + 1, n_rollout_threads, num_agents, *obs_shape)).astype(np.float32)
+                (self.episode_length + 1, self.n_rollout_threads, num_agents, *obs_shape)).astype(np.float32)
         else:
             self.share_obs = np.zeros(
-                (episode_length + 1, n_rollout_threads, num_agents, share_obs_shape[0])).astype(np.float32)
+                (self.episode_length + 1, self.n_rollout_threads, num_agents, share_obs_shape[0])).astype(np.float32)
             self.obs = np.zeros(
-                (episode_length + 1, n_rollout_threads, num_agents, obs_shape[0])).astype(np.float32)
+                (self.episode_length + 1, self.n_rollout_threads, num_agents, obs_shape[0])).astype(np.float32)
 
         self.recurrent_hidden_states = np.zeros((
-            episode_length + 1, n_rollout_threads, num_agents, recurrent_hidden_state_size)).astype(np.float32)
+            self.episode_length + 1, self.n_rollout_threads, num_agents, self.rnn_hidden_size)).astype(np.float32)
         self.recurrent_hidden_states_critic = np.zeros((
-            episode_length + 1, n_rollout_threads, num_agents, recurrent_hidden_state_size)).astype(np.float32)
+            self.episode_length + 1, self.n_rollout_threads, num_agents, self.rnn_hidden_size)).astype(np.float32)
 
         self.rewards = np.zeros(
-            (episode_length, n_rollout_threads, num_agents, 1)).astype(np.float32)
+            (self.episode_length, self.n_rollout_threads, num_agents, 1)).astype(np.float32)
         self.value_preds = np.zeros(
-            (episode_length + 1, n_rollout_threads, num_agents, 1)).astype(np.float32)
+            (self.episode_length + 1, self.n_rollout_threads, num_agents, 1)).astype(np.float32)
         self.returns = np.zeros(
-            (episode_length + 1, n_rollout_threads, num_agents, 1)).astype(np.float32)
+            (self.episode_length + 1, self.n_rollout_threads, num_agents, 1)).astype(np.float32)
         self.action_log_probs = np.zeros(
-            (episode_length, n_rollout_threads, num_agents, 1)).astype(np.float32)
+            (self.episode_length, self.n_rollout_threads, num_agents, 1)).astype(np.float32)
 
         self.available_actions = None
         if action_space.__class__.__name__ == 'Discrete':
             self.available_actions = np.ones(
-                (episode_length + 1, n_rollout_threads, num_agents, action_space.n)).astype(np.float32)
+                (self.episode_length + 1, self.n_rollout_threads, num_agents, action_space.n)).astype(np.float32)
             action_shape = 1
         elif action_space.__class__.__name__ == "MultiDiscrete":
             action_shape = action_space.shape
@@ -58,19 +60,18 @@ class SharedReplayBuffer(object):
         else:  # agar
             action_shape = action_space[0].shape[0] + 1
         self.actions = np.zeros(
-            (episode_length, n_rollout_threads, num_agents, action_shape)).astype(np.float32)
+            (self.episode_length, self.n_rollout_threads, num_agents, action_shape)).astype(np.float32)
         self.masks = np.ones(
-            (episode_length + 1, n_rollout_threads, num_agents, 1)).astype(np.float32)
+            (self.episode_length + 1, self.n_rollout_threads, num_agents, 1)).astype(np.float32)
 
         # Masks that indicate whether it's a true terminal state
         # or time limit end state
         self.bad_masks = np.ones(
-            (episode_length + 1, n_rollout_threads, num_agents, 1)).astype(np.float32)
+            (self.episode_length + 1, self.n_rollout_threads, num_agents, 1)).astype(np.float32)
 
         self.active_masks = np.ones(
-            (episode_length + 1, n_rollout_threads, num_agents, 1)).astype(np.float32)
+            (self.episode_length + 1, self.n_rollout_threads, num_agents, 1)).astype(np.float32)
 
-        self.episode_length = episode_length
         self.step = 0
 
     def insert(self, share_obs, obs, recurrent_hidden_states, recurrent_hidden_states_critic, actions, action_log_probs,

@@ -17,12 +17,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from config import get_config
-from algorithm.ppo import PPO
-from algorithm.model import Policy
+from algorithms.r_mappo.r_mappo import R_MAPPO as TrainAlgo
+from algorithms.r_mappo.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
 from utils.shared_buffer import SharedReplayBuffer
 from utils.util import update_linear_schedule
 
-from envs import HanabiEnv
+from envs.hanabi.Hanabi_Env import HanabiEnv
 from envs.env_wrappers import ChooseSubprocVecEnv, ChooseDummyVecEnv
 
 
@@ -162,131 +162,48 @@ def main(args):
             share_observation_space = envs.observation_space[0]
         
         if all_args.model_dir == None or all_args.model_dir == "":
-            actor_critic = Policy(envs.observation_space[0],
-                                  share_observation_space,
-                                  envs.action_space[0],
-                                  gain=all_args.gain,
-                                  base_kwargs={'naive_recurrent': all_args.naive_recurrent_policy,
-                                               'recurrent': all_args.recurrent_policy,
-                                               'hidden_size': all_args.hidden_size,
-                                               'recurrent_N': all_args.recurrent_N,
-                                               'attn': all_args.attn,
-                                               'attn_size': all_args.attn_size,
-                                               'attn_N': all_args.attn_N,
-                                               'attn_heads': all_args.attn_heads,
-                                               'dropout': all_args.dropout,
-                                               'use_average_pool': all_args.use_average_pool,
-                                               'use_common_layer': all_args.use_common_layer,
-                                               'use_feature_normalization': all_args.use_feature_normalization,
-                                               'use_feature_popart': all_args.use_feature_popart,
-                                               'use_orthogonal': all_args.use_orthogonal,
-                                               'layer_N': all_args.layer_N,
-                                               'use_ReLU': all_args.use_ReLU,
-                                               'use_cat_self': all_args.use_cat_self
-                                               },
-                                  device=device)
+            policy = Policy(all_args,
+                            envs.observation_space[0],
+                            share_observation_space,
+                            envs.action_space[0],
+                            device=device)
         else:
-            actor_critic = torch.load(
+            policy = torch.load(
                 str(all_args.model_dir) + "/agent_model.pt")['model']
 
-        actor_critic.to(device)
         # algorithm
-        agents = PPO(actor_critic,
-                     all_args.clip_param,
-                     all_args.ppo_epoch,
-                     all_args.num_mini_batch,
-                     all_args.data_chunk_length,
-                     all_args.value_loss_coef,
-                     all_args.entropy_coef,
-                     lr=all_args.lr,
-                     eps=all_args.eps,
-                     weight_decay=all_args.weight_decay,
-                     max_grad_norm=all_args.max_grad_norm,
-                     use_max_grad_norm=all_args.use_max_grad_norm,
-                     use_clipped_value_loss=all_args.use_clipped_value_loss,
-                     use_common_layer=all_args.use_common_layer,
-                     use_huber_loss=all_args.use_huber_loss,
-                     huber_delta=all_args.huber_delta,
-                     use_popart=all_args.use_popart,
-                     use_value_active_masks=all_args.use_value_active_masks,
-                     device=device)
-
-        # replay buffer
-        buffer = SharedReplayBuffer(num_agents,
-                                    all_args.episode_length,
-                                    all_args.n_rollout_threads,
+        trainer = TrainAlgo(all_args, policy, device=device)
+        buffer = SharedReplayBuffer(all_args,
+                                    num_agents,
                                     envs.observation_space[0],
                                     share_observation_space,
-                                    envs.action_space[0],
-                                    all_args.hidden_size)
+                                    envs.action_space[0])
     else:
-        actor_critic = []
-        agents = []
+        trainer = []
         for agent_id in range(num_agents):
             if all_args.use_centralized_V:
                 share_observation_space = envs.share_observation_space[agent_id]
             else:
                 share_observation_space = envs.observation_space[agent_id]
+
             if all_args.model_dir == None or all_args.model_dir == "":
-                ac = Policy(envs.observation_space[agent_id],
+                po = Policy(all_args,
+                            envs.observation_space[agent_id],
                             share_observation_space,
                             envs.action_space[agent_id],
-                            gain=all_args.gain,
-                            base_kwargs={'naive_recurrent': all_args.naive_recurrent_policy,
-                                         'recurrent': all_args.recurrent_policy,
-                                         'hidden_size': all_args.hidden_size,
-                                         'recurrent_N': all_args.recurrent_N,
-                                         'attn': all_args.attn,
-                                         'attn_size': all_args.attn_size,
-                                         'attn_N': all_args.attn_N,
-                                         'attn_heads': all_args.attn_heads,
-                                         'dropout': all_args.dropout,
-                                         'use_average_pool': all_args.use_average_pool,
-                                         'use_common_layer': all_args.use_common_layer,
-                                         'use_feature_normalization': all_args.use_feature_normalization,
-                                         'use_feature_popart': all_args.use_feature_popart,
-                                         'use_orthogonal': all_args.use_orthogonal,
-                                         'layer_N': all_args.layer_N,
-                                         'use_ReLU': all_args.use_ReLU,
-                                         'use_cat_self': all_args.use_cat_self
-                                         },
                             device=device)
             else:
-                ac = torch.load(str(all_args.model_dir) +
+                po = torch.load(str(all_args.model_dir) +
                                 "/agent" + str(agent_id) + "_model.pt")['model']
-            ac.to(device)
-            # algorithm
-            agent = PPO(ac,
-                        all_args.clip_param,
-                        all_args.ppo_epoch,
-                        all_args.num_mini_batch,
-                        all_args.data_chunk_length,
-                        all_args.value_loss_coef,
-                        all_args.entropy_coef,
-                        lr=all_args.lr,
-                        eps=all_args.eps,
-                        weight_decay=all_args.weight_decay,
-                        max_grad_norm=all_args.max_grad_norm,
-                        use_max_grad_norm=all_args.use_max_grad_norm,
-                        use_clipped_value_loss=all_args.use_clipped_value_loss,
-                        use_common_layer=all_args.use_common_layer,
-                        use_huber_loss=all_args.use_huber_loss,
-                        huber_delta=all_args.huber_delta,
-                        use_popart=all_args.use_popart,
-                        use_value_active_masks=all_args.use_value_active_masks,
-                        device=device)
-
-            actor_critic.append(ac)
-            agents.append(agent)
+            tr = TrainAlgo(all_args, po, device=device)
+            trainer.append(tr)
 
         # replay buffer
-        buffer = SharedReplayBuffer(num_agents,
-                                    all_args.episode_length,
-                                    all_args.n_rollout_threads,
+        buffer = SharedReplayBuffer(all_args,
+                                    num_agents,
                                     envs.observation_space[agent_id],
                                     share_observation_space,
-                                    envs.action_space[agent_id],
-                                    all_args.hidden_size)
+                                    envs.action_space[agent_id])
 
     # reset env
     reset_choose = np.ones(all_args.n_rollout_threads) == 1.0
@@ -336,12 +253,11 @@ def main(args):
     for episode in range(episodes):
         if all_args.use_linear_lr_decay:  # decrease learning rate linearly
             if all_args.share_policy:
-                update_linear_schedule(
-                    agents.optimizer, episode, episodes, all_args.lr)
+                trainer.policy.lr_decay(episode, episodes)
             else:
                 for agent_id in range(num_agents):
-                    update_linear_schedule(
-                        agents[agent_id].optimizer, episode, episodes, all_args.lr)
+                    trainer[agent_id].policy.lr_decay(episode, episodes)
+
         scores = []
         for step in range(all_args.episode_length):
             # Sample actions
@@ -357,8 +273,8 @@ def main(args):
                             all_args.n_rollout_threads) == 1.0
                         break
                     if all_args.share_policy:
-                        actor_critic.eval()
-                        value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic.act(torch.FloatTensor(use_share_obs[choose, current_agent_id]),
+                        trainer.prep_rollout()
+                        value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = trainer.policy.act(torch.FloatTensor(use_share_obs[choose, current_agent_id]),
                                                                                                                                    torch.FloatTensor(
                                                                                                                                        use_obs[choose, current_agent_id]),
                                                                                                                                    torch.FloatTensor(
@@ -369,8 +285,8 @@ def main(args):
                                 turn_masks[choose, current_agent_id]),
                             torch.FloatTensor(use_available_actions[choose, current_agent_id]))
                     else:
-                        actor_critic[current_agent_id].eval()
-                        value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = actor_critic[current_agent_id].act(torch.FloatTensor(use_share_obs[choose, current_agent_id]),
+                        trainer[current_agent_id].prep_rollout()
+                        value, action, action_log_prob, recurrent_hidden_states, recurrent_hidden_states_critic = trainer[current_agent_id].policy.act(torch.FloatTensor(use_share_obs[choose, current_agent_id]),
                                                                                                                                                      torch.FloatTensor(
                                                                                                                                                          use_obs[choose, current_agent_id]),
                                                                                                                                                      torch.FloatTensor(
@@ -389,16 +305,11 @@ def main(args):
                                            current_agent_id] = use_available_actions[choose, current_agent_id].copy()
                     turn_values[choose,
                                 current_agent_id] = value.detach().cpu().numpy()
-                    turn_actions[choose, current_agent_id] = action.detach(
-                    ).cpu().numpy()
-                    env_actions[choose, current_agent_id] = action.detach(
-                    ).cpu().numpy()
-                    turn_action_log_probs[choose, current_agent_id] = action_log_prob.detach(
-                    ).cpu().numpy()
-                    turn_recurrent_hidden_states[choose, current_agent_id] = recurrent_hidden_states.detach(
-                    ).cpu().numpy()
-                    turn_recurrent_hidden_states_critic[choose, current_agent_id] = recurrent_hidden_states_critic.detach(
-                    ).cpu().numpy()
+                    turn_actions[choose, current_agent_id] = action.detach().cpu().numpy()
+                    env_actions[choose, current_agent_id] = action.detach().cpu().numpy()
+                    turn_action_log_probs[choose, current_agent_id] = action_log_prob.detach().cpu().numpy()
+                    turn_recurrent_hidden_states[choose, current_agent_id] = recurrent_hidden_states.detach().cpu().numpy()
+                    turn_recurrent_hidden_states_critic[choose, current_agent_id] = recurrent_hidden_states_critic.detach().cpu().numpy()
 
                     obs, share_obs, reward, done, infos, available_actions = envs.step(
                         env_actions)
@@ -498,12 +409,8 @@ def main(args):
         if all_args.share_policy:
             # compute returns
             with torch.no_grad():
-                actor_critic.eval()
-                next_value, _, _ = actor_critic.get_value(torch.FloatTensor(np.concatenate(buffer.share_obs[-1])),
-                                                          torch.FloatTensor(
-                                                              np.concatenate(buffer.obs[-1])),
-                                                          torch.FloatTensor(np.concatenate(
-                                                              buffer.recurrent_hidden_states[-1])),
+                trainer.prep_rollout()
+                next_value = trainer.policy.get_value(torch.FloatTensor(np.concatenate(buffer.share_obs[-1])),
                                                           torch.FloatTensor(np.concatenate(
                                                               buffer.recurrent_hidden_states_critic[-1])),
                                                           torch.FloatTensor(np.concatenate(buffer.masks[-1])))
@@ -515,24 +422,25 @@ def main(args):
                                               all_args.gae_lambda,
                                               all_args.use_proper_time_limits,
                                               all_args.use_popart,
-                                              agents.value_normalizer)
+                                              trainer.value_normalizer)
             # update network
-            actor_critic.train()
-            value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents.shared_update(
+            trainer.prep_training()
+            value_loss, critic_grad_norm, action_loss, dist_entropy, actor_grad_norm, KL_divloss, ratio = trainer.shared_update(
                 buffer)
 
         else:
             value_losses = []
             action_losses = []
             dist_entropies = []
-            grad_norms = []
+            actor_grad_norms = []
+            critic_grad_norms = []
             KL_divlosses = []
             ratios = []
 
             for agent_id in range(num_agents):
                 with torch.no_grad():
-                    actor_critic[agent_id].eval()
-                    next_value, _, _ = actor_critic[agent_id].get_value(torch.FloatTensor(buffer.share_obs[-1, :, agent_id]),
+                    trainer[agent_id].prep_rollout()
+                    next_value = trainer[agent_id].policy.get_value(torch.FloatTensor(buffer.share_obs[-1, :, agent_id]),
                                                                         torch.FloatTensor(
                                                                             buffer.obs[-1, :, agent_id]),
                                                                         torch.FloatTensor(
@@ -548,15 +456,16 @@ def main(args):
                                                   all_args.gae_lambda,
                                                   all_args.use_proper_time_limits,
                                                   all_args.use_popart,
-                                                  agents[agent_id].value_normalizer)
+                                                  trainer[agent_id].value_normalizer)
                 # update network
                 actor_critic[agent_id].train()
-                value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = agents[agent_id].single_update(
+                value_loss, critic_grad_norm, action_loss, dist_entropy, actor_grad_norm, KL_divloss, ratio = agents[agent_id].single_update(
                     agent_id, buffer)
                 value_losses.append(value_loss)
                 action_losses.append(action_loss)
                 dist_entropies.append(dist_entropy)
-                grad_norms.append(grad_norm)
+                actor_grad_norms.append(actor_grad_norm)
+                critic_grad_norms.append(critic_grad_norm)
                 KL_divlosses.append(KL_divloss)
                 ratios.append(ratio)
 
@@ -572,13 +481,13 @@ def main(args):
         if (episode % all_args.save_interval == 0 or episode == episodes - 1):
             if all_args.share_policy:
                 torch.save({
-                    'model': actor_critic
+                    'model': trainer.policy
                 },
                     str(run_dir) + "/agent_model.pt")
             else:
                 for agent_id in range(num_agents):
                     torch.save({
-                        'model': actor_critic[agent_id]
+                        'model': trainer[agent_id].policy
                     },
                         str(run_dir) + "/agent%i_model" % agent_id + ".pt")
 
@@ -602,7 +511,8 @@ def main(args):
                               step=total_num_steps)
                     wandb.log({"dist_entropy": dist_entropy},
                               step=total_num_steps)
-                    wandb.log({"grad_norm": grad_norm}, step=total_num_steps)
+                    wandb.log({"actor_grad_norm": actor_grad_norm}, step=total_num_steps)
+                    wandb.log({"critic_grad_norm": critic_grad_norm}, step=total_num_steps)
                     wandb.log({"KL_divloss": KL_divloss}, step=total_num_steps)
                     wandb.log({"ratio": ratio}, step=total_num_steps)
                     wandb.log({"average_step_rewards": np.mean(
@@ -615,7 +525,9 @@ def main(args):
                     writter.add_scalars(
                         "dist_entropy", {"dist_entropy": dist_entropy}, total_num_steps)
                     writter.add_scalars(
-                        "grad_norm", {"grad_norm": grad_norm}, total_num_steps)
+                        "actor_grad_norm", {"actor_grad_norm": actor_grad_norm}, total_num_steps)
+                    writter.add_scalars(
+                        "critic_grad_norm", {"critic_grad_norm": critic_grad_norm}, total_num_steps)
                     writter.add_scalars(
                         "KL_divloss", {"KL_divloss": KL_divloss}, total_num_steps)
                     writter.add_scalars(
@@ -634,7 +546,9 @@ def main(args):
                         wandb.log(
                             {"agent%i/dist_entropy" % agent_id: dist_entropies[agent_id]}, step=total_num_steps)
                         wandb.log(
-                            {"agent%i/grad_norm" % agent_id: grad_norms[agent_id]}, step=total_num_steps)
+                            {"agent%i/actor_grad_norm" % agent_id: actor_grad_norms[agent_id]}, step=total_num_steps)
+                        wandb.log(
+                            {"agent%i/critic_grad_norm" % agent_id: critic_grad_norms[agent_id]}, step=total_num_steps)
                         wandb.log(
                             {"agent%i/KL_divloss" % agent_id: KL_divlosses[agent_id]}, step=total_num_steps)
                         wandb.log(
@@ -648,8 +562,10 @@ def main(args):
                                             "agent%i/action_loss" % agent_id: action_losses[agent_id]}, total_num_steps)
                         writter.add_scalars("agent%i/dist_entropy" % agent_id, {
                                             "agent%i/dist_entropy" % agent_id: dist_entropies[agent_id]}, total_num_steps)
-                        writter.add_scalars("agent%i/grad_norm" % agent_id, {
-                                            "agent%i/grad_norm" % agent_id: grad_norms[agent_id]}, total_num_steps)
+                        writter.add_scalars("agent%i/actor_grad_norm" % agent_id, {
+                                            "agent%i/actor_grad_norm" % agent_id: actor_grad_norms[agent_id]}, total_num_steps)
+                        writter.add_scalars("agent%i/critic_grad_norm" % agent_id, {
+                                            "agent%i/critic_grad_norm" % agent_id: critic_grad_norms[agent_id]}, total_num_steps)
                         writter.add_scalars("agent%i/KL_divloss" % agent_id, {
                                             "agent%i/KL_divloss" % agent_id: KL_divlosses[agent_id]}, total_num_steps)
                         writter.add_scalars(
@@ -704,8 +620,8 @@ def main(args):
                         break
 
                     if all_args.share_policy:
-                        actor_critic.eval()
-                        _, eval_action, _, eval_recurrent_hidden_state, eval_recurrent_hidden_state_critic = actor_critic.act(torch.FloatTensor(eval_share_obs[eval_choose, agent_id]),
+                        trainer.prep_rollout()
+                        _, eval_action, _, eval_recurrent_hidden_state, eval_recurrent_hidden_state_critic = trainer.policy.act(torch.FloatTensor(eval_share_obs[eval_choose, agent_id]),
                                                                                                                               torch.FloatTensor(
                                                                                                                                   eval_obs[eval_choose, agent_id]),
                                                                                                                               torch.FloatTensor(
@@ -718,8 +634,8 @@ def main(args):
                                 eval_available_actions[eval_choose, agent_id]),
                             deterministic=True)
                     else:
-                        actor_critic[agent_id].eval()
-                        _, eval_action, _, eval_recurrent_hidden_state, eval_recurrent_hidden_state_critic = actor_critic[agent_id].act(torch.FloatTensor(eval_share_obs[eval_choose, agent_id]),
+                        trainer[agent_id].prep_rollout()
+                        _, eval_action, _, eval_recurrent_hidden_state, eval_recurrent_hidden_state_critic = trainer[agent_id].policy.act(torch.FloatTensor(eval_share_obs[eval_choose, agent_id]),
                                                                                                                                         torch.FloatTensor(
                                                                                                                                             eval_obs[eval_choose, agent_id]),
                                                                                                                                         torch.FloatTensor(

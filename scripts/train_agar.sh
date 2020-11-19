@@ -1,13 +1,13 @@
 #!/bin/sh
 env="Agar"
-algo="new_agar_rollout24_batch16_length600_kill0_coop1_hidden128_attn11284_15e6_lr25e-4_curriculum"
-#algo="test"
+algo="rmappo"
+exp="debug"
 seed_max=1
 
 echo "env is ${env}, algo is ${algo}, max seed is ${seed_max}"
 for seed in `seq ${seed_max}`;
 do
     echo "seed is ${seed}:"
-    CUDA_VISIBLE_DEVICES=4 python train/train_agar.py --env_name ${env} --algorithm_name ${algo} --seed ${seed} --n_training_threads 1 --n_rollout_threads 24 --num_mini_batch 16 --num_agents 2 --episode_length 600 --num_env_steps 40000000 --hidden_size 128 --attn --attn_N 1 --attn_size 128 --attn_heads 4 --lr 2.5e-4 --cuda
+    CUDA_VISIBLE_DEVICES=4 python train/train_agar.py --env_name ${env} --algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} --n_training_threads 1 --n_rollout_threads 2 --num_mini_batch 1 --num_agents 2 --episode_length 30 --num_env_steps 40000000 --hidden_size 128 --attn_N 1 --attn_size 128 --attn_heads 4 --lr 2.5e-4 --use_wandb
     echo "training is done!"
 done

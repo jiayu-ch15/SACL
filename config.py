@@ -46,8 +46,6 @@ def get_config():
                         help="Number of layers for actor/critic networks")
     parser.add_argument("--use_ReLU", action='store_false',
                         default=True, help="Whether to use ReLU")
-    parser.add_argument("--use_common_layer",
-                        action='store_true', default=False)
     parser.add_argument("--use_popart", action='store_false', default=True)
     parser.add_argument("--use_feature_popart", action='store_true',
                         default=False, help="Whether to apply popart to the inputs")
@@ -69,7 +67,7 @@ def get_config():
                         help="Time length of chunks used to train a recurrent_policy")
 
     # attn parameters
-    parser.add_argument("--attn", action='store_true', default=False)
+    parser.add_argument("--use_attn", action='store_true', default=False)
     parser.add_argument("--attn_N", type=int, default=1)
     parser.add_argument("--attn_size", type=int, default=64)
     parser.add_argument("--attn_heads", type=int, default=4)
@@ -81,7 +79,7 @@ def get_config():
     # optimizer parameters
     parser.add_argument("--lr", type=float, default=5e-4,
                         help='learning rate (default: 7e-4)')
-    parser.add_argument("--eps", type=float, default=1e-5,
+    parser.add_argument("--opti_eps", type=float, default=1e-5,
                         help='RMSprop optimizer epsilon (default: 1e-5)')
     parser.add_argument("--weight_decay", type=float, default=0)
 
