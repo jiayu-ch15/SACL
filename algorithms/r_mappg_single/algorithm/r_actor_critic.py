@@ -25,6 +25,8 @@ class R_Model(nn.Module):
         self._use_average_pool = args.use_average_pool
         self._layer_N = args.layer_N
         self._attn_size = args.attn_size
+        self._naive_recurrent_policy = args.naive_recurrent_policy
+        self._recurrent_policy = args.recurrent_policy
         self.hidden_size = args.hidden_size
         self.mixed_action = False
         self.multi_discrete = False
@@ -101,7 +103,8 @@ class R_Model(nn.Module):
 
         # common layer
         self.common = MLPLayer(self.hidden_size, self.hidden_size, layer_N=0, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
-        self.rnn = RNNLayer(args, self.hidden_size, self.hidden_size)
+        if self._naive_recurrent_policy or self._recurrent_policy:
+            self.rnn = RNNLayer(args, self.hidden_size, self.hidden_size)
 
         if self._use_orthogonal:
             def init_(m): return init(m, nn.init.orthogonal_,
@@ -159,8 +162,9 @@ class R_Model(nn.Module):
 
         x = self.obs_prep(x)
         # common
-        rnn_inp = self.common(x)
-        actor_features, rnn_hidden_states = self.rnn(rnn_inp, rnn_hidden_states, masks)
+        actor_features = self.common(x)
+        if self._naive_recurrent_policy or self._recurrent_policy:
+            actor_features, rnn_hidden_states = self.rnn(actor_features, rnn_hidden_states, masks)
 
         if self.mixed_action:
             action_outs, actions, action_log_probs = [None, None], [None, None], [None, None]
@@ -231,9 +235,10 @@ class R_Model(nn.Module):
             x = self.obs_attn_norm(x)
 
         x = self.obs_prep(x)
-        rnn_inp = self.common(x)
-        actor_features, rnn_hidden_states = self.rnn(
-            rnn_inp, rnn_hidden_states, masks)
+        actor_features = self.common(x)
+        if self._naive_recurrent_policy or self._recurrent_policy:
+            actor_features, rnn_hidden_states = self.rnn(
+                actor_features, rnn_hidden_states, masks)
 
         if self.mixed_action:
             a, b = action.split((2, 1), -1)
@@ -302,9 +307,10 @@ class R_Model(nn.Module):
             share_x = self.share_obs_attn_norm(share_x)
 
         share_x = self.share_obs_prep(share_x)
-        rnn_inp = self.common(share_x)
-        critic_features, rnn_hidden_states = self.rnn(
-            rnn_inp, rnn_hidden_states, masks)
+        critic_features = self.common(share_x)
+        if self._naive_recurrent_policy or self._recurrent_policy:
+            critic_features, rnn_hidden_states = self.rnn(
+                critic_features, rnn_hidden_states, masks)
         value = self.v_out(critic_features)
 
         return value, rnn_hidden_states

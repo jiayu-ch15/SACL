@@ -146,7 +146,8 @@ class R_MAPPG():
                                             torch.FloatTensor(np.concatenate(buffer.available_actions[step])))
             action_log_probs = np.array(np.split(action_log_probs.detach().cpu().numpy(), buffer.n_rollout_threads))
             buffer.action_log_probs[step] = action_log_probs.copy()
-
+        return buffer
+    
     def auxiliary_loss_update(self, sample): 
         share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, \
             value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, \
@@ -447,7 +448,7 @@ class R_MAPPG():
                 critic_grad_norm_epoch += critic_grad_norm    
 
         # auxiliary phase
-        self.update_action_log_probs(buffer)
+        buffer = self.update_action_log_probs(buffer)
 
         for _ in range(self.aux_epoch):
 

@@ -18,6 +18,8 @@ class R_Actor(nn.Module):
         super(R_Actor, self).__init__()
         self._gain = args.gain
         self._use_orthogonal = args.use_orthogonal
+        self._naive_recurrent_policy = args.naive_recurrent_policy
+        self._recurrent_policy = args.recurrent_policy
         self.hidden_size = args.hidden_size
         self.mixed_action = False
         self.multi_discrete = False
@@ -35,7 +37,8 @@ class R_Actor(nn.Module):
         else:
             self.base = MLPBase(args, obs_shape)
 
-        self.rnn = RNNLayer(args, self.hidden_size, self.hidden_size)
+        if self._naive_recurrent_policy or self._recurrent_policy:
+            self.rnn = RNNLayer(args, self.hidden_size, self.hidden_size)
 
         if action_space.__class__.__name__ == "Discrete":
             action_dim = action_space.n
@@ -81,9 +84,10 @@ class R_Actor(nn.Module):
         if available_actions is not None:
             available_actions = available_actions.to(self.device)
 
-        rnn_inp = self.base(obs)
-        actor_features, rnn_hidden_states = self.rnn(
-            rnn_inp, rnn_hidden_states, masks)
+        actor_features = self.base(obs)
+        if self._naive_recurrent_policy or self._recurrent_policy:
+            actor_features, rnn_hidden_states = self.rnn(
+                actor_features, rnn_hidden_states, masks)
 
         if self.mixed_action:
             action_outs, actions, action_log_probs = [
@@ -145,9 +149,10 @@ class R_Actor(nn.Module):
             active_masks = active_masks.to(self.device)
         action = action.to(self.device)
 
-        rnn_inp = self.base(obs)
-        actor_features, rnn_hidden_states = self.rnn(
-            rnn_inp, rnn_hidden_states, masks)
+        actor_features = self.base(obs)
+        if self._naive_recurrent_policy or self._recurrent_policy:
+            actor_features, rnn_hidden_states = self.rnn(
+                actor_features, rnn_hidden_states, masks)
 
         if self.mixed_action:
             a, b = action.split((2, 1), -1)
@@ -208,9 +213,10 @@ class R_Actor(nn.Module):
         if available_actions is not None:
             available_actions = available_actions.to(self.device)
 
-        rnn_inp = self.base(obs)
-        actor_features, rnn_hidden_states = self.rnn(
-            rnn_inp, rnn_hidden_states, masks)
+        actor_features = self.base(obs)
+        if self._naive_recurrent_policy or self._recurrent_policy:
+            actor_features, rnn_hidden_states = self.rnn(
+                actor_features, rnn_hidden_states, masks)
 
         if self.mixed_action:
             action_outs, actions, action_log_probs = [
@@ -271,6 +277,8 @@ class R_Critic(nn.Module):
     def __init__(self, args, share_obs_space, device=torch.device("cpu"), cat_self=True):
         super(R_Critic, self).__init__()
         self._use_orthogonal = args.use_orthogonal
+        self._naive_recurrent_policy = args.naive_recurrent_policy
+        self._recurrent_policy = args.recurrent_policy
         self.hidden_size = args.hidden_size
         self.device = device
 
@@ -285,8 +293,8 @@ class R_Critic(nn.Module):
             self.base = CNNBase(args, share_obs_shape)
         else:
             self.base = MLPBase(args, share_obs_shape, cat_self)
-
-        self.rnn = RNNLayer(args, self.hidden_size, self.hidden_size)
+        if self._naive_recurrent_policy or self._recurrent_policy:
+            self.rnn = RNNLayer(args, self.hidden_size, self.hidden_size)
 
         if self._use_orthogonal:
             def init_(m): return init(m, nn.init.orthogonal_,
@@ -303,9 +311,10 @@ class R_Critic(nn.Module):
         rnn_hidden_states = rnn_hidden_states.to(self.device)
         masks = masks.to(self.device)
 
-        rnn_inp = self.base(share_obs)
-        critic_features, rnn_hidden_states = self.rnn(
-            rnn_inp, rnn_hidden_states, masks)
+        critic_features = self.base(share_obs)
+        if self._naive_recurrent_policy or self._recurrent_policy:
+            critic_features, rnn_hidden_states = self.rnn(
+                critic_features, rnn_hidden_states, masks)
         value = self.v_out(critic_features)
 
         return value, rnn_hidden_states

@@ -20,8 +20,8 @@ class R_MAPPG():
         self.device = device
         self.policy = policy
 
-        self._recurrent = args.recurrent_policy
-        self._naive_recurrent = args.naive_recurrent_policy
+        self._recurrent_policy = args.recurrent_policy
+        self._naive_recurrent_policy = args.naive_recurrent_policy
 
         self.clip_param = args.clip_param
         self.ppo_epoch = args.ppo_epoch
@@ -95,8 +95,9 @@ class R_MAPPG():
         # freeze common network
         for p in self.policy.model.common.parameters():
             p.requires_grad = False
-        for p in self.policy.model.rnn.parameters():
-            p.requires_grad = False
+        if self._recurrent_policy or self._naive_recurrent_policy:
+            for p in self.policy.model.rnn.parameters():
+                p.requires_grad = False
 
         values = self.policy.get_value(share_obs_batch, recurrent_hidden_states_critic_batch, masks_batch)
 
@@ -152,6 +153,7 @@ class R_MAPPG():
                                             torch.FloatTensor(np.concatenate(buffer.available_actions[step])))
             action_log_probs = np.array(np.split(action_log_probs.detach().cpu().numpy(), buffer.n_rollout_threads))
             buffer.action_log_probs[step] = action_log_probs.copy()
+        return buffer
 
     def auxiliary_loss_update(self, sample): 
         share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, \
@@ -240,10 +242,10 @@ class R_MAPPG():
         # policy phase
         for _ in range(self.ppo_epoch):
 
-            if self._recurrent:
+            if self._recurrent_policy:
                 data_generator = buffer.recurrent_generator(
                     advantages, self.num_mini_batch, self.data_chunk_length)
-            elif self._naive_recurrent:
+            elif self._naive_recurrent_policy:
                 data_generator = buffer.naive_recurrent_generator(
                     advantages, self.num_mini_batch)
             else:
@@ -269,10 +271,10 @@ class R_MAPPG():
 
         for _ in range(self.aux_epoch):
 
-            if self._recurrent:
+            if self._recurrent_policy:
                 data_generator = buffer.recurrent_generator(
                     advantages, self.num_mini_batch, self.data_chunk_length)
-            elif self._naive_recurrent:
+            elif self._naive_recurrent_policy:
                 data_generator = buffer.naive_recurrent_generator(
                     advantages, self.num_mini_batch)
             else:
@@ -326,10 +328,10 @@ class R_MAPPG():
 
         # policy phase
         for _ in range(self.ppo_epoch):
-            if self._recurrent:
+            if self._recurrent_policy:
                 data_generator = buffer.single_recurrent_generator(
                     agent_id, advantages, self.num_mini_batch, self.data_chunk_length)
-            elif self._naive_recurrent:
+            elif self._naive_recurrent_policy:
                 data_generator = buffer.single_naive_recurrent_generator(
                     agent_id, advantages, self.num_mini_batch)
             else:
@@ -354,10 +356,10 @@ class R_MAPPG():
         self.update_action_log_probs(buffer)
 
         for _ in range(self.aux_epoch):
-            if self._recurrent:
+            if self._recurrent_policy:
                 data_generator = buffer.single_recurrent_generator(
                     agent_id, advantages, self.num_mini_batch, self.data_chunk_length)
-            elif self._naive_recurrent:
+            elif self._naive_recurrent_policy:
                 data_generator = buffer.single_naive_recurrent_generator(
                     agent_id, advantages, self.num_mini_batch)
             else:
@@ -411,10 +413,10 @@ class R_MAPPG():
         # policy phase
         for _ in range(self.ppo_epoch):
 
-            if self._recurrent:
+            if self._recurrent_policy:
                 data_generator = buffer.shared_recurrent_generator(
                     advantages, self.num_mini_batch, self.data_chunk_length)
-            elif self._naive_recurrent:
+            elif self._naive_recurrent_policy:
                 data_generator = buffer.shared_naive_recurrent_generator(
                     advantages, self.num_mini_batch)
             else:
@@ -436,14 +438,14 @@ class R_MAPPG():
                 critic_grad_norm_epoch += critic_grad_norm    
 
         # auxiliary phase
-        self.update_action_log_probs(buffer)
+        buffer = self.update_action_log_probs(buffer)
 
         for _ in range(self.aux_epoch):
 
-            if self._recurrent:
+            if self._recurrent_policy:
                 data_generator = buffer.shared_recurrent_generator(
                     advantages, self.num_mini_batch, self.data_chunk_length)
-            elif self._naive_recurrent:
+            elif self._naive_recurrent_policy:
                 data_generator = buffer.shared_naive_recurrent_generator(
                     advantages, self.num_mini_batch)
             else:
@@ -457,8 +459,7 @@ class R_MAPPG():
 
                 joint_loss_epoch += joint_loss.item()
                 joint_grad_norm_epoch += joint_grad_norm
-        
-        
+               
         num_updates = self.ppo_epoch * self.num_mini_batch
 
         action_loss_epoch /= num_updates
