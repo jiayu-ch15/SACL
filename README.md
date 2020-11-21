@@ -5,7 +5,7 @@
 | Algorithms | recurrent-verison | mlp-version | cnn-version |
 | :--------: | :---------------: | :---------: | :---------: |
 | MAPPO      | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
-| MAPPG |                   |             |             |
+| MAPPG |        :heavy_check_mark:           |       :heavy_check_mark:      |     :heavy_check_mark:        |
 |            |                   |             |             |
 
 
