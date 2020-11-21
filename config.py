@@ -8,7 +8,7 @@ def get_config():
 
     # prepare parameters
     parser.add_argument("--algorithm_name", type=str,
-                        default='mappo', choices=["rmappo", "mappo"])
+                        default='mappo', choices=["rmappo", "mappo", "rmappg", "mappg"])
     parser.add_argument("--experiment_name", type=str, default="check")
     parser.add_argument("--seed", type=int, default=1,
                         help="Random seed for numpy/torch")
@@ -40,6 +40,8 @@ def get_config():
                         default=True, help='Whether agent share the same policy')
     parser.add_argument("--use_centralized_V", action='store_false',
                         default=True, help="Whether to use centralized V function")
+    parser.add_argument("--use_single_network", action='store_true',
+                        default=False, help="Whether to use centralized V function")
     parser.add_argument("--hidden_size", type=int, default=64,
                         help="Dimension of hidden layers for actor/critic networks")
     parser.add_argument("--layer_N", type=int, default=1,
@@ -80,7 +82,7 @@ def get_config():
     parser.add_argument("--lr", type=float, default=5e-4,
                         help='learning rate (default: 7e-4)')
     parser.add_argument("--critic_lr", type=float, default=5e-4,
-                        help='learning rate (default: 7e-4)')
+                        help='critic learning rate (default: 7e-4)')
     parser.add_argument("--opti_eps", type=float, default=1e-5,
                         help='RMSprop optimizer epsilon (default: 1e-5)')
     parser.add_argument("--weight_decay", type=float, default=0)
@@ -114,6 +116,14 @@ def get_config():
     parser.add_argument("--use_value_active_masks",
                         action='store_false', default=True)
     parser.add_argument("--huber_delta", type=float, default=10.0)
+
+    # ppg parameters
+    parser.add_argument("--value_epoch", type=int, default=15,
+                        help='number of value epochs (default: 4)')
+    parser.add_argument("--aux_epoch", type=int, default=5,
+                        help='number of auxiliary epochs (default: 4)')
+    parser.add_argument("--clone_coef", type=float, default=1.0,
+                        help='clone term coefficient (default: 0.01)')
 
     # run parameters
     parser.add_argument("--use_linear_lr_decay", action='store_true',

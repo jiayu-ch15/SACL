@@ -21,8 +21,6 @@ from config import get_config
 
 from utils.shared_buffer import SharedReplayBuffer
 from utils.separated_buffer import SeparatedReplayBuffer
-from algorithms.r_mappo.r_mappo import R_MAPPO as TrainAlgo
-from algorithms.r_mappo.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
 from envs.mpe.MPE_env import MPEEnv
 from envs.env_wrappers import SubprocVecEnv, DummyVecEnv
 
@@ -79,12 +77,21 @@ def main(args):
     parser = get_config()
     all_args = parse_args(args, parser)
 
-    if all_args.algorithm_name == "rmappo":
+    if all_args.algorithm_name == "rmappo" or all_args.algorithm_name == "rmappg":
         assert (
             all_args.recurrent_policy or all_args.naive_recurrent_policy), ("check recurrent policy!")
-    elif all_args.algorithm_name == "mappo":
+    elif all_args.algorithm_name == "mappo" or all_args.algorithm_name == "mappg":
         assert (all_args.recurrent_policy and all_args.naive_recurrent_policy) == False, (
             "check recurrent policy!")
+    else:
+        raise NotImplementedError
+
+    if "mappo" in all_args.algorithm_name:
+        from algorithms.r_mappo.r_mappo import R_MAPPO as TrainAlgo
+        from algorithms.r_mappo.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
+    elif "mappg" in all_args.algorithm_name:
+        from algorithms.r_mappg.r_mappg import R_MAPPG as TrainAlgo
+        from algorithms.r_mappg.algorithm.rMAPPGPolicy import R_MAPPGPolicy as Policy
     else:
         raise NotImplementedError
 
