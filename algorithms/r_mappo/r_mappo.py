@@ -63,9 +63,10 @@ class R_MAPPO():
 
         ratio = torch.exp(action_log_probs - old_action_log_probs_batch)
 
-        kl_divergence = torch.exp(old_action_log_probs_batch) * (old_action_log_probs_batch - action_log_probs)
+        kl_divergence = torch.exp(
+            old_action_log_probs_batch) * (old_action_log_probs_batch - action_log_probs)
         kl_loss = (kl_divergence * active_masks_batch).sum() / \
-                active_masks_batch.sum()
+            active_masks_batch.sum()
 
         surr1 = ratio * adv_targ
         surr2 = torch.clamp(ratio, 1.0 - self.clip_param,

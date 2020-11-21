@@ -18,8 +18,7 @@ class R_MAPPGPolicy:
         self.act_space = action_space
 
         self.model = R_Model(args, self.obs_space, self.share_obs_space,
-                            self.act_space, self.device, cat_self).to(self.device)
-
+                             self.act_space, self.device, cat_self).to(self.device)
 
         self.optimizer = torch.optim.Adam(self.model.parameters(
         ), lr=self.lr, eps=self.opti_eps, weight_decay=self.weight_decay)

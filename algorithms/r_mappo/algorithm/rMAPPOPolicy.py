@@ -17,8 +17,10 @@ class R_MAPPOPolicy:
         self.share_obs_space = share_obs_space
         self.act_space = action_space
 
-        self.actor = R_Actor(args, self.obs_space, self.act_space, self.device).to(self.device)
-        self.critic = R_Critic(args, self.share_obs_space, self.device, cat_self).to(self.device)
+        self.actor = R_Actor(args, self.obs_space,
+                             self.act_space, self.device).to(self.device)
+        self.critic = R_Critic(args, self.share_obs_space,
+                               self.device, cat_self).to(self.device)
 
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(
         ), lr=self.lr, eps=self.opti_eps, weight_decay=self.weight_decay)

@@ -41,7 +41,8 @@ class R_Model(nn.Module):
             raise NotImplementedError
 
         if len(obs_shape) == 3:
-            self.obs_prep = CNNLayer(obs_shape, self.hidden_size, self._use_orthogonal)
+            self.obs_prep = CNNLayer(
+                obs_shape, self.hidden_size, self._use_orthogonal)
         else:
             obs_dim = obs_shape[0]
             if self._use_feature_popart:
@@ -49,7 +50,7 @@ class R_Model(nn.Module):
 
             if self._use_feature_normalization:
                 self.obs_feature_norm = nn.LayerNorm(obs_dim)
-            
+
             if self._use_attn:
                 if self._use_average_pool:
                     inputs_dim = self._attn_size + obs_shape[-1][1]
@@ -63,7 +64,8 @@ class R_Model(nn.Module):
                 self.obs_attn_norm = nn.LayerNorm(inputs_dim)
             else:
                 inputs_dim = obs_dim
-            self.obs_prep = MLPLayer(inputs_dim, self.hidden_size, layer_N=0, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
+            self.obs_prep = MLPLayer(inputs_dim, self.hidden_size, layer_N=0,
+                                     use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
 
         # share obs space
         if share_obs_space.__class__.__name__ == "Box":
@@ -74,7 +76,8 @@ class R_Model(nn.Module):
             raise NotImplementedError
 
         if len(share_obs_shape) == 3:
-            self.share_obs_prep = CNNLayer(share_obs_shape, self.hidden_size, self._use_orthogonal)
+            self.share_obs_prep = CNNLayer(
+                share_obs_shape, self.hidden_size, self._use_orthogonal)
         else:
             share_obs_dim = share_obs_shape[0]
             if self._use_feature_popart:
@@ -82,7 +85,7 @@ class R_Model(nn.Module):
 
             if self._use_feature_normalization:
                 self.share_obs_feature_norm = nn.LayerNorm(share_obs_dim)
-            
+
             if self._use_attn:
                 if self._use_average_pool:
                     if cat_self:
@@ -99,10 +102,12 @@ class R_Model(nn.Module):
                 self.share_obs_attn_norm = nn.LayerNorm(inputs_dim)
             else:
                 inputs_dim = share_obs_dim
-            self.share_obs_prep = MLPLayer(inputs_dim, self.hidden_size, layer_N=0, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
+            self.share_obs_prep = MLPLayer(
+                inputs_dim, self.hidden_size, layer_N=0, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
 
         # common layer
-        self.common = MLPLayer(self.hidden_size, self.hidden_size, layer_N=0, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
+        self.common = MLPLayer(self.hidden_size, self.hidden_size, layer_N=0,
+                               use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
         if self._naive_recurrent_policy or self._recurrent_policy:
             self.rnn = RNNLayer(args, self.hidden_size, self.hidden_size)
 
@@ -112,9 +117,9 @@ class R_Model(nn.Module):
         else:
             def init_(m): return init(m, nn.init.xavier_uniform_,
                                       lambda x: nn.init.constant_(x, 0))
-        # value 
+        # value
         self.v_out = init_(nn.Linear(self.hidden_size, 1))
-        
+
         # action
         if action_space.__class__.__name__ == "Discrete":
             action_dim = action_space.n
@@ -152,10 +157,10 @@ class R_Model(nn.Module):
             available_actions = available_actions.to(self.device)
 
         x = obs
-        
+
         if self._use_feature_popart or self._use_feature_normalization:
             x = self.obs_feature_norm(x)
-            
+
         if self._use_attn:
             x = self.obs_attn(x, self_idx=-1)
             x = self.obs_attn_norm(x)
@@ -164,10 +169,12 @@ class R_Model(nn.Module):
         # common
         actor_features = self.common(x)
         if self._naive_recurrent_policy or self._recurrent_policy:
-            actor_features, rnn_hidden_states = self.rnn(actor_features, rnn_hidden_states, masks)
+            actor_features, rnn_hidden_states = self.rnn(
+                actor_features, rnn_hidden_states, masks)
 
         if self.mixed_action:
-            action_outs, actions, action_log_probs = [None, None], [None, None], [None, None]
+            action_outs, actions, action_log_probs = [
+                None, None], [None, None], [None, None]
             for i in range(2):
                 action_outs[i] = self.action_outs[i](actor_features)
 

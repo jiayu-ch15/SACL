@@ -76,7 +76,7 @@ class R_Actor(nn.Module):
             available_actions = available_actions.to(self.device)
 
         actor_features = self.base(obs)
-        
+
         if self._naive_recurrent_policy or self._recurrent_policy:
             actor_features, rnn_hidden_states = self.rnn(
                 actor_features, rnn_hidden_states, masks)

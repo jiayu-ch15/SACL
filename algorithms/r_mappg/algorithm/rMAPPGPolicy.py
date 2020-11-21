@@ -18,8 +18,9 @@ class R_MAPPGPolicy:
         self.act_space = action_space
 
         self.actor = R_Actor(args, self.obs_space,
-                            self.act_space, self.device).to(self.device)
-        self.critic = R_Critic(args, self.share_obs_space, self.device, cat_self).to(self.device)
+                             self.act_space, self.device).to(self.device)
+        self.critic = R_Critic(args, self.share_obs_space,
+                               self.device, cat_self).to(self.device)
 
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(
         ), lr=self.lr, eps=self.opti_eps, weight_decay=self.weight_decay)
@@ -44,7 +45,8 @@ class R_MAPPGPolicy:
         return value
 
     def get_policy_value_and_logprobs(self, obs, actor_hidden_states, masks, available_actions=None, deterministic=False):
-        value, action_log_probs = self.actor.get_value_and_logprobs(obs, actor_hidden_states, masks, available_actions, deterministic)
+        value, action_log_probs = self.actor.get_value_and_logprobs(
+            obs, actor_hidden_states, masks, available_actions, deterministic)
         return value, action_log_probs
 
     def get_actions(self, obs, actor_hidden_states, masks, available_actions=None, deterministic=False):
