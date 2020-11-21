@@ -90,8 +90,12 @@ def main(args):
         from algorithms.r_mappo.r_mappo import R_MAPPO as TrainAlgo
         from algorithms.r_mappo.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
     elif "mappg" in all_args.algorithm_name:
-        from algorithms.r_mappg.r_mappg import R_MAPPG as TrainAlgo
-        from algorithms.r_mappg.algorithm.rMAPPGPolicy import R_MAPPGPolicy as Policy
+        if all_args.use_single_network:
+            from algorithms.r_mappg_single.r_mappg_single import R_MAPPG as TrainAlgo
+            from algorithms.r_mappg_single.algorithm.rMAPPGPolicy import R_MAPPGPolicy as Policy
+        else:
+            from algorithms.r_mappg.r_mappg import R_MAPPG as TrainAlgo
+            from algorithms.r_mappg.algorithm.rMAPPGPolicy import R_MAPPGPolicy as Policy
     else:
         raise NotImplementedError
 
@@ -164,6 +168,10 @@ def main(args):
     num_agents = all_args.num_agents
 
     # Policy network
+    if all_args.use_obs_instead_of_state:
+        cat_self = False
+    else:
+        cat_self = True
     if all_args.share_policy:
         if all_args.use_centralized_V:
             share_observation_space = envs.share_observation_space[0]
@@ -175,7 +183,8 @@ def main(args):
                             envs.observation_space[0],
                             share_observation_space,
                             envs.action_space[0],
-                            device=device)
+                            device=device,
+                            cat_self=cat_self)
         else:
             policy = torch.load(
                 str(all_args.model_dir) + "/agent_model.pt")['model']
@@ -203,7 +212,8 @@ def main(args):
                             envs.observation_space[agent_id],
                             share_observation_space,
                             envs.action_space[agent_id],
-                            device=device)
+                            device=device,
+                            cat_self=cat_self)
             else:
                 po = torch.load(str(all_args.model_dir) +
                                 "/agent" + str(agent_id) + "_model.pt")['model']

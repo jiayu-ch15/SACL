@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from algorithms.r_mappg.algorithm.r_actor_critic import R_Actor, R_Critic
+from algorithms.r_mappg_single.algorithm.r_actor_critic import R_Model
 from utils.util import update_linear_schedule
 
 
@@ -17,43 +17,41 @@ class R_MAPPGPolicy:
         self.share_obs_space = share_obs_space
         self.act_space = action_space
 
-        self.actor = R_Actor(args, self.obs_space,
-                            self.act_space, self.device).to(self.device)
-        self.critic = R_Critic(args, self.share_obs_space, self.device, cat_self).to(self.device)
+        self.model = R_Model(args, self.obs_space, self.share_obs_space,
+                            self.act_space, self.device, cat_self).to(self.device)
 
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(
+
+        self.optimizer = torch.optim.Adam(self.model.parameters(
         ), lr=self.lr, eps=self.opti_eps, weight_decay=self.weight_decay)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(
-        ), lr=self.critic_lr, eps=self.opti_eps, weight_decay=self.weight_decay)
 
     def lr_decay(self, episode, episodes):
-        update_linear_schedule(self.actor_optimizer,
-                               episode, episodes, self.lr)
-        update_linear_schedule(self.critic_optimizer,
-                               episode, episodes, self.critic_lr)
+        update_linear_schedule(self.optimizer, episode, episodes, self.lr)
 
     def act(self, share_obs, obs, actor_hidden_states, critic_hidden_states, masks, available_actions=None, deterministic=False):
-        action_out, action_log_probs_out, actor_hidden_states = self.actor(
+        action_out, action_log_probs_out, actor_hidden_states = self.model.get_actions(
             obs, actor_hidden_states, masks, available_actions, deterministic)
-        value, critic_hidden_states = self.critic(
+        value, critic_hidden_states = self.model.get_value(
             share_obs, critic_hidden_states, masks)
         return value, action_out, action_log_probs_out, actor_hidden_states, critic_hidden_states
 
     def get_value(self, share_obs, critic_hidden_states, masks):
-        value, _ = self.critic(share_obs, critic_hidden_states, masks)
+        value, _ = self.model.get_value(share_obs, critic_hidden_states, masks)
         return value
 
-    def get_policy_value_and_logprobs(self, obs, actor_hidden_states, masks, available_actions=None, deterministic=False):
-        value, action_log_probs = self.actor.get_value_and_logprobs(obs, actor_hidden_states, masks, available_actions, deterministic)
-        return value, action_log_probs
+    def get_value_and_logprobs(self, share_obs, obs, actor_hidden_states, critic_hidden_states, masks, available_actions=None, deterministic=False):
+        action_out, action_log_probs_out, actor_hidden_states = self.model.get_actions(
+            obs, actor_hidden_states, masks, available_actions, deterministic)
+        value, critic_hidden_states = self.model.get_value(
+            share_obs, critic_hidden_states, masks)
+        return value, action_log_probs_out
 
     def get_actions(self, obs, actor_hidden_states, masks, available_actions=None, deterministic=False):
-        action_out, action_log_probs_out, actor_hidden_states = self.actor(
+        action_out, action_log_probs_out, actor_hidden_states = self.model.get_actions(
             obs, actor_hidden_states, masks, available_actions, deterministic)
         return action_out, action_log_probs_out, actor_hidden_states
 
     def evaluate_actions(self, obs, actor_hidden_states, action, masks, active_masks=None):
-        action_log_probs_out, dist_entropy_out, _ = self.actor.evaluate_actions(
+        action_log_probs_out, dist_entropy_out, _ = self.model.evaluate_actions(
             obs, actor_hidden_states, action, masks, active_masks)
 
         return action_log_probs_out, dist_entropy_out

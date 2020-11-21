@@ -72,14 +72,14 @@ class R_MAPPG():
                        active_masks_batch).sum() / active_masks_batch.sum()
         
         # update common and action network
-        self.policy.actor_optimizer.zero_grad()
+        self.policy.optimizer.zero_grad()
         (action_loss - dist_entropy * self.entropy_coef).backward()
         if self.use_max_grad_norm:
             grad_norm = nn.utils.clip_grad_norm_(
-                self.policy.actor.parameters(), self.max_grad_norm)
+                self.policy.model.parameters(), self.max_grad_norm)
         else:
-            grad_norm = get_gard_norm(self.policy.actor.parameters())
-        self.policy.actor_optimizer.step()
+            grad_norm = get_gard_norm(self.policy.model.parameters())
+        self.policy.optimizer.step()
 
         return action_loss, dist_entropy, grad_norm, kl_loss, ratio
     
@@ -91,6 +91,12 @@ class R_MAPPG():
         value_preds_batch = value_preds_batch.to(self.device)
         return_batch = return_batch.to(self.device)
         active_masks_batch = active_masks_batch.to(self.device)
+
+        # freeze common network
+        for p in self.policy.model.common.parameters():
+            p.requires_grad = False
+        for p in self.policy.model.rnn.parameters():
+            p.requires_grad = False
 
         values = self.policy.get_value(share_obs_batch, recurrent_hidden_states_critic_batch, masks_batch)
 
@@ -124,17 +130,17 @@ class R_MAPPG():
         else:
             value_loss = value_loss.mean()
 
-        self.policy.critic_optimizer.zero_grad()
+        self.policy.optimizer.zero_grad()
 
         (value_loss * self.value_loss_coef).backward()
 
         if self.use_max_grad_norm:
             grad_norm = nn.utils.clip_grad_norm_(
-                self.policy.critic.parameters(), self.max_grad_norm)
+                self.policy.model.parameters(), self.max_grad_norm)
         else:
-            grad_norm = get_gard_norm(self.policy.critic.parameters())
+            grad_norm = get_gard_norm(self.policy.model.parameters())
 
-        self.policy.critic_optimizer.step()
+        self.policy.optimizer.step()
 
         return value_loss, grad_norm
 
@@ -159,7 +165,7 @@ class R_MAPPG():
         return_batch = return_batch.to(self.device)
 
         # Reshape to do in a single forward pass for all steps
-        values, action_log_probs = self.policy.get_policy_value_and_logprobs(obs_batch, recurrent_hidden_states_batch, masks_batch, available_actions_batch)
+        values, action_log_probs = self.policy.get_value_and_logprobs(share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, masks_batch, available_actions_batch)
         
         # kl = p * log(p / q)
         kl_divergence = torch.exp(old_action_log_probs_batch) * (old_action_log_probs_batch - action_log_probs)
@@ -198,17 +204,17 @@ class R_MAPPG():
 
         joint_loss = value_loss + self.clone_coef * kl_loss 
 
-        self.policy.actor_optimizer.zero_grad()
+        self.policy.optimizer.zero_grad()
 
         joint_loss.backward()
 
         if self.use_max_grad_norm:
             grad_norm = nn.utils.clip_grad_norm_(
-                self.policy.actor.parameters(), self.max_grad_norm)
+                self.policy.model.parameters(), self.max_grad_norm)
         else:
-            grad_norm = get_gard_norm(self.policy.actor.parameters())
+            grad_norm = get_gard_norm(self.policy.model.parameters())
 
-        self.policy.actor_optimizer.step()
+        self.policy.optimizer.step()
 
         return joint_loss, grad_norm     
 
@@ -279,13 +285,7 @@ class R_MAPPG():
                 joint_loss, joint_grad_norm = self.auxiliary_loss_update(sample)
 
                 joint_loss_epoch += joint_loss.item()
-                joint_grad_norm_epoch += joint_grad_norm
-
-                value_loss, critic_grad_norm = self.value_loss_update(sample)
-
-                value_loss_epoch += value_loss.item()
-                critic_grad_norm_epoch += critic_grad_norm
-        
+                joint_grad_norm_epoch += joint_grad_norm       
         
         num_updates = self.ppo_epoch * self.num_mini_batch
 
@@ -294,9 +294,6 @@ class R_MAPPG():
         actor_grad_norm_epoch /= num_updates
         kl_loss_epoch /= num_updates
         ratio_epoch /= num_updates
-
-        num_updates = (self.ppo_epoch + self.aux_epoch) * self.num_mini_batch
-
         value_loss_epoch /= num_updates
         critic_grad_norm_epoch /= num_updates
 
@@ -375,11 +372,6 @@ class R_MAPPG():
                 joint_loss_epoch += joint_loss.item()
                 joint_grad_norm_epoch += joint_grad_norm
 
-                value_loss, critic_grad_norm = self.value_loss_update(sample)
-
-                value_loss_epoch += value_loss.item()
-                critic_grad_norm_epoch += critic_grad_norm
-
         num_updates = self.ppo_epoch * self.num_mini_batch
 
         action_loss_epoch /= num_updates
@@ -387,9 +379,6 @@ class R_MAPPG():
         actor_grad_norm_epoch /= num_updates
         kl_loss_epoch /= num_updates
         ratio_epoch /= num_updates
-
-        num_updates = (self.ppo_epoch + self.aux_epoch) * self.num_mini_batch
-
         value_loss_epoch /= num_updates
         critic_grad_norm_epoch /= num_updates
 
@@ -468,11 +457,6 @@ class R_MAPPG():
 
                 joint_loss_epoch += joint_loss.item()
                 joint_grad_norm_epoch += joint_grad_norm
-
-                value_loss, critic_grad_norm = self.value_loss_update(sample)
-
-                value_loss_epoch += value_loss.item()
-                critic_grad_norm_epoch += critic_grad_norm
         
         
         num_updates = self.ppo_epoch * self.num_mini_batch
@@ -482,9 +466,6 @@ class R_MAPPG():
         actor_grad_norm_epoch /= num_updates
         kl_loss_epoch /= num_updates
         ratio_epoch /= num_updates
-
-        num_updates = (self.ppo_epoch + self.aux_epoch) * self.num_mini_batch
-
         value_loss_epoch /= num_updates
         critic_grad_norm_epoch /= num_updates
 
@@ -496,9 +477,7 @@ class R_MAPPG():
         return value_loss_epoch, critic_grad_norm_epoch, action_loss_epoch, dist_entropy_epoch, actor_grad_norm_epoch, joint_loss_epoch, joint_grad_norm_epoch
 
     def prep_training(self):
-        self.policy.actor.train()
-        self.policy.critic.train()
+        self.policy.model.train()
 
     def prep_rollout(self):
-        self.policy.actor.eval()
-        self.policy.critic.eval()
+        self.policy.model.eval()

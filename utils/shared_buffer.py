@@ -300,6 +300,8 @@ class SharedReplayBuffer(object):
             -1, self.recurrent_hidden_states_critic.shape[-1])
         actions = self.actions[:, :,
                                agent_id].reshape(-1, self.actions.shape[-1])
+        available_actions = self.available_actions[:, :,
+                               agent_id].reshape(-1, self.available_actions.shape[-1])
         value_preds = self.value_preds[:-1, :, agent_id].reshape(-1, 1)
         returns = self.returns[:-1, :, agent_id].reshape(-1, 1)
         masks = self.masks[:-1, :, agent_id].reshape(-1, 1)
@@ -316,6 +318,7 @@ class SharedReplayBuffer(object):
             recurrent_hidden_states_critic_batch = torch.tensor(
                 recurrent_hidden_states_critic[indices])
             actions_batch = torch.tensor(actions[indices])
+            available_actions_batch = torch.tensor(available_actions[indices])
             value_preds_batch = torch.tensor(value_preds[indices])
             return_batch = torch.tensor(returns[indices])
             masks_batch = torch.tensor(masks[indices])
@@ -327,7 +330,7 @@ class SharedReplayBuffer(object):
             else:
                 adv_targ = torch.tensor(advantages[indices])
 
-            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ
+            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ, available_actions_batch
 
     def shared_feed_forward_generator(self, advantages, num_mini_batch=None, mini_batch_size=None):
         episode_length, n_rollout_threads, num_agents = self.rewards.shape[0:3]
@@ -353,6 +356,7 @@ class SharedReplayBuffer(object):
         recurrent_hidden_states_critic = self.recurrent_hidden_states_critic[:-1].reshape(
             -1, self.recurrent_hidden_states_critic.shape[-1])
         actions = self.actions.reshape(-1, self.actions.shape[-1])
+        available_actions = self.available_actions.reshape(-1, self.available_actions.shape[-1])
         value_preds = self.value_preds[:-1].reshape(-1, 1)
         returns = self.returns[:-1].reshape(-1, 1)
         masks = self.masks[:-1].reshape(-1, 1)
@@ -369,6 +373,7 @@ class SharedReplayBuffer(object):
             recurrent_hidden_states_critic_batch = torch.tensor(
                 recurrent_hidden_states_critic[indices])
             actions_batch = torch.tensor(actions[indices])
+            available_actions_batch = torch.tensor(available_actions[indices])
             value_preds_batch = torch.tensor(value_preds[indices])
             return_batch = torch.tensor(returns[indices])
             masks_batch = torch.tensor(masks[indices])
@@ -380,7 +385,7 @@ class SharedReplayBuffer(object):
             else:
                 adv_targ = torch.tensor(advantages[indices])
 
-            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ
+            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ, available_actions_batch
 
     def single_naive_recurrent_generator(self, agent_id, advantages, num_mini_batch):
         n_rollout_threads = self.rewards.shape[1]
@@ -396,6 +401,7 @@ class SharedReplayBuffer(object):
             recurrent_hidden_states_batch = []
             recurrent_hidden_states_critic_batch = []
             actions_batch = []
+            available_actions_batch = []
             value_preds_batch = []
             return_batch = []
             masks_batch = []
@@ -414,6 +420,8 @@ class SharedReplayBuffer(object):
                     torch.tensor(self.recurrent_hidden_states_critic[0:1, ind, agent_id]))
                 actions_batch.append(torch.tensor(
                     self.actions[:, ind, agent_id]))
+                available_actions_batch.append(torch.tensor(
+                    self.available_actions[:, ind, agent_id]))
                 value_preds_batch.append(torch.tensor(
                     self.value_preds[:-1, ind, agent_id]))
                 return_batch.append(torch.tensor(
@@ -431,6 +439,7 @@ class SharedReplayBuffer(object):
             share_obs_batch = torch.stack(share_obs_batch, 1)
             obs_batch = torch.stack(obs_batch, 1)
             actions_batch = torch.stack(actions_batch, 1)
+            available_actions_batch = torch.stack(available_actions_batch, 1)
             value_preds_batch = torch.stack(value_preds_batch, 1)
             return_batch = torch.stack(return_batch, 1)
             masks_batch = torch.stack(masks_batch, 1)
@@ -449,6 +458,7 @@ class SharedReplayBuffer(object):
             share_obs_batch = _flatten_helper(T, N, share_obs_batch)
             obs_batch = _flatten_helper(T, N, obs_batch)
             actions_batch = _flatten_helper(T, N, actions_batch)
+            available_actions_batch = _flatten_helper(T, N, available_actions_batch)
             value_preds_batch = _flatten_helper(T, N, value_preds_batch)
             return_batch = _flatten_helper(T, N, return_batch)
             masks_batch = _flatten_helper(T, N, masks_batch)
@@ -457,7 +467,7 @@ class SharedReplayBuffer(object):
                 T, N, old_action_log_probs_batch)
             adv_targ = _flatten_helper(T, N, adv_targ)
 
-            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ
+            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ, available_actions_batch
 
     def shared_naive_recurrent_generator(self, advantages, num_mini_batch):
         episode_length, n_rollout_threads, num_agents = self.rewards.shape[0:3]
@@ -477,6 +487,7 @@ class SharedReplayBuffer(object):
         recurrent_hidden_states_critic = self.recurrent_hidden_states_critic.reshape(
             -1, batch_size, self.recurrent_hidden_states_critic.shape[-1])
         actions = self.actions.reshape(-1, batch_size, self.actions.shape[-1])
+        available_actions = self.available_actions.reshape(-1, batch_size, self.available_actions.shape[-1])
         value_preds = self.value_preds.reshape(-1, batch_size, 1)
         returns = self.returns.reshape(-1, batch_size, 1)
         masks = self.masks.reshape(-1, batch_size, 1)
@@ -490,6 +501,7 @@ class SharedReplayBuffer(object):
             recurrent_hidden_states_batch = []
             recurrent_hidden_states_critic_batch = []
             actions_batch = []
+            available_actions_batch = []
             value_preds_batch = []
             return_batch = []
             masks_batch = []
@@ -506,6 +518,7 @@ class SharedReplayBuffer(object):
                 recurrent_hidden_states_critic_batch.append(
                     torch.tensor(recurrent_hidden_states_critic[0:1, ind]))
                 actions_batch.append(torch.tensor(actions[:, ind]))
+                available_actions_batch.append(torch.tensor(available_actions[:, ind]))
                 value_preds_batch.append(torch.tensor(value_preds[:-1, ind]))
                 return_batch.append(torch.tensor(returns[:-1, ind]))
                 masks_batch.append(torch.tensor(masks[:-1, ind]))
@@ -519,6 +532,7 @@ class SharedReplayBuffer(object):
             share_obs_batch = torch.stack(share_obs_batch, 1)
             obs_batch = torch.stack(obs_batch, 1)
             actions_batch = torch.stack(actions_batch, 1)
+            available_actions_batch = torch.stack(available_actions_batch, 1)
             value_preds_batch = torch.stack(value_preds_batch, 1)
             return_batch = torch.stack(return_batch, 1)
             masks_batch = torch.stack(masks_batch, 1)
@@ -537,6 +551,7 @@ class SharedReplayBuffer(object):
             share_obs_batch = _flatten_helper(T, N, share_obs_batch)
             obs_batch = _flatten_helper(T, N, obs_batch)
             actions_batch = _flatten_helper(T, N, actions_batch)
+            available_actions_batch = _flatten_helper(T, N, available_actions_batch)
             value_preds_batch = _flatten_helper(T, N, value_preds_batch)
             return_batch = _flatten_helper(T, N, return_batch)
             masks_batch = _flatten_helper(T, N, masks_batch)
@@ -545,7 +560,7 @@ class SharedReplayBuffer(object):
                 T, N, old_action_log_probs_batch)
             adv_targ = _flatten_helper(T, N, adv_targ)
 
-            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ
+            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ, available_actions_batch
 
     def single_recurrent_generator(self, agent_id, advantages, num_mini_batch, data_chunk_length):
         episode_length, n_rollout_threads = self.rewards.shape[0:2]
@@ -570,6 +585,8 @@ class SharedReplayBuffer(object):
 
         actions = self.actions[:, :, agent_id].transpose(
             1, 0, 2).reshape(-1, self.actions.shape[-1])
+        available_actions = self.available_actions[:, :, agent_id].transpose(
+            1, 0, 2).reshape(-1, self.available_actions.shape[-1])
         value_preds = self.value_preds[:-1, :,
                                        agent_id].transpose(1, 0, 2).reshape(-1, 1)
         returns = self.returns[:-1, :,
@@ -591,6 +608,7 @@ class SharedReplayBuffer(object):
             recurrent_hidden_states_batch = []
             recurrent_hidden_states_critic_batch = []
             actions_batch = []
+            available_actions_batch = []
             value_preds_batch = []
             return_batch = []
             masks_batch = []
@@ -606,6 +624,8 @@ class SharedReplayBuffer(object):
                 obs_batch.append(torch.tensor(obs[ind:ind+data_chunk_length]))
                 actions_batch.append(torch.tensor(
                     actions[ind:ind+data_chunk_length]))
+                available_actions_batch.append(torch.tensor(
+                    available_actions[ind:ind+data_chunk_length]))
                 value_preds_batch.append(torch.tensor(
                     value_preds[ind:ind+data_chunk_length]))
                 return_batch.append(torch.tensor(
@@ -631,6 +651,7 @@ class SharedReplayBuffer(object):
             obs_batch = torch.stack(obs_batch)
 
             actions_batch = torch.stack(actions_batch)
+            available_actions_batch = torch.stack(available_actions_batch)
             value_preds_batch = torch.stack(value_preds_batch)
             return_batch = torch.stack(return_batch)
             masks_batch = torch.stack(masks_batch)
@@ -650,6 +671,7 @@ class SharedReplayBuffer(object):
             share_obs_batch = _flatten_helper(L, N, share_obs_batch)
             obs_batch = _flatten_helper(L, N, obs_batch)
             actions_batch = _flatten_helper(L, N, actions_batch)
+            available_actions_batch = _flatten_helper(L, N, available_actions_batch)
             value_preds_batch = _flatten_helper(L, N, value_preds_batch)
             return_batch = _flatten_helper(L, N, return_batch)
             masks_batch = _flatten_helper(L, N, masks_batch)
@@ -658,7 +680,7 @@ class SharedReplayBuffer(object):
                 L, N, old_action_log_probs_batch)
             adv_targ = _flatten_helper(L, N, adv_targ)
 
-            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ
+            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ, available_actions_batch
 
     def shared_recurrent_generator(self, advantages, num_mini_batch, data_chunk_length):
         episode_length, n_rollout_threads, num_agents = self.rewards.shape[0:3]
@@ -683,6 +705,8 @@ class SharedReplayBuffer(object):
 
         actions = self.actions.transpose(
             1, 2, 0, 3).reshape(-1, self.actions.shape[-1])
+        available_actions = self.available_actions.transpose(
+            1, 2, 0, 3).reshape(-1, self.available_actions.shape[-1])
         value_preds = self.value_preds[:-
                                        1].transpose(1, 2, 0, 3).reshape(-1, 1)
         returns = self.returns[:-1].transpose(1, 2, 0, 3).reshape(-1, 1)
@@ -703,6 +727,7 @@ class SharedReplayBuffer(object):
             recurrent_hidden_states_batch = []
             recurrent_hidden_states_critic_batch = []
             actions_batch = []
+            available_actions_batch = []
             value_preds_batch = []
             return_batch = []
             masks_batch = []
@@ -719,6 +744,8 @@ class SharedReplayBuffer(object):
                 obs_batch.append(torch.tensor(obs[ind:ind+data_chunk_length]))
                 actions_batch.append(torch.tensor(
                     actions[ind:ind+data_chunk_length]))
+                available_actions_batch.append(torch.tensor(
+                    available_actions[ind:ind+data_chunk_length]))
                 value_preds_batch.append(torch.tensor(
                     value_preds[ind:ind+data_chunk_length]))
                 return_batch.append(torch.tensor(
@@ -744,6 +771,7 @@ class SharedReplayBuffer(object):
             obs_batch = torch.stack(obs_batch)
 
             actions_batch = torch.stack(actions_batch)
+            available_actions_batch = torch.stack(available_actions_batch)
             value_preds_batch = torch.stack(value_preds_batch)
             return_batch = torch.stack(return_batch)
             masks_batch = torch.stack(masks_batch)
@@ -763,6 +791,7 @@ class SharedReplayBuffer(object):
             share_obs_batch = _flatten_helper(L, N, share_obs_batch)
             obs_batch = _flatten_helper(L, N, obs_batch)
             actions_batch = _flatten_helper(L, N, actions_batch)
+            available_actions_batch = _flatten_helper(L, N, available_actions_batch)
             value_preds_batch = _flatten_helper(L, N, value_preds_batch)
             return_batch = _flatten_helper(L, N, return_batch)
             masks_batch = _flatten_helper(L, N, masks_batch)
@@ -771,4 +800,4 @@ class SharedReplayBuffer(object):
                                                          old_action_log_probs_batch)
             adv_targ = _flatten_helper(L, N, adv_targ)
 
-            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ
+            yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ, available_actions_batch

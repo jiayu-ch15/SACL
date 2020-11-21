@@ -14,8 +14,8 @@ from utils.rnn import RNNLayer
 
 
 class R_Model(nn.Module):
-    def __init__(self, args, obs_space, share_obs_space, action_space, cat_self, device=torch.device("cpu")):
-        super(R_Actor, self).__init__()
+    def __init__(self, args, obs_space, share_obs_space, action_space, device=torch.device("cpu"), cat_self=True):
+        super(R_Model, self).__init__()
         self._gain = args.gain
         self._use_orthogonal = args.use_orthogonal
         self._use_ReLU = args.use_ReLU
@@ -61,7 +61,7 @@ class R_Model(nn.Module):
                 self.obs_attn_norm = nn.LayerNorm(inputs_dim)
             else:
                 inputs_dim = obs_dim
-            self.obs_prep = MLPLayer(inputs_dim, self.hidden_size, layer_N=0, self._use_orthogonal, self._use_ReLU)
+            self.obs_prep = MLPLayer(inputs_dim, self.hidden_size, layer_N=0, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
 
         # share obs space
         if share_obs_space.__class__.__name__ == "Box":
@@ -93,14 +93,14 @@ class R_Model(nn.Module):
                     for i in range(len(split_shape)):
                         split_inputs_dim += split_shape[i][0]
                     inputs_dim = split_inputs_dim * self._attn_size
-                self.share_obs_attn = Encoder(args, share_obs_shape)
+                self.share_obs_attn = Encoder(args, share_obs_shape, cat_self)
                 self.share_obs_attn_norm = nn.LayerNorm(inputs_dim)
             else:
                 inputs_dim = share_obs_dim
-            self.share_obs_prep = MLPLayer(inputs_dim, self.hidden_size, layer_N=0, self._use_orthogonal, self._use_ReLU)
+            self.share_obs_prep = MLPLayer(inputs_dim, self.hidden_size, layer_N=0, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
 
         # common layer
-        self.common = MLPLayer(self.hidden_size, self.hidden_size, layer_N=0, self._use_orthogonal, self._use_ReLU)
+        self.common = MLPLayer(self.hidden_size, self.hidden_size, layer_N=0, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
         self.rnn = RNNLayer(args, self.hidden_size, self.hidden_size)
 
         if self._use_orthogonal:
@@ -141,7 +141,7 @@ class R_Model(nn.Module):
             self.action_outs = nn.ModuleList([DiagGaussian(self.hidden_size, continous_dim, self._use_orthogonal, self._gain), Categorical(
                 self.hidden_size, discrete_dim, self._use_orthogonal, self._gain)])
 
-    def get_actions(self, obs, share_obs, rnn_hidden_states, masks, available_actions=None, deterministic=False):
+    def get_actions(self, obs, rnn_hidden_states, masks, available_actions=None, deterministic=False):
         obs = obs.to(self.device)
         rnn_hidden_states = rnn_hidden_states.to(self.device)
         masks = masks.to(self.device)

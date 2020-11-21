@@ -49,7 +49,7 @@ class R_MAPPO():
 
         share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, \
             value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, \
-            adv_targ = sample
+            adv_targ, available_actions_batch = sample
 
         old_action_log_probs_batch = old_action_log_probs_batch.to(self.device)
         adv_targ = adv_targ.to(self.device)

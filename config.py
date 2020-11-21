@@ -40,8 +40,6 @@ def get_config():
                         default=True, help='Whether agent share the same policy')
     parser.add_argument("--use_centralized_V", action='store_false',
                         default=True, help="Whether to use centralized V function")
-    parser.add_argument("--use_single_network", action='store_true',
-                        default=False, help="Whether to use centralized V function")
     parser.add_argument("--hidden_size", type=int, default=64,
                         help="Dimension of hidden layers for actor/critic networks")
     parser.add_argument("--layer_N", type=int, default=1,
@@ -122,6 +120,8 @@ def get_config():
                         help='number of auxiliary epochs (default: 4)')
     parser.add_argument("--clone_coef", type=float, default=1.0,
                         help='clone term coefficient (default: 0.01)')
+    parser.add_argument("--use_single_network", action='store_true',
+                        default=False, help="Whether to use centralized V function")
 
     # run parameters
     parser.add_argument("--use_linear_lr_decay", action='store_true',

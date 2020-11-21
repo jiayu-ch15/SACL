@@ -194,7 +194,7 @@ class R_Actor(nn.Module):
 
 
 class R_Critic(nn.Module):
-    def __init__(self, args, share_obs_space, cat_self, device=torch.device("cpu")):
+    def __init__(self, args, share_obs_space, device=torch.device("cpu"), cat_self=True):
         super(R_Critic, self).__init__()
         self._use_orthogonal = args.use_orthogonal
         self.hidden_size = args.hidden_size
