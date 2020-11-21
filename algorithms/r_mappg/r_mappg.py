@@ -62,8 +62,9 @@ class R_MAPPG():
 
         ratio = torch.exp(action_log_probs - old_action_log_probs_batch)
 
-        KL_divloss = nn.KLDivLoss(reduction='batchmean')(
-            old_action_log_probs_batch, torch.exp(action_log_probs))
+        kl_divergence = torch.exp(old_action_log_probs_batch) * (old_action_log_probs_batch - action_log_probs)
+        kl_loss = (kl_divergence * active_masks_batch).sum() / \
+                active_masks_batch.sum()
 
         surr1 = ratio * adv_targ
         surr2 = torch.clamp(ratio, 1.0 - self.clip_param,
@@ -81,7 +82,7 @@ class R_MAPPG():
             grad_norm = get_gard_norm(self.policy.actor.parameters())
         self.policy.actor_optimizer.step()
 
-        return action_loss, dist_entropy, grad_norm, KL_divloss, ratio
+        return action_loss, dist_entropy, grad_norm, kl_loss, ratio
     
     def value_loss_update(self, sample):
         share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, \
@@ -160,9 +161,11 @@ class R_MAPPG():
 
         # Reshape to do in a single forward pass for all steps
         values, action_log_probs = self.policy.get_policy_value_and_logprobs(obs_batch, recurrent_hidden_states_batch, masks_batch)
-
-        KL_divloss = nn.KLDivLoss(reduction='batchmean')(
-            old_action_log_probs_batch, torch.exp(action_log_probs))
+        
+        # kl = p * log(p / q)
+        kl_divergence = torch.exp(old_action_log_probs_batch) * (old_action_log_probs_batch - action_log_probs)
+        kl_loss = (kl_divergence * active_masks_batch).sum() / \
+                active_masks_batch.sum()
 
         if self.use_popart:
             value_pred_clipped = value_preds_batch + \
@@ -194,7 +197,7 @@ class R_MAPPG():
         else:
             value_loss = value_loss.mean()
 
-        joint_loss = value_loss + self.clone_coef * KL_divloss 
+        joint_loss = value_loss + self.clone_coef * kl_loss 
 
         self.policy.actor_optimizer.zero_grad()
 
@@ -221,12 +224,17 @@ class R_MAPPG():
 
         value_loss_epoch = 0
         action_loss_epoch = 0
+        joint_loss_epoch = 0
         dist_entropy_epoch = 0
-        grad_norm_epoch = 0
-        KL_divloss_epoch = 0
+        actor_grad_norm_epoch = 0
+        critic_grad_norm_epoch = 0
+        joint_grad_norm_epoch = 0
+        kl_loss_epoch = 0
         ratio_epoch = 0
 
+        # policy phase
         for _ in range(self.ppo_epoch):
+
             if self._recurrent:
                 data_generator = buffer.recurrent_generator(
                     advantages, self.num_mini_batch, self.data_chunk_length)
@@ -236,28 +244,69 @@ class R_MAPPG():
             else:
                 data_generator = buffer.feed_forward_generator(
                     advantages, self.num_mini_batch)
-
-            for sample in data_generator:
-                value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = self.ppo_update(
-                    sample, turn_on)
-
-                value_loss_epoch += value_loss.item()
+                    
+            for sample in data_generator:            
+                action_loss, dist_entropy, actor_grad_norm, kl_loss, ratio = self.policy_loss_update(sample)
+                
                 action_loss_epoch += action_loss.item()
                 dist_entropy_epoch += dist_entropy.item()
-                grad_norm_epoch += grad_norm
-                KL_divloss_epoch += KL_divloss.item()
+                actor_grad_norm_epoch += actor_grad_norm
+                kl_loss_epoch += kl_loss.item()
                 ratio_epoch += ratio.mean()
 
+                value_loss, critic_grad_norm = self.value_loss_update(sample)
+                
+                value_loss_epoch += value_loss.item()
+                critic_grad_norm_epoch += critic_grad_norm    
+
+        # auxiliary phase
+        self.update_action_log_probs(buffer)
+
+        for _ in range(self.aux_epoch):
+
+            if self._recurrent:
+                data_generator = buffer.recurrent_generator(
+                    advantages, self.num_mini_batch, self.data_chunk_length)
+            elif self._naive_recurrent:
+                data_generator = buffer.naive_recurrent_generator(
+                    advantages, self.num_mini_batch)
+            else:
+                data_generator = buffer.feed_forward_generator(
+                    advantages, self.num_mini_batch) 
+
+            # 2. update auxiliary
+            for sample in data_generator:
+            
+                joint_loss, joint_grad_norm = self.auxiliary_loss_update(sample)
+
+                joint_loss_epoch += joint_loss.item()
+                joint_grad_norm_epoch += joint_grad_norm
+
+                value_loss, critic_grad_norm = self.value_loss_update(sample)
+
+                value_loss_epoch += value_loss.item()
+                critic_grad_norm_epoch += critic_grad_norm
+        
+        
         num_updates = self.ppo_epoch * self.num_mini_batch
 
-        value_loss_epoch /= num_updates
         action_loss_epoch /= num_updates
         dist_entropy_epoch /= num_updates
-        grad_norm_epoch /= num_updates
-        KL_divloss_epoch /= num_updates
+        actor_grad_norm_epoch /= num_updates
+        kl_loss_epoch /= num_updates
         ratio_epoch /= num_updates
 
-        return value_loss_epoch, critic_grad_norm_epoch, action_loss_epoch, dist_entropy_epoch, actor_grad_norm_epoch, KL_divloss_epoch, ratio_epoch
+        num_updates = (self.ppo_epoch + self.aux_epoch) * self.num_mini_batch
+
+        value_loss_epoch /= num_updates
+        critic_grad_norm_epoch /= num_updates
+
+        num_updates = self.aux_epoch * self.num_mini_batch
+
+        joint_loss_epoch /= num_updates
+        joint_grad_norm_epoch /= num_updates
+
+        return value_loss_epoch, critic_grad_norm_epoch, action_loss_epoch, dist_entropy_epoch, actor_grad_norm_epoch, joint_loss_epoch, joint_grad_norm_epoch
 
     def single_update(self, agent_id, buffer):
         if self.use_popart:
@@ -271,11 +320,15 @@ class R_MAPPG():
 
         value_loss_epoch = 0
         action_loss_epoch = 0
+        joint_loss_epoch = 0
         dist_entropy_epoch = 0
-        grad_norm_epoch = 0
-        KL_divloss_epoch = 0
+        actor_grad_norm_epoch = 0
+        critic_grad_norm_epoch = 0
+        joint_grad_norm_epoch = 0
+        kl_loss_epoch = 0
         ratio_epoch = 0
 
+        # policy phase
         for _ in range(self.ppo_epoch):
             if self._recurrent:
                 data_generator = buffer.single_recurrent_generator(
@@ -287,28 +340,66 @@ class R_MAPPG():
                 data_generator = buffer.single_feed_forward_generator(
                     agent_id, advantages, self.num_mini_batch)
 
-            for sample in data_generator:
-
-                value_loss, action_loss, dist_entropy, grad_norm, KL_divloss, ratio = self.ppo_update(
-                    sample, turn_on)
-
-                value_loss_epoch += value_loss.item()
+            for sample in data_generator:            
+                action_loss, dist_entropy, actor_grad_norm, kl_loss, ratio = self.policy_loss_update(sample)
+                
                 action_loss_epoch += action_loss.item()
                 dist_entropy_epoch += dist_entropy.item()
-                grad_norm_epoch += grad_norm
-                KL_divloss_epoch += KL_divloss.item()
+                actor_grad_norm_epoch += actor_grad_norm
+                kl_loss_epoch += kl_loss.item()
                 ratio_epoch += ratio.mean()
+
+                value_loss, critic_grad_norm = self.value_loss_update(sample)
+                
+                value_loss_epoch += value_loss.item()
+                critic_grad_norm_epoch += critic_grad_norm
+
+        # auxiliary phase
+        self.update_action_log_probs(buffer)
+
+        for _ in range(self.aux_epoch):
+            if self._recurrent:
+                data_generator = buffer.single_recurrent_generator(
+                    agent_id, advantages, self.num_mini_batch, self.data_chunk_length)
+            elif self._naive_recurrent:
+                data_generator = buffer.single_naive_recurrent_generator(
+                    agent_id, advantages, self.num_mini_batch)
+            else:
+                data_generator = buffer.single_feed_forward_generator(
+                    agent_id, advantages, self.num_mini_batch)
+
+            # 2. update auxiliary
+            for sample in data_generator:
+            
+                joint_loss, joint_grad_norm = self.auxiliary_loss_update(sample)
+
+                joint_loss_epoch += joint_loss.item()
+                joint_grad_norm_epoch += joint_grad_norm
+
+                value_loss, critic_grad_norm = self.value_loss_update(sample)
+
+                value_loss_epoch += value_loss.item()
+                critic_grad_norm_epoch += critic_grad_norm
 
         num_updates = self.ppo_epoch * self.num_mini_batch
 
-        value_loss_epoch /= num_updates
         action_loss_epoch /= num_updates
         dist_entropy_epoch /= num_updates
-        grad_norm_epoch /= num_updates
-        KL_divloss_epoch /= num_updates
+        actor_grad_norm_epoch /= num_updates
+        kl_loss_epoch /= num_updates
         ratio_epoch /= num_updates
 
-        return value_loss_epoch, critic_grad_norm_epoch, action_loss_epoch, dist_entropy_epoch, actor_grad_norm_epoch, KL_divloss_epoch, ratio_epoch
+        num_updates = (self.ppo_epoch + self.aux_epoch) * self.num_mini_batch
+
+        value_loss_epoch /= num_updates
+        critic_grad_norm_epoch /= num_updates
+
+        num_updates = self.aux_epoch * self.num_mini_batch
+
+        joint_loss_epoch /= num_updates
+        joint_grad_norm_epoch /= num_updates
+
+        return value_loss_epoch, critic_grad_norm_epoch, action_loss_epoch, dist_entropy_epoch, actor_grad_norm_epoch, joint_loss_epoch, joint_grad_norm_epoch
 
     def shared_update(self, buffer):
         if self.use_popart:
@@ -326,7 +417,7 @@ class R_MAPPG():
         actor_grad_norm_epoch = 0
         critic_grad_norm_epoch = 0
         joint_grad_norm_epoch = 0
-        KL_divloss_epoch = 0
+        kl_loss_epoch = 0
         ratio_epoch = 0
 
         # policy phase
@@ -343,39 +434,18 @@ class R_MAPPG():
                     advantages, self.num_mini_batch)
                     
             for sample in data_generator:            
-                action_loss, dist_entropy, actor_grad_norm, KL_divloss, ratio = self.policy_loss_update(sample)
+                action_loss, dist_entropy, actor_grad_norm, kl_loss, ratio = self.policy_loss_update(sample)
                 
                 action_loss_epoch += action_loss.item()
                 dist_entropy_epoch += dist_entropy.item()
                 actor_grad_norm_epoch += actor_grad_norm
-                KL_divloss_epoch += KL_divloss.item()
+                kl_loss_epoch += kl_loss.item()
                 ratio_epoch += ratio.mean()
 
-        num_updates = self.ppo_epoch * self.num_mini_batch
-
-        action_loss_epoch /= num_updates
-        dist_entropy_epoch /= num_updates
-        actor_grad_norm_epoch /= num_updates
-        KL_divloss_epoch /= num_updates
-        ratio_epoch /= num_updates
-        
-        for _ in range(self.value_epoch):
-
-            if self._recurrent:
-                data_generator = buffer.shared_recurrent_generator(
-                    advantages, self.num_mini_batch, self.data_chunk_length)
-            elif self._naive_recurrent:
-                data_generator = buffer.shared_naive_recurrent_generator(
-                    advantages, self.num_mini_batch)
-            else:
-                data_generator = buffer.shared_feed_forward_generator(
-                    advantages, self.num_mini_batch)
-
-            for sample in data_generator:  
                 value_loss, critic_grad_norm = self.value_loss_update(sample)
                 
                 value_loss_epoch += value_loss.item()
-                critic_grad_norm_epoch += critic_grad_norm 
+                critic_grad_norm_epoch += critic_grad_norm    
 
         # auxiliary phase
         self.update_action_log_probs(buffer)
@@ -405,7 +475,16 @@ class R_MAPPG():
                 value_loss_epoch += value_loss.item()
                 critic_grad_norm_epoch += critic_grad_norm
         
-        num_updates = (self.value_epoch + self.aux_epoch) * self.num_mini_batch
+        
+        num_updates = self.ppo_epoch * self.num_mini_batch
+
+        action_loss_epoch /= num_updates
+        dist_entropy_epoch /= num_updates
+        actor_grad_norm_epoch /= num_updates
+        kl_loss_epoch /= num_updates
+        ratio_epoch /= num_updates
+
+        num_updates = (self.ppo_epoch + self.aux_epoch) * self.num_mini_batch
 
         value_loss_epoch /= num_updates
         critic_grad_norm_epoch /= num_updates

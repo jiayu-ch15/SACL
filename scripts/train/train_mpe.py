@@ -435,7 +435,7 @@ def main(args):
                                               trainer.value_normalizer)
             # update network
             trainer.prep_training()
-            value_loss, actor_grad_norm, action_loss, dist_entropy, critic_grad_norm, KL_divloss, ratio = trainer.shared_update(
+            value_loss, actor_grad_norm, action_loss, dist_entropy, critic_grad_norm, joint_loss, joint_grad_norm = trainer.shared_update(
                 buffer)
             # clean the buffer and reset
             buffer.after_update()
@@ -445,8 +445,8 @@ def main(args):
             dist_entropies = []
             actor_grad_norms = []
             critic_grad_norms = []
-            KL_divlosses = []
-            ratios = []
+            joint_losses = []
+            joint_grad_norms = []
             for agent_id in range(num_agents):
                 # compute returns
                 with torch.no_grad():
@@ -465,7 +465,7 @@ def main(args):
                                                      trainer[agent_id].value_normalizer)
                 # update network
                 trainer[agent_id].prep_training()
-                value_loss, critic_grad_norm, action_loss, dist_entropy, actor_grad_norm, KL_divloss, ratio = trainer[agent_id].separated_update(
+                value_loss, critic_grad_norm, action_loss, dist_entropy, actor_grad_norm, joint_loss, joint_grad_norm = trainer[agent_id].separated_update(
                     agent_id, buffer[agent_id])
 
                 value_losses.append(value_loss)
@@ -473,8 +473,8 @@ def main(args):
                 dist_entropies.append(dist_entropy)
                 actor_grad_norms.append(actor_grad_norm)
                 critic_grad_norms.append(critic_grad_norm)
-                KL_divlosses.append(KL_divloss)
-                ratios.append(ratio)
+                joint_losses.append(joint_loss)
+                joint_grad_norms.append(joint_grad_norm)
 
                 buffer[agent_id].after_update()
 
@@ -523,8 +523,9 @@ def main(args):
                               step=total_num_steps)
                     wandb.log({"critic_grad_norm": critic_grad_norm},
                               step=total_num_steps)
-                    wandb.log({"KL_divloss": KL_divloss}, step=total_num_steps)
-                    wandb.log({"ratio": ratio}, step=total_num_steps)
+                    if "mappg" in all_args.algorithm_name:
+                        wandb.log({"joint_loss": joint_loss}, step=total_num_steps)
+                        wandb.log({"joint_grad_norm": joint_grad_norm}, step=total_num_steps)
                     wandb.log({"average_episode_rewards": np.mean(
                         buffer.rewards) * all_args.episode_length}, step=total_num_steps)
                 else:
@@ -538,10 +539,11 @@ def main(args):
                         "actor_grad_norm", {"actor_grad_norm": actor_grad_norm}, total_num_steps)
                     writter.add_scalars(
                         "critic_grad_norm", {"critic_grad_norm": critic_grad_norm}, total_num_steps)
-                    writter.add_scalars(
-                        "KL_divloss", {"KL_divloss": KL_divloss}, total_num_steps)
-                    writter.add_scalars(
-                        "ratio", {"ratio": ratio}, total_num_steps)
+                    if "mappg" in all_args.algorithm_name:
+                        writter.add_scalars(
+                            "joint_loss", {"joint_loss": joint_loss}, total_num_steps)
+                        writter.add_scalars(
+                            "joint_grad_norm", {"joint_grad_norm": joint_grad_norm}, total_num_steps)
                     writter.add_scalars("average_episode_rewards", {"average_episode_rewards": np.mean(
                         buffer.rewards) * all_args.episode_length}, total_num_steps)
             else:
@@ -561,10 +563,11 @@ def main(args):
                             {"agent%i/actor_grad_norm" % agent_id: actor_grad_norms[agent_id]}, step=total_num_steps)
                         wandb.log(
                             {"agent%i/critic_grad_norm" % agent_id: critic_grad_norms[agent_id]}, step=total_num_steps)
-                        wandb.log(
-                            {"agent%i/KL_divloss" % agent_id: KL_divlosses[agent_id]}, step=total_num_steps)
-                        wandb.log(
-                            {"agent%i/ratio" % agent_id: ratios[agent_id]}, step=total_num_steps)
+                        if "mappg" in all_args.algorithm_name:   
+                            wandb.log(
+                                {"agent%i/joint_loss" % agent_id: joint_losses[agent_id]}, step=total_num_steps)
+                            wandb.log(
+                                {"agent%i/joint_grad_norm" % agent_id: joint_grad_norms[agent_id]}, step=total_num_steps)
                         wandb.log({"agent%i/average_episode_rewards" % agent_id: np.mean(
                             buffer[agent_id].rewards) * all_args.episode_length}, step=total_num_steps)
                     else:
@@ -578,10 +581,11 @@ def main(args):
                                             "agent%i/actor_grad_norm" % agent_id: actor_grad_norms[agent_id]}, total_num_steps)
                         writter.add_scalars("agent%i/critic_grad_norm" % agent_id, {
                                             "agent%i/critic_grad_norm" % agent_id: critic_grad_norms[agent_id]}, total_num_steps)
-                        writter.add_scalars("agent%i/KL_divloss" % agent_id, {
-                                            "agent%i/KL_divloss" % agent_id: KL_divlosses[agent_id]}, total_num_steps)
-                        writter.add_scalars(
-                            "agent%i/ratio" % agent_id, {"agent%i/ratio" % agent_id: ratios[agent_id]}, total_num_steps)
+                        if "mappg" in all_args.algorithm_name: 
+                            writter.add_scalars("agent%i/joint_loss" % agent_id, {
+                                                "agent%i/joint_loss" % agent_id: joint_losses[agent_id]}, total_num_steps)
+                            writter.add_scalars("agent%i/joint_grad_norm" % agent_id, {
+                                                "agent%i/joint_grad_norm" % agent_id: joint_grad_norms[agent_id]}, total_num_steps)
                         writter.add_scalars("agent%i/average_episode_rewards" % agent_id, {"agent%i/average_episode_rewards" % agent_id: np.mean(
                             buffer[agent_id].rewards) * all_args.episode_length}, total_num_steps)
 

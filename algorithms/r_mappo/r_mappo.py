@@ -63,8 +63,9 @@ class R_MAPPO():
 
         ratio = torch.exp(action_log_probs - old_action_log_probs_batch)
 
-        KL_divloss = nn.KLDivLoss(reduction='batchmean')(
-            old_action_log_probs_batch, torch.exp(action_log_probs))
+        kl_divergence = torch.exp(old_action_log_probs_batch) * (old_action_log_probs_batch - action_log_probs)
+        kl_loss = (kl_divergence * active_masks_batch).sum() / \
+                active_masks_batch.sum()
 
         surr1 = ratio * adv_targ
         surr2 = torch.clamp(ratio, 1.0 - self.clip_param,
@@ -126,7 +127,7 @@ class R_MAPPO():
 
         self.policy.critic_optimizer.step()
 
-        return value_loss, critic_grad_norm, action_loss, dist_entropy, actor_grad_norm, KL_divloss, ratio
+        return value_loss, critic_grad_norm, action_loss, dist_entropy, actor_grad_norm, kl_loss, ratio
 
     def separated_update(self, agent_id, buffer, turn_on=True):
         if self.use_popart:
@@ -142,7 +143,7 @@ class R_MAPPO():
         dist_entropy_epoch = 0
         actor_grad_norm_epoch = 0
         critic_grad_norm_epoch = 0
-        KL_divloss_epoch = 0
+        kl_loss_epoch = 0
         ratio_epoch = 0
 
         for _ in range(self.ppo_epoch):
@@ -158,7 +159,7 @@ class R_MAPPO():
 
             for sample in data_generator:
 
-                value_loss, critic_grad_norm, action_loss, dist_entropy, actor_grad_norm, KL_divloss, ratio = self.ppo_update(
+                value_loss, critic_grad_norm, action_loss, dist_entropy, actor_grad_norm, kl_loss, ratio = self.ppo_update(
                     sample, turn_on)
 
                 value_loss_epoch += value_loss.item()
@@ -166,7 +167,7 @@ class R_MAPPO():
                 dist_entropy_epoch += dist_entropy.item()
                 critic_grad_norm_epoch += critic_grad_norm
                 actor_grad_norm_epoch += actor_grad_norm
-                KL_divloss_epoch += KL_divloss.item()
+                kl_loss_epoch += kl_loss.item()
                 ratio_epoch += ratio.mean()
 
         num_updates = self.ppo_epoch * self.num_mini_batch
@@ -176,10 +177,10 @@ class R_MAPPO():
         dist_entropy_epoch /= num_updates
         actor_grad_norm_epoch /= num_updates
         critic_grad_norm_epoch /= num_updates
-        KL_divloss_epoch /= num_updates
+        kl_loss_epoch /= num_updates
         ratio_epoch /= num_updates
 
-        return value_loss_epoch, critic_grad_norm_epoch, action_loss_epoch, dist_entropy_epoch, actor_grad_norm_epoch, KL_divloss_epoch, ratio_epoch
+        return value_loss_epoch, critic_grad_norm_epoch, action_loss_epoch, dist_entropy_epoch, actor_grad_norm_epoch, kl_loss_epoch, ratio_epoch
 
     def single_update(self, agent_id, buffer, turn_on=True):
         if self.use_popart:
@@ -196,7 +197,7 @@ class R_MAPPO():
         dist_entropy_epoch = 0
         actor_grad_norm_epoch = 0
         critic_grad_norm_epoch = 0
-        KL_divloss_epoch = 0
+        kl_loss_epoch = 0
         ratio_epoch = 0
 
         for _ in range(self.ppo_epoch):
@@ -212,7 +213,7 @@ class R_MAPPO():
 
             for sample in data_generator:
 
-                value_loss, critic_grad_norm, action_loss, dist_entropy, actor_grad_norm, KL_divloss, ratio = self.ppo_update(
+                value_loss, critic_grad_norm, action_loss, dist_entropy, actor_grad_norm, kl_loss, ratio = self.ppo_update(
                     sample, turn_on)
 
                 value_loss_epoch += value_loss.item()
@@ -220,7 +221,7 @@ class R_MAPPO():
                 dist_entropy_epoch += dist_entropy.item()
                 critic_grad_norm_epoch += critic_grad_norm
                 actor_grad_norm_epoch += actor_grad_norm
-                KL_divloss_epoch += KL_divloss.item()
+                kl_loss_epoch += kl_loss.item()
                 ratio_epoch += ratio.mean()
 
         num_updates = self.ppo_epoch * self.num_mini_batch
@@ -230,10 +231,10 @@ class R_MAPPO():
         dist_entropy_epoch /= num_updates
         critic_grad_norm_epoch /= num_updates
         actor_grad_norm_epoch /= num_updates
-        KL_divloss_epoch /= num_updates
+        kl_loss_epoch /= num_updates
         ratio_epoch /= num_updates
 
-        return value_loss_epoch, critic_grad_norm_epoch, action_loss_epoch, dist_entropy_epoch, actor_grad_norm_epoch, KL_divloss_epoch, ratio_epoch
+        return value_loss_epoch, critic_grad_norm_epoch, action_loss_epoch, dist_entropy_epoch, actor_grad_norm_epoch, kl_loss_epoch, ratio_epoch
 
     def shared_update(self, buffer, turn_on=True):
         if self.use_popart:
@@ -249,7 +250,7 @@ class R_MAPPO():
         dist_entropy_epoch = 0
         actor_grad_norm_epoch = 0
         critic_grad_norm_epoch = 0
-        KL_divloss_epoch = 0
+        kl_loss_epoch = 0
         ratio_epoch = 0
 
         for _ in range(self.ppo_epoch):
@@ -266,7 +267,7 @@ class R_MAPPO():
 
             for sample in data_generator:
 
-                value_loss, critic_grad_norm, action_loss, dist_entropy, actor_grad_norm, KL_divloss, ratio = self.ppo_update(
+                value_loss, critic_grad_norm, action_loss, dist_entropy, actor_grad_norm, kl_loss, ratio = self.ppo_update(
                     sample, turn_on)
 
                 value_loss_epoch += value_loss.item()
@@ -274,7 +275,7 @@ class R_MAPPO():
                 dist_entropy_epoch += dist_entropy.item()
                 critic_grad_norm_epoch += critic_grad_norm
                 actor_grad_norm_epoch += actor_grad_norm
-                KL_divloss_epoch += KL_divloss.item()
+                kl_loss_epoch += kl_loss.item()
                 ratio_epoch += ratio.mean()
 
         num_updates = self.ppo_epoch * self.num_mini_batch
@@ -284,10 +285,10 @@ class R_MAPPO():
         dist_entropy_epoch /= num_updates
         critic_grad_norm_epoch /= num_updates
         actor_grad_norm_epoch /= num_updates
-        KL_divloss_epoch /= num_updates
+        kl_loss_epoch /= num_updates
         ratio_epoch /= num_updates
 
-        return value_loss_epoch, critic_grad_norm_epoch, action_loss_epoch, dist_entropy_epoch, actor_grad_norm_epoch, KL_divloss_epoch, ratio_epoch
+        return value_loss_epoch, critic_grad_norm_epoch, action_loss_epoch, dist_entropy_epoch, actor_grad_norm_epoch, kl_loss_epoch, ratio_epoch
 
     def prep_training(self):
         self.policy.actor.train()

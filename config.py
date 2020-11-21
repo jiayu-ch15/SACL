@@ -118,8 +118,6 @@ def get_config():
     parser.add_argument("--huber_delta", type=float, default=10.0)
 
     # ppg parameters
-    parser.add_argument("--value_epoch", type=int, default=15,
-                        help='number of value epochs (default: 4)')
     parser.add_argument("--aux_epoch", type=int, default=5,
                         help='number of auxiliary epochs (default: 4)')
     parser.add_argument("--clone_coef", type=float, default=1.0,
