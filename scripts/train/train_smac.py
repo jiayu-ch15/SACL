@@ -84,8 +84,12 @@ def main(args):
         raise NotImplementedError
 
     if "mappo" in all_args.algorithm_name:
-        from algorithms.r_mappo.r_mappo import R_MAPPO as TrainAlgo
-        from algorithms.r_mappo.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
+        if all_args.use_single_network:
+            from algorithms.r_mappo_single.r_mappo_single import R_MAPPO as TrainAlgo
+            from algorithms.r_mappo_single.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
+        else:
+            from algorithms.r_mappo.r_mappo import R_MAPPO as TrainAlgo
+            from algorithms.r_mappo.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
     elif "mappg" in all_args.algorithm_name:
         if all_args.use_single_network:
             from algorithms.r_mappg_single.r_mappg_single import R_MAPPG as TrainAlgo
@@ -175,7 +179,7 @@ def main(args):
                             envs.observation_space[0],
                             share_observation_space,
                             envs.action_space[0],
-                            device=device
+                            device=device,
                             cat_self=cat_self)
         else:
             policy = torch.load(
