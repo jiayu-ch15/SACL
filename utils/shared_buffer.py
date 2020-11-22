@@ -300,7 +300,8 @@ class SharedReplayBuffer(object):
             -1, self.recurrent_hidden_states_critic.shape[-1])
         actions = self.actions[:, :,
                                agent_id].reshape(-1, self.actions.shape[-1])
-        available_actions = self.available_actions[:, :,
+        if self.available_actions is not None:
+            available_actions = self.available_actions[:, :,
                                agent_id].reshape(-1, self.available_actions.shape[-1])
         value_preds = self.value_preds[:-1, :, agent_id].reshape(-1, 1)
         returns = self.returns[:-1, :, agent_id].reshape(-1, 1)
@@ -318,7 +319,10 @@ class SharedReplayBuffer(object):
             recurrent_hidden_states_critic_batch = torch.tensor(
                 recurrent_hidden_states_critic[indices])
             actions_batch = torch.tensor(actions[indices])
-            available_actions_batch = torch.tensor(available_actions[indices])
+            if self.available_actions is not None:
+                available_actions_batch = torch.tensor(available_actions[indices])
+            else:
+                available_actions_batch = None
             value_preds_batch = torch.tensor(value_preds[indices])
             return_batch = torch.tensor(returns[indices])
             masks_batch = torch.tensor(masks[indices])
@@ -356,7 +360,8 @@ class SharedReplayBuffer(object):
         recurrent_hidden_states_critic = self.recurrent_hidden_states_critic[:-1].reshape(
             -1, self.recurrent_hidden_states_critic.shape[-1])
         actions = self.actions.reshape(-1, self.actions.shape[-1])
-        available_actions = self.available_actions.reshape(-1, self.available_actions.shape[-1])
+        if self.available_actions is not None:
+            available_actions = self.available_actions.reshape(-1, self.available_actions.shape[-1])
         value_preds = self.value_preds[:-1].reshape(-1, 1)
         returns = self.returns[:-1].reshape(-1, 1)
         masks = self.masks[:-1].reshape(-1, 1)
@@ -373,7 +378,10 @@ class SharedReplayBuffer(object):
             recurrent_hidden_states_critic_batch = torch.tensor(
                 recurrent_hidden_states_critic[indices])
             actions_batch = torch.tensor(actions[indices])
-            available_actions_batch = torch.tensor(available_actions[indices])
+            if self.available_actions is not None:
+                available_actions_batch = torch.tensor(available_actions[indices])
+            else:
+                available_actions_batch = None
             value_preds_batch = torch.tensor(value_preds[indices])
             return_batch = torch.tensor(returns[indices])
             masks_batch = torch.tensor(masks[indices])
@@ -420,8 +428,9 @@ class SharedReplayBuffer(object):
                     torch.tensor(self.recurrent_hidden_states_critic[0:1, ind, agent_id]))
                 actions_batch.append(torch.tensor(
                     self.actions[:, ind, agent_id]))
-                available_actions_batch.append(torch.tensor(
-                    self.available_actions[:, ind, agent_id]))
+                if self.available_actions is not None:
+                    available_actions_batch.append(torch.tensor(
+                        self.available_actions[:, ind, agent_id]))
                 value_preds_batch.append(torch.tensor(
                     self.value_preds[:-1, ind, agent_id]))
                 return_batch.append(torch.tensor(
@@ -439,7 +448,8 @@ class SharedReplayBuffer(object):
             share_obs_batch = torch.stack(share_obs_batch, 1)
             obs_batch = torch.stack(obs_batch, 1)
             actions_batch = torch.stack(actions_batch, 1)
-            available_actions_batch = torch.stack(available_actions_batch, 1)
+            if self.available_actions is not None:
+                available_actions_batch = torch.stack(available_actions_batch, 1)
             value_preds_batch = torch.stack(value_preds_batch, 1)
             return_batch = torch.stack(return_batch, 1)
             masks_batch = torch.stack(masks_batch, 1)
@@ -458,7 +468,10 @@ class SharedReplayBuffer(object):
             share_obs_batch = _flatten_helper(T, N, share_obs_batch)
             obs_batch = _flatten_helper(T, N, obs_batch)
             actions_batch = _flatten_helper(T, N, actions_batch)
-            available_actions_batch = _flatten_helper(T, N, available_actions_batch)
+            if self.available_actions is not None:
+                available_actions_batch = _flatten_helper(T, N, available_actions_batch)
+            else:
+                available_actions_batch = None
             value_preds_batch = _flatten_helper(T, N, value_preds_batch)
             return_batch = _flatten_helper(T, N, return_batch)
             masks_batch = _flatten_helper(T, N, masks_batch)
@@ -487,7 +500,8 @@ class SharedReplayBuffer(object):
         recurrent_hidden_states_critic = self.recurrent_hidden_states_critic.reshape(
             -1, batch_size, self.recurrent_hidden_states_critic.shape[-1])
         actions = self.actions.reshape(-1, batch_size, self.actions.shape[-1])
-        available_actions = self.available_actions.reshape(-1, batch_size, self.available_actions.shape[-1])
+        if self.available_actions is not None:
+            available_actions = self.available_actions.reshape(-1, batch_size, self.available_actions.shape[-1])
         value_preds = self.value_preds.reshape(-1, batch_size, 1)
         returns = self.returns.reshape(-1, batch_size, 1)
         masks = self.masks.reshape(-1, batch_size, 1)
@@ -518,7 +532,8 @@ class SharedReplayBuffer(object):
                 recurrent_hidden_states_critic_batch.append(
                     torch.tensor(recurrent_hidden_states_critic[0:1, ind]))
                 actions_batch.append(torch.tensor(actions[:, ind]))
-                available_actions_batch.append(torch.tensor(available_actions[:, ind]))
+                if self.available_actions is not None:
+                    available_actions_batch.append(torch.tensor(available_actions[:, ind]))
                 value_preds_batch.append(torch.tensor(value_preds[:-1, ind]))
                 return_batch.append(torch.tensor(returns[:-1, ind]))
                 masks_batch.append(torch.tensor(masks[:-1, ind]))
@@ -532,7 +547,8 @@ class SharedReplayBuffer(object):
             share_obs_batch = torch.stack(share_obs_batch, 1)
             obs_batch = torch.stack(obs_batch, 1)
             actions_batch = torch.stack(actions_batch, 1)
-            available_actions_batch = torch.stack(available_actions_batch, 1)
+            if self.available_actions is not None:
+                available_actions_batch = torch.stack(available_actions_batch, 1)
             value_preds_batch = torch.stack(value_preds_batch, 1)
             return_batch = torch.stack(return_batch, 1)
             masks_batch = torch.stack(masks_batch, 1)
@@ -551,7 +567,10 @@ class SharedReplayBuffer(object):
             share_obs_batch = _flatten_helper(T, N, share_obs_batch)
             obs_batch = _flatten_helper(T, N, obs_batch)
             actions_batch = _flatten_helper(T, N, actions_batch)
-            available_actions_batch = _flatten_helper(T, N, available_actions_batch)
+            if self.available_actions is not None:
+                available_actions_batch = _flatten_helper(T, N, available_actions_batch)
+            else:
+                available_actions_batch = None
             value_preds_batch = _flatten_helper(T, N, value_preds_batch)
             return_batch = _flatten_helper(T, N, return_batch)
             masks_batch = _flatten_helper(T, N, masks_batch)
@@ -585,8 +604,9 @@ class SharedReplayBuffer(object):
 
         actions = self.actions[:, :, agent_id].transpose(
             1, 0, 2).reshape(-1, self.actions.shape[-1])
-        available_actions = self.available_actions[:, :, agent_id].transpose(
-            1, 0, 2).reshape(-1, self.available_actions.shape[-1])
+        if self.available_actions is not None:
+            available_actions = self.available_actions[:, :, agent_id].transpose(
+                1, 0, 2).reshape(-1, self.available_actions.shape[-1])
         value_preds = self.value_preds[:-1, :,
                                        agent_id].transpose(1, 0, 2).reshape(-1, 1)
         returns = self.returns[:-1, :,
@@ -624,8 +644,9 @@ class SharedReplayBuffer(object):
                 obs_batch.append(torch.tensor(obs[ind:ind+data_chunk_length]))
                 actions_batch.append(torch.tensor(
                     actions[ind:ind+data_chunk_length]))
-                available_actions_batch.append(torch.tensor(
-                    available_actions[ind:ind+data_chunk_length]))
+                if self.available_actions is not None:
+                    available_actions_batch.append(torch.tensor(
+                        available_actions[ind:ind+data_chunk_length]))
                 value_preds_batch.append(torch.tensor(
                     value_preds[ind:ind+data_chunk_length]))
                 return_batch.append(torch.tensor(
@@ -651,7 +672,8 @@ class SharedReplayBuffer(object):
             obs_batch = torch.stack(obs_batch)
 
             actions_batch = torch.stack(actions_batch)
-            available_actions_batch = torch.stack(available_actions_batch)
+            if self.available_actions is not None:
+                available_actions_batch = torch.stack(available_actions_batch)
             value_preds_batch = torch.stack(value_preds_batch)
             return_batch = torch.stack(return_batch)
             masks_batch = torch.stack(masks_batch)
@@ -671,7 +693,10 @@ class SharedReplayBuffer(object):
             share_obs_batch = _flatten_helper(L, N, share_obs_batch)
             obs_batch = _flatten_helper(L, N, obs_batch)
             actions_batch = _flatten_helper(L, N, actions_batch)
-            available_actions_batch = _flatten_helper(L, N, available_actions_batch)
+            if self.available_actions is not None:
+                available_actions_batch = _flatten_helper(L, N, available_actions_batch)
+            else:
+                available_actions_batch = None
             value_preds_batch = _flatten_helper(L, N, value_preds_batch)
             return_batch = _flatten_helper(L, N, return_batch)
             masks_batch = _flatten_helper(L, N, masks_batch)
@@ -695,20 +720,20 @@ class SharedReplayBuffer(object):
         if len(self.share_obs.shape) > 4:
             share_obs = self.share_obs[:-1].transpose(
                 1, 2, 0, 3, 4, 5).reshape(-1, *self.share_obs.shape[3:])
-            obs = self.obs[:-1].transpose(1, 2, 0, 3,
-                                          4, 5).reshape(-1, *self.obs.shape[3:])
+            obs = self.obs[:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.obs.shape[3:])
         else:
             share_obs = self.share_obs[:-1].transpose(
                 1, 2, 0, 3).reshape(-1, *self.share_obs.shape[3:])
-            obs = self.obs[:-1].transpose(1, 2, 0,
-                                          3).reshape(-1, *self.obs.shape[3:])
+            obs = self.obs[:-1].transpose(1, 2, 0, 3).reshape(-1, *self.obs.shape[3:])
 
         actions = self.actions.transpose(
             1, 2, 0, 3).reshape(-1, self.actions.shape[-1])
-        available_actions = self.available_actions.transpose(
-            1, 2, 0, 3).reshape(-1, self.available_actions.shape[-1])
-        value_preds = self.value_preds[:-
-                                       1].transpose(1, 2, 0, 3).reshape(-1, 1)
+
+        if self.available_actions is not None:
+            available_actions = self.available_actions.transpose(
+                1, 2, 0, 3).reshape(-1, self.available_actions.shape[-1])
+
+        value_preds = self.value_preds[:-1].transpose(1, 2, 0, 3).reshape(-1, 1)
         returns = self.returns[:-1].transpose(1, 2, 0, 3).reshape(-1, 1)
         masks = self.masks[:-1].transpose(1, 2, 0, 3).reshape(-1, 1)
         active_masks = self.active_masks[:-
@@ -744,8 +769,9 @@ class SharedReplayBuffer(object):
                 obs_batch.append(torch.tensor(obs[ind:ind+data_chunk_length]))
                 actions_batch.append(torch.tensor(
                     actions[ind:ind+data_chunk_length]))
-                available_actions_batch.append(torch.tensor(
-                    available_actions[ind:ind+data_chunk_length]))
+                if self.available_actions is not None:
+                    available_actions_batch.append(torch.tensor(
+                        available_actions[ind:ind+data_chunk_length]))
                 value_preds_batch.append(torch.tensor(
                     value_preds[ind:ind+data_chunk_length]))
                 return_batch.append(torch.tensor(
@@ -771,7 +797,8 @@ class SharedReplayBuffer(object):
             obs_batch = torch.stack(obs_batch)
 
             actions_batch = torch.stack(actions_batch)
-            available_actions_batch = torch.stack(available_actions_batch)
+            if self.available_actions is not None:
+                available_actions_batch = torch.stack(available_actions_batch)
             value_preds_batch = torch.stack(value_preds_batch)
             return_batch = torch.stack(return_batch)
             masks_batch = torch.stack(masks_batch)
@@ -791,7 +818,10 @@ class SharedReplayBuffer(object):
             share_obs_batch = _flatten_helper(L, N, share_obs_batch)
             obs_batch = _flatten_helper(L, N, obs_batch)
             actions_batch = _flatten_helper(L, N, actions_batch)
-            available_actions_batch = _flatten_helper(L, N, available_actions_batch)
+            if self.available_actions is not None:
+                available_actions_batch = _flatten_helper(L, N, available_actions_batch)
+            else:
+                available_actions_batch = None
             value_preds_batch = _flatten_helper(L, N, value_preds_batch)
             return_batch = _flatten_helper(L, N, return_batch)
             masks_batch = _flatten_helper(L, N, masks_batch)

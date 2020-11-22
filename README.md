@@ -213,3 +213,32 @@ we support multi-agent boxlocking and blueprint_construction tasks in the hide-a
    chmod +x train_hns.sh
    ./train_hns.sh
 ```
+
+## 6. Flow
+
+### 6.1 install sumo
+
+```Bash
+cd envs/decentralized_bottlenecks/scripts
+
+# choose the bash scripts according to your platform
+./setup_sumo_ubuntu1604.sh 
+
+# default write the PATH to ~/.bashrc, if you are using zsh, copy the PATH to ~/.zshrc
+source ~/.zshrc
+
+# check whether the sumo is installed correctly
+which sumo
+sumo --version
+sumo-gui
+```
+
+### 6.2 install flow
+
+```Bash
+pip install lxml imutils gym-0.10.5
+
+# check whether your flow is installed correctly
+python examples/sumo/sugiyama.py
+```
+
