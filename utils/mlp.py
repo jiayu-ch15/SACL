@@ -57,6 +57,7 @@ class MLPBase(nn.Module):
         self._use_ReLU = args.use_ReLU
         self._use_attn = args.use_attn
         self._use_average_pool = args.use_average_pool
+        self._use_conv1d = arg.use_conv1d
         self._layer_N = args.layer_N
         self._attn_size = args.attn_size
         self.hidden_size = args.hidden_size
@@ -89,6 +90,13 @@ class MLPBase(nn.Module):
         else:
             inputs_dim = obs_dim
 
+        if self._use_conv1d:
+            self.conv = nn.Sequential(
+                init_(nn.Conv1d(in_channels=inputs_dim, out_channels=self.hidden_size/4, kernel_size=3, stride=2, padding="same")), active_func, nn.LayerNorm(hidden_size),
+                init_(nn.Conv1d(in_channels=self.hidden_size/4, out_channels=self.hidden_size/2, kernel_size=3, stride=1, padding="valid")), active_func, nn.LayerNorm(hidden_size),
+                init_(nn.Conv1d(in_channels=self.hidden_size/2, out_channels=self.hidden_size, kernel_size=3, stride=1, padding="valid")), active_func, nn.LayerNorm(hidden_size))
+            inputs_dim = self.hidden_size
+
         self.mlp = MLPLayer(inputs_dim, self.hidden_size,
                               self._layer_N, self._use_orthogonal, self._use_ReLU)
 
@@ -99,6 +107,9 @@ class MLPBase(nn.Module):
         if self._use_attn:
             x = self.attn(x, self_idx=-1)
             x = self.attn_norm(x)
+
+        if self._use_conv1d:
+            x = self.conv(x)
 
         x = self.mlp(x)
 

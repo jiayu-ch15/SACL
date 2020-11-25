@@ -10,6 +10,7 @@ from utils.popart import PopArt
 from utils.util import init
 from utils.cnn import CNNBase
 from utils.mlp import MLPBase
+from utils.conv import CONVBase
 from utils.rnn import RNNLayer
 
 
