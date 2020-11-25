@@ -28,6 +28,7 @@ class R_Model(nn.Module):
         self._naive_recurrent_policy = args.naive_recurrent_policy
         self._recurrent_policy = args.recurrent_policy
         self._use_centralized_V = args.use_centralized_V
+        self._use_conv1d = args.use_conv1d
         self.hidden_size = args.hidden_size
         self.mixed_action = False
         self.multi_discrete = False
@@ -65,7 +66,14 @@ class R_Model(nn.Module):
                 self.obs_attn_norm = nn.LayerNorm(inputs_dim)
             else:
                 inputs_dim = obs_dim
-            self.obs_prep = MLPLayer(inputs_dim, self.hidden_size, layer_N=0,
+
+            if self._use_conv1d:
+                self.obs_conv = nn.Sequential(
+                    init_(nn.Conv1d(in_channels=inputs_dim, out_channels=self.hidden_size/4, kernel_size=3, stride=2, padding="same")), active_func, nn.LayerNorm(hidden_size),
+                    init_(nn.Conv1d(in_channels=self.hidden_size/4, out_channels=self.hidden_size/2, kernel_size=3, stride=1, padding="valid")), active_func, nn.LayerNorm(hidden_size),
+                    init_(nn.Conv1d(in_channels=self.hidden_size/2, out_channels=self.hidden_size, kernel_size=3, stride=1, padding="valid")), active_func, nn.LayerNorm(hidden_size))
+            else:
+                self.obs_prep = MLPLayer(inputs_dim, self.hidden_size, layer_N=0,
                                      use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
 
         # share obs space
@@ -104,10 +112,16 @@ class R_Model(nn.Module):
                     self.share_obs_attn_norm = nn.LayerNorm(inputs_dim)
                 else:
                     inputs_dim = share_obs_dim
-                self.share_obs_prep = MLPLayer(
-                    inputs_dim, self.hidden_size, layer_N=0, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
+
+                if self._use_conv1d:
+                    self.share_obs_conv = nn.Sequential(
+                        init_(nn.Conv1d(in_channels=inputs_dim, out_channels=self.hidden_size/4, kernel_size=3, stride=2, padding="same")), active_func, nn.LayerNorm(hidden_size),
+                        init_(nn.Conv1d(in_channels=self.hidden_size/4, out_channels=self.hidden_size/2, kernel_size=3, stride=1, padding="valid")), active_func, nn.LayerNorm(hidden_size),
+                        init_(nn.Conv1d(in_channels=self.hidden_size/2, out_channels=self.hidden_size, kernel_size=3, stride=1, padding="valid")), active_func, nn.LayerNorm(hidden_size))
+                else:
+                    self.share_obs_prep = MLPLayer(
+                        inputs_dim, self.hidden_size, layer_N=0, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
         else:
-            self.share_obs_prep = self.obs_prep
             if self._use_feature_popart:
                 self.share_obs_feature_norm = self.obs_feature_norm
 
@@ -117,6 +131,11 @@ class R_Model(nn.Module):
             if self._use_attn:
                 self.share_obs_attn = self.obs_attn
                 self.share_obs_attn_norm = self.obs_attn_norm
+            
+            if self._use_conv1d:
+                self.share_obs_conv = self.obs_conv
+            else:
+                self.share_obs_prep = self.obs_prep
 
         # common layer
         self.common = MLPLayer(self.hidden_size, self.hidden_size, layer_N=0,
@@ -178,7 +197,10 @@ class R_Model(nn.Module):
             x = self.obs_attn(x, self_idx=-1)
             x = self.obs_attn_norm(x)
 
-        x = self.obs_prep(x)
+        if self._use_conv1d:
+            x = self.obs_conv(x)
+        else:
+            x = self.obs_prep(x)
         # common
         actor_features = self.common(x)
         if self._naive_recurrent_policy or self._recurrent_policy:
@@ -254,7 +276,11 @@ class R_Model(nn.Module):
             x = self.obs_attn(x, self_idx=-1)
             x = self.obs_attn_norm(x)
 
-        x = self.obs_prep(x)
+        if self._use_conv1d:
+            x = self.obs_conv(x)
+        else:
+            x = self.obs_prep(x)
+
         actor_features = self.common(x)
         if self._naive_recurrent_policy or self._recurrent_policy:
             actor_features, rnn_hidden_states = self.rnn(
@@ -326,7 +352,11 @@ class R_Model(nn.Module):
             share_x = self.share_obs_attn(share_x, self_idx=-1)
             share_x = self.share_obs_attn_norm(share_x)
 
-        share_x = self.share_obs_prep(share_x)
+        if self._use_conv1d:
+            share_x = self.share_obs_conv(share_x)
+        else:
+            share_x = self.share_obs_prep(share_x)
+
         critic_features = self.common(share_x)
         if self._naive_recurrent_policy or self._recurrent_policy:
             critic_features, rnn_hidden_states = self.rnn(
