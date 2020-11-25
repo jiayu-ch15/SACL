@@ -9,7 +9,7 @@ from utils.distributions import Bernoulli, Categorical, DiagGaussian
 from utils.popart import PopArt
 from utils.util import init
 from utils.cnn import CNNBase
-from utils.mlp import MLPLayer, MLPBase
+from utils.mlp import MLPLayer, MLPBase, CONVLayer
 from utils.rnn import RNNLayer
 
 
@@ -68,10 +68,8 @@ class R_Model(nn.Module):
                 inputs_dim = obs_dim
 
             if self._use_conv1d:
-                self.obs_conv = nn.Sequential(
-                    init_(nn.Conv1d(in_channels=inputs_dim, out_channels=self.hidden_size/4, kernel_size=3, stride=2, padding="same")), active_func, nn.LayerNorm(hidden_size),
-                    init_(nn.Conv1d(in_channels=self.hidden_size/4, out_channels=self.hidden_size/2, kernel_size=3, stride=1, padding="valid")), active_func, nn.LayerNorm(hidden_size),
-                    init_(nn.Conv1d(in_channels=self.hidden_size/2, out_channels=self.hidden_size, kernel_size=3, stride=1, padding="valid")), active_func, nn.LayerNorm(hidden_size))
+                self.obs_conv = CONVLayer(
+                        inputs_dim, self.hidden_size, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
             else:
                 self.obs_prep = MLPLayer(inputs_dim, self.hidden_size, layer_N=0,
                                      use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
@@ -114,10 +112,8 @@ class R_Model(nn.Module):
                     inputs_dim = share_obs_dim
 
                 if self._use_conv1d:
-                    self.share_obs_conv = nn.Sequential(
-                        init_(nn.Conv1d(in_channels=inputs_dim, out_channels=self.hidden_size/4, kernel_size=3, stride=2, padding="same")), active_func, nn.LayerNorm(hidden_size),
-                        init_(nn.Conv1d(in_channels=self.hidden_size/4, out_channels=self.hidden_size/2, kernel_size=3, stride=1, padding="valid")), active_func, nn.LayerNorm(hidden_size),
-                        init_(nn.Conv1d(in_channels=self.hidden_size/2, out_channels=self.hidden_size, kernel_size=3, stride=1, padding="valid")), active_func, nn.LayerNorm(hidden_size))
+                    self.share_obs_conv = CONVLayer(
+                        inputs_dim, self.hidden_size, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
                 else:
                     self.share_obs_prep = MLPLayer(
                         inputs_dim, self.hidden_size, layer_N=0, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
