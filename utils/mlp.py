@@ -48,7 +48,7 @@ class MLPLayer(nn.Module):
 
 class CONVLayer(nn.Module):
     def __init__(self, input_dim, hidden_size, use_orthogonal, use_ReLU):
-        super(MLPLayer, self).__init__()
+        super(CONVLayer, self).__init__()
 
         if use_orthogonal:
             if use_ReLU:
@@ -73,9 +73,9 @@ class CONVLayer(nn.Module):
                     x, 0), gain=nn.init.calculate_gain('tanh'))
 
         self.conv = nn.Sequential(
-                init_(nn.Conv1d(in_channels=input_dim, out_channels=hidden_size/4, kernel_size=3, stride=2, padding="same")), active_func, nn.LayerNorm(hidden_size),
-                init_(nn.Conv1d(in_channels=hidden_size/4, out_channels=hidden_size/2, kernel_size=3, stride=1, padding="valid")), active_func, nn.LayerNorm(hidden_size),
-                init_(nn.Conv1d(in_channels=hidden_size/2, out_channels=hidden_size, kernel_size=3, stride=1, padding="valid")), active_func, nn.LayerNorm(hidden_size))
+                init_(nn.Conv1d(in_channels=input_dim, out_channels=hidden_size//4, kernel_size=3, stride=2, padding=0)), active_func, nn.BatchNorm1d(hidden_size//4),
+                init_(nn.Conv1d(in_channels=hidden_size//4, out_channels=hidden_size//2, kernel_size=3, stride=1, padding=1)), active_func, nn.BatchNorm1d(hidden_size//2),
+                init_(nn.Conv1d(in_channels=hidden_size//2, out_channels=hidden_size, kernel_size=3, stride=1, padding=1)), active_func, nn.BatchNorm1d(hidden_size))
 
     def forward(self, x):
         x = self.conv(x)
@@ -93,6 +93,7 @@ class MLPBase(nn.Module):
         self._use_attn = args.use_attn
         self._use_average_pool = args.use_average_pool
         self._use_conv1d = args.use_conv1d
+        self._stacked_frames = args.stacked_frames
         self._layer_N = args.layer_N
         self._attn_size = args.attn_size
         self.hidden_size = args.hidden_size
@@ -126,8 +127,11 @@ class MLPBase(nn.Module):
             inputs_dim = obs_dim
 
         if self._use_conv1d:
-            self.conv = CONVLayer(inputs_dim, self.hidden_size, self._use_orthogonal, self._use_ReLU)
-            inputs_dim = self.hidden_size
+            self.conv = CONVLayer(self._stacked_frames, self.hidden_size, self._use_orthogonal, self._use_ReLU)
+            random_x = torch.FloatTensor(1, self._stacked_frames, inputs_dim)
+            random_out = self.conv(random_x)
+            assert len(random_out.shape)==3
+            inputs_dim = random_out.size(-1) * random_out.size(-2)
 
         self.mlp = MLPLayer(inputs_dim, self.hidden_size,
                               self._layer_N, self._use_orthogonal, self._use_ReLU)
@@ -141,7 +145,10 @@ class MLPBase(nn.Module):
             x = self.attn_norm(x)
 
         if self._use_conv1d:
+            batch_size = x.size(0)
+            x = x.view(batch_size, self._stacked_frames, -1)
             x = self.conv(x)
+            x = x.view(batch_size, -1)
 
         x = self.mlp(x)
 

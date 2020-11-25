@@ -42,6 +42,8 @@ def get_config():
                         default=True, help="Whether to use centralized V function")
     parser.add_argument("--use_conv1d", action='store_true',
                         default=False, help="Whether to use conv1d")
+    parser.add_argument("--stacked_frames", type=int, default=1,
+                        help="Dimension of hidden layers for actor/critic networks")
     parser.add_argument("--hidden_size", type=int, default=64,
                         help="Dimension of hidden layers for actor/critic networks")
     parser.add_argument("--layer_N", type=int, default=1,

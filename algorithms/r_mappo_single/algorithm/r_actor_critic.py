@@ -29,6 +29,7 @@ class R_Model(nn.Module):
         self._recurrent_policy = args.recurrent_policy
         self._use_centralized_V = args.use_centralized_V
         self._use_conv1d = args.use_conv1d
+        self._stacked_frames = args.stacked_frames
         self.hidden_size = args.hidden_size
         self.mixed_action = False
         self.multi_discrete = False
@@ -47,12 +48,15 @@ class R_Model(nn.Module):
                 obs_shape, self.hidden_size, self._use_orthogonal)
         else:
             obs_dim = obs_shape[0]
+
+            # feature norm
             if self._use_feature_popart:
                 self.obs_feature_norm = PopArt(obs_dim)
 
             if self._use_feature_normalization:
                 self.obs_feature_norm = nn.LayerNorm(obs_dim)
-
+            
+            # attn model
             if self._use_attn:
                 if self._use_average_pool:
                     inputs_dim = self._attn_size + obs_shape[-1][1]
@@ -67,13 +71,19 @@ class R_Model(nn.Module):
             else:
                 inputs_dim = obs_dim
 
+            # conv1d model
             if self._use_conv1d:
                 self.obs_conv = CONVLayer(
-                        inputs_dim, self.hidden_size, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
-            else:
-                self.obs_prep = MLPLayer(inputs_dim, self.hidden_size, layer_N=0,
-                                     use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
-
+                        self._stacked_frames, self.hidden_size, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
+                random_x = torch.FloatTensor(1,self._stacked_frames,inputs_dim)
+                random_out = self.obs_conv(random_x)
+                assert len(random_out.shape)==3
+                inputs_dim = random_out.size(-1) * random_out.size(-2)
+            
+            # fc model
+            self.obs_prep = MLPLayer(inputs_dim, self.hidden_size, layer_N=0,
+                                    use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
+                
         # share obs space
         if self._use_centralized_V:
             if share_obs_space.__class__.__name__ == "Box":
@@ -88,12 +98,14 @@ class R_Model(nn.Module):
                     share_obs_shape, self.hidden_size, self._use_orthogonal)
             else:
                 share_obs_dim = share_obs_shape[0]
+                # feature norm
                 if self._use_feature_popart:
                     self.share_obs_feature_norm = PopArt(share_obs_dim)
 
                 if self._use_feature_normalization:
                     self.share_obs_feature_norm = nn.LayerNorm(share_obs_dim)
 
+                # attn model
                 if self._use_attn:
                     if self._use_average_pool:
                         if cat_self:
@@ -111,11 +123,18 @@ class R_Model(nn.Module):
                 else:
                     inputs_dim = share_obs_dim
 
+                # conv1d model
                 if self._use_conv1d:
                     self.share_obs_conv = CONVLayer(
-                        inputs_dim, self.hidden_size, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
-                else:
-                    self.share_obs_prep = MLPLayer(
+                        self._stacked_frames, self.hidden_size, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
+                
+                    random_x = torch.FloatTensor(1,self.stacked_frames,inputs_dim)
+                    random_out = self.share_obs_conv(random_x)
+                    assert len(random_out.shape)==3
+                    inputs_dim = random_out.size(-1) * random_out.size(-2)
+                
+                # fc model
+                self.share_obs_prep = MLPLayer(
                         inputs_dim, self.hidden_size, layer_N=0, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
         else:
             if self._use_feature_popart:
@@ -130,8 +149,8 @@ class R_Model(nn.Module):
             
             if self._use_conv1d:
                 self.share_obs_conv = self.obs_conv
-            else:
-                self.share_obs_prep = self.obs_prep
+            
+            self.share_obs_prep = self.obs_prep
 
         # common layer
         self.common = MLPLayer(self.hidden_size, self.hidden_size, layer_N=0,
@@ -194,9 +213,12 @@ class R_Model(nn.Module):
             x = self.obs_attn_norm(x)
 
         if self._use_conv1d:
+            batch_size = x.size(0)
+            x = x.view(batch_size, self._stacked_frames, -1)
             x = self.obs_conv(x)
-        else:
-            x = self.obs_prep(x)
+            x = x.view(batch_size, -1)
+  
+        x = self.obs_prep(x)
         # common
         actor_features = self.common(x)
         if self._naive_recurrent_policy or self._recurrent_policy:
@@ -273,9 +295,12 @@ class R_Model(nn.Module):
             x = self.obs_attn_norm(x)
 
         if self._use_conv1d:
+            batch_size = x.size(0)
+            x = x.view(batch_size, self._stacked_frames, -1)
             x = self.obs_conv(x)
-        else:
-            x = self.obs_prep(x)
+            x = x.view(batch_size, -1)
+  
+        x = self.obs_prep(x)
 
         actor_features = self.common(x)
         if self._naive_recurrent_policy or self._recurrent_policy:
@@ -349,9 +374,12 @@ class R_Model(nn.Module):
             share_x = self.share_obs_attn_norm(share_x)
 
         if self._use_conv1d:
+            batch_size = share_x.size(0)
+            share_x = share_x.view(batch_size, self._stacked_frames, -1)
             share_x = self.share_obs_conv(share_x)
-        else:
-            share_x = self.share_obs_prep(share_x)
+            share_x = share_x.view(batch_size, -1)
+
+        share_x = self.share_obs_prep(share_x)
 
         critic_features = self.common(share_x)
         if self._naive_recurrent_policy or self._recurrent_policy:
