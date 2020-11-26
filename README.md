@@ -31,8 +31,8 @@
 
 ``` Bash
    cd onpolicy
-   conda create -n onpolicy python==3.6.2
-   conda activate onpolicy
+   conda create -n marl python==3.6.2
+   conda activate marl
    pip install torch==1.5.1+cu101 torchvision==0.6.1+cu101 -f https://download.pytorch.org/whl/torch_stable.html
    pip install wandb==0.10.5
 ```
@@ -66,7 +66,7 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
   
 
 ``` Bash
-  conda activate onpolicy
+  conda activate marl
   cd scripts
   chmod +x train_smac.sh
   ./train_smac.sh
@@ -144,7 +144,7 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
    
 
 ``` Bash
-   conda activate onpolicy
+   conda activate marl
    cd scripts
    chmod +x train_mpe.sh
    ./train_mpe.sh
@@ -201,7 +201,7 @@ we support multi-agent boxlocking and blueprint_construction tasks in the hide-a
    
 
 ``` Bash
-   conda activate onpolicy
+   conda activate marl
    # boxlocking task, if u want to train simplified task, need to change hyper-parameters in box_locking.py first.
    cd scripts
    chmod +x train_boxlocking.sh
