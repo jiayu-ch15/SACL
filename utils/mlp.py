@@ -50,27 +50,12 @@ class CONVLayer(nn.Module):
     def __init__(self, input_dim, hidden_size, use_orthogonal, use_ReLU):
         super(CONVLayer, self).__init__()
 
-        if use_orthogonal:
-            if use_ReLU:
-                active_func = nn.ReLU()
+        active_func = [nn.Tanh, nn.ReLU][use_ReLU]
+        init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][use_orthogonal]
+        gain = nn.init.calculate_gain(['tanh', 'relu'][use_ReLU])
 
-                def init_(m): return init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(
-                    x, 0), gain=nn.init.calculate_gain('relu'))
-            else:
-                active_func = nn.Tanh()
-
-                def init_(m): return init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(
-                    x, 0), gain=nn.init.calculate_gain('tanh'))
-        else:
-            if use_ReLU:
-                active_func = nn.ReLU()
-
-                def init_(m): return init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(
-                    x, 0), gain=nn.init.calculate_gain('relu'))
-            else:
-                active_func = nn.Tanh()
-                def init_(m): return init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(
-                    x, 0), gain=nn.init.calculate_gain('tanh'))
+        def init_(m):
+            return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
 
         self.conv = nn.Sequential(
                 init_(nn.Conv1d(in_channels=input_dim, out_channels=hidden_size//4, kernel_size=3, stride=2, padding=0)), active_func, nn.BatchNorm1d(hidden_size//4),

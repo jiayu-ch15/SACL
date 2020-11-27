@@ -2,9 +2,11 @@ import torch
 import numpy as np
 
 
-def _flatten_helper(T, N, _tensor):
-    return _tensor.view(T * N, *_tensor.size()[2:])
+def _flatten(T, N, _from_numpy):
+    return _from_numpy.view(T * N, *_from_numpy.size()[2:])
 
+def _cast(x):
+    return x.transpose(1,0,2).reshape(-1, *x.shape[2:])
 
 class SeparatedReplayBuffer(object):
     def __init__(self, args, agent_obs_space, agent_share_obs_space, agent_action_space):
@@ -121,13 +123,13 @@ class SeparatedReplayBuffer(object):
                 gae = 0
                 for step in reversed(range(self.rewards.shape[0])):
                     if use_popart:
-                        delta = self.rewards[step, :] + gamma * value_normalizer.denormalize(torch.tensor(self.value_preds[
-                            step + 1, :])).cpu().numpy() * self.masks[step + 1, :] - value_normalizer.denormalize(torch.tensor(self.value_preds[step, :])).cpu().numpy()
+                        delta = self.rewards[step, :] + gamma * value_normalizer.denormalize(torch.from_numpy(self.value_preds[
+                            step + 1, :])).cpu().numpy() * self.masks[step + 1, :] - value_normalizer.denormalize(torch.from_numpy(self.value_preds[step, :])).cpu().numpy()
                         gae = delta + gamma * \
                             gae_lambda * self.masks[step + 1, :] * gae
                         gae = gae * self.bad_masks[step + 1, :]
                         self.returns[step, :] = gae + value_normalizer.denormalize(
-                            torch.tensor(self.value_preds[step, :])).cpu().numpy()
+                            torch.from_numpy(self.value_preds[step, :])).cpu().numpy()
                     else:
                         delta = self.rewards[step, :] + gamma * self.value_preds[
                             step + 1, :] * self.masks[step + 1, :] - self.value_preds[step, :]
@@ -142,7 +144,7 @@ class SeparatedReplayBuffer(object):
                         self.returns[step, :] = (self.returns[step + 1, :] *
                                                  gamma * self.masks[step + 1, :] + self.rewards[step, :]) * self.bad_masks[step + 1, :] \
                             + (1 - self.bad_masks[step + 1, :]) * value_normalizer.denormalize(
-                                torch.tensor(self.value_preds[step, :])).cpu().numpy()
+                                torch.from_numpy(self.value_preds[step, :])).cpu().numpy()
                     else:
                         self.returns[step, :] = (self.returns[step + 1, :] *
                                                  gamma * self.masks[step + 1, :] + self.rewards[step, :]) * self.bad_masks[step + 1, :] \
@@ -154,12 +156,12 @@ class SeparatedReplayBuffer(object):
                 gae = 0
                 for step in reversed(range(self.rewards.shape[0])):
                     if use_popart:
-                        delta = self.rewards[step, :] + gamma * value_normalizer.denormalize(torch.tensor(self.value_preds[
-                            step + 1, :])).cpu().numpy() * self.masks[step + 1, :] - value_normalizer.denormalize(torch.tensor(self.value_preds[step, :])).cpu().numpy()
+                        delta = self.rewards[step, :] + gamma * value_normalizer.denormalize(torch.from_numpy(self.value_preds[
+                            step + 1, :])).cpu().numpy() * self.masks[step + 1, :] - value_normalizer.denormalize(torch.from_numpy(self.value_preds[step, :])).cpu().numpy()
                         gae = delta + gamma * \
                             gae_lambda * self.masks[step + 1, :] * gae
                         self.returns[step, :] = gae + value_normalizer.denormalize(
-                            torch.tensor(self.value_preds[step, :])).cpu().numpy()
+                            torch.from_numpy(self.value_preds[step, :])).cpu().numpy()
                     else:
                         delta = self.rewards[step, :] + gamma * self.value_preds[step +
                                                                                  1, :] * self.masks[step + 1, :] - self.value_preds[step, :]
@@ -208,27 +210,27 @@ class SeparatedReplayBuffer(object):
 
         for indices in sampler:
             # obs size [T+1 N Dim]-->[T N Dim]-->[T*N,Dim]-->[index,Dim]
-            share_obs_batch = torch.tensor(share_obs[indices])
-            obs_batch = torch.tensor(obs[indices])
-            recurrent_hidden_states_batch = torch.tensor(
+            share_obs_batch = torch.from_numpy(share_obs[indices])
+            obs_batch = torch.from_numpy(obs[indices])
+            recurrent_hidden_states_batch = torch.from_numpy(
                 recurrent_hidden_states[indices])
-            recurrent_hidden_states_critic_batch = torch.tensor(
+            recurrent_hidden_states_critic_batch = torch.from_numpy(
                 recurrent_hidden_states_critic[indices])
-            actions_batch = torch.tensor(actions[indices])
+            actions_batch = torch.from_numpy(actions[indices])
             if self.available_actions is not None:
-                available_actions_batch = torch.tensor(available_actions[indices])
+                available_actions_batch = torch.from_numpy(available_actions[indices])
             else:
                 available_actions_batch = None
-            value_preds_batch = torch.tensor(value_preds[indices])
-            return_batch = torch.tensor(returns[indices])
-            masks_batch = torch.tensor(masks[indices])
-            high_masks_batch = torch.tensor(high_masks[indices])
-            old_action_log_probs_batch = torch.tensor(
+            value_preds_batch = torch.from_numpy(value_preds[indices])
+            return_batch = torch.from_numpy(returns[indices])
+            masks_batch = torch.from_numpy(masks[indices])
+            high_masks_batch = torch.from_numpy(high_masks[indices])
+            old_action_log_probs_batch = torch.from_numpy(
                 action_log_probs[indices])
             if advantages is None:
                 adv_targ = None
             else:
-                adv_targ = torch.tensor(advantages[indices])
+                adv_targ = torch.from_numpy(advantages[indices])
 
             yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, adv_targ, available_actions_batch
 
@@ -256,27 +258,27 @@ class SeparatedReplayBuffer(object):
 
             for offset in range(num_envs_per_batch):
                 ind = perm[start_ind + offset]
-                share_obs_batch.append(torch.tensor(self.share_obs[:-1, ind]))
-                obs_batch.append(torch.tensor(self.obs[:-1, ind]))
+                share_obs_batch.append(torch.from_numpy(self.share_obs[:-1, ind]))
+                obs_batch.append(torch.from_numpy(self.obs[:-1, ind]))
                 recurrent_hidden_states_batch.append(
-                    torch.tensor(self.recurrent_hidden_states[0:1, ind]))
+                    torch.from_numpy(self.recurrent_hidden_states[0:1, ind]))
                 recurrent_hidden_states_critic_batch.append(
-                    torch.tensor(self.recurrent_hidden_states_critic[0:1, ind]))
-                actions_batch.append(torch.tensor(self.actions[:, ind]))
+                    torch.from_numpy(self.recurrent_hidden_states_critic[0:1, ind]))
+                actions_batch.append(torch.from_numpy(self.actions[:, ind]))
                 if self.available_actions is not None:
-                    available_actions_batch.append(torch.tensor(self.available_actions[:, ind]))
+                    available_actions_batch.append(torch.from_numpy(self.available_actions[:, ind]))
                 value_preds_batch.append(
-                    torch.tensor(self.value_preds[:-1, ind]))
-                return_batch.append(torch.tensor(self.returns[:-1, ind]))
-                masks_batch.append(torch.tensor(self.masks[:-1, ind]))
+                    torch.from_numpy(self.value_preds[:-1, ind]))
+                return_batch.append(torch.from_numpy(self.returns[:-1, ind]))
+                masks_batch.append(torch.from_numpy(self.masks[:-1, ind]))
                 high_masks_batch.append(
-                    torch.tensor(self.high_masks[:-1, ind]))
+                    torch.from_numpy(self.high_masks[:-1, ind]))
                 old_action_log_probs_batch.append(
-                    torch.tensor(self.action_log_probs[:, ind]))
-                adv_targ.append(torch.tensor(advantages[:, ind]))
+                    torch.from_numpy(self.action_log_probs[:, ind]))
+                adv_targ.append(torch.from_numpy(advantages[:, ind]))
 
             T, N = self.episode_length, num_envs_per_batch
-            # These are all tensors of size (T, N, -1)
+            # These are all from_numpys of size (T, N, -1)
             share_obs_batch = torch.stack(share_obs_batch, 1)
             obs_batch = torch.stack(obs_batch, 1)
             actions_batch = torch.stack(actions_batch, 1)
@@ -290,27 +292,27 @@ class SeparatedReplayBuffer(object):
                 old_action_log_probs_batch, 1)
             adv_targ = torch.stack(adv_targ, 1)
 
-            # States is just a (N, -1) tensor
+            # States is just a (N, -1) from_numpy
             recurrent_hidden_states_batch = torch.stack(
                 recurrent_hidden_states_batch, 1).view(N, -1)
             recurrent_hidden_states_critic_batch = torch.stack(
                 recurrent_hidden_states_critic_batch, 1).view(N, -1)
 
-            # Flatten the (T, N, ...) tensors to (T * N, ...)
-            share_obs_batch = _flatten_helper(T, N, share_obs_batch)
-            obs_batch = _flatten_helper(T, N, obs_batch)
-            actions_batch = _flatten_helper(T, N, actions_batch)
+            # Flatten the (T, N, ...) from_numpys to (T * N, ...)
+            share_obs_batch = _flatten(T, N, share_obs_batch)
+            obs_batch = _flatten(T, N, obs_batch)
+            actions_batch = _flatten(T, N, actions_batch)
             if self.available_actions is not None:
-                available_actions_batch = _flatten_helper(T, N, available_actions_batch)
+                available_actions_batch = _flatten(T, N, available_actions_batch)
             else:
                 available_actions_batch = None
-            value_preds_batch = _flatten_helper(T, N, value_preds_batch)
-            return_batch = _flatten_helper(T, N, return_batch)
-            masks_batch = _flatten_helper(T, N, masks_batch)
-            high_masks_batch = _flatten_helper(T, N, high_masks_batch)
-            old_action_log_probs_batch = _flatten_helper(T, N,
+            value_preds_batch = _flatten(T, N, value_preds_batch)
+            return_batch = _flatten(T, N, return_batch)
+            masks_batch = _flatten(T, N, masks_batch)
+            high_masks_batch = _flatten(T, N, high_masks_batch)
+            old_action_log_probs_batch = _flatten(T, N,
                                                          old_action_log_probs_batch)
-            adv_targ = _flatten_helper(T, N, adv_targ)
+            adv_targ = _flatten(T, N, adv_targ)
 
             yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, adv_targ, available_actions_batch
 
@@ -330,28 +332,20 @@ class SeparatedReplayBuffer(object):
             obs = self.obs[:-1, :].transpose(1, 0, 2,
                                              3, 4).reshape(-1, *self.obs.shape[2:])
         else:
-            share_obs = self.share_obs[:-1, :].transpose(
-                1, 0, 2).reshape(-1, *self.share_obs.shape[2:])
-            obs = self.obs[:-1, :].transpose(1, 0,
-                                             2).reshape(-1, *self.obs.shape[2:])
+            share_obs = _cast(self.share_obs[:-1])
+            obs = _cast(self.obs[:-1])
 
-        actions = self.actions[:, :].transpose(
-            1, 0, 2).reshape(-1, self.actions.shape[-1])
+        actions = _cast(self.actions)
+        action_log_probs = _cast(self.action_log_probs)
+        advantages = _cast(advantages)
+        value_preds = _cast(self.value_preds[:-1])
+        returns = _cast(self.returns[:-1])
+        masks = _cast(self.masks[:-1])
+        high_masks = _cast(self.high_masks[:-1])
+        recurrent_hidden_states = _cast(self.recurrent_hidden_states[:-1])
+        recurrent_hidden_states_critic = _cast(self.recurrent_hidden_states_critic[:-1])
         if self.available_actions is not None:
-            available_actions = self.available_actions[:, :].transpose(
-                1, 0, 2).reshape(-1, self.available_actions.shape[-1])
-        value_preds = self.value_preds[:-1,
-                                       :].transpose(1, 0, 2).reshape(-1, 1)
-        returns = self.returns[:-1, :].transpose(1, 0, 2).reshape(-1, 1)
-        masks = self.masks[:-1, :].transpose(1, 0, 2).reshape(-1, 1)
-        high_masks = self.high_masks[:-1, :].transpose(1, 0, 2).reshape(-1, 1)
-        action_log_probs = self.action_log_probs[:, :].transpose(
-            1, 0, 2).reshape(-1, 1)
-        advantages = advantages.transpose(1, 0, 2).reshape(-1, 1)
-        recurrent_hidden_states = self.recurrent_hidden_states[:-1, :].transpose(
-            1, 0, 2).reshape(-1, self.recurrent_hidden_states.shape[-1])
-        recurrent_hidden_states_critic = self.recurrent_hidden_states_critic[:-1, :].transpose(
-            1, 0, 2).reshape(-1, self.recurrent_hidden_states_critic.shape[-1])
+            available_actions = _cast(self.available_actions)
 
         for indices in sampler:
             share_obs_batch = []
@@ -370,35 +364,35 @@ class SeparatedReplayBuffer(object):
             for index in indices:
                 ind = index * data_chunk_length
                 # size [T+1 N M Dim]-->[T N Dim]-->[N T Dim]-->[T*N,Dim]-->[L,Dim]
-                share_obs_batch.append(torch.tensor(
+                share_obs_batch.append(torch.from_numpy(
                     share_obs[ind:ind+data_chunk_length]))
-                obs_batch.append(torch.tensor(obs[ind:ind+data_chunk_length]))
-                actions_batch.append(torch.tensor(
+                obs_batch.append(torch.from_numpy(obs[ind:ind+data_chunk_length]))
+                actions_batch.append(torch.from_numpy(
                     actions[ind:ind+data_chunk_length]))
                 if self.available_actions is not None:
-                    available_actions_batch.append(torch.tensor(
+                    available_actions_batch.append(torch.from_numpy(
                         available_actions[ind:ind+data_chunk_length]))
-                value_preds_batch.append(torch.tensor(
+                value_preds_batch.append(torch.from_numpy(
                     value_preds[ind:ind+data_chunk_length]))
-                return_batch.append(torch.tensor(
+                return_batch.append(torch.from_numpy(
                     returns[ind:ind+data_chunk_length]))
-                masks_batch.append(torch.tensor(
+                masks_batch.append(torch.from_numpy(
                     masks[ind:ind+data_chunk_length]))
-                high_masks_batch.append(torch.tensor(
+                high_masks_batch.append(torch.from_numpy(
                     high_masks[ind:ind+data_chunk_length]))
-                old_action_log_probs_batch.append(torch.tensor(
+                old_action_log_probs_batch.append(torch.from_numpy(
                     action_log_probs[ind:ind+data_chunk_length]))
-                adv_targ.append(torch.tensor(
+                adv_targ.append(torch.from_numpy(
                     advantages[ind:ind+data_chunk_length]))
                 # size [T+1 N Dim]-->[T N Dim]-->[T*N,Dim]-->[1,Dim]
                 recurrent_hidden_states_batch.append(
-                    torch.tensor(recurrent_hidden_states[ind]))
+                    torch.from_numpy(recurrent_hidden_states[ind]))
                 recurrent_hidden_states_critic_batch.append(
-                    torch.tensor(recurrent_hidden_states_critic[ind]))
+                    torch.from_numpy(recurrent_hidden_states_critic[ind]))
 
             L, N = data_chunk_length, mini_batch_size
 
-            # These are all tensors of size (L, N, Dim)
+            # These are all from_numpys of size (L, N, Dim)
             share_obs_batch = torch.stack(share_obs_batch)
             obs_batch = torch.stack(obs_batch)
 
@@ -413,27 +407,26 @@ class SeparatedReplayBuffer(object):
                 old_action_log_probs_batch)
             adv_targ = torch.stack(adv_targ)
 
-            # States is just a (N, -1) tensor
+            # States is just a (N, -1) from_numpy
 
             recurrent_hidden_states_batch = torch.stack(
                 recurrent_hidden_states_batch).view(N, -1)
             recurrent_hidden_states_critic_batch = torch.stack(
                 recurrent_hidden_states_critic_batch).view(N, -1)
 
-            # Flatten the (L, N, ...) tensors to (L * N, ...)
-            share_obs_batch = _flatten_helper(L, N, share_obs_batch)
-            obs_batch = _flatten_helper(L, N, obs_batch)
-            actions_batch = _flatten_helper(L, N, actions_batch)
+            # Flatten the (L, N, ...) from_numpys to (L * N, ...)
+            share_obs_batch = _flatten(L, N, share_obs_batch)
+            obs_batch = _flatten(L, N, obs_batch)
+            actions_batch = _flatten(L, N, actions_batch)
             if self.available_actions is not None:
-                available_actions_batch = _flatten_helper(L, N, available_actions_batch)
+                available_actions_batch = _flatten(L, N, available_actions_batch)
             else:
                 available_actions_batch = None
-            value_preds_batch = _flatten_helper(L, N, value_preds_batch)
-            return_batch = _flatten_helper(L, N, return_batch)
-            masks_batch = _flatten_helper(L, N, masks_batch)
-            high_masks_batch = _flatten_helper(L, N, high_masks_batch)
-            old_action_log_probs_batch = _flatten_helper(L, N,
-                                                         old_action_log_probs_batch)
-            adv_targ = _flatten_helper(L, N, adv_targ)
+            value_preds_batch = _flatten(L, N, value_preds_batch)
+            return_batch = _flatten(L, N, return_batch)
+            masks_batch = _flatten(L, N, masks_batch)
+            high_masks_batch = _flatten(L, N, high_masks_batch)
+            old_action_log_probs_batch = _flatten(L, N, old_action_log_probs_batch)
+            adv_targ = _flatten(L, N, adv_targ)
 
             yield share_obs_batch, obs_batch, recurrent_hidden_states_batch, recurrent_hidden_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, high_masks_batch, old_action_log_probs_batch, adv_targ, available_actions_batch

@@ -59,27 +59,12 @@ class FeedForward(nn.Module):
 
         super(FeedForward, self).__init__()
         # We set d_ff as a default to 2048
-        if use_orthogonal:
-            if use_ReLU:
-                active_func = nn.ReLU()
+        active_func = [nn.Tanh, nn.ReLU][use_ReLU]
+        init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][use_orthogonal]
+        gain = nn.init.calculate_gain(['tanh', 'relu'][use_ReLU])
 
-                def init_(m): return init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(
-                    x, 0), gain=nn.init.calculate_gain('relu'))
-            else:
-                active_func = nn.Tanh()
-
-                def init_(m): return init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(
-                    x, 0), gain=nn.init.calculate_gain('tanh'))
-        else:
-            if use_ReLU:
-                active_func = nn.ReLU()
-
-                def init_(m): return init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(
-                    x, 0), gain=nn.init.calculate_gain('relu'))
-            else:
-                active_func = nn.Tanh()
-                def init_(m): return init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(
-                    x, 0), gain=nn.init.calculate_gain('tanh'))
+        def init_(m):
+            return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
 
         self.linear_1 = nn.Sequential(
             init_(nn.Linear(d_model, d_ff)), active_func, nn.LayerNorm(d_ff))
@@ -111,12 +96,12 @@ def ScaledDotProductAttention(q, k, v, d_k, mask=None, dropout=None):
 class MultiHeadAttention(nn.Module):
     def __init__(self, heads, d_model, dropout=0.0, use_orthogonal=True):
         super(MultiHeadAttention, self).__init__()
-        if use_orthogonal:
-            def init_(m): return init(m, nn.init.orthogonal_,
-                                      lambda x: nn.init.constant_(x, 0))
-        else:
-            def init_(m): return init(m, nn.init.xavier_uniform_,
-                                      lambda x: nn.init.constant_(x, 0))
+
+        active_func = [nn.Tanh, nn.ReLU][use_ReLU]
+        init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][use_orthogonal]
+
+        def init_(m):
+            return init(m, init_method, lambda x: nn.init.constant_(x, 0))
 
         self.d_model = d_model
         self.d_k = d_model // heads
@@ -181,27 +166,12 @@ class CatSelfEmbedding(nn.Module):
         super(CatSelfEmbedding, self).__init__()
         self.split_shape = split_shape
 
-        if use_orthogonal:
-            if use_ReLU:
-                active_func = nn.ReLU()
+        active_func = [nn.Tanh, nn.ReLU][use_ReLU]
+        init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][use_orthogonal]
+        gain = nn.init.calculate_gain(['tanh', 'relu'][use_ReLU])
 
-                def init_(m): return init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(
-                    x, 0), gain=nn.init.calculate_gain('relu'))
-            else:
-                active_func = nn.Tanh()
-
-                def init_(m): return init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(
-                    x, 0), gain=nn.init.calculate_gain('tanh'))
-        else:
-            if use_ReLU:
-                active_func = nn.ReLU()
-
-                def init_(m): return init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(
-                    x, 0), gain=nn.init.calculate_gain('relu'))
-            else:
-                active_func = nn.Tanh()
-                def init_(m): return init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(
-                    x, 0), gain=nn.init.calculate_gain('tanh'))
+        def init_(m):
+            return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
 
         for i in range(len(split_shape)):
             if i == (len(split_shape)-1):
@@ -236,24 +206,12 @@ class Embedding(nn.Module):
         super(Embedding, self).__init__()
         self.split_shape = split_shape
 
-        if use_orthogonal:
-            if use_ReLU:
-                active_func = nn.ReLU()
-                def init_(m): return init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(
-                    x, 0), gain=nn.init.calculate_gain('relu'))
-            else:
-                active_func = nn.Tanh()
-                def init_(m): return init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(
-                    x, 0), gain=nn.init.calculate_gain('tanh'))
-        else:
-            if use_ReLU:
-                active_func = nn.ReLU()
-                def init_(m): return init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(
-                    x, 0), gain=nn.init.calculate_gain('relu'))
-            else:
-                active_func = nn.Tanh()
-                def init_(m): return init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(
-                    x, 0), gain=nn.init.calculate_gain('tanh'))
+        active_func = [nn.Tanh, nn.ReLU][use_ReLU]
+        init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][use_orthogonal]
+        gain = nn.init.calculate_gain(['tanh', 'relu'][use_ReLU])
+
+        def init_(m):
+            return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
 
         for i in range(len(split_shape)):
             setattr(self, 'fc_'+str(i), nn.Sequential(init_(

@@ -18,6 +18,7 @@ class R_MAPPO():
                  device=torch.device("cpu")):
 
         self.device = device
+        self.tpdv = dict(dtype=torch.float32, device=device)
         self.policy = policy
 
         self._recurrent = args.recurrent_policy
@@ -51,11 +52,11 @@ class R_MAPPO():
             value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, \
             adv_targ, available_actions_batch = sample
 
-        old_action_log_probs_batch = old_action_log_probs_batch.to(self.device)
-        adv_targ = adv_targ.to(self.device)
-        value_preds_batch = value_preds_batch.to(self.device)
-        return_batch = return_batch.to(self.device)
-        active_masks_batch = active_masks_batch.to(self.device)
+        old_action_log_probs_batch = old_action_log_probs_batch.to(**self.tpdv)
+        adv_targ = adv_targ.to(**self.tpdv)
+        value_preds_batch = value_preds_batch.to(**self.tpdv)
+        return_batch = return_batch.to(**self.tpdv)
+        active_masks_batch = active_masks_batch.to(**self.tpdv)
 
         # Reshape to do in a single forward pass for all steps
         values, action_log_probs, dist_entropy = self.policy.evaluate_actions(share_obs_batch,

@@ -17,6 +17,7 @@ class PopArt(nn.Module):
         self.beta = beta
         self.per_element_update = per_element_update
         self.device = device
+        self.tpdv = dict(dtype=torch.float32, device=device)
 
         self.running_mean = nn.Parameter(torch.zeros(
             input_shape, dtype=torch.float), requires_grad=False).to(self.device)
@@ -40,7 +41,7 @@ class PopArt(nn.Module):
 
     def forward(self, input_vector, train=True):
         # Make sure input is float32
-        input_vector = input_vector.to(torch.float).to(self.device)
+        input_vector = input_vector.to(**self.tpdv)
 
         if train:
             # Detach input before adding it to running means to avoid backpropping through it on
@@ -68,7 +69,7 @@ class PopArt(nn.Module):
 
     def denormalize(self, input_vector):
         """ Transform normalized data back into original distribution """
-        input_vector = input_vector.to(torch.float).to(self.device)
+        input_vector = input_vector.to(**self.tpdv)
 
         mean, var = self.running_mean_var()
         out = input_vector * \

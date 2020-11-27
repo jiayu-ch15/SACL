@@ -6,7 +6,6 @@ import torch.nn.functional as F
 
 from utils.util import init
 
-
 class Flatten(nn.Module):
     def forward(self, x):
         return x.view(x.size(0), -1)
@@ -18,26 +17,26 @@ class CNNLayer(nn.Module):
         self._use_orthogonal = use_orthogonal
         self.hidden_size = hidden_size
 
-        if self._use_orthogonal:
-            def init_(m): return init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(
-                x, 0), nn.init.calculate_gain('relu'))
-        else:
-            def init_(m): return init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(
-                x, 0), gain=nn.init.calculate_gain('relu'))
+        active_func = [nn.Tanh, nn.ReLU][use_ReLU]
+        init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][use_orthogonal]
+        gain = nn.init.calculate_gain(['tanh', 'relu'][use_ReLU])
+
+        def init_(m):
+            return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
 
         inputs_dim = obs_shape[0]
         image_size = obs_shape[1]
 
         self.cnn = nn.Sequential(
-            init_(nn.Conv2d(inputs_dim, 32, 3, stride=1)), nn.ReLU(),
+            init_(nn.Conv2d(inputs_dim, 32, 3, stride=1)), active_func,
             Flatten(),
             init_(nn.Linear(32 * (image_size-3+1) * \
-                            (image_size-3+1), self.hidden_size)), nn.ReLU())
+                            (image_size-3+1), self.hidden_size)), active_func)
 
     def forward(self, x):
         x = x / 255.0
         x = self.cnn(x)
-
+        
         return x
 
 class CNNBase(nn.Module):
@@ -47,22 +46,22 @@ class CNNBase(nn.Module):
         self._use_orthogonal = args.use_orthogonal
         self.hidden_size = args.hidden_size
 
-        if self._use_orthogonal:
-            def init_(m): return init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(
-                x, 0), nn.init.calculate_gain('relu'))
-        else:
-            def init_(m): return init(m, nn.init.xavier_uniform_, lambda x: nn.init.constant_(
-                x, 0), gain=nn.init.calculate_gain('relu'))
+        active_func = [nn.Tanh, nn.ReLU][use_ReLU]
+        init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][use_orthogonal]
+        gain = nn.init.calculate_gain(['tanh', 'relu'][use_ReLU])
+
+        def init_(m):
+            return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
 
         inputs_dim = obs_shape[0]
         image_size = obs_shape[1]
 
         self.cnn = nn.Sequential(
-            init_(nn.Conv2d(inputs_dim, 32, 3, stride=1)), nn.ReLU(),
+            init_(nn.Conv2d(inputs_dim, 32, 3, stride=1)), active_func,
             Flatten(),
             init_(nn.Linear(32 * (image_size-3+1) * \
-                            (image_size-3+1), self.hidden_size)), nn.ReLU(),
-            init_(nn.Linear(self.hidden_size, self.hidden_size)), nn.ReLU())
+                            (image_size-3+1), self.hidden_size)), active_func,
+            init_(nn.Linear(self.hidden_size, self.hidden_size)), active_func)
 
     def forward(self, x):
         x = x / 255.0

@@ -23,7 +23,7 @@ class R_Actor(nn.Module):
         self._recurrent_policy = args.recurrent_policy
         self.mixed_action = False
         self.multi_discrete = False
-        self.device = device
+        self.tpdv = dict(dtype=torch.float32, device=device)
 
         if obs_space.__class__.__name__ == "Box":
             obs_shape = obs_space.shape
@@ -69,11 +69,11 @@ class R_Actor(nn.Module):
                 self.hidden_size, discrete_dim, self._use_orthogonal, self._gain)])
 
     def forward(self, obs, rnn_hidden_states, masks, available_actions=None, deterministic=False):
-        obs = obs.to(self.device)
-        rnn_hidden_states = rnn_hidden_states.to(self.device)
-        masks = masks.to(self.device)
+        obs = obs.to(**self.tpdv)
+        rnn_hidden_states = rnn_hidden_states.to(**self.tpdv)
+        masks = masks.to(**self.tpdv)
         if available_actions is not None:
-            available_actions = available_actions.to(self.device)
+            available_actions = available_actions.to(**self.tpdv)
 
         actor_features = self.base(obs)
 
@@ -134,12 +134,12 @@ class R_Actor(nn.Module):
         return action_out, action_log_probs_out, rnn_hidden_states
 
     def evaluate_actions(self, obs, rnn_hidden_states, action, masks, active_masks=None):
-        obs = obs.to(self.device)
-        rnn_hidden_states = rnn_hidden_states.to(self.device)
-        masks = masks.to(self.device)
+        obs = obs.to(**self.tpdv)
+        rnn_hidden_states = rnn_hidden_states.to(**self.tpdv)
+        masks = masks.to(**self.tpdv)
         if active_masks is not None:
-            active_masks = active_masks.to(self.device)
-        action = action.to(self.device)
+            active_masks = active_masks.to(**self.tpdv)
+        action = action.to(**self.tpdv)
 
         actor_features = self.base(obs)
         if self._naive_recurrent_policy or self._recurrent_policy:
@@ -206,7 +206,7 @@ class R_Critic(nn.Module):
         self.hidden_size = args.hidden_size
         self._naive_recurrent_policy = args.naive_recurrent_policy
         self._recurrent_policy = args.recurrent_policy
-        self.device = device
+        self.tpdv = dict(dtype=torch.float32, device=device)
 
         if share_obs_space.__class__.__name__ == "Box":
             share_obs_shape = share_obs_space.shape
@@ -234,14 +234,13 @@ class R_Critic(nn.Module):
 
     def forward(self, share_obs, rnn_hidden_states, masks):
 
-        share_obs = share_obs.to(self.device)
-        rnn_hidden_states = rnn_hidden_states.to(self.device)
-        masks = masks.to(self.device)
+        share_obs = share_obs.to(**self.tpdv)
+        rnn_hidden_states = rnn_hidden_states.to(**self.tpdv)
+        masks = masks.to(**self.tpdv)
 
         critic_features = self.base(share_obs)
         if self._naive_recurrent_policy or self._recurrent_policy:
-            critic_features, rnn_hidden_states = self.rnn(
-                critic_features, rnn_hidden_states, masks)
+            critic_features, rnn_hidden_states = self.rnn(critic_features, rnn_hidden_states, masks)
         value = self.v_out(critic_features)
 
         return value, rnn_hidden_states

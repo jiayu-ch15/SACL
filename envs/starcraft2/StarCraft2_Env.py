@@ -476,6 +476,7 @@ class StarCraft2Env(MultiAgentEnv):
         game_end_code = self.update_units()
 
         reward = self.reward_battle()
+        print(reward)
 
         available_actions = []
         for i in range(self.n_agents):
