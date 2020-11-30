@@ -9,6 +9,7 @@ from onpolicy.algorithms.utils.cnn import CNNLayer
 from onpolicy.algorithms.utils.mlp import MLPLayer
 from onpolicy.algorithms.utils.rnn import RNNLayer
 from onpolicy.algorithms.utils.act import ACTLayer
+from onpolicy.algorithms.utils.attention import Encoder
 from onpolicy.algorithms.utils.util import init, check
 
 from onpolicy.utils.popart import PopArt

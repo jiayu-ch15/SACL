@@ -49,7 +49,7 @@ class R_Actor(nn.Module):
             actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
 
         actions, action_log_probs = self.act(actor_features, available_actions, deterministic)
-
+        
         return actions, action_log_probs, rnn_states
 
     def evaluate_actions(self, obs, rnn_states, action, masks, active_masks=None):

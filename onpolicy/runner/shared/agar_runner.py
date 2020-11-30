@@ -185,6 +185,7 @@ class Runner(object):
         else:
             share_obs = obs
 
+        
         self.buffer.share_obs[0] = share_obs.copy()
         self.buffer.obs[0] = obs.copy()
 

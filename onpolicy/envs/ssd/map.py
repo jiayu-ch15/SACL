@@ -705,11 +705,7 @@ class Map(object):
         observations = []
         rewards = []
         dones = []
-        infos = {'collective_return': [],
-                 'waste_cleared': [],
-                 'apple_consumption': [],
-                 'sustainability': [],
-                 'fire': []}
+        infos = {}
         for i in range(self.num_agents):
             # del self.agents['agent-' + str(i)].grid
             self.agents['agent-' + str(i)].grid = self.get_map_with_agents()

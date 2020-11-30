@@ -127,6 +127,7 @@ class Runner(object):
             train_infos = self.train()
             
             # post process
+            
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads           
             # save model
             if (episode % self.save_interval == 0 or episode == episodes - 1):
@@ -144,7 +145,6 @@ class Runner(object):
                                 total_num_steps,
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
-
                 if self.env_name == "Cleanup" or self.env_name == "Harvest":                
                     env_infos = {}
 
@@ -205,7 +205,7 @@ class Runner(object):
             share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
         else:
             share_obs = obs
-
+        
         self.buffer.insert(share_obs, obs, rnn_states, rnn_states_critic,
                            actions, action_log_probs, values, rewards, masks)
 
@@ -220,7 +220,7 @@ class Runner(object):
     
     def train(self):
         self.trainer.prep_training()
-        train_infos = self.trainer.train(self.buffer)      
+        train_infos = self.trainer.train(self.buffer)     
         self.buffer.after_update()
         return train_infos
 

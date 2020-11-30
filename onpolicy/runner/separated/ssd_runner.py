@@ -163,7 +163,7 @@ class Runner(object):
                     train_info = {'average_step_rewards': np.mean(self.buffer[agent_id].rewards)}
                     train_infos.append(train_info)
                     
-                self.log(train_infos, total_num_steps)
+                self.log_train(train_infos, total_num_steps)
                 self.log_env(env_infos, total_num_steps)
 
     def warmup(self):
@@ -179,7 +179,6 @@ class Runner(object):
         for agent_id in range(self.num_agents):
             self.buffer[agent_id].share_obs[0] = share_obs[:, agent_id].copy()
             self.buffer[agent_id].obs[0] = obs[:, agent_id].copy()
-            self.buffer[agent_id].available_actions[0] = available_actions[:, agent_id].copy()
 
     @torch.no_grad()
     def collect(self, step):    
@@ -196,8 +195,7 @@ class Runner(object):
                                                             self.buffer[agent_id].obs[step],
                                                             self.buffer[agent_id].rnn_states[step],
                                                             self.buffer[agent_id].rnn_states_critic[step],
-                                                            self.buffer[agent_id].masks[step],
-                                                            self.buffer[agent_id].available_actions[step])
+                                                            self.buffer[agent_id].masks[step])
 
             values.append(_t2n(value))
             actions.append(_t2n(action))
