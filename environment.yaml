@@ -1,4 +1,4 @@
-name: mappo-sc
+name: marl
 channels:
   - defaults
 dependencies:
@@ -195,4 +195,4 @@ dependencies:
       - yarl==1.5.1
       - zipp==3.1.0
       - zmq==0.0.0
-prefix: /home/yuchao/anaconda3/envs/mappo-sc
+prefix: /home/yuchao/anaconda3/envs/marl
