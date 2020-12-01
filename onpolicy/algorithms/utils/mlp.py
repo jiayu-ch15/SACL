@@ -64,7 +64,7 @@ class MLPBase(nn.Module):
         self._use_average_pool = args.use_average_pool
         self._use_conv1d = args.use_conv1d
         self._stacked_frames = args.stacked_frames
-        self._layer_N = args.layer_N
+        self._layer_N = 0 if args.use_single_network else args.layer_N
         self._attn_size = args.attn_size
         self.hidden_size = args.hidden_size
 

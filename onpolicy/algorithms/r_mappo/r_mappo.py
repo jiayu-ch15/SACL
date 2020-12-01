@@ -156,8 +156,8 @@ class R_MAPPO():
                 train_info['value_loss'] += value_loss.item()
                 train_info['action_loss'] += action_loss.item()
                 train_info['dist_entropy'] += dist_entropy.item()
-                train_info['actor_grad_norm'] += critic_grad_norm
-                train_info['critic_grad_norm'] += actor_grad_norm
+                train_info['actor_grad_norm'] += actor_grad_norm
+                train_info['critic_grad_norm'] += critic_grad_norm
                 train_info['kl_loss'] += kl_loss.item()
                 train_info['ratio'] += ratio.mean() 
 
