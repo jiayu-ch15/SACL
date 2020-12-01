@@ -86,7 +86,7 @@ class Runner(object):
                             share_observation_space,
                             self.envs.action_space[agent_id],
                             device = self.device,
-                            cat_self = False if self.use_obs_instead_of_state else True)
+                            cat_self = False)
             else:
                 po = torch.load(str(self.model_dir) + "/agent" + str(agent_id) + "_model.pt")['model']
             # algorithm

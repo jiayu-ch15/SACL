@@ -84,7 +84,7 @@ class Runner(object):
                             share_observation_space,
                             self.envs.action_space[0],
                             device = self.device,
-                            cat_self = False if self.use_obs_instead_of_state else True)
+                            cat_self = False)
         else:
             policy = torch.load(str(self.model_dir) + "/agent_model.pt")['model']
 
@@ -184,8 +184,7 @@ class Runner(object):
             share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
         else:
             share_obs = obs
-
-        
+       
         self.buffer.share_obs[0] = share_obs.copy()
         self.buffer.obs[0] = obs.copy()
 

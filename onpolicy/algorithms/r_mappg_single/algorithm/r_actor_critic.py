@@ -36,7 +36,7 @@ class R_Model(nn.Module):
         # share obs space
         if self._use_centralized_V:
             share_obs_shape = get_shape_from_obs_space(share_obs_space)
-            self.share_obs_prep = base(args, share_obs_shape)           
+            self.share_obs_prep = base(args, share_obs_shape, cat_self)           
         else:
             self.share_obs_prep = self.obs_prep
 
