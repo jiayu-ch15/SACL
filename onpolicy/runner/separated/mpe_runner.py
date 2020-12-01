@@ -35,6 +35,7 @@ class Runner(object):
         self.use_linear_lr_decay = self.all_args.use_linear_lr_decay
         self.hidden_size = self.all_args.hidden_size
         self.use_wandb = self.all_args.use_wandb
+        self.use_render = self.all_args.use_render
         self.use_single_network = self.all_args.use_single_network
 
         # interval
@@ -46,17 +47,24 @@ class Runner(object):
         # dir
         self.model_dir = self.all_args.model_dir
 
-        if self.use_wandb:
-            self.save_dir = str(wandb.run.dir)
-        else:
+        if self.use_render:
+            import imageio
             self.run_dir = config["run_dir"]
-            self.log_dir = str(self.run_dir / 'logs')
-            if not os.path.exists(self.log_dir):
-                os.makedirs(self.log_dir)
-            self.writter = SummaryWriter(self.log_dir)
-            self.save_dir = str(self.run_dir / 'models')
-            if not os.path.exists(self.save_dir):
-                os.makedirs(self.save_dir)
+            self.gif_dir = str(self.run_dir / 'gifs')
+            if not os.path.exists(self.gif_dir):
+                os.makedirs(self.gif_dir)
+        else:
+            if self.use_wandb:
+                self.save_dir = str(wandb.run.dir)
+            else:
+                self.run_dir = config["run_dir"]
+                self.log_dir = str(self.run_dir / 'logs')
+                if not os.path.exists(self.log_dir):
+                    os.makedirs(self.log_dir)
+                self.writter = SummaryWriter(self.log_dir)
+                self.save_dir = str(self.run_dir / 'models')
+                if not os.path.exists(self.save_dir):
+                    os.makedirs(self.save_dir)
 
         if "mappo" in self.algorithm_name:
             if self.use_single_network:
@@ -91,12 +99,14 @@ class Runner(object):
                 po = torch.load(str(self.model_dir) + "/agent" + str(agent_id) + "_model.pt")['model']
             # algorithm
             tr = TrainAlgo(self.all_args, po, device = self.device)
-            bu = SeparatedReplayBuffer(self.all_args,
-                                    self.envs.observation_space[agent_id],
-                                    share_observation_space,
-                                    self.envs.action_space[agent_id])
-            self.buffer.append(bu)
             self.trainer.append(tr)
+            if not self.use_render:
+                bu = SeparatedReplayBuffer(self.all_args,
+                                        self.envs.observation_space[agent_id],
+                                        share_observation_space,
+                                        self.envs.action_space[agent_id])
+                self.buffer.append(bu)
+            
 
     def run(self):
         self.warmup()   
@@ -288,7 +298,8 @@ class Runner(object):
                     wandb.log({agent_k: v}, step=total_num_steps)
                 else:
                     self.writter.add_scalars(agent_k, {agent_k: v}, total_num_steps)
-
+    
+    @torch.no_grad()
     def eval(self, total_num_steps):
         eval_episode_rewards = []
         eval_obs = self.eval_envs.reset()
@@ -364,3 +375,90 @@ class Runner(object):
             print("eval average episode rewards of agent%i: " % agent_id + str(eval_average_episode_rewards))
 
         self.log_train(eval_train_infos, total_num_steps)  
+
+    @torch.no_grad()
+    def render(self):        
+        all_frames = []
+        for episode in range(self.all_args.render_episodes):
+            episode_rewards = []
+            obs = self.envs.reset()
+            if self.all_args.save_gifs:
+                image = envs.render('rgb_array', close=False)[0]
+                all_frames.append(image)
+
+            share_obs = []
+            for o in obs:
+                share_obs.append(list(chain(*o)))
+            share_obs = np.array(share_obs)
+
+            rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
+            rnn_states_critic = np.zeros((self.n_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
+            masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+
+            for step in range(self.episode_length):
+                temp_actions_env = []
+                for agent_id in range(self.num_agents):
+                    if not self.use_centralized_V:
+                        share_obs = np.array(list(obs[:, agent_id]))
+                    self.trainer[agent_id].prep_rollout()
+                    _, action, _, rnn_state, rnn_state_critic = self.trainer[agent_id].policy.get_actions(share_obs,
+                                                                                                                np.array(list(obs[:, agent_id])),
+                                                                                                                rnn_states[:, agent_id],
+                                                                                                                rnn_states_critic[:, agent_id],
+                                                                                                                masks[:, agent_id],
+                                                                                                                deterministic=True)
+
+                    action = action.detach().cpu().numpy()
+                    # rearrange action
+                    if self.envs.action_space[agent_id].__class__.__name__ == 'MultiDiscrete':
+                        for i in range(self.envs.action_space[agent_id].shape):
+                            uc_action_env = np.eye(self.envs.action_space[agent_id].high[i]+1)[action[:, i]]
+                            if i == 0:
+                                action_env = uc_action_env
+                            else:
+                                action_env = np.concatenate((action_env, uc_action_env), axis=1)
+                    elif self.envs.action_space[agent_id].__class__.__name__ == 'Discrete':
+                        action_env = np.squeeze(np.eye(self.envs.action_space[agent_id].n)[action], 1)
+                    else:
+                        raise NotImplementedError
+
+                    temp_actions_env.append(action_env)
+                    rnn_states[:, agent_id] = _t2n(rnn_state)
+                    rnn_states_critic[:, agent_id] = _t2n(rnn_state_critic)
+
+                # [envs, agents, dim]
+                actions_env = []
+                for i in range(self.n_rollout_threads):
+                    one_hot_action_env = []
+                    for temp_action_env in temp_actions_env:
+                        one_hot_action_env.append(temp_action_env[i])
+                    actions_env.append(one_hot_action_env)
+
+                # Obser reward and next obs
+                obs, rewards, dones, infos = self.envs.step(actions_env)
+                episode_rewards.append(rewards)
+
+                share_obs = []
+                for o in obs:
+                    share_obs.append(list(chain(*o)))
+                share_obs = np.array(share_obs)
+
+                rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.hidden_size), dtype=np.float32)
+                rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.hidden_size), dtype=np.float32)
+                masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+                masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
+
+                if self.all_args.save_gifs:
+                    image = envs.render('rgb_array', close=False)[0]
+                    all_frames.append(image)
+                    calc_end = time.time()
+                    elapsed = calc_end - calc_start
+                    if elapsed < self.all_args.ifi:
+                        time.sleep(ifi - elapsed)
+
+            for agent_id in range(self.num_agents):
+                average_episode_rewards = np.mean(np.sum(episode_rewards[:, :, agent_id], axis=0))
+                print("eval average episode rewards of agent%i: " % agent_id + str(average_episode_rewards))
+        
+        if self.all_args.save_gifs:
+            imageio.mimsave(str(self.gif_dir) + 'render.gif', all_frames, duration=self.all_args.ifi)

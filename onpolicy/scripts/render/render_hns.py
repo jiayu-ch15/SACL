@@ -3,16 +3,44 @@ import numpy as np
 from os.path import abspath, dirname, join
 from gym.spaces import Tuple
 
-from envs.hns.viewer.env_viewer import EnvViewer
-from envs.hns.wrappers.multi_agent import JoinMultiAgentActions
+from onpolicy.envs.hns.viewer.env_viewer import EnvViewer
+from onpolicy.envs.hns.wrappers.multi_agent import JoinMultiAgentActions
 from mujoco_worldgen.util.envs import examine_env, load_env
 from mujoco_worldgen.util.types import extract_matching_arguments
 from mujoco_worldgen.util.parse_arguments import parse_arguments
 
 import torch
-from config import get_config
+from onpolicy.config import get_config
 
-def main():
+def parse_args(args, parser):
+    parser.add_argument('--scenario_name', type=str,
+                        default='quadrant', help="Which scenario to run on")
+    parser.add_argument('--floor_size', type=float,
+                        default=6.0, help="size of floor")
+
+    # transfer task
+    parser.add_argument('--num_agents', type=int,
+                        default=2, help="number of players")
+    parser.add_argument('--num_boxes', type=int,
+                        default=4, help="number of boxes")
+    parser.add_argument("--task_type", type=str, default='all')
+    parser.add_argument("--objective_placement", type=str, default='center')
+
+    # hide and seek task
+    parser.add_argument("--num_seekers", type=int,
+                        default=1, help="number of seekers")
+    parser.add_argument("--num_hiders", type=int,
+                        default=1, help="number of hiders")
+    parser.add_argument("--num_ramps", type=int,
+                        default=1, help="number of ramps")
+    parser.add_argument("--num_food", type=int,
+                        default=0, help="number of food")
+
+    all_args = parser.parse_known_args(args)[0]
+
+    return all_args
+
+def main(args):
     '''
     examine.py is used to display environments and run policies.
 
@@ -31,7 +59,8 @@ def main():
         bin/examine.py examples/hide_and_seek_quadrant.jsonnet examples/hide_and_seek_quadrant.npz
     '''
     #names, kwargs = parse_arguments(argv)
-    args = get_config()
+    parser = get_config()
+    args = parse_args(args, parser)
     kwargs={'args': args}
 
     env_name = args.env_name
@@ -42,12 +71,12 @@ def main():
     envs_dir = 'envs/hns/envs'  # where hide_and_seek.py is.
     xmls_dir = 'xmls'
 
-    if args.eval:  # run policies on the environment
+    if args.use_render:  # run policies on the environment
         # importing PolicyViewer and load_policy here because they depend on several
         # packages which are only needed for playing policies, not for any of the
         # environments code.
-        from envs.hns.viewer.policy_viewer import PolicyViewer_hs      
-        from envs.hns.ma_policy.load_policy import load_policy
+        from onpolicy.envs.hns.viewer.policy_viewer import PolicyViewer_hs      
+        from onpolicy.envs.hns.ma_policy.load_policy import load_policy
         env, args_remaining_env = load_env(env_name, core_dir=core_dir,
                                            envs_dir=envs_dir, xmls_dir=xmls_dir,
                                            return_args_remaining=True, **kwargs)
@@ -62,9 +91,9 @@ def main():
         policies = []
         for agent_id in range(num_agents):
             if args.share_policy:
-                actor_critic = torch.load(str(args.model_dir) + 'run' + str(args.seed) + "/models/agent_model.pt")['model']
+                actor_critic = torch.load(str(args.model_dir) + "/agent_model.pt")['model']
             else:
-                actor_critic = torch.load(str(args.model_dir) + 'run' + str(args.seed) + "/models/agent" + str(agent_id) + "_model.pt")['model']
+                actor_critic = torch.load(str(args.model_dir) + "/agent" + str(agent_id) + "_model.pt")['model']
             policies.append(actor_critic)
 
         args_remaining_policy = args_remaining_env
@@ -85,4 +114,4 @@ def main():
                     env_viewer=EnvViewer)
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])

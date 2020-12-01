@@ -35,6 +35,7 @@ class Runner(object):
         self.use_linear_lr_decay = self.all_args.use_linear_lr_decay
         self.hidden_size = self.all_args.hidden_size
         self.use_wandb = self.all_args.use_wandb
+        self.use_render = self.all_args.use_render
         self.use_single_network = self.all_args.use_single_network
 
         # interval
@@ -45,18 +46,25 @@ class Runner(object):
 
         # dir
         self.model_dir = self.all_args.model_dir
-
-        if self.use_wandb:
-            self.save_dir = str(wandb.run.dir)
-        else:
+        
+        if self.use_render:
+            import imageio
             self.run_dir = config["run_dir"]
-            self.log_dir = str(self.run_dir / 'logs')
-            if not os.path.exists(self.log_dir):
-                os.makedirs(self.log_dir)
-            self.writter = SummaryWriter(self.log_dir)
-            self.save_dir = str(self.run_dir / 'models')
-            if not os.path.exists(self.save_dir):
-                os.makedirs(self.save_dir)
+            self.gif_dir = str(self.run_dir / 'gifs')
+            if not os.path.exists(self.gif_dir):
+                os.makedirs(self.gif_dir)
+        else:
+            if self.use_wandb:
+                self.save_dir = str(wandb.run.dir)
+            else:
+                self.run_dir = config["run_dir"]
+                self.log_dir = str(self.run_dir / 'logs')
+                if not os.path.exists(self.log_dir):
+                    os.makedirs(self.log_dir)
+                self.writter = SummaryWriter(self.log_dir)
+                self.save_dir = str(self.run_dir / 'models')
+                if not os.path.exists(self.save_dir):
+                    os.makedirs(self.save_dir)
 
         if "mappo" in self.algorithm_name:
             if self.use_single_network:
@@ -92,7 +100,8 @@ class Runner(object):
         self.trainer = TrainAlgo(self.all_args, policy, device = self.device)
         
         # buffer
-        self.buffer = SharedReplayBuffer(self.all_args,
+        if not self.use_render:
+            self.buffer = SharedReplayBuffer(self.all_args,
                                     self.num_agents,
                                     self.envs.observation_space[0],
                                     share_observation_space,
@@ -313,3 +322,76 @@ class Runner(object):
         eval_env_infos['eval_average_episode_rewards'] = np.sum(np.array(eval_episode_rewards), axis=0)
         print("eval average episode rewards of agent: " + str(eval_average_episode_rewards))
         self.log_env(eval_env_infos, total_num_steps)
+
+    @torch.no_grad()
+    def render(self):
+        envs = self.envs
+        
+        all_frames = []
+        for episode in range(self.all_args.render_episodes):
+            obs = envs.reset()
+            if self.all_args.save_gifs:
+                image = envs.render('rgb_array', close=False)[0]
+                all_frames.append(image)
+
+            share_obs = obs.reshape(self.n_rollout_threads, -1)
+            share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
+
+            rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
+            rnn_states_critic = np.zeros((self.n_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
+            masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+            
+            episode_rewards = []
+            
+            for step in range(self.episode_length):
+                calc_start = time.time()
+                if not self.use_centralized_V:
+                    share_obs = obs
+                self.trainer.prep_rollout()
+                _, action, _, rnn_states, rnn_states_critic \
+                    = self.trainer.policy.get_actions(np.concatenate(share_obs),
+                                                    np.concatenate(obs),
+                                                    np.concatenate(rnn_states),
+                                                    np.concatenate(rnn_states_critic),
+                                                    np.concatenate(masks),
+                                                    deterministic=True)
+                actions = np.array(np.split(_t2n(action), self.n_rollout_threads))
+                rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
+                rnn_states_critic = np.array(np.split(_t2n(rnn_states_critic), self.n_rollout_threads))
+
+                if envs.action_space[0].__class__.__name__ == 'MultiDiscrete':
+                    for i in range(envs.action_space[0].shape):
+                        uc_actions_env = np.eye(envs.action_space[0].high[i]+1)[actions[:, :, i]]
+                        if i == 0:
+                            actions_env = uc_actions_env
+                        else:
+                            actions_env = np.concatenate((actions_env, uc_actions_env), axis=2)
+                elif envs.action_space[0].__class__.__name__ == 'Discrete':
+                    actions_env = np.squeeze(np.eye(envs.action_space[0].n)[actions], 2)
+                else:
+                    raise NotImplementedError
+
+                # Obser reward and next obs
+                obs, rewards, dones, infos = envs.step(actions_env)
+                episode_rewards.append(rewards)
+
+                share_obs = obs.reshape(self.n_rollout_threads, -1)
+                share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
+
+                rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.hidden_size), dtype=np.float32)
+                rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.hidden_size), dtype=np.float32)
+                masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+                masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
+
+                if self.all_args.save_gifs:
+                    image = envs.render('rgb_array', close=False)[0]
+                    all_frames.append(image)
+                    calc_end = time.time()
+                    elapsed = calc_end - calc_start
+                    if elapsed < self.all_args.ifi:
+                        time.sleep(ifi - elapsed)
+
+            print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
+
+        if self.all_args.save_gifs:
+            imageio.mimsave(str(self.gif_dir) + 'render.gif', all_frames, duration=self.all_args.ifi)
