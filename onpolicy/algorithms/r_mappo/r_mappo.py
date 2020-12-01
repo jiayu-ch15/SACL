@@ -63,7 +63,6 @@ class R_MAPPO():
                                                                               actions_batch, 
                                                                               masks_batch, 
                                                                               active_masks_batch)
-
         ratio = torch.exp(action_log_probs - old_action_log_probs_batch)
 
         kl_divergence = torch.exp(old_action_log_probs_batch) * (old_action_log_probs_batch - action_log_probs)

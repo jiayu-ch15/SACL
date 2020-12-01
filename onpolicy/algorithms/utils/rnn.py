@@ -34,7 +34,7 @@ class RNNLayer(nn.Module):
             T = int(x.size(0) / N)
 
             # unflatten
-            x = torch.transpose(x.view(N, T, x.size(1)), 0, 1)
+            x = x.view(T, N, x.size(1))
 
             # Same deal with masks
             masks = masks.view(T, N)
@@ -72,7 +72,6 @@ class RNNLayer(nn.Module):
             # assert len(outputs) == T
             # x is a (T, N, -1) tensor
             x = torch.cat(outputs, dim=0)
-            x = torch.transpose(x, 0, 1)
 
             # flatten
             x = x.reshape(T * N, -1)
