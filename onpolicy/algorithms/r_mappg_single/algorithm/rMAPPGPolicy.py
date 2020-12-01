@@ -1,7 +1,7 @@
 import numpy as np
 import torch
-from algorithms.r_mappg_single.algorithm.r_actor_critic import R_Model
-from utils.util import update_linear_schedule
+from onpolicy.algorithms.r_mappg_single.algorithm.r_actor_critic import R_Model
+from onpolicy.utils.util import update_linear_schedule
 
 
 class R_MAPPGPolicy:
@@ -25,13 +25,15 @@ class R_MAPPGPolicy:
         update_linear_schedule(self.optimizer, episode, episodes, self.lr)
 
     def get_actions(self, share_obs, obs, rnn_states_actor, rnn_states_critic, masks, available_actions=None, deterministic=False):
-        actions, action_log_probs, rnn_states_actor = self.model.get_actions(
-            obs, rnn_states_actor, masks, available_actions, deterministic)
-        values, rnn_states_critic = self.model.get_values(
-            share_obs, rnn_states_critic, masks)
+        actions, action_log_probs, rnn_states_actor = self.model.get_actions(obs, rnn_states_actor, masks, available_actions, deterministic)
+        values, rnn_states_critic = self.model.get_values(share_obs, rnn_states_critic, masks)
         return values, actions, action_log_probs, rnn_states_actor, rnn_states_critic
 
-    def get_value_and_logprobs(self, share_obs, obs, rnn_states_actor, rnn_states_critic, masks, available_actions=None, deterministic=False):
+    def get_logprobs(self, obs, rnn_states_actor, masks, available_actions=None, deterministic=False):
+        actions, action_log_probs, rnn_states_actor = self.model.get_actions(obs, rnn_states_actor, masks, available_actions, deterministic)
+        return action_log_probs
+
+    def get_values_and_logprobs(self, share_obs, obs, rnn_states_actor, rnn_states_critic, masks, available_actions=None, deterministic=False):
         actions, action_log_probs, rnn_states_actor = self.model.get_actions(obs, rnn_states_actor, masks, available_actions, deterministic)
         values, rnn_states_critic = self.model.get_values(share_obs, rnn_states_critic, masks)
         return values, action_log_probs
@@ -41,7 +43,6 @@ class R_MAPPGPolicy:
         return values
 
     def evaluate_actions(self, obs, rnn_states_actor, action, masks, active_masks=None):
-        action_log_probs, dist_entropy = self.model.evaluate_actions(
-            obs, rnn_states_actor, action, masks, active_masks)
+        action_log_probs, dist_entropy = self.model.evaluate_actions(obs, rnn_states_actor, action, masks, active_masks)
 
         return action_log_probs, dist_entropy

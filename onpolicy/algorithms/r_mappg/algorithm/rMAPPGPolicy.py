@@ -1,11 +1,11 @@
 import numpy as np
 import torch
-from algorithms.r_mappg.algorithm.r_actor_critic import R_Actor, R_Critic
-from utils.util import update_linear_schedule
+from onpolicy.algorithms.r_mappg.algorithm.r_actor_critic import R_Actor, R_Critic
+from onpolicy.utils.util import update_linear_schedule
 
 
 class R_MAPPGPolicy:
-    def __init__(self, args, obs_space, share_obs_space, action_space, device=torch.device("cpu"), cat_self=True):
+    def __init__(self, args, obs_space, share_obs_space, act_space, device=torch.device("cpu"), cat_self=True):
 
         self.device = device
         self.lr = args.lr
@@ -36,12 +36,15 @@ class R_MAPPGPolicy:
         values, action_log_probs = self.actor.get_values_and_logprobs(obs, rnn_states_actor, masks, available_actions, deterministic)
         return values, action_log_probs
 
+    def get_logprobs(self, obs, rnn_states_actor, masks, available_actions=None, deterministic=False):
+        actions, action_log_probs, rnn_states_actor = self.actor(obs, rnn_states_actor, masks, available_actions, deterministic)
+        return action_log_probs
+
     def get_values(self, share_obs, rnn_states_critic, masks):
         values, _ = self.critic(share_obs, rnn_states_critic, masks)
         return values
 
-    def evaluate_actions(self, share_obs, obs, rnn_states_actor, rnn_states_critic, action, masks, active_masks=None):
+    def evaluate_actions(self, obs, rnn_states_actor, action, masks, active_masks=None):
         action_log_probs, dist_entropy, _ = self.actor.evaluate_actions(obs, rnn_states_actor, action, masks, active_masks)
-        values, _ = self.critic(share_obs, rnn_states_critic, masks)
-        return values, action_log_probs, dist_entropy
+        return action_log_probs, dist_entropy
 

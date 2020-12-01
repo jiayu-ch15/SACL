@@ -18,13 +18,13 @@ class R_Actor(nn.Module):
     def __init__(self, args, obs_space, action_space, device=torch.device("cpu")):
         super(R_Actor, self).__init__()
         self.hidden_size = args.hidden_size
-
         self._gain = args.gain
         self._use_orthogonal = args.use_orthogonal  
         self._use_naive_recurrent_policy = args.use_naive_recurrent_policy
         self._use_recurrent_policy = args.use_recurrent_policy 
         self._recurrent_N = args.recurrent_N  
         self.tpdv = dict(dtype=torch.float32, device=device)
+        init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][self._use_orthogonal]
 
         obs_shape = get_shape_from_obs_space(obs_space)
         base = CNNBase if len(obs_shape)==3 else MLPBase
@@ -34,6 +34,9 @@ class R_Actor(nn.Module):
             self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
 
         self.act = ACTLayer(action_space, self.hidden_size, self._use_orthogonal, self._gain)
+
+        def init_(m): 
+            return init(m, init_method, lambda x: nn.init.constant_(x, 0))
 
         self.v_out = init_(nn.Linear(self.hidden_size, 1))
 

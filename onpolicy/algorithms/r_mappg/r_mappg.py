@@ -7,8 +7,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from utils.util import get_gard_norm, huber_loss, mse_loss
-from utils.popart import PopArt
+from onpolicy.utils.util import get_gard_norm, huber_loss, mse_loss
+from onpolicy.utils.popart import PopArt
+from onpolicy.algorithms.utils.util import check
 
 
 class R_MAPPG():
@@ -23,6 +24,7 @@ class R_MAPPG():
 
         self.clip_param = args.clip_param
         self.ppo_epoch = args.ppo_epoch
+        self.aux_epoch = args.aux_epoch
         self.num_mini_batch = args.num_mini_batch
         self.data_chunk_length = args.data_chunk_length
         self.value_loss_coef = args.value_loss_coef
@@ -128,7 +130,7 @@ class R_MAPPG():
 
     def update_action_log_probs(self, buffer):
         for step in range(buffer.episode_length):
-            _, action_log_probs, _ = self.policy.get_actions(np.concatenate(buffer.obs[step]),
+            action_log_probs = self.policy.get_logprobs(np.concatenate(buffer.obs[step]),
                                                              np.concatenate(buffer.rnn_states[step]),
                                                              np.concatenate(buffer.masks[step]),
                                                              np.concatenate(buffer.available_actions[step]))
@@ -264,7 +266,7 @@ class R_MAPPG():
                 train_info['critic_grad_norm'] += critic_grad_norm
 
         for k in train_info.keys():
-            if k in ["action_loss","actor_grad_norm","kl_loss","ratio"]:
+            if k in ["action_loss","actor_grad_norm","kl_loss","ratio","dist_entropy"]:
                 num_updates = self.ppo_epoch * self.num_mini_batch
                 train_info[k] /= num_updates
             elif k in ["value_loss","critic_grad_norm"]:

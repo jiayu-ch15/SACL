@@ -5,14 +5,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from onpolicy.algorithms.utils.cnn import CNNLayer
-from onpolicy.algorithms.utils.mlp import MLPLayer
+from onpolicy.algorithms.utils.cnn import CNNBase
+from onpolicy.algorithms.utils.mlp import MLPBase, MLPLayer
 from onpolicy.algorithms.utils.rnn import RNNLayer
 from onpolicy.algorithms.utils.act import ACTLayer
-from onpolicy.algorithms.utils.attention import Encoder
 from onpolicy.algorithms.utils.util import init, check
 
-from onpolicy.utils.popart import PopArt
 from onpolicy.utils.util import get_shape_from_obs_space
 
 class R_Model(nn.Module):
