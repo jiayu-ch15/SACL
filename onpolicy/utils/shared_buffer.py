@@ -368,7 +368,7 @@ class SharedReplayBuffer(object):
             
             L, N = data_chunk_length, mini_batch_size
 
-            # These are all from_numpys of size (N, L, Dim)
+            # These are all from_numpys of size (L, N, Dim)           
             share_obs_batch = np.stack(share_obs_batch, axis=1)
             obs_batch = np.stack(obs_batch, axis=1)
 
@@ -385,7 +385,7 @@ class SharedReplayBuffer(object):
             # States is just a (N, -1) from_numpy
             rnn_states_batch = np.stack(rnn_states_batch).reshape(N, -1)
             rnn_states_critic_batch = np.stack(rnn_states_critic_batch).reshape(N, -1)
-
+            
             # Flatten the (L, N, ...) from_numpys to (L * N, ...)
             share_obs_batch = _flatten(L, N, share_obs_batch)
             obs_batch = _flatten(L, N, obs_batch)

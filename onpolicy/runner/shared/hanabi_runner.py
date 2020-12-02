@@ -128,6 +128,17 @@ class Runner(object):
                 self.reset_choose = np.zeros(self.n_rollout_threads) == 1.0
                 # Sample actions
                 self.collect(step) 
+
+                if step == 0 and episode > 0:
+                    # deal with the data of the last index in buffer
+                    self.buffer.share_obs[-1] = self.turn_share_obs.copy()
+                    self.buffer.obs[-1] = self.turn_obs.copy()
+                    self.buffer.available_actions[-1] = self.turn_available_actions.copy()
+
+                    # compute return and update network
+                    self.compute()
+                    train_infos = self.train()
+
                 # insert turn data into buffer
                 self.buffer.chooseinsert(self.turn_share_obs,
                                         self.turn_obs,
@@ -149,15 +160,6 @@ class Runner(object):
                 self.use_share_obs[self.reset_choose] = share_obs[self.reset_choose]
                 self.use_available_actions[self.reset_choose] = available_actions[self.reset_choose]
             
-            # deal with the data of the last index in buffer
-            self.buffer.share_obs[-1] = self.use_share_obs.copy()
-            self.buffer.obs[-1] = self.use_obs.copy()
-            self.buffer.available_actions[-1] = self.use_available_actions.copy()
-
-            # compute return and update network
-            self.compute()
-            train_infos = self.train()
-            
             # post process
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads           
             # save model
@@ -165,7 +167,7 @@ class Runner(object):
                 self.save()
 
             # log information
-            if episode % self.log_interval == 0:
+            if episode % self.log_interval == 0 and episode > 0:
                 end = time.time()
                 print("\n Env {} Algo {} Exp {} updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
                         .format(self.all_args.hanabi_name,
@@ -206,29 +208,29 @@ class Runner(object):
 
     @torch.no_grad()
     def collect(self, step):
-        env_actions = np.ones((self.n_rollout_threads, *self.buffer.actions.shape[2:]), dtype=np.float32)*(-1.0)
+        #env_actions = np.ones((self.n_rollout_threads, ), dtype=np.float32)*(-1.0)
         for current_agent_id in range(self.num_agents):
-            env_actions[:, current_agent_id] = np.ones((self.n_rollout_threads, 1), dtype=np.float32)*(-1.0)
-            choose = np.any(self.use_available_actions[:, current_agent_id] == 1, axis=1)
+            env_actions = np.ones((self.n_rollout_threads, *self.buffer.actions.shape[3:]), dtype=np.float32)*(-1.0)
+            choose = np.any(self.use_available_actions == 1, axis=1)
             if ~np.any(choose):
                 self.reset_choose = np.ones(self.n_rollout_threads) == 1.0
                 break
             
             self.trainer.prep_rollout()
             value, action, action_log_prob, rnn_state, rnn_state_critic \
-                = self.trainer.policy.get_actions(self.use_share_obs[choose, current_agent_id],
-                                                self.use_obs[choose, current_agent_id],
+                = self.trainer.policy.get_actions(self.use_share_obs[choose],
+                                                self.use_obs[choose],
                                                 self.turn_rnn_states[choose, current_agent_id],
                                                 self.turn_rnn_states_critic[choose, current_agent_id],
                                                 self.turn_masks[choose, current_agent_id],
-                                                self.use_available_actions[choose, current_agent_id])
+                                                self.use_available_actions[choose])
             
-            self.turn_obs[choose, current_agent_id] = self.use_obs[choose, current_agent_id].copy()
-            self.turn_share_obs[choose, current_agent_id] = self.use_share_obs[choose, current_agent_id].copy()
-            self.turn_available_actions[choose, current_agent_id] = self.use_available_actions[choose, current_agent_id].copy()
+            self.turn_obs[choose, current_agent_id] = self.use_obs[choose].copy()
+            self.turn_share_obs[choose, current_agent_id] = self.use_share_obs[choose].copy()
+            self.turn_available_actions[choose, current_agent_id] = self.use_available_actions[choose].copy()
             self.turn_values[choose, current_agent_id] = _t2n(value)
             self.turn_actions[choose, current_agent_id] = _t2n(action)
-            env_actions[choose, current_agent_id] = _t2n(action)
+            env_actions[choose] = _t2n(action)
             self.turn_action_log_probs[choose, current_agent_id] = _t2n(action_log_prob)
             self.turn_rnn_states[choose, current_agent_id] = _t2n(rnn_state)
             self.turn_rnn_states_critic[choose, current_agent_id] = _t2n(rnn_state_critic)
@@ -252,7 +254,7 @@ class Runner(object):
             self.reset_choose[dones == True] = np.ones((dones == True).sum(), dtype=bool)
 
             # deal with all agents
-            self.use_available_actions[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.available_actions.shape[3:]), dtype=np.float32)
+            self.use_available_actions[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.available_actions.shape[3:]), dtype=np.float32)
             self.turn_masks[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, 1), dtype=np.float32)
             self.turn_rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
             self.turn_rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
@@ -268,8 +270,8 @@ class Runner(object):
             self.turn_rewards_since_last_action[dones == True, left_agent_id:] = np.zeros(((dones == True).sum(), left_agents_num, 1), dtype=np.float32)
             # other variables use what at last time, action will be useless.
             self.turn_values[dones == True, left_agent_id:] = np.zeros(((dones == True).sum(), left_agents_num, 1), dtype=np.float32)
-            self.turn_obs[dones == True, left_agent_id:] = self.use_obs[dones == True, left_agent_id:]
-            self.turn_share_obs[dones == True, left_agent_id:] = self.use_share_obs[dones == True, left_agent_id:]
+            self.turn_obs[dones == True, left_agent_id:] = 0#self.use_obs[dones == True, left_agent_id:]
+            self.turn_share_obs[dones == True, left_agent_id:] = 0#self.use_share_obs[dones == True, left_agent_id:]
 
             # done==False env
             # deal with current agent
