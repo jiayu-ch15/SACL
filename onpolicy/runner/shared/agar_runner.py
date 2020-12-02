@@ -78,18 +78,17 @@ class Runner(object):
         share_observation_space = self.envs.share_observation_space[0] if self.use_centralized_V else self.envs.observation_space[0]
         
         # policy network
-        if self.model_dir == None or self.model_dir == "":
-            policy = Policy(self.all_args,
+        self.policy = Policy(self.all_args,
                             self.envs.observation_space[0],
                             share_observation_space,
                             self.envs.action_space[0],
                             device = self.device,
                             cat_self = False)
-        else:
-            policy = torch.load(str(self.model_dir) + "/agent_model.pt")['model']
+        if self.model_dir is not None:
+            self.restore()
 
         # algorithm
-        self.trainer = TrainAlgo(self.all_args, policy, device = self.device)
+        self.trainer = TrainAlgo(self.all_args, self.policy, device = self.device)
         
         # buffer
         self.buffer = SharedReplayBuffer(self.all_args,
@@ -254,7 +253,24 @@ class Runner(object):
         return train_infos
 
     def save(self):
-        torch.save({'model': self.trainer.policy}, self.save_dir + "/agent_model.pt")
+        if self.use_single_network:
+            policy_model = self.trainer.policy.model
+            torch.save(policy_model.state_dict(), str(self.save_dir) + "/model.pt")
+        else:
+            policy_actor = self.trainer.policy.actor
+            torch.save(policy_actor.state_dict(), str(self.save_dir) + "/actor.pt")
+            policy_critic = self.trainer.policy.critic
+            torch.save(policy_critic.state_dict(), str(self.save_dir) + "/critic.pt")
+
+    def restore(self):
+        if self.use_single_network:
+            policy_model_state_dict = torch.load(str(self.model_dir) + '/model.pt')
+            self.policy.model.load_state_dict(policy_model_state_dict)
+        else:
+            policy_actor_state_dict = torch.load(str(self.model_dir) + '/actor.pt')
+            self.policy.actor.load_state_dict(policy_actor_state_dict)
+            policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic.pt')
+            self.policy.critic.load_state_dict(policy_critic_state_dict)
  
     def log_train(self, train_infos, total_num_steps):
         for k, v in train_infos.items():

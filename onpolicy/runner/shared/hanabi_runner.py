@@ -78,18 +78,17 @@ class Runner(object):
         share_observation_space = self.envs.share_observation_space[0] if self.use_centralized_V else self.envs.observation_space[0]
         
         # policy network
-        if self.model_dir == None or self.model_dir == "":
-            policy = Policy(self.all_args,
+        self.policy = Policy(self.all_args,
                             self.envs.observation_space[0],
                             share_observation_space,
                             self.envs.action_space[0],
                             device = self.device,
                             cat_self = False if self.use_obs_instead_of_state else True)
-        else:
-            policy = torch.load(str(self.model_dir) + "/agent_model.pt")['model']
+        if self.model_dir is not None:
+            self.restore()
 
         # algorithm
-        self.trainer = TrainAlgo(self.all_args, policy, device = self.device)
+        self.trainer = TrainAlgo(self.all_args, self.policy, device = self.device)
         
         # buffer
         self.buffer = SharedReplayBuffer(self.all_args,
@@ -208,7 +207,6 @@ class Runner(object):
 
     @torch.no_grad()
     def collect(self, step):
-        #env_actions = np.ones((self.n_rollout_threads, ), dtype=np.float32)*(-1.0)
         for current_agent_id in range(self.num_agents):
             env_actions = np.ones((self.n_rollout_threads, *self.buffer.actions.shape[3:]), dtype=np.float32)*(-1.0)
             choose = np.any(self.use_available_actions == 1, axis=1)
@@ -270,8 +268,8 @@ class Runner(object):
             self.turn_rewards_since_last_action[dones == True, left_agent_id:] = np.zeros(((dones == True).sum(), left_agents_num, 1), dtype=np.float32)
             # other variables use what at last time, action will be useless.
             self.turn_values[dones == True, left_agent_id:] = np.zeros(((dones == True).sum(), left_agents_num, 1), dtype=np.float32)
-            self.turn_obs[dones == True, left_agent_id:] = 0#self.use_obs[dones == True, left_agent_id:]
-            self.turn_share_obs[dones == True, left_agent_id:] = 0#self.use_share_obs[dones == True, left_agent_id:]
+            self.turn_obs[dones == True, left_agent_id:] = 0
+            self.turn_share_obs[dones == True, left_agent_id:] = 0
 
             # done==False env
             # deal with current agent
@@ -302,7 +300,24 @@ class Runner(object):
         return train_infos
 
     def save(self):
-        torch.save({'model': self.trainer.policy}, self.save_dir + "/agent_model.pt")
+        if self.use_single_network:
+            policy_model = self.trainer.policy.model
+            torch.save(policy_model.state_dict(), str(self.save_dir) + "/model.pt")
+        else:
+            policy_actor = self.trainer.policy.actor
+            torch.save(policy_actor.state_dict(), str(self.save_dir) + "/actor.pt")
+            policy_critic = self.trainer.policy.critic
+            torch.save(policy_critic.state_dict(), str(self.save_dir) + "/critic.pt")
+
+    def restore(self):
+        if self.use_single_network:
+            policy_model_state_dict = torch.load(str(self.model_dir) + '/model.pt')
+            self.policy.model.load_state_dict(policy_model_state_dict)
+        else:
+            policy_actor_state_dict = torch.load(str(self.model_dir) + '/actor.pt')
+            self.policy.actor.load_state_dict(policy_actor_state_dict)
+            policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic.pt')
+            self.policy.critic.load_state_dict(policy_critic_state_dict)
  
     def log_train(self, train_infos, total_num_steps):
         for k, v in train_infos.items():
@@ -324,7 +339,6 @@ class Runner(object):
 
         eval_share_obs = eval_share_obs if self.use_centralized_V else eval_obs
 
-        eval_actions = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)*(-1.0)
         eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
         eval_rnn_states_critic = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
@@ -333,8 +347,8 @@ class Runner(object):
             if eval_finish:
                 break
             for agent_id in range(self.num_agents):
-                eval_actions[:, agent_id] = np.ones((self.n_eval_rollout_threads, 1), dtype=np.float32) * (-1.0)
-                eval_choose = np.any(eval_available_actions[:, agent_id] == 1, axis=1)
+                eval_actions = np.ones((self.n_eval_rollout_threads, 1), dtype=np.float32) * (-1.0)
+                eval_choose = np.any(eval_available_actions == 1, axis=1)
 
                 if ~np.any(eval_choose):
                     eval_finish = True
@@ -342,15 +356,15 @@ class Runner(object):
 
                 self.trainer.prep_rollout()
                 _, eval_action, _, eval_rnn_state, eval_rnn_state_critic \
-                    = self.trainer.policy.get_actions(eval_share_obs[eval_choose, agent_id],
-                                                    eval_obs[eval_choose, agent_id],
+                    = self.trainer.policy.get_actions(eval_share_obs[eval_choose],
+                                                    eval_obs[eval_choose],
                                                     eval_rnn_states[eval_choose, agent_id],
                                                     eval_rnn_states_critic[eval_choose, agent_id],
                                                     eval_masks[eval_choose, agent_id],
-                                                    eval_available_actions[eval_choose, agent_id],
+                                                    eval_available_actions[eval_choose],
                                                     deterministic=True)
 
-                eval_actions[eval_choose, agent_id] = _t2n(eval_action)
+                eval_actions[eval_choose] = _t2n(eval_action)
                 eval_rnn_states[eval_choose, agent_id] = _t2n(eval_rnn_state)
                 eval_rnn_states_critic[eval_choose, agent_id] = _t2n(eval_rnn_state_critic)
 
@@ -359,7 +373,7 @@ class Runner(object):
                 
                 eval_share_obs = eval_share_obs if self.use_centralized_V else eval_obs
 
-                eval_available_actions[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.num_agents, *self.buffer.available_actions.shape[3:]), dtype=np.float32)
+                eval_available_actions[eval_dones == True] = np.zeros(((eval_dones == True).sum(), *self.buffer.available_actions.shape[3:]), dtype=np.float32)
 
                 for eval_done, eval_info in zip(eval_dones, eval_infos):
                     if eval_done:

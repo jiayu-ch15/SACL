@@ -83,31 +83,34 @@ class Runner(object):
         else:
             raise NotImplementedError
 
-        self.trainer = []
-        self.buffer = []
+        self.policy = []
         for agent_id in range(self.num_agents):
             share_observation_space = self.envs.share_observation_space[agent_id] if self.use_centralized_V else self.envs.observation_space[agent_id]
             # policy network
-            if self.model_dir == None or self.model_dir == "":
-                po = Policy(self.all_args,
-                            self.envs.observation_space[agent_id],
-                            share_observation_space,
-                            self.envs.action_space[agent_id],
-                            device = self.device,
-                            cat_self = False if self.use_obs_instead_of_state else True)
-            else:
-                po = torch.load(str(self.model_dir) + "/agent" + str(agent_id) + "_model.pt")['model']
-            # algorithm
-            tr = TrainAlgo(self.all_args, po, device = self.device)
-            self.trainer.append(tr)
-            if not self.use_render:
-                bu = SeparatedReplayBuffer(self.all_args,
-                                        self.envs.observation_space[agent_id],
-                                        share_observation_space,
-                                        self.envs.action_space[agent_id])
-                self.buffer.append(bu)
-            
+            po = Policy(self.all_args,
+                        self.envs.observation_space[agent_id],
+                        share_observation_space,
+                        self.envs.action_space[agent_id],
+                        device = self.device,
+                        cat_self = False if self.use_obs_instead_of_state else True)
+            self.policy.append(po)
 
+        if self.model_dir is not None:
+            self.restore()
+
+        self.trainer = []
+        self.buffer = []
+        for agent_id in range(self.num_agents):
+            # algorithm
+            tr = TrainAlgo(self.all_args, self.policy[agent_id], device = self.device)
+            # buffer
+            bu = SeparatedReplayBuffer(self.all_args,
+                                       self.envs.observation_space[agent_id],
+                                       share_observation_space,
+                                       self.envs.action_space[agent_id])
+            self.buffer.append(bu)
+            self.trainer.append(tr)
+            
     def run(self):
         self.warmup()   
 
@@ -288,8 +291,26 @@ class Runner(object):
 
     def save(self):
         for agent_id in range(self.num_agents):
-            torch.save({'model': self.trainer[agent_id].policy}, self.save_dir + "/agent%i_model" % agent_id + ".pt")
-    
+            if self.use_single_network:
+                policy_model = self.trainer[agent_id].policy.model
+                torch.save(policy_model.state_dict(), str(self.save_dir) + "/model.pt")
+            else:
+                policy_actor = self.trainer[agent_id].policy.actor
+                torch.save(policy_actor.state_dict(), str(self.save_dir) + "/actor.pt")
+                policy_critic = self.trainer[agent_id].policy.critic
+                torch.save(policy_critic.state_dict(), str(self.save_dir) + "/critic.pt")
+
+    def restore(self):
+        for agent_id in range(self.num_agents):
+            if self.use_single_network:
+                policy_model_state_dict = torch.load(str(self.model_dir) + '/model.pt')
+                self.policy[agent_id].model.load_state_dict(policy_model_state_dict)
+            else:
+                policy_actor_state_dict = torch.load(str(self.model_dir) + '/actor.pt')
+                self.policy[agent_id].actor.load_state_dict(policy_actor_state_dict)
+                policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic.pt')
+                self.policy[agent_id].critic.load_state_dict(policy_critic_state_dict)
+
     def log_train(self, train_infos, total_num_steps): 
         for agent_id in range(self.num_agents):
             for k, v in train_infos[agent_id].items():
