@@ -92,12 +92,16 @@ def get_config():
     # ppo parameters
     parser.add_argument("--ppo_epoch", type=int, default=15,
                         help='number of ppo epochs (default: 4)')
+    parser.add_argument("--use_policy_vhead",
+                        action='store_true', default=False)
     parser.add_argument("--use_clipped_value_loss",
                         action='store_false', default=True)
     parser.add_argument("--clip_param", type=float, default=0.2,
                         help='ppo clip parameter (default: 0.2)')
     parser.add_argument("--num_mini_batch", type=int, default=1,
                         help='number of batches for ppo (default: 32)')
+    parser.add_argument("--policy_value_loss_coef", type=float,
+                        default=1, help='policy value loss coefficient (default: 0.5)')
     parser.add_argument("--entropy_coef", type=float, default=0.01,
                         help='entropy term coefficient (default: 0.01)')
     parser.add_argument("--value_loss_coef", type=float,
