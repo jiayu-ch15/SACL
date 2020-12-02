@@ -109,8 +109,8 @@ class Runner(object):
         start = time.time()
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
 
-        last_battles_game = np.zeros(self.n_rollout_threads)
-        last_battles_won = np.zeros(self.n_rollout_threads)
+        last_battles_game = np.zeros(self.n_rollout_threads, dtype=np.float32)
+        last_battles_won = np.zeros(self.n_rollout_threads, dtype=np.float32)
 
         for episode in range(episodes):
             if self.use_linear_lr_decay:
