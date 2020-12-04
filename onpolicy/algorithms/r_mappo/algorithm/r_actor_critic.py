@@ -69,7 +69,7 @@ class R_Actor(nn.Module):
             active_masks = check(active_masks).to(**self.tpdv)
         
         actor_features = self.base(obs)
-        # import pdb;pdb.set_trace()
+        
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
 

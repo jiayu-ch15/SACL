@@ -167,9 +167,9 @@ def main(args):
 
     # run experiments
     if all_args.share_policy:
-        from onpolicy.runner.shared.hns_runner import Runner
+        from onpolicy.runner.shared.hns_runner import HNSRunner as Runner
     else:
-        from onpolicy.runner.separated.hns_runner import Runner
+        from onpolicy.runner.separated.hns_runner import HNSRunner as Runner
 
     runner = Runner(config)
     runner.run()

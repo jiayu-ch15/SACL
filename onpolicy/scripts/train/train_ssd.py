@@ -143,9 +143,9 @@ def main(args):
 
     # run experiments
     if all_args.share_policy:
-        from onpolicy.runner.shared.ssd_runner import Runner
+        from onpolicy.runner.shared.ssd_runner import SSDRunner as Runner
     else:
-        from onpolicy.runner.separated.ssd_runner import Runner
+        from onpolicy.runner.separated.ssd_runner import SSDRunner as Runner
 
     runner = Runner(config)
     runner.run()

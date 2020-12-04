@@ -138,9 +138,9 @@ def main(args):
 
     # run experiments
     if all_args.share_policy:
-        from onpolicy.runner.shared.agar_runner import Runner
+        from onpolicy.runner.shared.agar_runner import AgarRunner as Runner
     else:
-        from onpolicy.runner.separated.agar_runner import Runner
+        from onpolicy.runner.separated.agar_runner import AgarRunner as Runner
 
     runner = Runner(config)
     runner.run()

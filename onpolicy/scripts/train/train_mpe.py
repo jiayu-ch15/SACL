@@ -147,9 +147,9 @@ def main(args):
 
     # run experiments
     if all_args.share_policy:
-        from onpolicy.runner.shared.mpe_runner import Runner
+        from onpolicy.runner.shared.mpe_runner import MPERunner as Runner
     else:
-        from onpolicy.runner.separated.mpe_runner import Runner
+        from onpolicy.runner.separated.mpe_runner import MPERunner as Runner
 
     runner = Runner(config)
     runner.run()

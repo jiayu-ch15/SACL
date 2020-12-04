@@ -148,9 +148,9 @@ def main(args):
 
     # run experiments
     if all_args.share_policy:
-        from onpolicy.runner.shared.hanabi_runner import Runner
+        from onpolicy.runner.shared.hanabi_runner import HanabiRunner as Runner
     else:
-        from onpolicy.runner.separated.hanabi_runner import Runner
+        from onpolicy.runner.separated.hanabi_runner import HanabiRunner as Runner
 
     runner = Runner(config)
     runner.run()
