@@ -61,9 +61,6 @@ class R_MAPPO():
 
         ratio = torch.exp(action_log_probs - old_action_log_probs_batch)
 
-        kl_divergence = torch.exp(old_action_log_probs_batch) * (old_action_log_probs_batch - action_log_probs)
-        kl_loss = (kl_divergence * active_masks_batch).sum() / active_masks_batch.sum()
-
         surr1 = ratio * adv_targ
         surr2 = torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param) * adv_targ
         action_loss = (-torch.min(surr1, surr2) * active_masks_batch).sum() / active_masks_batch.sum()
@@ -109,7 +106,7 @@ class R_MAPPO():
 
         self.policy.optimizer.step()
 
-        return value_loss, action_loss, dist_entropy, grad_norm, kl_loss, ratio
+        return value_loss, action_loss, dist_entropy, grad_norm, ratio
 
     def train(self, buffer):
         if self._use_popart:
@@ -124,7 +121,6 @@ class R_MAPPO():
         train_info['action_loss'] = 0
         train_info['dist_entropy'] = 0
         train_info['grad_norm'] = 0
-        train_info['kl_loss'] = 0
         train_info['ratio'] = 0
 
         for _ in range(self.ppo_epoch):
@@ -137,14 +133,13 @@ class R_MAPPO():
 
             for sample in data_generator:
 
-                value_loss, action_loss, dist_entropy, grad_norm, kl_loss, ratio \
+                value_loss, action_loss, dist_entropy, grad_norm, ratio \
                     = self.ppo_update(sample)
 
                 train_info['value_loss'] += value_loss.item()
                 train_info['action_loss'] += action_loss.item()
                 train_info['dist_entropy'] += dist_entropy.item()
                 train_info['grad_norm'] += grad_norm
-                train_info['kl_loss'] += kl_loss.item()
                 train_info['ratio'] += ratio.mean() 
 
         num_updates = self.ppo_epoch * self.num_mini_batch

@@ -98,9 +98,6 @@ class R_MAPPO():
         # actor update
         ratio = torch.exp(action_log_probs - old_action_log_probs_batch)
 
-        kl_divergence = torch.exp(old_action_log_probs_batch) * (old_action_log_probs_batch - action_log_probs)
-        kl_loss = (kl_divergence * active_masks_batch).sum() / active_masks_batch.sum()
-
         surr1 = ratio * adv_targ
         surr2 = torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param) * adv_targ
         
@@ -138,7 +135,7 @@ class R_MAPPO():
 
         self.policy.critic_optimizer.step()
 
-        return value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, kl_loss, ratio
+        return value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, ratio
 
     def train(self, buffer, turn_on=True):
         if self._use_popart:
@@ -154,7 +151,6 @@ class R_MAPPO():
         train_info['dist_entropy'] = 0
         train_info['actor_grad_norm'] = 0
         train_info['critic_grad_norm'] = 0
-        train_info['kl_loss'] = 0
         train_info['ratio'] = 0
 
         for _ in range(self.ppo_epoch):
@@ -167,7 +163,7 @@ class R_MAPPO():
 
             for sample in data_generator:
 
-                value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, kl_loss, ratio \
+                value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, ratio \
                     = self.ppo_update(sample, turn_on)
 
                 train_info['value_loss'] += value_loss.item()
@@ -175,7 +171,6 @@ class R_MAPPO():
                 train_info['dist_entropy'] += dist_entropy.item()
                 train_info['actor_grad_norm'] += actor_grad_norm
                 train_info['critic_grad_norm'] += critic_grad_norm
-                train_info['kl_loss'] += kl_loss.item()
                 train_info['ratio'] += ratio.mean() 
 
         num_updates = self.ppo_epoch * self.num_mini_batch

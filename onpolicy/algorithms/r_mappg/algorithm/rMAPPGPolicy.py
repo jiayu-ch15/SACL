@@ -21,7 +21,7 @@ class R_MAPPGPolicy:
         self.critic = R_Critic(args, self.share_obs_space, self.device, cat_self)
 
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=self.lr, eps=self.opti_eps, weight_decay=self.weight_decay)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.lr, eps=self.opti_eps, weight_decay=self.weight_decay)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.critic_lr, eps=self.opti_eps, weight_decay=self.weight_decay)
 
     def lr_decay(self, episode, episodes):
         update_linear_schedule(self.actor_optimizer, episode, episodes, self.lr)

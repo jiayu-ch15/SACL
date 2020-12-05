@@ -60,9 +60,6 @@ class R_MAPPG():
 
         ratio = torch.exp(action_log_probs - old_action_log_probs_batch)
 
-        kl_divergence = torch.exp(old_action_log_probs_batch) * (old_action_log_probs_batch - action_log_probs)
-        kl_loss = (kl_divergence * active_masks_batch).sum() / active_masks_batch.sum()
-
         surr1 = ratio * adv_targ
         surr2 = torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param) * adv_targ
         action_loss = (-torch.min(surr1, surr2) * active_masks_batch).sum() / active_masks_batch.sum()
@@ -76,7 +73,7 @@ class R_MAPPG():
             grad_norm = get_gard_norm(self.policy.actor.parameters())
         self.policy.actor_optimizer.step()
 
-        return action_loss, dist_entropy, grad_norm, kl_loss, ratio
+        return action_loss, dist_entropy, grad_norm, ratio
 
     def value_loss_update(self, sample):
         share_obs_batch, obs_batch, rnn_states_batch, rnn_states_critic_batch, actions_batch, \
@@ -220,7 +217,6 @@ class R_MAPPG():
         train_info['actor_grad_norm'] = 0
         train_info['critic_grad_norm'] = 0
         train_info['joint_grad_norm'] = 0
-        train_info['kl_loss'] = 0
         train_info['ratio'] = 0
 
         # policy phase
@@ -234,12 +230,11 @@ class R_MAPPG():
                 data_generator = buffer.feed_forward_generator(advantages, self.num_mini_batch)
 
             for sample in data_generator:
-                action_loss, dist_entropy, actor_grad_norm, kl_loss, ratio = self.policy_loss_update(sample)
+                action_loss, dist_entropy, actor_grad_norm, ratio = self.policy_loss_update(sample)
 
                 train_info['action_loss'] += action_loss.item()
                 train_info['dist_entropy'] += dist_entropy.item()
                 train_info['actor_grad_norm'] += actor_grad_norm
-                train_info['kl_loss'] += kl_loss.item()
                 train_info['ratio'] += ratio.mean() 
 
                 value_loss, critic_grad_norm = self.value_loss_update(sample)
@@ -273,7 +268,7 @@ class R_MAPPG():
                 train_info['critic_grad_norm'] += critic_grad_norm
 
         for k in train_info.keys():
-            if k in ["action_loss","actor_grad_norm","kl_loss","ratio","dist_entropy"]:
+            if k in ["action_loss","actor_grad_norm","ratio","dist_entropy"]:
                 num_updates = self.ppo_epoch * self.num_mini_batch
                 train_info[k] /= num_updates
             elif k in ["value_loss","critic_grad_norm"]:
