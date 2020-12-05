@@ -135,36 +135,42 @@ class R_MAPPG():
 
         return value_loss, grad_norm
 
-    def update_action_log_probs(self, buffer):
+    def update_action_probs(self, buffer):
+        action_probs = []
         for step in range(buffer.episode_length):
-            action_log_probs = self.policy.get_logprobs(np.concatenate(buffer.obs[step]),
-                                                             np.concatenate(buffer.rnn_states[step]),
-                                                             np.concatenate(buffer.masks[step]),
-                                                             np.concatenate(buffer.available_actions[step]))
-            action_log_probs = np.array(np.split(action_log_probs.detach().cpu().numpy(), buffer.n_rollout_threads))
-            buffer.action_log_probs[step] = action_log_probs.copy()
-        return buffer
+            if buffer.available_actions is not None:
+                avail_actions = np.concatenate(buffer.available_actions[step])
+            else:
+                avail_actions = None
+            action_prob = self.policy.get_probs(np.concatenate(buffer.obs[step]),
+                                                np.concatenate(buffer.rnn_states[step]),
+                                                np.concatenate(buffer.masks[step]),
+                                                avail_actions)
+            action_prob = np.array(np.split(action_prob.detach().cpu().numpy(), buffer.n_rollout_threads))
+            action_probs.append(action_prob)
+            
+        return np.array(action_probs)
 
     def auxiliary_loss_update(self, sample):
         share_obs_batch, obs_batch, rnn_states_batch, rnn_states_critic_batch, actions_batch, \
             value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, \
-            adv_targ, available_actions_batch = sample
+            old_action_probs_batch, available_actions_batch = sample
 
         old_action_log_probs_batch = check(old_action_log_probs_batch).to(**self.tpdv)
-        adv_targ = check(adv_targ).to(**self.tpdv)
+        old_action_probs_batch = check(old_action_probs_batch).to(**self.tpdv)
         active_masks_batch = check(active_masks_batch).to(**self.tpdv)
         value_preds_batch = check(value_preds_batch).to(**self.tpdv)
         return_batch = check(return_batch).to(**self.tpdv)
 
         # Reshape to do in a single forward pass for all steps
-        values, action_log_probs = self.policy.get_values_and_logprobs(
+        values, new_action_probs = self.policy.get_values_and_probs(
             share_obs_batch, obs_batch, rnn_states_batch, rnn_states_critic_batch, masks_batch, available_actions_batch)
 
-        # kl = p * log(p / q)
-        kl_divergence = torch.exp(old_action_log_probs_batch) * (old_action_log_probs_batch - action_log_probs)
-        kl_loss = (kl_divergence * active_masks_batch).sum() / \
-            active_masks_batch.sum()
-
+        # kl = sum p * log(p / q) = sum p*(logp-logq) = sum plogp - plogq
+        # cross-entropy = sum -plogq 
+        kl_divergence = torch.sum((old_action_probs_batch * (old_action_probs_batch.log()-new_action_probs.log())), dim=-1, keepdim=True)
+        kl_loss = (kl_divergence * active_masks_batch).sum() / active_masks_batch.sum()
+        
         if self._use_popart:
             value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
             error_clipped = self.value_normalizer(return_batch) - value_pred_clipped
@@ -250,16 +256,16 @@ class R_MAPPG():
                 train_info['critic_grad_norm'] += critic_grad_norm 
 
         # auxiliary phase
-        buffer = self.update_action_log_probs(buffer)
+        action_probs = self.update_action_probs(buffer)
 
         for _ in range(self.aux_epoch):
 
             if self._use_recurrent_policy:
-                data_generator = buffer.recurrent_generator(advantages, self.num_mini_batch, self.data_chunk_length)
+                data_generator = buffer.recurrent_generator(action_probs, self.num_mini_batch, self.data_chunk_length)
             elif self._use_naive_recurrent_policy:
-                data_generator = buffer.naive_recurrent_generator(advantages, self.num_mini_batch)
+                data_generator = buffer.naive_recurrent_generator(action_probs, self.num_mini_batch)
             else:
-                data_generator = buffer.feed_forward_generator(advantages, self.num_mini_batch)
+                data_generator = buffer.feed_forward_generator(action_probs, self.num_mini_batch)
 
             # 2. update auxiliary
             for sample in data_generator:

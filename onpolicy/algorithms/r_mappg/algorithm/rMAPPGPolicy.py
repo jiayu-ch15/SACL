@@ -32,13 +32,13 @@ class R_MAPPGPolicy:
         values, rnn_states_critic = self.critic(share_obs, rnn_states_critic, masks)
         return values, actions, action_log_probs, rnn_states_actor, rnn_states_critic
 
-    def get_policy_values_and_logprobs(self, obs, rnn_states_actor, masks, available_actions=None, deterministic=False):
-        values, action_log_probs = self.actor.get_values_and_logprobs(obs, rnn_states_actor, masks, available_actions, deterministic)
-        return values, action_log_probs
+    def get_policy_values_and_probs(self, obs, rnn_states_actor, masks, available_actions=None):
+        values, action_probs = self.actor.get_values_and_probs(obs, rnn_states_actor, masks, available_actions)
+        return values, action_probs
 
-    def get_logprobs(self, obs, rnn_states_actor, masks, available_actions=None, deterministic=False):
-        actions, action_log_probs, rnn_states_actor = self.actor(obs, rnn_states_actor, masks, available_actions, deterministic)
-        return action_log_probs
+    def get_probs(self, obs, rnn_states_actor, masks, available_actions=None):
+        action_probs = self.actor.get_probs(obs, rnn_states_actor, masks, available_actions)
+        return action_probs
 
     def get_values(self, share_obs, rnn_states_critic, masks):
         values, _ = self.critic(share_obs, rnn_states_critic, masks)

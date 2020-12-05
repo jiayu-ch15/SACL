@@ -103,6 +103,7 @@ class R_MAPPO():
 
         surr1 = ratio * adv_targ
         surr2 = torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param) * adv_targ
+        
         policy_action_loss = (-torch.min(surr1, surr2) * active_masks_batch).sum() / active_masks_batch.sum()
         
         if self._use_policy_vhead:

@@ -76,6 +76,25 @@ class R_Model(nn.Module):
 
         return actions, action_log_probs, rnn_states
 
+    def get_probs(self, obs, rnn_states, masks, available_actions=None):
+        obs = check(obs).to(**self.tpdv)
+        rnn_states = check(rnn_states).to(**self.tpdv)
+        masks = check(masks).to(**self.tpdv)
+        if available_actions is not None:
+            available_actions = check(available_actions).to(**self.tpdv)
+
+        x = obs
+        x = self.obs_prep(x)
+
+        # common
+        actor_features = self.common(x)
+        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+            actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
+
+        action_probs = self.act.get_probs(actor_features, available_actions)
+
+        return action_probs
+
     def evaluate_actions(self, obs, rnn_states, action, masks, active_masks=None):
         obs = check(obs).to(**self.tpdv)
         rnn_states = check(rnn_states).to(**self.tpdv)

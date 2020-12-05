@@ -75,7 +75,7 @@ class R_Actor(nn.Module):
        
         return action_log_probs, dist_entropy, rnn_states
 
-    def get_values_and_logprobs(self, obs, rnn_states, masks, available_actions=None, deterministic=False):
+    def get_probs(self, obs, rnn_states, masks, available_actions=None):
         obs = check(obs).to(**self.tpdv)
         rnn_states = check(rnn_states).to(**self.tpdv)
         masks = check(masks).to(**self.tpdv)
@@ -87,11 +87,27 @@ class R_Actor(nn.Module):
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
 
-        actions, action_log_probs = self.act(actor_features, available_actions, deterministic)
+        action_probs = self.act.get_probs(actor_features, available_actions)
+
+        return action_probs
+
+    def get_values_and_probs(self, obs, rnn_states, masks, available_actions=None):
+        obs = check(obs).to(**self.tpdv)
+        rnn_states = check(rnn_states).to(**self.tpdv)
+        masks = check(masks).to(**self.tpdv)
+        if available_actions is not None:
+            available_actions = check(available_actions).to(**self.tpdv)
+
+        actor_features = self.base(obs)
+
+        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+            actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
+
+        action_probs = self.act.get_probs(actor_features, available_actions)
 
         values = self.v_out(actor_features)
 
-        return values, action_log_probs
+        return values, action_probs
 
 
 class R_Critic(nn.Module):
