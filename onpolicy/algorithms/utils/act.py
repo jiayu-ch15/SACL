@@ -62,6 +62,7 @@ class ACTLayer(nn.Module):
 
             actions = torch.cat(actions, -1)
             action_log_probs = torch.sum(torch.cat(action_log_probs, -1), -1, keepdim=True)
+        
         else:
             action_logits = self.action_out(x, available_actions)
             actions = action_logits.mode() if deterministic else action_logits.sample() 
@@ -83,7 +84,7 @@ class ACTLayer(nn.Module):
         
         return action_probs
 
-    def evaluate_actions(self, x, action, active_masks=None):
+    def evaluate_actions(self, x, action, available_actions=None, active_masks=None):
         if self.mixed_action:
             a, b = action.split((2, 1), -1)
             b = b.long()
@@ -116,11 +117,11 @@ class ACTLayer(nn.Module):
                 else:
                     dist_entropy.append(action_logit.entropy().mean())
 
-            action_log_probs = torch.sum(torch.cat(action_log_probs, -1), -1, keepdim=True)
+            action_log_probs = torch.sum(torch.cat(action_log_probs, -1), -1, keepdim=True) # ! could be wrong
             dist_entropy = torch.tensor(dist_entropy).mean()
         
         else:
-            action_logits = self.action_out(x)
+            action_logits = self.action_out(x, available_actions)
             action_log_probs = action_logits.log_probs(action)
             if active_masks is not None:
                 dist_entropy = (action_logits.entropy()*active_masks.squeeze(-1)).sum()/active_masks.sum()

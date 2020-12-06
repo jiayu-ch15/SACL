@@ -94,6 +94,7 @@ class R_MAPPO():
                                                                               rnn_states_critic_batch, 
                                                                               actions_batch, 
                                                                               masks_batch, 
+                                                                              available_actions_batch,
                                                                               active_masks_batch)
         # actor update
         ratio = torch.exp(action_log_probs - old_action_log_probs_batch)

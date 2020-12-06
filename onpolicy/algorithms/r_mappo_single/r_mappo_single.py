@@ -57,7 +57,7 @@ class R_MAPPO():
         # policy loss
         # Reshape to do in a single forward pass for all steps
         action_log_probs, dist_entropy = self.policy.evaluate_actions(
-            obs_batch, recurrent_hidden_states_batch, actions_batch, masks_batch, active_masks_batch)
+            obs_batch, recurrent_hidden_states_batch, actions_batch, masks_batch, available_actions_batch, active_masks_batch)
 
         ratio = torch.exp(action_log_probs - old_action_log_probs_batch)
 

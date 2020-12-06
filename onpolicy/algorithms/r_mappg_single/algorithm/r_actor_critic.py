@@ -95,7 +95,7 @@ class R_Model(nn.Module):
 
         return action_probs
 
-    def evaluate_actions(self, obs, rnn_states, action, masks, active_masks=None):
+    def evaluate_actions(self, obs, rnn_states, action, masks, available_actions=None, active_masks=None):
         obs = check(obs).to(**self.tpdv)
         rnn_states = check(rnn_states).to(**self.tpdv)
         action = check(action).to(**self.tpdv)
@@ -110,7 +110,7 @@ class R_Model(nn.Module):
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
         
-        action_log_probs, dist_entropy = self.act.evaluate_actions(actor_features, action, active_masks)
+        action_log_probs, dist_entropy = self.act.evaluate_actions(actor_features, action, available_actions, active_masks)
        
         return action_log_probs, dist_entropy
 

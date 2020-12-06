@@ -55,7 +55,7 @@ class R_MAPPG():
         active_masks_batch = check(active_masks_batch).to(**self.tpdv)
 
         # Reshape to do in a single forward pass for all steps
-        action_log_probs, dist_entropy = self.policy.evaluate_actions(obs_batch, rnn_states_batch, actions_batch, masks_batch, active_masks_batch)
+        action_log_probs, dist_entropy = self.policy.evaluate_actions(obs_batch, rnn_states_batch, actions_batch, masks_batch, available_actions_batch, active_masks_batch)
 
         ratio = torch.exp(action_log_probs - old_action_log_probs_batch)
 

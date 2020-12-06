@@ -35,8 +35,8 @@ class R_MAPPOPolicy:
         values, _ = self.model.get_values(share_obs, rnn_states_critic, masks)
         return values
 
-    def evaluate_actions(self, obs, rnn_states_actor, action, masks, active_masks=None):
+    def evaluate_actions(self, obs, rnn_states_actor, action, masks, available_actions=None, active_masks=None):
         action_log_probs, dist_entropy = self.model.evaluate_actions(
-            obs, rnn_states_actor, action, masks, active_masks)
+            obs, rnn_states_actor, action, masks, available_actions, active_masks)
 
         return action_log_probs, dist_entropy
