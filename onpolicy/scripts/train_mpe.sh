@@ -3,8 +3,8 @@ env="MPE"
 scenario="simple_reference"
 num_landmarks=3
 num_agents=2
-algo="rmappg"
-exp="debug"
+algo="rmappo"
+exp="test"
 seed_max=1
 
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
