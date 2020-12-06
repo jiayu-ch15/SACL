@@ -2,7 +2,7 @@
 env="StarCraft2"
 map="corridor"
 algo="rmappo"
-exp="test"
+exp="useavail_chunk100"
 seed_max=1
 
 echo "env is ${env}, map is ${map}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
