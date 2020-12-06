@@ -7,8 +7,10 @@ Welcome to onpolicy's documentation!
 ====================================
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 3
+   :caption: API Reference:
+
+   api/modules.rst
 
 
 

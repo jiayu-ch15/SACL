@@ -12,11 +12,14 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import sys
+sys.path.insert(0, os.path.abspath(".."))
 
 import sphinx_rtd_theme
+import sphinxcontrib
+from recommonmark.parser import CommonMarkParser
+
 
 # -- Project information -----------------------------------------------------
 
@@ -40,18 +43,35 @@ release = '0.1.0'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "sphinx_rtd_theme",
-    'sphinx.ext.autodoc',
+    "sphinx_rtd_theme", # Read The Docs theme
+    'sphinx.ext.autodoc', # Automatically extract docs from docstrings
     'sphinx.ext.doctest',
     'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
-    'sphinx.ext.coverage',
+    'sphinx.ext.coverage', # make coverage generates documentation coverage reports
     'sphinx.ext.mathjax',
     'sphinx.ext.ifconfig',
-    'sphinx.ext.viewcode',
+    'sphinx.ext.viewcode', # link to sourcecode from docs
     'sphinx.ext.githubpages',
     "sphinx.ext.napoleon",  # support Numpy and Google doc style
+    "sphinxcontrib.apidoc",
 ]
+
+# configuring automated generation of api documentation
+# See: https://github.com/sphinx-contrib/apidoc
+
+apidoc_module_dir = "../.."
+apidoc_excluded_paths = ["envs", "setup.py"]
+apidoc_module_first = True
+apidoc_extra_args = [
+    "--force",
+    "--separate",
+    "--ext-viewcode",
+    "--doc-project=onpolicy",
+    "--maxdepth=2",
+    "--templatedir=_templates/apidoc",
+]
+
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -179,8 +199,6 @@ intersphinx_mapping = {'https://docs.python.org/': None}
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
-
-from recommonmark.parser import CommonMarkParser
 
 source_parsers = {
     '.md': CommonMarkParser,
