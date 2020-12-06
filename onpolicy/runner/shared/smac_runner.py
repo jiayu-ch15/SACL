@@ -89,7 +89,7 @@ class SMACRunner(Runner):
                     
                     last_battles_game = battles_game
                     last_battles_won = battles_won
-                    
+                
                 self.log_train(train_infos, total_num_steps)
 
             # eval

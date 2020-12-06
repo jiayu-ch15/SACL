@@ -106,6 +106,7 @@ class HanabiRunner(Runner):
                         self.writter.add_scalars('average_score', {'average_score': average_score}, total_num_steps)
 
                 train_infos["average_step_rewards"] = np.mean(self.buffer.rewards)
+                
                 self.log_train(train_infos, total_num_steps)
 
             # eval

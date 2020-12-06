@@ -62,7 +62,7 @@ class R_MAPPG():
 
         surr1 = ratio * adv_targ
         surr2 = torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param) * adv_targ
-        action_loss = (-torch.min(surr1, surr2) * active_masks_batch).sum() / active_masks_batch.sum()
+        action_loss = (-torch.sum(torch.min(surr1, surr2), dim=-1, keepdim=True) * active_masks_batch).sum() / active_masks_batch.sum()
 
         # update common and action network
         self.policy.actor_optimizer.zero_grad()
@@ -143,6 +143,7 @@ class R_MAPPG():
         return np.array(action_probs)
 
     def auxiliary_loss_update(self, sample):
+        
         share_obs_batch, obs_batch, rnn_states_batch, rnn_states_critic_batch, actions_batch, \
             value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, \
             old_action_probs_batch, available_actions_batch = sample
@@ -156,8 +157,13 @@ class R_MAPPG():
         values, new_action_probs = self.policy.get_policy_values_and_probs(obs_batch, rnn_states_batch, masks_batch, available_actions_batch)
 
         # kl = sum p * log(p / q) = sum p*(logp-logq) = sum plogp - plogq
-        # cross-entropy = sum -plogq 
-        kl_divergence = torch.sum((old_action_probs_batch * (old_action_probs_batch.log()-new_action_probs.log())), dim=-1, keepdim=True)
+        # cross-entropy = sum -plogq
+        eps = (old_action_probs_batch==0) * 1e-8
+        old_action_log_probs_batch = torch.log(old_action_probs_batch + eps.float().detach())
+        eps = (new_action_probs==0) * 1e-8
+        new_action_log_probs = torch.log(new_action_probs + eps.float().detach())
+
+        kl_divergence = torch.sum((old_action_probs_batch * (old_action_log_probs_batch-new_action_log_probs)), dim=-1, keepdim=True)
         kl_loss = (kl_divergence * active_masks_batch).sum() / active_masks_batch.sum()
 
         if self._use_popart:
@@ -255,6 +261,7 @@ class R_MAPPG():
                 data_generator = buffer.feed_forward_generator(action_probs, self.num_mini_batch)
 
             # 2. update auxiliary
+            
             for sample in data_generator:
 
                 joint_loss, joint_grad_norm = self.auxiliary_loss_update(sample)
@@ -266,7 +273,7 @@ class R_MAPPG():
 
                 train_info['value_loss'] += value_loss.item()
                 train_info['critic_grad_norm'] += critic_grad_norm
-
+            
         for k in train_info.keys():
             if k in ["action_loss","actor_grad_norm","ratio","dist_entropy"]:
                 num_updates = self.ppo_epoch * self.num_mini_batch
