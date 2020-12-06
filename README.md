@@ -242,3 +242,12 @@ pip install lxml imutils gym-0.10.5
 python examples/sumo/sugiyama.py
 ```
 
+## 7. Docs：
+
+```
+pip install sphinx sphinxcontrib-apidoc sphinx_rtd_theme recommonmark
+
+sphinx-quickstart
+make html
+```
+

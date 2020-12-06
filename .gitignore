@@ -7,3 +7,4 @@ png
 *.egg-info
 wandb
 .vscode
+api
