@@ -101,7 +101,11 @@ class SMACRunner(Runner):
         obs, share_obs, available_actions = self.envs.reset()
 
         # replay buffer
-        share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1) if self.use_centralized_V else obs
+        if self.use_centralized_V:
+            if not self.all_args.add_local_obs:
+                share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
+        else:
+            share_obs = obs
 
         self.buffer.share_obs[0] = share_obs.copy()
         self.buffer.obs[0] = obs.copy()
@@ -144,7 +148,8 @@ class SMACRunner(Runner):
         bad_masks = np.array([[[0.0] if info[agent_id]['bad_transition'] else [1.0] for agent_id in range(self.num_agents)] for info in infos])
         
         if self.use_centralized_V:
-            share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
+            if not self.all_args.add_local_obs:
+                share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
         else:
             share_obs = obs
 
@@ -167,7 +172,8 @@ class SMACRunner(Runner):
         eval_obs, eval_share_obs, eval_available_actions = self.eval_envs.reset()
 
         if self.use_centralized_V:
-            eval_share_obs = np.expand_dims(eval_share_obs, 1).repeat(self.num_agents, axis=1)
+            if not self.all_args.add_local_obs:
+                eval_share_obs = np.expand_dims(eval_share_obs, 1).repeat(self.num_agents, axis=1)
         else:
             eval_share_obs = eval_obs
 
@@ -193,7 +199,8 @@ class SMACRunner(Runner):
             eval_episode_rewards.append(eval_rewards)
 
             if self.use_centralized_V:
-                eval_share_obs = np.expand_dims(eval_share_obs, 1).repeat(self.num_agents, axis=1)
+                if not self.all_args.add_local_obs:
+                    eval_share_obs = np.expand_dims(eval_share_obs, 1).repeat(self.num_agents, axis=1)
             else:
                 eval_share_obs = eval_obs
 
@@ -214,7 +221,7 @@ class SMACRunner(Runner):
                 eval_episode_rewards = np.array(eval_episode_rewards)
                 eval_env_infos = {}
                 eval_env_infos['eval_average_episode_rewards'] = np.sum(np.array(eval_episode_rewards), axis=0)
-                print("eval average episode rewards of agent: " + str(eval_average_episode_rewards))
+                
                 self.log_env(eval_env_infos, total_num_steps)
                 eval_win_rate = eval_battles_won/eval_episode
                 print("eval win rate is {}.".format(eval_win_rate))

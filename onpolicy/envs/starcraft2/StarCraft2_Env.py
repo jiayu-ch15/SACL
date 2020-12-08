@@ -200,6 +200,8 @@ class StarCraft2Env(MultiAgentEnv):
         """
         # Map arguments
         self.map_name = args.map_name
+        self.add_move_state = args.add_move_state
+        self.add_local_obs = args.add_local_obs
         map_params = get_map_params(self.map_name)
         self.n_agents = map_params["n_agents"]
         self.n_enemies = map_params["n_enemies"]
@@ -398,7 +400,12 @@ class StarCraft2Env(MultiAgentEnv):
             logging.debug("Started Episode {}"
                           .format(self._episode_count).center(60, "*"))
 
-        return self.get_obs(), self.get_state(), available_actions
+        if self.add_local_obs:
+            global_state = [self.get_state(agent_id) for agent_id in range(self.n_agents)]
+        else:
+            global_state = self.get_state()
+
+        return self.get_obs(), global_state, available_actions
 
     def _restart(self):
         """Restart the environment by killing all units on the map.
@@ -472,7 +479,13 @@ class StarCraft2Env(MultiAgentEnv):
                         dones[i] = True
                     else:
                         dones[i] = False
-            return self.get_obs(), self.get_state(), [[0]]*self.n_agents, dones, infos, available_actions
+
+            if self.add_local_obs:
+                global_state = [self.get_state(agent_id) for agent_id in range(self.n_agents)]
+            else:
+                global_state = self.get_state()
+
+            return self.get_obs(), global_state, [[0]]*self.n_agents, dones, infos, available_actions
 
         self._total_steps += 1
         self._episode_steps += 1
@@ -542,7 +555,12 @@ class StarCraft2Env(MultiAgentEnv):
 
         rewards = [[reward]]*self.n_agents
 
-        return self.get_obs(), self.get_state(), rewards, dones, infos, available_actions
+        if self.add_local_obs:
+            global_state = [self.get_state(agent_id) for agent_id in range(self.n_agents)]
+        else:
+            global_state = self.get_state()
+
+        return self.get_obs(), global_state, rewards, dones, infos, available_actions
 
     def get_agent_action(self, a_id, action):
         """Construct the action for agent a_id."""
@@ -1079,7 +1097,7 @@ class StarCraft2Env(MultiAgentEnv):
         agents_obs = [self.get_obs_agent(i) for i in range(self.n_agents)]
         return agents_obs
 
-    def get_state(self):
+    def get_state(self, agent_id=-1):
         """Returns the global state.
         NOTE: This functon should not be used during decentralised execution.
         """
@@ -1164,7 +1182,12 @@ class StarCraft2Env(MultiAgentEnv):
                     enemy_state[e_id, ind + type_id] = 1
 
         state = np.append(ally_state.flatten(), enemy_state.flatten())
-        state = np.append(state, move_state.flatten())
+        
+        if self.add_move_state:
+            state = np.append(state, move_state.flatten())
+        elif self.add_local_obs:
+            state = np.append(state, self.get_obs_agent(agent_id).flatten())
+        
         if self.state_last_action:
             state = np.append(state, self.last_action.flatten())
         if self.state_timestep_number:
@@ -1278,7 +1301,11 @@ class StarCraft2Env(MultiAgentEnv):
         ally_state = self.n_agents * nf_al
         move_state = self.n_agents * nf_mv
 
-        size = enemy_state + ally_state + move_state
+        size = enemy_state + ally_state 
+        if self.add_move_state:
+            size += move_state
+        elif self.add_local_obs:
+            size += self.get_obs_size()
 
         last_action_state = 0
         timestep_state = 0
@@ -1290,8 +1317,13 @@ class StarCraft2Env(MultiAgentEnv):
             timestep_state = 1
             size += timestep_state
 
-        return [size, [self.n_agents, nf_al], [self.n_enemies, nf_en], [self.n_agents, nf_mv], [1, last_action_state+timestep_state]]
-
+        if self.add_move_state:
+            return [size, [self.n_agents, nf_al], [self.n_enemies, nf_en], [self.n_agents, nf_mv], [1, last_action_state+timestep_state]]
+        elif self.add_local_obs:
+            return [size, [self.n_agents, nf_al], [self.n_enemies, nf_en], [1, self.get_obs_size()], [1, last_action_state+timestep_state]]
+        else:
+            return [size, [self.n_agents, nf_al], [self.n_enemies, nf_en], [1, last_action_state+timestep_state]]
+    
     def get_visibility_matrix(self):
         """Returns a boolean numpy array of dimensions 
         (n_agents, n_agents + n_enemies) indicating which units
