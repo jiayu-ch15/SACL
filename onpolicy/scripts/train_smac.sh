@@ -1,6 +1,6 @@
 #!/bin/sh
 env="StarCraft2"
-map="3m"
+map="2s3z"
 algo="rmappo"
 exp="nomove"
 seed_max=1

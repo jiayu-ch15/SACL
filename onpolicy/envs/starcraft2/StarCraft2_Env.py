@@ -1305,7 +1305,7 @@ class StarCraft2Env(MultiAgentEnv):
         if self.add_move_state:
             size += move_state
         elif self.add_local_obs:
-            size += self.get_obs_size()
+            size += self.get_obs_size()[0]
 
         last_action_state = 0
         timestep_state = 0
