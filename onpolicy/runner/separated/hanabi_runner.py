@@ -196,7 +196,6 @@ class HanabiRunner(Runner):
             self.turn_share_obs[dones == True, left_agent_id:] = 0.0
 
             # deal with previous agents
-            previous_agent_id = np.arrange(0, current_agent_id)
             # p0 p1 p2 done p3 -> p0, p1 are previous agents, the reward of p0 should be r + p1 + p2
             self.turn_rewards[dones == True, 0:current_agent_id] += self.turn_rewards_since_last_action[dones == True, 0:current_agent_id]
             self.turn_rewards_since_last_action[dones == True, 0:current_agent_id] = np.zeros(((dones == True).sum(), current_agent_id, 1), dtype=np.float32)
