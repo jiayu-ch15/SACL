@@ -250,6 +250,8 @@ class SMACRunner(Runner):
                         eval_battles_won += 1
 
             if eval_episode >= self.all_args.eval_episodes:
+                eval_env_infos = {'eval_average_episode_rewards': np.mean(np.sum(eval_episode_rewards, axis=0))}                
+                self.log_env(eval_env_infos, total_num_steps)
                 eval_win_rate = eval_battles_won/eval_episode
                 print("eval win rate is {}.".format(eval_win_rate))
                 if self.use_wandb:
