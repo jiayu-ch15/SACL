@@ -169,6 +169,7 @@ class SMACRunner(Runner):
         eval_battles_won = 0
         eval_episode = 0
         eval_episode_rewards = []
+        one_episode_rewards = []
         eval_obs, eval_share_obs, eval_available_actions = self.eval_envs.reset()
 
         if self.use_centralized_V:
@@ -196,7 +197,7 @@ class SMACRunner(Runner):
             eval_rnn_states_critic = np.array(np.split(_t2n(eval_rnn_states_critic), self.n_eval_rollout_threads))
             # Obser reward and next obs
             eval_obs, eval_share_obs, eval_rewards, eval_dones, eval_infos, eval_available_actions = self.eval_envs.step(eval_actions)
-            eval_episode_rewards.append(eval_rewards)
+            one_episode_rewards.append(eval_rewards)
 
             if self.use_centralized_V:
                 if not self.all_args.add_local_obs:
@@ -214,12 +215,14 @@ class SMACRunner(Runner):
             for eval_i in range(self.n_eval_rollout_threads):
                 if eval_dones_env[eval_i]:
                     eval_episode += 1
+                    eval_episode_rewards.append(np.sum(one_episode_rewards, axis=0))
+                    one_episode_rewards = []
                     if eval_infos[eval_i][0]['won']:
                         eval_battles_won += 1
 
             if eval_episode >= self.all_args.eval_episodes:
                 eval_episode_rewards = np.array(eval_episode_rewards)
-                eval_env_infos = {'eval_average_episode_rewards': np.mean(np.sum(eval_episode_rewards, axis=0))}                
+                eval_env_infos = {'eval_average_episode_rewards': eval_episode_rewards}                
                 self.log_env(eval_env_infos, total_num_steps)
                 eval_win_rate = eval_battles_won/eval_episode
                 print("eval win rate is {}.".format(eval_win_rate))
