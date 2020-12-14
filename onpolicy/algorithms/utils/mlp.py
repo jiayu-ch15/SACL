@@ -53,7 +53,7 @@ class CONVLayer(nn.Module):
 
 
 class MLPBase(nn.Module):
-    def __init__(self, args, obs_shape, cat_self=True):
+    def __init__(self, args, obs_shape, cat_self=True, attn_internal=False):
         super(MLPBase, self).__init__()
 
         self._use_feature_normalization = args.use_feature_normalization
@@ -61,6 +61,7 @@ class MLPBase(nn.Module):
         self._use_orthogonal = args.use_orthogonal
         self._use_ReLU = args.use_ReLU
         self._use_attn = args.use_attn
+        self._attn_internal = attn_internal
         self._use_average_pool = args.use_average_pool
         self._use_conv1d = args.use_conv1d
         self._stacked_frames = args.stacked_frames
@@ -79,7 +80,8 @@ class MLPBase(nn.Module):
         if self._use_feature_normalization:
             self.feature_norm = nn.LayerNorm(obs_dim)
 
-        if self._use_attn:
+        if self._use_attn and attn_internal:
+        
             if self._use_average_pool:
                 if cat_self:
                     inputs_dim = self._attn_size + obs_shape[-1][1]
@@ -110,7 +112,7 @@ class MLPBase(nn.Module):
         if self._use_feature_popart or self._use_feature_normalization:
             x = self.feature_norm(x)
 
-        if self._use_attn:
+        if self._use_attn and self._attn_internal:
             x = self.attn(x, self_idx=-1)
             x = self.attn_norm(x)
 

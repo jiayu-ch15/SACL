@@ -1,6 +1,6 @@
 #!/bin/sh
 env="MPE"
-scenario="simple_reference"
+scenario="simple_reference" #simple_speaker_listner   simple_spread
 num_landmarks=3
 num_agents=2
 algo="rmappo"
