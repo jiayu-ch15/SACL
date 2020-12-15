@@ -54,6 +54,8 @@ def parse_args(args, parser):
                         help="Which smac map to run on")
     parser.add_argument("--add_move_state", action='store_true', default=False)
     parser.add_argument("--add_local_obs", action='store_true', default=False)
+    parser.add_argument("--add_distance_state", action='store_true', default=False)
+    parser.add_argument("--add_enemy_action_state", action='store_true', default=False)
 
     all_args = parser.parse_known_args(args)[0]
 
