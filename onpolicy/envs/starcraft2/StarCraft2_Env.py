@@ -201,9 +201,13 @@ class StarCraft2Env(MultiAgentEnv):
         # Map arguments
         self.map_name = args.map_name
         self.add_move_state = args.add_move_state
+        print(self.add_move_state)
         self.add_local_obs = args.add_local_obs
         self.add_distance_state = args.add_distance_state
+        print(self.add_distance_state)
         self.add_enemy_action_state = args.add_enemy_action_state
+        print(self.add_enemy_action_state)
+
         map_params = get_map_params(self.map_name)
         self.n_agents = map_params["n_agents"]
         self.n_enemies = map_params["n_enemies"]
@@ -402,10 +406,7 @@ class StarCraft2Env(MultiAgentEnv):
             logging.debug("Started Episode {}"
                           .format(self._episode_count).center(60, "*"))
 
-        if self.add_local_obs:
-            global_state = [self.get_state(agent_id) for agent_id in range(self.n_agents)]
-        else:
-            global_state = self.get_state()
+        global_state = [self.get_state(agent_id) for agent_id in range(self.n_agents)]
 
         return self.get_obs(), global_state, available_actions
 
@@ -482,10 +483,7 @@ class StarCraft2Env(MultiAgentEnv):
                     else:
                         dones[i] = False
 
-            if self.add_local_obs:
-                global_state = [self.get_state(agent_id) for agent_id in range(self.n_agents)]
-            else:
-                global_state = self.get_state()
+            global_state = [self.get_state(agent_id) for agent_id in range(self.n_agents)]
 
             return self.get_obs(), global_state, [[0]]*self.n_agents, dones, infos, available_actions
 
@@ -557,10 +555,7 @@ class StarCraft2Env(MultiAgentEnv):
 
         rewards = [[reward]]*self.n_agents
 
-        if self.add_local_obs:
-            global_state = [self.get_state(agent_id) for agent_id in range(self.n_agents)]
-        else:
-            global_state = self.get_state()
+        global_state = [self.get_state(agent_id) for agent_id in range(self.n_agents)]
 
         return self.get_obs(), global_state, rewards, dones, infos, available_actions
 
@@ -1113,7 +1108,7 @@ class StarCraft2Env(MultiAgentEnv):
 
         ally_state = np.zeros((self.n_agents, nf_al), dtype=np.float32)
         enemy_state = np.zeros((self.n_enemies, nf_en), dtype=np.float32)
-        move_state = np.zeros((self.n_agents, nf_mv), dtype=np.float32)
+        move_state = np.zeros((1, nf_mv), dtype=np.float32)
         distance_state = np.zeros((self.n_agents-1 + self.n_enemies, 1), dtype=np.float32)
         enemy_action_state = np.zeros((self.n_enemies, 1), dtype=np.float32)
 
@@ -1121,8 +1116,24 @@ class StarCraft2Env(MultiAgentEnv):
         center_y = self.map_y / 2
 
         if agent_id > 0: # means we need to get features of some agent.
-            unit = self.get_unit_by_id(agent_id)# get the unit of some agent           
+            unit = self.get_unit_by_id(agent_id)# get the unit of some agent 
+            avail_actions = self.get_avail_agent_actions(agent_id)          
             if unit.health > 0: # or else all zeros
+
+                # Movement features
+                if self.add_move_state:
+                    for m in range(self.n_actions_move):
+                        move_state[0, m] = avail_actions[m + 2]
+
+                    ind = self.n_actions_move
+
+                    if self.state_pathing_grid:
+                        move_state[0, ind: ind + self.n_obs_pathing] = self.get_surrounding_pathing(unit)
+                        ind += self.n_obs_pathing
+
+                    if self.state_terrain_height:
+                        move_state[0, ind:] = self.get_surrounding_height(unit)
+
                 if self.add_distance_state:
                     x = unit.pos.x
                     y = unit.pos.y
@@ -1147,9 +1158,8 @@ class StarCraft2Env(MultiAgentEnv):
                             dist = self.distance(x, y, e_x, e_y)
                             # Sight range > shoot range
                             distance_state[e_id, 0] = dist / sight_range  # distance
-                            enemy_action_state[e_id, 0] = avail_actions[self.n_actions_no_attack + e_id]  # available
 
-                if self.add_enemy_action_state:
+                if self.add_enemy_action_state:      
                     for e_id, e_unit in self.enemies.items():
                         if e_unit.health > 0: # alive
                             enemy_action_state[e_id, 0] = avail_actions[self.n_actions_no_attack + e_id]  # available
@@ -1177,20 +1187,6 @@ class StarCraft2Env(MultiAgentEnv):
                 if self.unit_type_bits > 0:
                     type_id = self.get_unit_type_id(al_unit, True)
                     ally_state[al_id, ind + type_id] = 1
-
-                # * Movement features, added by yuchao
-                avail_actions = self.get_avail_agent_actions(al_id)
-                for m in range(self.n_actions_move):
-                    move_state[al_id, m] = avail_actions[m + 2]
-
-                ind = self.n_actions_move
-
-                if self.state_pathing_grid:
-                    move_state[al_id, ind: ind + self.n_obs_pathing] = self.get_surrounding_pathing(al_unit)
-                    ind += self.n_obs_pathing
-
-                if self.state_terrain_height:
-                    move_state[al_id, ind:] = self.get_surrounding_height(al_unit)
 
         for e_id, e_unit in self.enemies.items():
             if e_unit.health > 0:
@@ -1364,7 +1360,7 @@ class StarCraft2Env(MultiAgentEnv):
             size += enemy_action_state
 
         if self.add_move_state:
-            move_state = self.n_agents * nf_mv
+            move_state = nf_mv
             size += move_state
         
         if self.add_local_obs:
