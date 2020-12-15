@@ -207,6 +207,8 @@ class StarCraft2Env(MultiAgentEnv):
         print(self.add_distance_state)
         self.add_enemy_action_state = args.add_enemy_action_state
         print(self.add_enemy_action_state)
+        self.add_agent_id = args.add_agent_id
+        print(self.add_agent_id)
 
         map_params = get_map_params(self.map_name)
         self.n_agents = map_params["n_agents"]
@@ -1111,6 +1113,7 @@ class StarCraft2Env(MultiAgentEnv):
         move_state = np.zeros((1, nf_mv), dtype=np.float32)
         distance_state = np.zeros((self.n_agents-1 + self.n_enemies, 1), dtype=np.float32)
         enemy_action_state = np.zeros((self.n_enemies, 1), dtype=np.float32)
+        agent_id_feats = np.zeros((self.n_agents,1), dtype=np.float32)
 
         center_x = self.map_x / 2
         center_y = self.map_y / 2
@@ -1235,6 +1238,10 @@ class StarCraft2Env(MultiAgentEnv):
         if self.state_timestep_number:
             state = np.append(state, self._episode_steps / self.episode_limit)
 
+        if self.add_agent_id:
+            agent_id_feats[agent_id] = 1.0
+            state = np.append(state, agent_id_feats.flatten())
+
         state = state.astype(dtype=np.float32)
 
         if self.debug:
@@ -1350,6 +1357,7 @@ class StarCraft2Env(MultiAgentEnv):
         obs_agent_size = 0
         last_action_state = 0
         timestep_state = 0
+        agent_id_feats = 0
 
         if self.add_distance_state:
             distance_state = self.n_agents-1 + self.n_enemies
@@ -1375,7 +1383,11 @@ class StarCraft2Env(MultiAgentEnv):
             timestep_state = 1
             size += timestep_state
 
-        return [size, [self.n_agents, nf_al], [self.n_enemies, nf_en], [1, distance_state+enemy_action_state+move_state+obs_agent_size+last_action_state+timestep_state]]
+        if self.add_agent_id:
+            agent_id_feats = self.n_agents
+            size += agent_id_feats
+
+        return [size, [self.n_agents, nf_al], [self.n_enemies, nf_en], [1, distance_state+enemy_action_state+move_state+obs_agent_size+last_action_state+timestep_state+agent_id_feats]]
     
     def get_visibility_matrix(self):
         """Returns a boolean numpy array of dimensions 
