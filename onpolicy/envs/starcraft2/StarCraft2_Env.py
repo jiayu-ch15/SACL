@@ -1302,7 +1302,7 @@ class StarCraft2Env(MultiAgentEnv):
 
         move_feats_dim = self.get_obs_move_feats_size()
         enemy_feats_dim = self.get_state_enemy_feats_size()
-        ally_feats_dim = self.get_obs_ally_feats_size()
+        ally_feats_dim = self.get_state_ally_feats_size()
         own_feats_dim = self.get_obs_own_feats_size()
 
         move_feats = np.zeros(move_feats_dim, dtype=np.float32)
