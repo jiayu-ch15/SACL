@@ -1113,16 +1113,32 @@ class StarCraft2Env(MultiAgentEnv):
 
         nf_al = 4 + self.shield_bits_ally + self.unit_type_bits
         nf_en = 3 + self.shield_bits_enemy + self.unit_type_bits
+
+        if self.add_distance_state:
+            nf_al += 1
+            nf_en += 1
+
+        if self.add_xy_state:
+            nf_al += 2
+            nf_en += 2
+
+        if self.add_visible_state:
+            nf_al += 1
+            nf_en += 1
+
+        if self.state_last_action:
+            nf_al += self.n_actions
+            nf_en += self.n_actions
+
+        if self.add_enemy_action_state:
+            nf_en += 1
+
         nf_mv = self.get_state_move_feats_size()
 
         ally_state = np.zeros((self.n_agents, nf_al), dtype=np.float32)
         enemy_state = np.zeros((self.n_enemies, nf_en), dtype=np.float32)
         move_state = np.zeros((1, nf_mv), dtype=np.float32)
-        distance_state = np.zeros((self.n_agents-1 + self.n_enemies, 1), dtype=np.float32)
-        xy_state = np.zeros((self.n_agents-1 + self.n_enemies, 2), dtype=np.float32)
-        enemy_action_state = np.zeros((self.n_enemies, 1), dtype=np.float32)
         agent_id_feats = np.zeros((self.n_agents,1), dtype=np.float32)
-        visible_state = np.zeros((self.n_agents - 1 + self.n_enemies,1), dtype=np.float32)
 
         center_x = self.map_x / 2
         center_y = self.map_y / 2
@@ -1146,50 +1162,21 @@ class StarCraft2Env(MultiAgentEnv):
 
             if self.state_terrain_height:
                 move_state[0, ind:] = self.get_surrounding_height(unit)
-           
-            # Ally distance features
-            al_ids = [al_id for al_id in range(self.n_agents) if al_id != agent_id]
-            for i, al_id in enumerate(al_ids):
-                al_unit = self.get_unit_by_id(al_id)
-                al_x = al_unit.pos.x
-                al_y = al_unit.pos.y
-                dist = self.distance(x, y, al_x, al_y)
-                if al_unit.health > 0: # make sure agent be alive  
-                    distance_state[i, 0] = dist / sight_range  # distance
-                    xy_state[i, 0] = (al_x - x) / sight_range  # relative X
-                    xy_state[i, 1] = (al_y - y) / sight_range  # relative Y
-                if dist < sight_range:
-                    visible_state[i, 0] = 1 # visible                  
-            
-            # Enemy distance features
-            for e_id, e_unit in self.enemies.items():
-                e_x = e_unit.pos.x
-                e_y = e_unit.pos.y
-                dist = self.distance(x, y, e_x, e_y)
-
-                if e_unit.health > 0:  # alive                   
-                    # Sight range > shoot range
-                    distance_state[self.n_agents - 1 + e_id, 0] = dist / sight_range  # distance
-                    enemy_action_state[e_id, 0] = avail_actions[self.n_actions_no_attack + e_id]  # available
-                    if dist < sight_range:
-                        visible_state[self.n_agents - 1 + e_id, 0] = 1 # visible
-                    xy_state[self.n_agents - 1 + e_id, 0] = (e_x - x) / sight_range  # relative X
-                    xy_state[self.n_agents - 1 + e_id, 1] = (e_y - y) / sight_range  # relative Y
-
-                            
+                                      
         for al_id, al_unit in self.agents.items():
             if al_unit.health > 0:
-                x = al_unit.pos.x
-                y = al_unit.pos.y
+                al_x = al_unit.pos.x
+                al_y = al_unit.pos.y
                 max_cd = self.unit_max_cooldown(al_unit)
+                dist = self.distance(x, y, al_x, al_y)
 
                 ally_state[al_id, 0] = (al_unit.health / al_unit.health_max)  # health
                 if (self.map_type == "MMM" and al_unit.unit_type == self.medivac_id):
                     ally_state[al_id, 1] = al_unit.energy / max_cd  # energy
                 else:
                     ally_state[al_id, 1] = (al_unit.weapon_cooldown / max_cd)  # cooldown
-                ally_state[al_id, 2] = (x - center_x) / self.max_distance_x  # center X
-                ally_state[al_id, 3] = (y - center_y) / self.max_distance_y  # center Y
+                ally_state[al_id, 2] = (al_x - center_x) / self.max_distance_x  # center X
+                ally_state[al_id, 3] = (al_y - center_y) / self.max_distance_y  # center Y
 
                 ind = 4
                 if self.shield_bits_ally > 0:
@@ -1201,15 +1188,31 @@ class StarCraft2Env(MultiAgentEnv):
                     type_id = self.get_unit_type_id(al_unit, True)
                     ally_state[al_id, ind + type_id] = 1
 
+                if unit.health > 0:
+                    ind += self.unit_type_bits
+                    if self.add_distance_state:
+                        ally_state[al_id, ind] = dist / sight_range  # distance
+                        ind += 1
+                    if self.add_xy_state:
+                        ally_state[al_id, ind] = (al_x - x) / sight_range  # relative X
+                        ally_state[al_id, ind+1] = (al_y - y) / sight_range  # relative Y
+                        ind += 2
+                    if self.add_visible_state:
+                        if dist < sight_range:
+                            ally_state[al_id, ind] = 1 # visible
+                        ind += 1
+                    if self.state_last_action:
+                        ally_state[al_id, ind:] = self.last_action[al_id]
+
         for e_id, e_unit in self.enemies.items():
             if e_unit.health > 0:
-                x = e_unit.pos.x
-                y = e_unit.pos.y
+                e_x = e_unit.pos.x
+                e_y = e_unit.pos.y
+                dist = self.distance(x, y, e_x, e_y)
 
-                enemy_state[e_id, 0] = (e_unit.health / e_unit.health_max)  # health
-                
-                enemy_state[e_id, 1] = (x - center_x) / self.max_distance_x  # center X
-                enemy_state[e_id, 2] = (y - center_y) / self.max_distance_y  # center Y
+                enemy_state[e_id, 0] = (e_unit.health / e_unit.health_max)  # health               
+                enemy_state[e_id, 1] = (e_x - center_x) / self.max_distance_x  # center X
+                enemy_state[e_id, 2] = (e_y - center_y) / self.max_distance_y  # center Y
                 
                 ind = 3
                 if self.shield_bits_enemy > 0:
@@ -1221,28 +1224,29 @@ class StarCraft2Env(MultiAgentEnv):
                     type_id = self.get_unit_type_id(e_unit, False)
                     enemy_state[e_id, ind + type_id] = 1
 
-        state = np.append(ally_state.flatten(), enemy_state.flatten())
-        
-        if self.add_distance_state:
-            state = np.append(state, distance_state.flatten())
+                if unit.health > 0:
+                    ind += self.unit_type_bits
+                    if self.add_distance_state:
+                        enemy_state[e_id, ind] = dist / sight_range  # distance
+                        ind += 1
+                    if self.add_xy_state:
+                        enemy_state[e_id, ind] = (e_x - x) / sight_range  # relative X
+                        enemy_state[e_id, ind+1] = (e_y - y) / sight_range  # relative Y
+                        ind += 2
+                    if self.add_visible_state:
+                        if dist < sight_range:
+                            enemy_state[e_id, ind] = 1 # visible
+                        ind += 1
+                    if self.add_enemy_action_state:
+                        enemy_state[e_id, ind] = avail_actions[self.n_actions_no_attack + e_id]  # available
 
-        if self.add_enemy_action_state:
-            state = np.append(state, enemy_action_state.flatten())
-        
+        state = np.append(ally_state.flatten(), enemy_state.flatten())
+               
         if self.add_move_state:
             state = np.append(state, move_state.flatten())
 
-        if self.add_visible_state:
-            state = np.append(state, visible_state.flatten())
-
-        if self.add_xy_state:
-            state = np.append(state, xy_state.flatten())
-
         if self.add_local_obs:
             state = np.append(state, self.get_obs_agent(agent_id).flatten())
-        
-        if self.state_last_action:
-            state = np.append(state, self.last_action.flatten())
 
         if self.state_timestep_number:
             state = np.append(state, self._episode_steps / self.episode_limit)
@@ -1390,7 +1394,7 @@ class StarCraft2Env(MultiAgentEnv):
                     if self.add_center_xy:
                         ally_feats[i, ind] = (al_x - center_x) / self.max_distance_x  # center X
                         ally_feats[i, ind+1] = (al_y - center_y) / self.max_distance_y  # center Y
-                        ind += 1
+                        ind += 2
 
                     if self.unit_type_bits > 0:
                         type_id = self.get_unit_type_id(al_unit, True)
@@ -1418,7 +1422,7 @@ class StarCraft2Env(MultiAgentEnv):
             if self.add_center_xy:
                 own_feats[ind] = (x - center_x) / self.max_distance_x  # center X
                 own_feats[ind+1] = (y - center_y) / self.max_distance_y  # center Y
-                ind += 1
+                ind += 2
 
             if self.unit_type_bits > 0:
                 type_id = self.get_unit_type_id(unit, True)
@@ -1616,48 +1620,42 @@ class StarCraft2Env(MultiAgentEnv):
         nf_en = 3 + self.shield_bits_enemy + self.unit_type_bits
         nf_mv = self.get_state_move_feats_size()
 
+        if self.state_last_action:
+            nf_al += self.n_actions
+            nf_en += self.n_actions
+
+        if self.add_visible_state:
+            nf_al += 1
+            nf_en += 1
+
+        if self.add_distance_state:
+            nf_al += 1
+            nf_en += 1
+
+        if self.add_xy_state:
+            nf_al += 2
+            nf_en += 2
+
+        if self.add_enemy_action_state:
+            nf_en += 1
+
         enemy_state = self.n_enemies * nf_en
         ally_state = self.n_agents * nf_al
 
         size = enemy_state + ally_state 
 
-        distance_state = 0
-        xy_state = 0
-        enemy_action_state = 0
         move_state = 0
-        visible_state = 0
         obs_agent_size = 0
-        last_action_state = 0
         timestep_state = 0
         agent_id_feats = 0
-
-        if self.add_distance_state:
-            distance_state = self.n_agents-1 + self.n_enemies
-            size += distance_state
-
-        if self.add_xy_state:
-            xy_state = (self.n_agents-1 + self.n_enemies)*2
-            size += xy_state
-
-        if self.add_enemy_action_state:
-            enemy_action_state = self.n_enemies
-            size += enemy_action_state
 
         if self.add_move_state:
             move_state = nf_mv
             size += move_state
-
-        if self.add_visible_state:
-            visible_state = self.n_agents-1 + self.n_enemies
-            size += visible_state
         
         if self.add_local_obs:
             obs_agent_size = self.get_obs_size()[0]
             size += obs_agent_size
-
-        if self.state_last_action:
-            last_action_state = self.n_agents * self.n_actions
-            size += last_action_state
 
         if self.state_timestep_number:
             timestep_state = 1
@@ -1667,7 +1665,7 @@ class StarCraft2Env(MultiAgentEnv):
             agent_id_feats = self.n_agents
             size += agent_id_feats
 
-        return [size, [self.n_agents, nf_al], [self.n_enemies, nf_en], [1, distance_state + xy_state + enemy_action_state + move_state + visible_state + obs_agent_size + last_action_state + timestep_state + agent_id_feats]]
+        return [size, [self.n_agents, nf_al], [self.n_enemies, nf_en], [1, move_state + obs_agent_size + timestep_state + agent_id_feats]]
     
     def get_visibility_matrix(self):
         """Returns a boolean numpy array of dimensions 
