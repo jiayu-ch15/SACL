@@ -200,15 +200,11 @@ class StarCraft2Env(MultiAgentEnv):
         """
         # Map arguments
         self.map_name = args.map_name
-        self.add_move_state = args.add_move_state
-        print(self.add_move_state)
         self.add_local_obs = args.add_local_obs
+        self.add_move_state = args.add_move_state
         self.add_distance_state = args.add_distance_state
-        print(self.add_distance_state)
         self.add_enemy_action_state = args.add_enemy_action_state
-        print(self.add_enemy_action_state)
         self.add_agent_id = args.add_agent_id
-        print(self.add_agent_id)
 
         map_params = get_map_params(self.map_name)
         self.n_agents = map_params["n_agents"]
