@@ -1374,7 +1374,7 @@ class StarCraft2Env(MultiAgentEnv):
             size += distance_state
 
         if self.add_xy_state:
-            xy_state = self.n_agents-1 + self.n_enemies
+            xy_state = (self.n_agents-1 + self.n_enemies)*2
             size += xy_state
 
         if self.add_enemy_action_state:
