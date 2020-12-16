@@ -57,7 +57,7 @@ def parse_args(args, parser):
     parser.add_argument("--add_distance_state", action='store_true', default=False)
     parser.add_argument("--add_enemy_action_state", action='store_true', default=False)
     parser.add_argument("--add_agent_id", action='store_true', default=False)
-    parser.add_argument("--add_alive_state", action='store_true', default=False)
+    parser.add_argument("--add_visible_state", action='store_true', default=False)
     parser.add_argument("--add_xy_state", action='store_true', default=False)
     parser.add_argument("--use_state_agent", action='store_true', default=False)
     parser.add_argument("--add_center_xy", action='store_true', default=False)
