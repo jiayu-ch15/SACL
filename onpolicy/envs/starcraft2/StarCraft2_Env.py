@@ -1301,7 +1301,7 @@ class StarCraft2Env(MultiAgentEnv):
         unit = self.get_unit_by_id(agent_id)
 
         move_feats_dim = self.get_obs_move_feats_size()
-        enemy_feats_dim = self.get_obs_enemy_feats_size()
+        enemy_feats_dim = self.get_state_enemy_feats_size()
         ally_feats_dim = self.get_obs_ally_feats_size()
         own_feats_dim = self.get_obs_own_feats_size()
 
@@ -1336,14 +1336,16 @@ class StarCraft2Env(MultiAgentEnv):
                 e_y = e_unit.pos.y
                 dist = self.distance(x, y, e_x, e_y)
 
-                if (dist < sight_range and e_unit.health > 0):  # visible and alive
+                if e_unit.health > 0:  # visible and alive
                     # Sight range > shoot range
                     enemy_feats[e_id, 0] = avail_actions[self.n_actions_no_attack + e_id]  # available
                     enemy_feats[e_id, 1] = dist / sight_range  # distance
                     enemy_feats[e_id, 2] = (e_x - x) / sight_range  # relative X
                     enemy_feats[e_id, 3] = (e_y - y) / sight_range  # relative Y
+                    if dist < sight_range:
+                        enemy_feats[e_id, 4] = 1  # visible
 
-                    ind = 4
+                    ind = 5
                     if self.obs_all_health:
                         enemy_feats[e_id, ind] = (e_unit.health / e_unit.health_max)  # health
                         ind += 1
@@ -1364,14 +1366,21 @@ class StarCraft2Env(MultiAgentEnv):
                 al_x = al_unit.pos.x
                 al_y = al_unit.pos.y
                 dist = self.distance(x, y, al_x, al_y)
+                max_cd = self.unit_max_cooldown(al_unit)
 
-                if (dist < sight_range and al_unit.health > 0):  # visible and alive
-                    ally_feats[i, 0] = 1  # visible
+                if al_unit.health > 0:  # visible and alive
+                    if dist < sight_range:
+                        ally_feats[i, 0] = 1  # visible
                     ally_feats[i, 1] = dist / sight_range  # distance
                     ally_feats[i, 2] = (al_x - x) / sight_range  # relative X
                     ally_feats[i, 3] = (al_y - y) / sight_range  # relative Y
 
-                    ind = 4
+                    if (self.map_type == "MMM" and al_unit.unit_type == self.medivac_id):
+                        ally_feats[i, 4] = al_unit.energy / max_cd  # energy
+                    else:
+                        ally_feats[i, 4] = (al_unit.weapon_cooldown / max_cd)  # cooldown
+
+                    ind = 5
                     if self.obs_all_health:
                         ally_feats[i, ind] = (al_unit.health / al_unit.health_max)  # health
                         ind += 1
@@ -1439,7 +1448,6 @@ class StarCraft2Env(MultiAgentEnv):
 
         return agent_obs
 
-
     def get_obs_enemy_feats_size(self):
         """ Returns the dimensions of the matrix containing enemy features.
         Size is n_enemies x n_features.
@@ -1451,11 +1459,36 @@ class StarCraft2Env(MultiAgentEnv):
 
         return self.n_enemies, nf_en
 
+    def get_state_enemy_feats_size(self):
+        """ Returns the dimensions of the matrix containing enemy features.
+        Size is n_enemies x n_features.
+        """
+        nf_en = 5 + self.unit_type_bits
+
+        if self.obs_all_health:
+            nf_en += 1 + self.shield_bits_enemy
+
+        return self.n_enemies, nf_en
+
     def get_obs_ally_feats_size(self):
         """Returns the dimensions of the matrix containing ally features.
         Size is n_allies x n_features.
         """
         nf_al = 4 + self.unit_type_bits
+
+        if self.obs_all_health:
+            nf_al += 1 + self.shield_bits_ally
+
+        if self.obs_last_action:
+            nf_al += self.n_actions
+
+        return self.n_agents - 1, nf_al
+
+    def get_state_ally_feats_size(self):
+        """Returns the dimensions of the matrix containing ally features.
+        Size is n_allies x n_features.
+        """
+        nf_al = 5 + self.unit_type_bits
 
         if self.obs_all_health:
             nf_al += 1 + self.shield_bits_ally
@@ -1529,7 +1562,30 @@ class StarCraft2Env(MultiAgentEnv):
             return [self.get_obs_size()[0] * self.n_agents, [self.n_agents, self.get_obs_size()[0]]]
 
         if self.use_state_agent:
-            return self.get_obs_size()
+            own_feats = self.get_obs_own_feats_size()
+            move_feats = self.get_obs_move_feats_size()
+
+            n_enemies, n_enemy_feats = self.get_state_enemy_feats_size()
+            n_allies, n_ally_feats = self.get_state_ally_feats_size()
+
+            enemy_feats = n_enemies * n_enemy_feats
+            ally_feats = n_allies * n_ally_feats
+
+            all_feats = move_feats + enemy_feats + ally_feats + own_feats
+
+            agent_id_feats = 0
+            timestep_feats = 0
+
+            if self.obs_agent_id:
+                agent_id_feats = self.n_agents
+                all_feats += agent_id_feats
+
+            if self.obs_timestep_number:
+                timestep_feats = 1
+                all_feats += timestep_feats
+
+            return [all_feats, [n_allies, n_ally_feats], [n_enemies, n_enemy_feats], [1, move_feats], [1, own_feats+agent_id_feats+timestep_feats]]
+
         
         nf_al = 4 + self.shield_bits_ally + self.unit_type_bits
         nf_en = 3 + self.shield_bits_enemy + self.unit_type_bits
