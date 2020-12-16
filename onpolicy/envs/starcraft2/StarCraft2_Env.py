@@ -1593,7 +1593,7 @@ class StarCraft2Env(MultiAgentEnv):
             return [self.get_obs_size()[0] * self.n_agents, [self.n_agents, self.get_obs_size()[0]]]
 
         if self.use_state_agent:
-            own_feats = self.get_obs_own_feats_size()
+            own_feats = self.get_state_own_feats_size()
             move_feats = self.get_obs_move_feats_size()
 
             n_enemies, n_enemy_feats = self.get_state_enemy_feats_size()
