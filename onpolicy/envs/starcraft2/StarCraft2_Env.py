@@ -1111,8 +1111,12 @@ class StarCraft2Env(MultiAgentEnv):
             obs_concat = np.concatenate(self.get_obs(), axis=0).astype(np.float32)
             return obs_concat
 
-        nf_al = 4 + self.shield_bits_ally + self.unit_type_bits
-        nf_en = 3 + self.shield_bits_enemy + self.unit_type_bits
+        nf_al = 2 + self.shield_bits_ally + self.unit_type_bits
+        nf_en = 1 + self.shield_bits_enemy + self.unit_type_bits
+
+        if self.add_center_xy:
+            nf_al += 2
+            nf_en += 2
 
         if self.add_distance_state:
             nf_al += 1
@@ -1138,7 +1142,7 @@ class StarCraft2Env(MultiAgentEnv):
         ally_state = np.zeros((self.n_agents, nf_al), dtype=np.float32)
         enemy_state = np.zeros((self.n_enemies, nf_en), dtype=np.float32)
         move_state = np.zeros((1, nf_mv), dtype=np.float32)
-        agent_id_feats = np.zeros((self.n_agents,1), dtype=np.float32)
+        agent_id_feats = np.zeros((self.n_agents, 1), dtype=np.float32)
 
         center_x = self.map_x / 2
         center_y = self.map_y / 2
@@ -1163,82 +1167,89 @@ class StarCraft2Env(MultiAgentEnv):
             if self.state_terrain_height:
                 move_state[0, ind:] = self.get_surrounding_height(unit)
                                       
-        for al_id, al_unit in self.agents.items():
-            if al_unit.health > 0:
-                al_x = al_unit.pos.x
-                al_y = al_unit.pos.y
-                max_cd = self.unit_max_cooldown(al_unit)
-                dist = self.distance(x, y, al_x, al_y)
+            for al_id, al_unit in self.agents.items():
+                if al_unit.health > 0:
+                    al_x = al_unit.pos.x
+                    al_y = al_unit.pos.y
+                    max_cd = self.unit_max_cooldown(al_unit)
+                    dist = self.distance(x, y, al_x, al_y)
 
-                ally_state[al_id, 0] = (al_unit.health / al_unit.health_max)  # health
-                if (self.map_type == "MMM" and al_unit.unit_type == self.medivac_id):
-                    ally_state[al_id, 1] = al_unit.energy / max_cd  # energy
-                else:
-                    ally_state[al_id, 1] = (al_unit.weapon_cooldown / max_cd)  # cooldown
-                ally_state[al_id, 2] = (al_x - center_x) / self.max_distance_x  # center X
-                ally_state[al_id, 3] = (al_y - center_y) / self.max_distance_y  # center Y
-
-                ind = 4
-                if self.shield_bits_ally > 0:
-                    max_shield = self.unit_max_shield(al_unit)
-                    ally_state[al_id, ind] = (al_unit.shield / max_shield)  # shield
-                    ind += 1
-
-                if self.unit_type_bits > 0:
-                    type_id = self.get_unit_type_id(al_unit, True)
-                    ally_state[al_id, ind + type_id] = 1
-
-                if unit.health > 0:
-                    ind += self.unit_type_bits
-                    if self.add_distance_state:
-                        ally_state[al_id, ind] = dist / sight_range  # distance
-                        ind += 1
-                    if self.add_xy_state:
-                        ally_state[al_id, ind] = (al_x - x) / sight_range  # relative X
-                        ally_state[al_id, ind+1] = (al_y - y) / sight_range  # relative Y
+                    ally_state[al_id, 0] = (al_unit.health / al_unit.health_max)  # health
+                    if (self.map_type == "MMM" and al_unit.unit_type == self.medivac_id):
+                        ally_state[al_id, 1] = al_unit.energy / max_cd  # energy
+                    else:
+                        ally_state[al_id, 1] = (al_unit.weapon_cooldown / max_cd)  # cooldown
+                    
+                    ind = 2
+                    
+                    if self.add_center_xy:
+                        ally_state[al_id, ind] = (al_x - center_x) / self.max_distance_x  # center X
+                        ally_state[al_id, ind+1] = (al_y - center_y) / self.max_distance_y  # center Y
                         ind += 2
-                    if self.add_visible_state:
-                        if dist < sight_range:
-                            ally_state[al_id, ind] = 1 # visible
+
+                    if self.shield_bits_ally > 0:
+                        max_shield = self.unit_max_shield(al_unit)
+                        ally_state[al_id, ind] = (al_unit.shield / max_shield)  # shield
                         ind += 1
-                    if self.state_last_action:
-                        ally_state[al_id, ind:] = self.last_action[al_id]
 
-        for e_id, e_unit in self.enemies.items():
-            if e_unit.health > 0:
-                e_x = e_unit.pos.x
-                e_y = e_unit.pos.y
-                dist = self.distance(x, y, e_x, e_y)
+                    if self.unit_type_bits > 0:
+                        type_id = self.get_unit_type_id(al_unit, True)
+                        ally_state[al_id, ind + type_id] = 1
 
-                enemy_state[e_id, 0] = (e_unit.health / e_unit.health_max)  # health               
-                enemy_state[e_id, 1] = (e_x - center_x) / self.max_distance_x  # center X
-                enemy_state[e_id, 2] = (e_y - center_y) / self.max_distance_y  # center Y
-                
-                ind = 3
-                if self.shield_bits_enemy > 0:
-                    max_shield = self.unit_max_shield(e_unit)
-                    enemy_state[e_id, ind] = (e_unit.shield / max_shield)  # shield
-                    ind += 1
+                    if unit.health > 0:
+                        ind += self.unit_type_bits
+                        if self.add_distance_state:
+                            ally_state[al_id, ind] = dist / sight_range  # distance
+                            ind += 1
+                        if self.add_xy_state:
+                            ally_state[al_id, ind] = (al_x - x) / sight_range  # relative X
+                            ally_state[al_id, ind + 1] = (al_y - y) / sight_range  # relative Y
+                            ind += 2
+                        if self.add_visible_state:
+                            if dist < sight_range:
+                                ally_state[al_id, ind] = 1 # visible
+                            ind += 1
+                        if self.state_last_action:
+                            ally_state[al_id, ind:] = self.last_action[al_id]
 
-                if self.unit_type_bits > 0:
-                    type_id = self.get_unit_type_id(e_unit, False)
-                    enemy_state[e_id, ind + type_id] = 1
+            for e_id, e_unit in self.enemies.items():
+                if e_unit.health > 0:
+                    e_x = e_unit.pos.x
+                    e_y = e_unit.pos.y
+                    dist = self.distance(x, y, e_x, e_y)
 
-                if unit.health > 0:
-                    ind += self.unit_type_bits
-                    if self.add_distance_state:
-                        enemy_state[e_id, ind] = dist / sight_range  # distance
-                        ind += 1
-                    if self.add_xy_state:
-                        enemy_state[e_id, ind] = (e_x - x) / sight_range  # relative X
-                        enemy_state[e_id, ind+1] = (e_y - y) / sight_range  # relative Y
+                    enemy_state[e_id, 0] = (e_unit.health / e_unit.health_max)  # health               
+                    
+                    ind = 1
+                    if self.add_center_xy:
+                        enemy_state[e_id, ind] = (e_x - center_x) / self.max_distance_x  # center X
+                        enemy_state[e_id, ind+1] = (e_y - center_y) / self.max_distance_y  # center Y
                         ind += 2
-                    if self.add_visible_state:
-                        if dist < sight_range:
-                            enemy_state[e_id, ind] = 1 # visible
+                        
+                    if self.shield_bits_enemy > 0:
+                        max_shield = self.unit_max_shield(e_unit)
+                        enemy_state[e_id, ind] = (e_unit.shield / max_shield)  # shield
                         ind += 1
-                    if self.add_enemy_action_state:
-                        enemy_state[e_id, ind] = avail_actions[self.n_actions_no_attack + e_id]  # available
+
+                    if self.unit_type_bits > 0:
+                        type_id = self.get_unit_type_id(e_unit, False)
+                        enemy_state[e_id, ind + type_id] = 1
+
+                    if unit.health > 0:
+                        ind += self.unit_type_bits
+                        if self.add_distance_state:
+                            enemy_state[e_id, ind] = dist / sight_range  # distance
+                            ind += 1
+                        if self.add_xy_state:
+                            enemy_state[e_id, ind] = (e_x - x) / sight_range  # relative X
+                            enemy_state[e_id, ind + 1] = (e_y - y) / sight_range  # relative Y
+                            ind += 2
+                        if self.add_visible_state:
+                            if dist < sight_range:
+                                enemy_state[e_id, ind] = 1 # visible
+                            ind += 1
+                        if self.add_enemy_action_state:
+                            enemy_state[e_id, ind] = avail_actions[self.n_actions_no_attack + e_id]  # available
 
         state = np.append(ally_state.flatten(), enemy_state.flatten())
                
@@ -1616,9 +1627,13 @@ class StarCraft2Env(MultiAgentEnv):
             return [all_feats, [n_allies, n_ally_feats], [n_enemies, n_enemy_feats], [1, move_feats], [1, own_feats+agent_id_feats+timestep_feats]]
 
         
-        nf_al = 4 + self.shield_bits_ally + self.unit_type_bits
-        nf_en = 3 + self.shield_bits_enemy + self.unit_type_bits
+        nf_al = 2 + self.shield_bits_ally + self.unit_type_bits
+        nf_en = 1 + self.shield_bits_enemy + self.unit_type_bits
         nf_mv = self.get_state_move_feats_size()
+
+        if self.add_center_xy:
+            nf_al += 2
+            nf_en += 2
 
         if self.state_last_action:
             nf_al += self.n_actions
