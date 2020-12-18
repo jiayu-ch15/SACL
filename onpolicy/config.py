@@ -121,6 +121,8 @@ def get_config():
     parser.add_argument("--use_huber_loss", action='store_false', default=True)
     parser.add_argument("--use_value_active_masks",
                         action='store_false', default=True)
+    parser.add_argument("--use_return_active_masks",
+                        action='store_true', default=False)
     parser.add_argument("--huber_delta", type=float, default=10.0)
 
     # ppg parameters

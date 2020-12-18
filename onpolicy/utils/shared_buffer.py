@@ -18,7 +18,8 @@ class SharedReplayBuffer(object):
         self.gae_lambda = args.gae_lambda
         self._use_gae = args.use_gae
         self._use_popart = args.use_popart
-        self._use_proper_time_limits = args.use_proper_time_limits       
+        self._use_proper_time_limits = args.use_proper_time_limits 
+        self._use_return_active_masks = args.use_return_active_masks      
 
         obs_shape = get_shape_from_obs_space(obs_space)
         share_obs_shape = get_shape_from_obs_space(share_obs_space)
@@ -123,45 +124,63 @@ class SharedReplayBuffer(object):
                 self.value_preds[-1] = next_value
                 gae = 0
                 for step in reversed(range(self.rewards.shape[0])):
+                    if self._use_return_active_masks:
+                        use_mask = self.active_masks[step + 1]
+                    else:
+                        use_mask = self.masks[step + 1]
+
                     if self._use_popart:
                         # step + 1
-                        delta = self.rewards[step] + self.gamma * value_normalizer.denormalize(self.value_preds[step + 1])  * self.masks[step + 1] \
+                        delta = self.rewards[step] + self.gamma * value_normalizer.denormalize(self.value_preds[step + 1])  * use_mask \
                             - value_normalizer.denormalize(self.value_preds[step])
-                        gae = delta + self.gamma * self.gae_lambda * self.masks[step + 1] * gae
+                        gae = delta + self.gamma * self.gae_lambda * use_mask * gae
                         gae = gae * self.bad_masks[step + 1]
                         self.returns[step] = gae + value_normalizer.denormalize(self.value_preds[step])
                     else:
-                        delta = self.rewards[step] + self.gamma * self.value_preds[step + 1] * self.masks[step + 1] - self.value_preds[step]
-                        gae = delta + self.gamma * self.gae_lambda * self.masks[step + 1] * gae
+                        delta = self.rewards[step] + self.gamma * self.value_preds[step + 1] * use_mask - self.value_preds[step]
+                        gae = delta + self.gamma * self.gae_lambda * use_mask * gae
                         gae = gae * self.bad_masks[step + 1]
                         self.returns[step] = gae + self.value_preds[step]
             else:
                 self.returns[-1] = next_value
                 for step in reversed(range(self.rewards.shape[0])):
+                    if self._use_return_active_masks:
+                        use_mask = self.active_masks[step + 1]
+                    else:
+                        use_mask = self.masks[step + 1]
+
                     if self._use_popart:
-                        self.returns[step] = (self.returns[step + 1] * self.gamma * self.masks[step + 1] + self.rewards[step]) * self.bad_masks[step + 1] \
+                        self.returns[step] = (self.returns[step + 1] * self.gamma * use_mask + self.rewards[step]) * self.bad_masks[step + 1] \
                                             + (1 - self.bad_masks[step + 1]) * value_normalizer.denormalize(self.value_preds[step])
                     else:
-                        self.returns[step] = (self.returns[step + 1] * self.gamma * self.masks[step + 1] + self.rewards[step]) * self.bad_masks[step + 1] \
+                        self.returns[step] = (self.returns[step + 1] * self.gamma * use_mask + self.rewards[step]) * self.bad_masks[step + 1] \
                                             + (1 - self.bad_masks[step + 1]) * self.value_preds[step]
         else:
             if self._use_gae:
                 self.value_preds[-1] = next_value
                 gae = 0
                 for step in reversed(range(self.rewards.shape[0])):
+                    if self._use_return_active_masks:
+                        use_mask = self.active_masks[step + 1]
+                    else:
+                        use_mask = self.masks[step + 1]
                     if self._use_popart:
-                        delta = self.rewards[step] + self.gamma * value_normalizer.denormalize(self.value_preds[step + 1]) * self.masks[step + 1] \
+                        delta = self.rewards[step] + self.gamma * value_normalizer.denormalize(self.value_preds[step + 1]) * use_mask \
                             - value_normalizer.denormalize(self.value_preds[step])
-                        gae = delta + self.gamma * self.gae_lambda * self.masks[step + 1] * gae
+                        gae = delta + self.gamma * self.gae_lambda * use_mask * gae
                         self.returns[step] = gae + value_normalizer.denormalize(self.value_preds[step])
                     else:
-                        delta = self.rewards[step] + self.gamma * self.value_preds[step + 1] * self.masks[step + 1] - self.value_preds[step]
-                        gae = delta + self.gamma * self.gae_lambda * self.masks[step + 1] * gae
+                        delta = self.rewards[step] + self.gamma * self.value_preds[step + 1] * use_mask - self.value_preds[step]
+                        gae = delta + self.gamma * self.gae_lambda * use_mask * gae
                         self.returns[step] = gae + self.value_preds[step]
             else:
                 self.returns[-1] = next_value
                 for step in reversed(range(self.rewards.shape[0])):
-                    self.returns[step] = self.returns[step + 1] * self.gamma * self.masks[step + 1] + self.rewards[step]
+                    if self._use_return_active_masks:
+                        use_mask = self.active_masks[step + 1]
+                    else:
+                        use_mask = self.masks[step + 1]
+                    self.returns[step] = self.returns[step + 1] * self.gamma * use_mask + self.rewards[step]
 
     def feed_forward_generator(self, advantages, num_mini_batch=None, mini_batch_size=None):
         episode_length, n_rollout_threads, num_agents = self.rewards.shape[0:3]

@@ -52,6 +52,7 @@ class HanabiRunner(Runner):
                     self.buffer.share_obs[-1] = self.turn_share_obs.copy()
                     self.buffer.obs[-1] = self.turn_obs.copy()
                     self.buffer.available_actions[-1] = self.turn_available_actions.copy()
+                    self.buffer.active_masks[-1] = self.turn_active_masks.copy()
 
                     # compute return and update network
                     self.compute()

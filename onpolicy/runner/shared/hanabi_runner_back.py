@@ -52,6 +52,7 @@ class HanabiRunner(Runner):
                     self.buffer.share_obs[-1] = self.turn_share_obs.copy()
                     self.buffer.obs[-1] = self.turn_obs.copy()
                     self.buffer.available_actions[-1] = self.turn_available_actions.copy()
+                    self.buffer.active_masks[-1] = self.turn_active_masks.copy()
 
                     # deal with rewards
                     # 1. shift all rewards
@@ -180,7 +181,6 @@ class HanabiRunner(Runner):
 
             # deal with all agents
             self.use_available_actions[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.available_actions.shape[3:]), dtype=np.float32)
-            # ! strange, should all agents be done? or only the left agents?
             self.turn_masks[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, 1), dtype=np.float32)
             self.turn_rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
             self.turn_rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
