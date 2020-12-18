@@ -1365,9 +1365,9 @@ class StarCraft2Env(MultiAgentEnv):
                     if self.unit_type_bits > 0:
                         type_id = self.get_unit_type_id(e_unit, False)
                         enemy_feats[e_id, ind + type_id] = 1  # unit type
+                        ind += self.unit_type_bits
 
                     if self.add_center_xy:
-                        ind = ind + type_id + 1
                         enemy_feats[e_id, ind] = (e_x - center_x) / self.max_distance_x  # center X
                         enemy_feats[e_id, ind+1] = (e_y - center_y) / self.max_distance_y  # center Y
 
