@@ -1443,7 +1443,7 @@ class StarCraft2Env(MultiAgentEnv):
             if self.state_last_action:
                 own_feats[ind:] = self.last_action[agent_id]
 
-        state = np.concatenate((ally_feats.flatten(),
+        state = np.concatenate((ally_feats.flatten(), 
                                 enemy_feats.flatten(),
                                 move_feats.flatten(),
                                 own_feats.flatten()))
