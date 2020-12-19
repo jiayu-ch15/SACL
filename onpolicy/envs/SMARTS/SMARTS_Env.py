@@ -237,9 +237,8 @@ class SMARTSEnv():
             headless=self.headless,
             seed=self.seed,
         )
-        self.current_observations = self.base_env.reset()
-        print(self.current_observations)
-        while True:pass
+        #self.current_observations = self.base_env.reset()
+
 
     @property
     def scenario_log(self):
