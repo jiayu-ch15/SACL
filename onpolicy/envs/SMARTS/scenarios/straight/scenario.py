@@ -24,8 +24,15 @@ traffic = t.Traffic(
     ]
 )
 
+missions = [
+t.Mission(t.Route(begin=("west", 0, 10), end=("east", 0, "max"))),
+t.Mission(t.Route(begin=("west", 1, 10), end=("east", 1, "max"))),
+t.Mission(t.Route(begin=("west", 2, 10), end=("east", 2, "max")))
+]
+
 scenario = t.Scenario(
     traffic={"all": traffic},
+    ego_missions=missions,
     bubbles=[
         t.Bubble(
             zone=t.PositionalZone(pos=(50, 0), size=(40, 20)),

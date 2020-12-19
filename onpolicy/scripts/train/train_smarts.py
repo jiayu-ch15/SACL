@@ -58,7 +58,8 @@ def parse_args(args, parser):
              "(see scenarios/ for some samples you can use) OR a directory of scenarios "
              "to sample from.",
         type=str,
-        default='/home/yuchao/project/onpolicy/onpolicy/envs/SMARTS/scenarios/loop'#####the path of SMARTS' scenario
+        #nargs='+',
+        default='../envs/SMARTS/scenarios/straight'#####the path of SMARTS' scenario
     )
     parser.add_argument(
         "--headless", help="Run the simulation in headless mode.", action="store_true"

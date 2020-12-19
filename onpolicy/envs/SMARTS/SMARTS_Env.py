@@ -222,7 +222,7 @@ class SMARTSEnv():
 
         self.agent_specs = {
             agent_id: AgentSpec(
-                interface=AgentInterface.from_type(AgentType.Laner, max_episode_steps=all_args.episode_length),
+                interface=AgentInterface.from_type(AgentType.Standard, max_episode_steps=all_args.episode_length),
                 observation_adapter=observation_adapter,
                 reward_adapter=reward_adapter,
                 action_adapter=action_adapter,
@@ -238,6 +238,7 @@ class SMARTSEnv():
             seed=self.seed,
         )
         #self.current_observations = self.base_env.reset()
+
 
     @property
     def scenario_log(self):
