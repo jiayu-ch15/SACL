@@ -2,11 +2,13 @@
 
 ## support algorithms
 
-| Algorithms | recurrent-verison | mlp-version | cnn-version |
-| :--------: | :---------------: | :---------: | :---------: |
-| MAPPO      | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
-| MAPPG |        :heavy_check_mark:           |       :heavy_check_mark:      |     :heavy_check_mark:        |
+| Algorithms | recurrent-verison | mlp-version | cnn-version | share-base version |
+| :--------: | :---------------: | :---------: | :---------: |:---------------: |
+| MAPPO      | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |:heavy_check_mark:        |
+| MAPPG |        :heavy_check_mark:           |       :heavy_check_mark:      |     :heavy_check_mark:        |:heavy_check_mark:        |
+| MATRPO[^1] |        :heavy_check_mark:           |       :heavy_check_mark:      |     :heavy_check_mark:        |:heavy_check_mark:        |
 |            |                   |             |             |
+[^1]: see trpo branch
 
 
 ## support environments:
