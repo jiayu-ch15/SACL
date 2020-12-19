@@ -1,7 +1,7 @@
 #!/bin/sh
 env="SMARTS"
-scenario="vulner" #simple_speaker_listner   simple_spread
-num_agents=1
+scenario="straight" #simple_speaker_listner   simple_spread
+num_agents=3
 algo="rmappo"
 exp="test"
 seed_max=1

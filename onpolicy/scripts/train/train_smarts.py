@@ -13,7 +13,7 @@ from onpolicy.config import get_config
 
 from onpolicy.envs.mpe.MPE_env import MPEEnv
 from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
-from onpolicy.envs.SMARTS.SMARTS_Env import SMARTSEnv,SmartVecEnv
+from onpolicy.envs.SMARTS.SMARTS_Env import SMARTSEnv,DummyVecEnv
 
 def make_train_env(all_args):
 
@@ -29,7 +29,7 @@ def make_train_env(all_args):
             return env
         return init_env
 
-    return SmartVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
+    return DummyVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
     #return SubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
 def make_eval_env(all_args):
@@ -52,15 +52,7 @@ def make_eval_env(all_args):
 
 def parse_args(args, parser):
     ####SMARTS
-    parser.add_argument(
-        "--scenarios",
-        help="A list of scenarios. Each element can be either the scenario to run "
-             "(see scenarios/ for some samples you can use) OR a directory of scenarios "
-             "to sample from.",
-        type=str,
-        #nargs='+',
-        default='../envs/SMARTS/scenarios/straight'#####the path of SMARTS' scenario
-    )
+
     parser.add_argument(
         "--headless", help="Run the simulation in headless mode.", action="store_true"
     )
@@ -82,6 +74,17 @@ def parse_args(args, parser):
 
     parser.add_argument('--scenario_name', type=str,
                         default='simple_spread', help="Which scenario to run on")
+
+    parser.add_argument(
+        "--scenario_path",
+        help="A list of scenarios. Each element can be either the scenario to run "
+             "(see scenarios/ for some samples you can use) OR a directory of scenarios "
+             "to sample from.",
+        type=str,
+        # nargs='+',
+        default='../envs/SMARTS/scenarios/'  #####the path of SMARTS' scenario
+    )
+
     parser.add_argument('--num_agents', type=int,
                         default=1, help="number of players")
 

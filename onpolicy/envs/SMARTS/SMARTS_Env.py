@@ -167,7 +167,7 @@ def action_adapter(policy_action):
     return action_dict[action]
 
 # single env
-class SmartVecEnv():
+class DummyVecEnv():
     def __init__(self, env_fns):
         self.envs = [fn() for fn in env_fns]
         env=self.envs[0]
@@ -214,7 +214,7 @@ class SMARTSEnv():
         self.agent_ids = ["Agent %i" % i for i in range(self.n_agents)]
         self.n_actions = 4
         self.scenarios = [
-            all_args.scenarios
+            (all_args.scenario_path+all_args.scenario_name)
         ]
 
         self.headless = all_args.headless####????????啥意思
@@ -222,7 +222,7 @@ class SMARTSEnv():
 
         self.agent_specs = {
             agent_id: AgentSpec(
-                interface=AgentInterface.from_type(AgentType.Standard, max_episode_steps=all_args.episode_length),
+                interface=AgentInterface.from_type(AgentType.Laner, max_episode_steps=all_args.episode_length),
                 observation_adapter=observation_adapter,
                 reward_adapter=reward_adapter,
                 action_adapter=action_adapter,
@@ -278,7 +278,7 @@ class SMARTSEnv():
         """ Returns all agent observations in a list """
         obs_n = []
         for agent_id in self.agent_ids:
-            obs_n.append(self.current_observations.get(agent_id, np.zeros(10)))
+            obs_n.append(self.current_observations.get(agent_id, np.zeros(self.observation_space[0].shape[0])))
         return list(obs_n)
 
     def get_obs_agent(self, agent_id):
