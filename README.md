@@ -18,7 +18,7 @@
 - agar.io
 
 ## TODOs:
-- [ ] SMARTS
+- [x] SMARTS
 - [ ] multi-agent FLOW
 
 
@@ -242,7 +242,23 @@ pip install lxml imutils gym-0.10.5
 python examples/sumo/sugiyama.py
 ```
 
-## 7. Docs：
+## 7. SMARTS
+
+
+1. git clone sumo, pay attention to use sumo version < 1.8
+
+2. `cmake ../.. & make -j` sumo and `make install` sumo, u can use `sumo` in the terminal, then u can see the version of sumo.
+
+   [^sumo]: if u encounter TIFF error, conduct: `conda remove libtiff==4.1.0`, actually we need to use `conda install libtiff==4.0.9`.
+   
+3. git clone smarts and `pip install -e .`[please remove some unneeded packages in requirement.txt]
+
+4. `scl scenario build --clean ./loop` loop is ur own scenerio.
+
+5. all is ready , enjoy `./train_smarts.sh`
+
+
+## 8. Docs：
 
 ```
 pip install sphinx sphinxcontrib-apidoc sphinx_rtd_theme recommonmark
