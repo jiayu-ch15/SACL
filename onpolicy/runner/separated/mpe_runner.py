@@ -1,6 +1,6 @@
     
 import time
-import wandb
+#import wandb
 import os
 import numpy as np
 from itertools import chain
@@ -258,7 +258,7 @@ class MPERunner(Runner):
             episode_rewards = []
             obs = self.envs.reset()
             if self.all_args.save_gifs:
-                image = envs.render('rgb_array', close=False)[0]
+                image = self.envs.render('rgb_array', close=False)[0]
                 all_frames.append(image)
 
             share_obs = []
@@ -324,7 +324,7 @@ class MPERunner(Runner):
                 masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
                 if self.all_args.save_gifs:
-                    image = envs.render('rgb_array', close=False)[0]
+                    image = self.envs.render('rgb_array', close=False)[0]
                     all_frames.append(image)
                     calc_end = time.time()
                     elapsed = calc_end - calc_start

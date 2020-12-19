@@ -3,6 +3,7 @@
 
 import os
 from setuptools import setup, find_packages
+import setuptools
 
 def get_version() -> str:
     # https://packaging.python.org/guides/single-sourcing-package-version/
@@ -28,5 +29,5 @@ setup(
         "Operating System :: OS Independent",
     ],
     keywords="multi-agent reinforcement learning platform pytorch",
-    python_requires='>=3.6',
+    python_requires='>=3.7',
 )

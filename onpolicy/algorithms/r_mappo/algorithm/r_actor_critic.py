@@ -108,7 +108,7 @@ class R_Critic(nn.Module):
 
         share_obs_space = get_shape_from_obs_space(share_obs_space)
         base = CNNBase if len(share_obs_space)==3 else MLPBase
-        self.base = base(args, share_obs_space, cat_self)
+        self.base = base(args, share_obs_space, cat_self, attn_internal=True)
 
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
