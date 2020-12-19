@@ -58,8 +58,7 @@ def parse_args(args, parser):
              "(see scenarios/ for some samples you can use) OR a directory of scenarios "
              "to sample from.",
         type=str,
-        #nargs='+',
-        default='/home/jiangz/SMARTS-master/scenarios/loop'#####the path of SMARTS' scenario
+        default='/home/yuchao/project/onpolicy/onpolicy/envs/SMARTS/scenarios/loop'#####the path of SMARTS' scenario
     )
     parser.add_argument(
         "--headless", help="Run the simulation in headless mode.", action="store_true"
@@ -82,7 +81,6 @@ def parse_args(args, parser):
 
     parser.add_argument('--scenario_name', type=str,
                         default='simple_spread', help="Which scenario to run on")
-    parser.add_argument("--num_landmarks", type=int, default=3)
     parser.add_argument('--num_agents', type=int,
                         default=1, help="number of players")
 
