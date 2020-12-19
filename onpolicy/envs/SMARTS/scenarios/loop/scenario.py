@@ -30,12 +30,19 @@ laner_actor = t.SocialAgentActor(
     name="keep-lane-agent", agent_locator="zoo.policies:keep-lane-agent-v0",
 )
 
+
+
+missions = [
+    t.Mission(t.Route(begin=("445633931", 0, 10), end=("445633931", 0, 100)))
+]
+
 gen_scenario(
     t.Scenario(
         traffic={"basic": traffic},
         social_agent_missions={
             "all": ([laner_actor, open_agent_actor], [t.Mission(route=t.RandomRoute())])
         },
+        ego_missions=missions,
         bubbles=[
             t.Bubble(
                 zone=t.PositionalZone(pos=(50, 0), size=(10, 15)),

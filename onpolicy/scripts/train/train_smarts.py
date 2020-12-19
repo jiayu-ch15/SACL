@@ -59,7 +59,7 @@ def parse_args(args, parser):
              "to sample from.",
         type=str,
         #nargs='+',
-        default='/home/jiangz/SMARTS-master/scenarios/loop'#####the path of SMARTS' scenario
+        default='../envs/SMARTS/scenarios/straight'#####the path of SMARTS' scenario
     )
     parser.add_argument(
         "--headless", help="Run the simulation in headless mode.", action="store_true"

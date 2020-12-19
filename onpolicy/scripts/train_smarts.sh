@@ -2,7 +2,7 @@
 env="SMARTS"
 scenario="simple_reference" #simple_speaker_listner   simple_spread
 num_landmarks=3
-num_agents=1
+num_agents=3
 algo="rmappo"
 exp="test"
 seed_max=1

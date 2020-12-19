@@ -129,34 +129,51 @@ class SMARTS(DirectObject):
         self._reset_agents_only = reset_agents_only  # a.k.a "teleportation"
         self._imitation_learning_mode = False
 
+        self.finalExitCallbacks = []
+
         # Global clock always proceeds by a fixed dt on each tick
         from direct.task.TaskManagerGlobal import taskMgr
         self.taskMgr=taskMgr
+        self.task_mgr = taskMgr
         self.taskMgr.clock.setMode(ClockObject.M_non_real_time)
         self.taskMgr.clock.setDt(timestep_sec)
         self._elapsed_sim_time = 0
 
-        engine = GraphicsEngine.get_global_ptr()
+
+        self.engine = GraphicsEngine.get_global_ptr()
+        self.graphicsEngine=self.engine
         fb_prop = FrameBufferProperties()
         fb_prop.rgb_color = 1
         fb_prop.color_bits = 3 * 8
         fb_prop.back_buffers = 1
-        pipe = GraphicsPipeSelection.get_global_ptr().make_default_pipe()
+        self.pipe = GraphicsPipeSelection.get_global_ptr().make_default_pipe()
 
         flags = GraphicsPipe.BFFbPropsOptional
         flags = flags | GraphicsPipe.BFRefuseWindow
-        self.win = engine.make_output(pipe, name="window", sort=0, fb_prop=fb_prop,
+        self.win = self.engine.make_output(self.pipe, name="window", sort=0, fb_prop=fb_prop,
                                  win_prop=WindowProperties(size=(800, 600)),
                                  flags=flags)
 
-        self.setBackgroundColor(0, 0, 0, 1)
+
+        #self.setBackgroundColor(0, 0, 0, 1)
+        #self.win.set_clear_color_active(True)
+        #self.win.set_clear_clolor((0.5,0.5,0.5,1))
+
         self.frameRateMeter = None
         # Displayed framerate is misleading since we are not using a realtime clock
         self.setFrameRateMeter(False)
 
-        self.render = NodePath("render")
-        #cam = render.attach_new_node(Camera("camera"))
+        #self.render = NodePath("render")
+        #cam = self.render.attach_new_node(Camera("camera"))
         #cam.node().set_lens(PerspectiveLens())
+        self.render = NodePath('render')
+        self.render.setAttrib(RescaleNormalAttrib.makeDefault())
+
+        self.render.setTwoSided(0)
+        self.backfaceCullingEnabled = 1
+        self.textureEnabled = 1
+        self.wireframeEnabled = 0
+
 
         # For macOS GUI. See our `BulletClient` docstring for details.
         # from .utils.bullet import BulletClient
@@ -478,7 +495,7 @@ class SMARTS(DirectObject):
             basePosition=self._scenario.map_bounding_box[2],
             globalScaling=1.1 * plane_scale,
         )
-
+    '''
     def destroy(self):
         """ Call this function to destroy the ShowBase and stop all
         its tasks, freeing all of the Panda resources.  Normally, you
@@ -532,9 +549,9 @@ class SMARTS(DirectObject):
 
         if hasattr(self, 'win'):
             del self.win
-            del self.winList
+            #del self.winList
             del self.pipe
-
+    '''
     def shutdown(self):
         self.taskMgr.remove('audioLoop')
         self.taskMgr.remove('igLoop')
