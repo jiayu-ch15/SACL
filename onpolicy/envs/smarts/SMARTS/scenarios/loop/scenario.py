@@ -42,7 +42,7 @@ gen_scenario(
         social_agent_missions={
             "all": ([laner_actor, open_agent_actor], [t.Mission(route=t.RandomRoute())])
         },
-        ego_missions=missions,
+        #ego_missions=missions,
         bubbles=[
             t.Bubble(
                 zone=t.PositionalZone(pos=(50, 0), size=(10, 15)),

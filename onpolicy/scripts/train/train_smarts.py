@@ -50,6 +50,9 @@ def parse_args(args, parser):
     parser.add_argument("--scenario_path", type=str, default='../envs/smarts/SMARTS/scenarios/')
     parser.add_argument('--scenario_name', type=str, default='straight', help="Which scenario to run")
     parser.add_argument('--num_agents', type=int, default=1, help="number of players")
+    parser.add_argument("--rews_mode", type=str, default="single_frame", help="used to specify env's rew")
+    parser.add_argument('--neighbor_num', type=int, default=3, help="number of neighbor you can see in the env")
+
 
     # sumo parameters, u'd better to use the default value.
     parser.add_argument("--headless", help="true|false envision disabled", action="store_true", default=False)

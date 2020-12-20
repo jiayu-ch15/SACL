@@ -127,6 +127,9 @@ class AgentType(IntEnum):
     """Controls multiple vehicles"""
     MPCTracker = 10
     """Agent performs trajectory tracking using model predictive control."""
+    VulnerDis = 11
+    """Our type."""
+    VulnerCon=12
 
 
 @dataclass(frozen=True)
@@ -306,6 +309,16 @@ class AgentInterface:
             interface = AgentInterface(
                 waypoints=True, action=ActionSpaceType.Continuous,
             )
+        elif requested_type == AgentType.VulnerDis:
+            interface = AgentInterface(
+                waypoints=True,
+                neighborhood_vehicles=True,
+                ogm=True, action=ActionSpaceType.Lane)
+        elif requested_type == AgentType.VulnerCon:
+            interface = AgentInterface(
+                waypoints=True,
+                neighborhood_vehicles=True,
+                ogm=True, action=ActionSpaceType.Continuous)
         else:
             raise Exception("Unsupported agent type %s" % requested_type)
 

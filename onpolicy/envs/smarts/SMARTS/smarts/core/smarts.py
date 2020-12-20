@@ -24,7 +24,13 @@ from collections import defaultdict
 from typing import List, Sequence
 
 from panda3d.core import loadPrcFileData
-
+import sys
+if sys.version_info >= (3, 0):
+    import builtins
+else:
+    import __builtin__ as builtins
+from direct.showbase import DConfig
+builtins.config = DConfig
 import gltf
 import numpy
 from direct.showbase.ShowBase import ShowBase
@@ -109,7 +115,7 @@ class SMARTS(DirectObject):
         gltf.patch_loader(self.loader)
 
         self._log = logging.getLogger(self.__class__.__name__)
-
+        self.__configAspectRatio = ConfigVariableDouble('aspect-ratio', 0).getValue()
         self._is_setup = False
         self._scenario: Scenario = None
         self._envision: EnvisionClient = envision
@@ -163,10 +169,13 @@ class SMARTS(DirectObject):
         # Displayed framerate is misleading since we are not using a realtime clock
         self.setFrameRateMeter(False)
 
-        #self.render = NodePath("render")
-        #cam = self.render.attach_new_node(Camera("camera"))
-        #cam.node().set_lens(PerspectiveLens())
-        self.render = NodePath('render')
+        self.render = NodePath("render")
+        self.cam = self.render.attach_new_node(Camera("camera"))
+        self.cam.node().set_lens(PerspectiveLens())
+        self.camera=None
+        self.camList=[]
+        self.mouse2cam = NodePath(Transform2SG('mouse2cam'))
+
         self.render.setAttrib(RescaleNormalAttrib.makeDefault())
 
         self.render.setTwoSided(0)
@@ -495,6 +504,227 @@ class SMARTS(DirectObject):
             basePosition=self._scenario.map_bounding_box[2],
             globalScaling=1.1 * plane_scale,
         )
+
+    def makeCamera(self, win, sort = 0, scene = None,
+                   displayRegion = (0, 1, 0, 1), stereo = None,
+                   aspectRatio = None, clearDepth = 0, clearColor = None,
+                   lens = None, camName = 'cam', mask = None,
+                   useCamera = None):
+        """
+        Makes a new 3-d camera associated with the indicated window,
+        and creates a display region in the indicated subrectangle.
+
+        If stereo is True, then a stereo camera is created, with a
+        pair of DisplayRegions.  If stereo is False, then a standard
+        camera is created.  If stereo is None or omitted, a stereo
+        camera is created if the window says it can render in stereo.
+
+        If useCamera is not None, it is a NodePath to be used as the
+        camera to apply to the window, rather than creating a new
+        camera.
+
+        :rtype: panda3d.core.NodePath
+        """
+        # self.camera is the parent node of all cameras: a node that
+        # we can move around to move all cameras as a group.
+        if self.camera is None:
+            # We make it a ModelNode with the PTLocal flag, so that
+            # a wayward flatten operations won't attempt to mangle the
+            # camera.
+            self.camera = self.render.attachNewNode(ModelNode('camera'))
+            self.camera.node().setPreserveTransform(ModelNode.PTLocal)
+            builtins.camera = self.camera
+
+            self.mouse2cam.node().setNode(self.camera.node())
+
+        if useCamera:
+            # Use the existing camera node.
+            cam = useCamera
+            camNode = useCamera.node()
+            assert(isinstance(camNode, Camera))
+            lens = camNode.getLens()
+            cam.reparentTo(self.camera)
+
+        else:
+            # Make a new Camera node.
+            camNode = Camera(camName)
+            if lens is None:
+                lens = PerspectiveLens()
+
+                if aspectRatio is None:
+                    aspectRatio = self.getAspectRatio(win)
+                lens.setAspectRatio(aspectRatio)
+
+            cam = self.camera.attachNewNode(camNode)
+
+        if lens is not None:
+            camNode.setLens(lens)
+
+        if scene is not None:
+            camNode.setScene(scene)
+
+        if mask is not None:
+            if (isinstance(mask, int)):
+                mask = BitMask32(mask)
+            camNode.setCameraMask(mask)
+
+        if self.cam is None:
+            self.cam = cam
+            self.camNode = camNode
+            self.camLens = lens
+
+        self.camList.append(cam)
+
+        # Now, make a DisplayRegion for the camera.
+        if stereo is not None:
+            if stereo:
+                dr = win.makeStereoDisplayRegion(*displayRegion)
+            else:
+                dr = win.makeMonoDisplayRegion(*displayRegion)
+        else:
+            dr = win.makeDisplayRegion(*displayRegion)
+
+        dr.setSort(sort)
+
+        # By default, we do not clear 3-d display regions (the entire
+        # window will be cleared, which is normally sufficient).  But
+        # we will if clearDepth is specified.
+        if clearDepth:
+            dr.setClearDepthActive(1)
+
+        if clearColor:
+            dr.setClearColorActive(1)
+            dr.setClearColor(clearColor)
+
+        dr.setCamera(cam)
+
+        return cam
+
+    def getAspectRatio(self, win = None):
+        # Returns the actual aspect ratio of the indicated (or main
+        # window), or the default aspect ratio if there is not yet a
+        # main window.
+
+        # If the config it set, we return that
+        if self.__configAspectRatio:
+            return self.__configAspectRatio
+
+        aspectRatio = 1
+
+        if win is None:
+            win = self.win
+
+        if win is not None and win.hasSize() and win.getSbsLeftYSize() != 0:
+            aspectRatio = float(win.getSbsLeftXSize()) / float(win.getSbsLeftYSize())
+        else:
+            if win is None or not hasattr(win, "getRequestedProperties"):
+                props = WindowProperties.getDefault()
+            else:
+                props = win.getRequestedProperties()
+                if not props.hasSize():
+                    props = WindowProperties.getDefault()
+
+            if props.hasSize() and props.getYSize() != 0:
+                aspectRatio = float(props.getXSize()) / float(props.getYSize())
+
+        if aspectRatio == 0:
+            return 1
+
+        return aspectRatio
+
+    def makeCamera2d(self, win, sort = 10,
+                     displayRegion = (0, 1, 0, 1), coords = (-1, 1, -1, 1),
+                     lens = None, cameraName = None):
+        """
+        Makes a new camera2d associated with the indicated window, and
+        assigns it to render the indicated subrectangle of render2d.
+
+        :rtype: panda3d.core.NodePath
+        """
+        dr = win.makeMonoDisplayRegion(*displayRegion)
+        dr.setSort(sort)
+
+        # Enable clearing of the depth buffer on this new display
+        # region (see the comment in setupRender2d, above).
+        dr.setClearDepthActive(1)
+
+        # Make any texture reloads on the gui come up immediately.
+        dr.setIncompleteRender(False)
+
+        left, right, bottom, top = coords
+
+        # Now make a new Camera node.
+        if (cameraName):
+            cam2dNode = Camera('cam2d_' + cameraName)
+        else:
+            cam2dNode = Camera('cam2d')
+
+        if lens is None:
+            lens = OrthographicLens()
+            lens.setFilmSize(right - left, top - bottom)
+            lens.setFilmOffset((right + left) * 0.5, (top + bottom) * 0.5)
+            lens.setNearFar(-1000, 1000)
+        cam2dNode.setLens(lens)
+
+        # self.camera2d is the analog of self.camera, although it's
+        # not as clear how useful it is.
+        if self.camera2d is None:
+            self.camera2d = self.render2d.attachNewNode('camera2d')
+
+        camera2d = self.camera2d.attachNewNode(cam2dNode)
+        dr.setCamera(camera2d)
+
+        if self.cam2d is None:
+            self.cam2d = camera2d
+
+        return camera2d
+
+    def makeCamera2dp(self, win, sort = 20,
+                      displayRegion = (0, 1, 0, 1), coords = (-1, 1, -1, 1),
+                      lens = None, cameraName = None):
+        """
+        Makes a new camera2dp associated with the indicated window, and
+        assigns it to render the indicated subrectangle of render2dp.
+
+        :rtype: panda3d.core.NodePath
+        """
+        dr = win.makeMonoDisplayRegion(*displayRegion)
+        dr.setSort(sort)
+
+        # Unlike render2d, we don't clear the depth buffer for
+        # render2dp.  Caveat emptor.
+
+        if hasattr(dr, 'setIncompleteRender'):
+            dr.setIncompleteRender(False)
+
+        left, right, bottom, top = coords
+
+        # Now make a new Camera node.
+        if (cameraName):
+            cam2dNode = Camera('cam2dp_' + cameraName)
+        else:
+            cam2dNode = Camera('cam2dp')
+
+        if lens is None:
+            lens = OrthographicLens()
+            lens.setFilmSize(right - left, top - bottom)
+            lens.setFilmOffset((right + left) * 0.5, (top + bottom) * 0.5)
+            lens.setNearFar(-1000, 1000)
+        cam2dNode.setLens(lens)
+
+        # self.camera2d is the analog of self.camera, although it's
+        # not as clear how useful it is.
+        if self.camera2dp is None:
+            self.camera2dp = self.render2dp.attachNewNode('camera2dp')
+
+        camera2dp = self.camera2dp.attachNewNode(cam2dNode)
+        dr.setCamera(camera2dp)
+
+        if self.cam2dp is None:
+            self.cam2dp = camera2dp
+
+        return camera2dp
+
     '''
     def destroy(self):
         """ Call this function to destroy the ShowBase and stop all
