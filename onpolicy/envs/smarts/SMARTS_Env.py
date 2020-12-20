@@ -2,10 +2,10 @@ import gym
 import numpy as np
 from smarts.core.agent_interface import AgentInterface, AgentType
 from smarts.core.agent import AgentSpec, AgentPolicy
-# from envs.smarts_observations import lane_ttc_observation_adapter
 from typing import Callable
 from dataclasses import dataclass
 from smarts.core.utils.math import vec_2d, vec_to_radians, squared_dist
+from functools import reduce
 
 
 @dataclass
@@ -24,6 +24,13 @@ _LANE_TTC_OBSERVATION_SPACE = gym.spaces.Dict(
         "ego_ttc": gym.spaces.Box(low=-1e10, high=1e10, shape=(3,)),
     }
 )
+
+def get_dict_dim(space_dict):
+    dim = 0
+    for key in space_dict.spaces.keys():
+        space = list(space_dict[key].shape)
+        dim += reduce(lambda x, y: x*y, space)
+    return dim
 
 
 def _lane_ttc_observation_adapter(env_observation):
@@ -52,7 +59,6 @@ def _lane_ttc_observation_adapter(env_observation):
 lane_ttc_observation_adapter = Adapter(
     space=_LANE_TTC_OBSERVATION_SPACE, transform=_lane_ttc_observation_adapter
 )
-
 
 def _ego_ttc_lane_dist(env_observation, ego_lane_index):
     ttc_by_p, lane_dist_by_p = _ttc_by_path(env_observation)
@@ -166,58 +172,20 @@ def action_adapter(policy_action):
     action_dict = ["keep_lane", "slow_down", "change_lane_left", "change_lane_right"]
     return action_dict[action]
 
-# single env
-class DummyVecEnv():
-    def __init__(self, env_fns):
-        self.envs = [fn() for fn in env_fns]
-        env=self.envs[0]
-        self.actions = None
-        self.observation_space = env.observation_space
-        self.share_observation_space = env.share_observation_space
-        self.action_space = env.action_space
-
-    def step(self,actions):
-        self.actions = actions
-
-        results = [env.step(a) for (a, env) in zip(self.actions, self.envs)]
-        obs, rews, dones, infos = map(np.array,zip(*results))
-
-        for (i, done) in enumerate(dones):
-            if 'bool' in done.__class__.__name__:
-                if done:
-                    obs[i] = self.envs[i].reset()
-            else:
-                if np.all(done):
-                    obs[i] = self.envs[i].reset()
-
-        self.actions = None
-        return obs, rews, dones, infos
-
-    def reset(self):
-        obs = [env.reset() for env in self.envs]
-        return np.array(obs)
-
-    def close(self):
-        for env in self.envs:
-            env.close()
-
-
 class SMARTSEnv():
-    def __init__(self, all_args,seed):
+    def __init__(self, all_args, seed):
 
-        #self.episode_limit = kwargs['episode_limit']
         self.n_agents = all_args.num_agents
-        self.observation_space = [gym.spaces.Box(low=-1e10, high=1e10, shape=(10,))] * self.n_agents
-        self.share_observation_space = self.observation_space
+        self.obs_dim = get_dict_dim(_LANE_TTC_OBSERVATION_SPACE)
+        self.act_dim = 4
+        self.observation_space = [gym.spaces.Box(low=-1e10, high=1e10, shape=(self.obs_dim,))] * self.n_agents
+        self.share_observation_space = [gym.spaces.Box(low=-1e10, high=1e10, shape=(self.obs_dim,))] * self.n_agents
+        self.action_space = [gym.spaces.Discrete(self.act_dim)] * self.n_agents
 
-        self.action_space = [gym.spaces.Discrete(4)] * self.n_agents
         self.agent_ids = ["Agent %i" % i for i in range(self.n_agents)]
-        self.n_actions = 4
-        self.scenarios = [
-            (all_args.scenario_path+all_args.scenario_name)
-        ]
+        self.scenarios = [(all_args.scenario_path + all_args.scenario_name)]
 
-        self.headless = all_args.headless####????????啥意思
+        self.headless = all_args.headless
         self.seed = seed
 
         self.agent_specs = {
@@ -231,14 +199,12 @@ class SMARTSEnv():
         }
 
         self.base_env = gym.make(
-            "smarts.env:hiway-v0",
+            id="smarts.env:hiway-v0",
             scenarios=self.scenarios,
             agent_specs=self.agent_specs,
             headless=self.headless,
             seed=self.seed,
         )
-        #self.current_observations = self.base_env.reset()
-
 
     @property
     def scenario_log(self):
@@ -278,7 +244,7 @@ class SMARTSEnv():
         """ Returns all agent observations in a list """
         obs_n = []
         for agent_id in self.agent_ids:
-            obs_n.append(self.current_observations.get(agent_id, np.zeros(self.observation_space[0].shape[0])))
+            obs_n.append(self.current_observations.get(agent_id, np.zeros(self.observation_space[agent_id].shape[0])))
         return list(obs_n)
 
     def get_obs_agent(self, agent_id):

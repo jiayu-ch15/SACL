@@ -6,17 +6,12 @@ import socket
 import setproctitle
 import numpy as np
 from pathlib import Path
-
 import torch
-
 from onpolicy.config import get_config
-
-from onpolicy.envs.mpe.MPE_env import MPEEnv
 from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
-from onpolicy.envs.SMARTS.SMARTS_Env import SMARTSEnv,DummyVecEnv
+from onpolicy.envs.smarts.SMARTS_Env import SMARTSEnv
 
 def make_train_env(all_args):
-
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "SMARTS":
@@ -51,43 +46,29 @@ def make_eval_env(all_args):
 
 
 def parse_args(args, parser):
-    ####SMARTS
+    # smarts parameters, need to include these parameters in the bash file.
+    parser.add_argument("--scenario_path", type=str, default='../envs/smarts/SMARTS/scenarios/')
+    parser.add_argument('--scenario_name', type=str, default='straight', help="Which scenario to run")
+    parser.add_argument('--num_agents', type=int, default=1, help="number of players")
 
-    parser.add_argument(
-        "--headless", help="Run the simulation in headless mode.", action="store_true"
-    )
-    parser.add_argument(
-        "--sumo-port", help="Run SUMO with a specified port.", type=int, default=None
-    )
-    parser.add_argument(
-        "--episodes",
-        help="The number of episodes to run the simulation for.",
-        type=int,
-        default=10,
-    )
-    parser.add_argument(
-        "--auth_key",
-        type=str,
-        default=None,
-        help="Authentication key for connection to run agent",
-    )
+    # sumo parameters, u'd better to use the default value.
+    parser.add_argument("--headless", help="true|false envision disabled", action="store_true", default=False)
+    parser.add_argument("--visdom", help="true|false visdom integration", action="store_true", default=False)
+    
+    parser.add_argument("--sumo_auto_start", help="true|false sumo will start automatically", action="store_false", default=True)
+    parser.add_argument("--sumo_headless", help="true|false for SUMO visualization disabled [sumo-gui|sumo]", action="store_false", default=True)
+    parser.add_argument("--sumo_port", help="used to specify a specific sumo port.", type=int, default=None)
+    parser.add_argument("--num_external_sumo_clients", help="the number of SUMO clients beyond SMARTS", type=int, default=0)
 
-    parser.add_argument('--scenario_name', type=str,
-                        default='simple_spread', help="Which scenario to run on")
-
-    parser.add_argument(
-        "--scenario_path",
-        help="A list of scenarios. Each element can be either the scenario to run "
-             "(see scenarios/ for some samples you can use) OR a directory of scenarios "
-             "to sample from.",
-        type=str,
-        # nargs='+',
-        default='../envs/SMARTS/scenarios/'  #####the path of SMARTS' scenario
-    )
-
-    parser.add_argument('--num_agents', type=int,
-                        default=1, help="number of players")
-
+    parser.add_argument("--auth_key", type=str, default=None, help="Authentication key of type string for communication with Zoo Workers")
+    parser.add_argument("--zoo_workers", type=str, default=None, help="List of (ip, port) tuples of Zoo Workers, used to instantiate remote social agents")
+    
+    parser.add_argument("--envision_record_data_replay_path", type=str, default=None, help="used to specify envision's data replay output directory")
+    parser.add_argument("--envision_endpoint", type=str, default=None, help="used to specify envision's uri")
+    parser.add_argument("--endless_traffic", help="Run the simulation in endless mode.", action="store_false", default=True)
+    
+    parser.add_argument("--time_resolution", help="the step length for all components of the simulation", type=float, default=0.1)
+    
     all_args = parser.parse_known_args(args)[0]
 
     return all_args
