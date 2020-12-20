@@ -1,11 +1,19 @@
-import gym
 import numpy as np
 from smarts.core.agent_interface import AgentInterface, AgentType
-from smarts.core.agent import AgentSpec, AgentPolicy
+from smarts.core.agent import AgentSpec
 from typing import Callable
 from dataclasses import dataclass
 from smarts.core.utils.math import vec_2d, vec_to_radians, squared_dist
 from functools import reduce
+import logging
+import gym
+import smarts
+from smarts.core.smarts import SMARTS
+from smarts.core.sumo_traffic_simulation import SumoTrafficSimulation
+from smarts.core.scenario import Scenario
+from smarts.core.utils.visdom_client import VisdomClient
+from envision.client import Client as Envision
+
 
 
 @dataclass
@@ -174,6 +182,10 @@ def action_adapter(policy_action):
 
 class SMARTSEnv():
     def __init__(self, all_args, seed):
+        self.all_args=all_args
+        self._log = logging.getLogger(self.__class__.__name__)
+        smarts.core.seed(seed)
+        self._dones_registered = 0
 
         self.n_agents = all_args.num_agents
         self.obs_dim = get_dict_dim(_LANE_TTC_OBSERVATION_SPACE)
@@ -188,7 +200,7 @@ class SMARTSEnv():
         self.headless = all_args.headless
         self.seed = seed
 
-        self.agent_specs = {
+        self._agent_specs = {
             agent_id: AgentSpec(
                 interface=AgentInterface.from_type(AgentType.Laner, max_episode_steps=all_args.episode_length),
                 observation_adapter=observation_adapter,
@@ -197,41 +209,137 @@ class SMARTSEnv():
             )
             for agent_id in self.agent_ids
         }
+        self.agent_interfaces = {
+            agent_id: agent.interface for agent_id, agent in self._agent_specs.items()
+        }
 
-        self.base_env = gym.make(
-            id="smarts.env:hiway-v0",
-            scenarios=self.scenarios,
-            agent_specs=self.agent_specs,
-            headless=self.headless,
-            seed=self.seed,
+        self._scenarios_iterator = Scenario.scenario_variations(
+            self.scenarios, list(self._agent_specs.keys()), all_args.shuffle_scenarios,
+        )
+
+        self.envision_client = None
+        if not all_args.headless:
+            self.envision_client = Envision(
+                endpoint=all_args.envision_endpoint, output_dir=all_args.envision_record_data_replay_path
+            )
+
+        self.visdom_client = None
+        if all_args.visdom:
+            self.visdom_client = VisdomClient()
+
+        self._smarts = SMARTS(
+            agent_interfaces=self.agent_interfaces,
+            traffic_sim=SumoTrafficSimulation(
+                headless=all_args.sumo_headless,
+                time_resolution=all_args.timestep_sec,
+                num_external_sumo_clients=all_args.num_external_sumo_clients,
+                sumo_port=all_args.sumo_port,
+                auto_start=all_args.sumo_auto_start,
+                endless_traffic=all_args.endless_traffic,
+            ),
+            envision=self.envision_client,
+            visdom=self.visdom_client,
+            timestep_sec=all_args.timestep_sec,
+            zoo_workers=all_args.zoo_workers,
+            auth_key=all_args.auth_key,
         )
 
     @property
     def scenario_log(self):
-        self.base_env.scenario_log
+        """Simulation step logs.
+
+        Returns:
+            A dictionary with the following:
+                timestep_sec:
+                    The timestep of the simulation.
+                scenario_map:
+                    The name of the current scenario.
+                scenario_routes:
+                    The routes in the map.
+                mission_hash:
+                    The hash identifier for the current scenario.
+        """
+
+        scenario = self._smarts.scenario
+        return {
+            "timestep_sec": self._smarts.timestep_sec,
+            "scenario_map": scenario.name,
+            "scenario_routes": scenario.route or "",
+            "mission_hash": str(hash(frozenset(scenario.missions.items()))),
+        }
+
+    def base_reset(self):
+        scenario = next(self._scenarios_iterator)
+
+        self._dones_registered = 0
+        env_observations = self._smarts.reset(scenario)
+
+        observations = {
+            agent_id: self._agent_specs[agent_id].observation_adapter(obs)
+            for agent_id, obs in env_observations.items()
+        }
+
+        return observations
 
     def reset(self):
         try:
-            self.current_observations = self.base_env.reset()
+            self.current_observations = self.base_reset()
         except:
-            self.base_env.close()
-            self.base_env = gym.make(
-                "smarts.env:hiway-v0",
-                scenarios=self.scenarios,
-                agent_specs=self.agent_specs,
-                headless=self.headless,
-                seed=self.seed,
+            self.close()
+            self._smarts = SMARTS(
+                agent_interfaces=self.agent_interfaces,
+                traffic_sim=SumoTrafficSimulation(
+                    headless=self.all_args.sumo_headless,
+                    time_resolution=self.all_args.timestep_sec,
+                    num_external_sumo_clients=self.all_args.num_external_sumo_clients,
+                    sumo_port=self.all_args.sumo_port,
+                    auto_start=self.all_args.sumo_auto_start,
+                    endless_traffic=self.all_args.endless_traffic,
+                ),
+                envision=self.envision_client,
+                visdom=self.visdom_client,
+                timestep_sec=self.all_args.timestep_sec,
+                zoo_workers=self.all_args.zoo_workers,
+                auth_key=self.all_args.auth_key,
             )
-            self.current_observations = self.base_env.reset()
+            self.current_observations = self.base_reset()
 
         return self.get_obs()
 
-    def close(self):
-        self.base_env.close()
+
+    def base_step(self, agent_actions):
+        agent_actions = {
+            agent_id: self._agent_specs[agent_id].action_adapter(action)
+            for agent_id, action in agent_actions.items()
+        }
+
+        observations, rewards, agent_dones, extras = self._smarts.step(agent_actions)
+
+        infos = {
+            agent_id: {"score": value, "env_obs": observations[agent_id]}
+            for agent_id, value in extras["scores"].items()
+        }
+
+        for agent_id in observations:
+            agent_spec = self._agent_specs[agent_id]
+            observation = observations[agent_id]
+            reward = rewards[agent_id]
+            info = infos[agent_id]
+
+            rewards[agent_id] = agent_spec.reward_adapter(observation, reward)
+            observations[agent_id] = agent_spec.observation_adapter(observation)
+            infos[agent_id] = agent_spec.info_adapter(observation, reward, info)
+
+        for done in agent_dones.values():
+            self._dones_registered += 1 if done else 0
+
+        agent_dones["__all__"] = self._dones_registered == len(self._agent_specs)
+
+        return observations, rewards, agent_dones, infos
 
     def step(self, action_n):
         actions = dict(zip(self.agent_ids, action_n))
-        self.current_observations, rewards, dones, infos = self.base_env.step(actions)
+        self.current_observations, rewards, dones, infos = self.base_step(actions)
         r_n = []
         d_n = []
         for agent_id in self.agent_ids:
@@ -240,11 +348,12 @@ class SMARTSEnv():
 
         return self.get_obs(),r_n, d_n, infos
 
+
     def get_obs(self):
         """ Returns all agent observations in a list """
         obs_n = []
-        for agent_id in self.agent_ids:
-            obs_n.append(self.current_observations.get(agent_id, np.zeros(self.observation_space[agent_id].shape[0])))
+        for i,agent_id in enumerate(self.agent_ids):
+            obs_n.append(self.current_observations.get(agent_id, np.zeros(self.observation_space[i].shape[0])))
         return list(obs_n)
 
     def get_obs_agent(self, agent_id):
@@ -262,3 +371,10 @@ class SMARTSEnv():
         """ Returns the shape of the state"""
         return self.get_obs_size() * self.n_agents
 
+    def render(self, mode="human"):
+        """Does nothing."""
+        pass
+
+    def close(self):
+        if self._smarts is not None:
+            self._smarts.destroy()

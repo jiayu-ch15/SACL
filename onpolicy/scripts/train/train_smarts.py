@@ -54,11 +54,15 @@ def parse_args(args, parser):
     # sumo parameters, u'd better to use the default value.
     parser.add_argument("--headless", help="true|false envision disabled", action="store_true", default=False)
     parser.add_argument("--visdom", help="true|false visdom integration", action="store_true", default=False)
-    
+    parser.add_argument("--shuffle_scenarios", action="store_false", default=True)
+
+
     parser.add_argument("--sumo_auto_start", help="true|false sumo will start automatically", action="store_false", default=True)
     parser.add_argument("--sumo_headless", help="true|false for SUMO visualization disabled [sumo-gui|sumo]", action="store_false", default=True)
     parser.add_argument("--sumo_port", help="used to specify a specific sumo port.", type=int, default=None)
     parser.add_argument("--num_external_sumo_clients", help="the number of SUMO clients beyond SMARTS", type=int, default=0)
+    parser.add_argument("--timestep_sec", help="the step length for all components of the simulation", type=float, default=0.1)
+
 
     parser.add_argument("--auth_key", type=str, default=None, help="Authentication key of type string for communication with Zoo Workers")
     parser.add_argument("--zoo_workers", type=str, default=None, help="List of (ip, port) tuples of Zoo Workers, used to instantiate remote social agents")
