@@ -15,7 +15,6 @@ from smarts.core.utils.visdom_client import VisdomClient
 from envision.client import Client as Envision
 
 
-
 @dataclass
 class Adapter:
     space: gym.Space
