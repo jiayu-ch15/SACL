@@ -346,13 +346,13 @@ class SMARTSEnv():
             r_n.append([rewards.get(agent_id, 0.)])
             d_n.append(dones.get(agent_id, True))
 
-        return self.get_obs(),r_n, d_n, infos
+        return self.get_obs(), r_n, d_n, infos
 
 
     def get_obs(self):
         """ Returns all agent observations in a list """
         obs_n = []
-        for i,agent_id in enumerate(self.agent_ids):
+        for i, agent_id in enumerate(self.agent_ids):
             obs_n.append(self.current_observations.get(agent_id, np.zeros(self.observation_space[i].shape[0])))
         return list(obs_n)
 

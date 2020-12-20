@@ -2,9 +2,14 @@
 env="SMARTS"
 scenario="straight"
 num_agents=3
+num_lanes=3
 algo="rmappo"
 exp="debug"
 seed_max=1
+
+echo "building scenario ${scenario} ..."
+scl scenario build-attack --clean --num_agents ${num_agents} --num_lanes ${num_lanes} ../envs/smarts/SMARTS/scenarios/${scenario}
+echo "build scenario ${scenario} successfully!"
 
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
 for seed in `seq ${seed_max}`;
