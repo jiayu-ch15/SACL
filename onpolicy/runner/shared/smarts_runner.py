@@ -60,20 +60,20 @@ class SMARTSRunner(Runner):
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
 
-                if self.env_name == "MPE":
+                if self.env_name == "SMARTS":
                     env_infos = {}
                     for agent_id in range(self.num_agents):
-                        idv_rews = []
+                        scores = []
                         for info in infos:
-                            if 'individual_reward' in info[agent_id].keys():
-                                idv_rews.append(info[agent_id]['individual_reward'])
-                        agent_k = 'agent%i/individual_rewards' % agent_id
-                        env_infos[agent_k] = idv_rews
+                            if 'scores' in info[agent_id].keys():
+                                scores.append(info[agent_id]['scores'])
+                        agent_k = 'agent%i/scores' % agent_id
+                        env_infos[agent_k] = scores
 
                 train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
                 print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
                 self.log_train(train_infos, total_num_steps)
-                #self.log_env(env_infos, total_num_steps)
+                self.log_env(env_infos, total_num_steps)
 
             # eval
             if episode % self.eval_interval == 0 and self.use_eval:

@@ -316,10 +316,10 @@ class SMARTSEnv():
         observations, rewards, agent_dones, extras = self._smarts.step(agent_actions)
 
         infos = {
-            agent_id: {"score": value, "env_obs": observations[agent_id]}
+            agent_id: {"scores": value}
             for agent_id, value in extras["scores"].items()
         }
-
+    
         for agent_id in observations:
             agent_spec = self._agent_specs[agent_id]
             observation = observations[agent_id]
@@ -340,20 +340,23 @@ class SMARTSEnv():
     def step(self, action_n):
         actions = dict(zip(self.agent_ids, action_n))
         self.current_observations, rewards, dones, infos = self.base_step(actions)
+        obs_n = []
         r_n = []
         d_n = []
+        info_n = []
         for agent_id in self.agent_ids:
+            obs_n.append(self.current_observations.get(agent_id, np.zeros(self.obs_dim)))
             r_n.append([rewards.get(agent_id, 0.)])
             d_n.append(dones.get(agent_id, True))
-
-        return self.get_obs(), r_n, d_n, infos
+            info_n.append(infos.get(agent_id, {'scores':0.}))
+        return obs_n, r_n, d_n, info_n
 
 
     def get_obs(self):
         """ Returns all agent observations in a list """
         obs_n = []
         for i, agent_id in enumerate(self.agent_ids):
-            obs_n.append(self.current_observations.get(agent_id, np.zeros(self.observation_space[i].shape[0])))
+            obs_n.append(self.current_observations.get(agent_id, np.zeros(self.obs_dim)))
         return list(obs_n)
 
     def get_obs_agent(self, agent_id):
