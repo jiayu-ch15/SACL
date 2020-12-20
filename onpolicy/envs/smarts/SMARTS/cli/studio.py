@@ -36,6 +36,68 @@ from smarts.sstudio.sumo2mesh import generate_glb_from_sumo_network
 def scenario_cli():
     pass
 
+@scenario_cli.command(name="build-attack", help="Generate a single scenario")
+@click.option(
+    "--clean",
+    is_flag=True,
+    default=False,
+    help="Clean previously generated artifacts first",
+)
+@click.argument("scenario", type=click.Path(exists=True), metavar="<scenario>")
+@click.option("--num_agents", type=int, default=2)
+@click.option("--num_lanes", type=int, default=4)
+def build_scenario(clean, scenario, num_agents, num_lanes):
+    _build_attack_scenario(clean, scenario, num_agents, num_lanes)
+
+
+def _build_attack_scenario(clean, scenario, num_agents, num_lanes):
+    click.echo(f"build-scenario {scenario}")
+    if clean:
+        _clean(scenario)
+
+    scenario_root = Path(scenario)
+    map_net = scenario_root / "map.net.xml"
+    map_glb = scenario_root / "map.glb"
+    generate_glb_from_sumo_network(str(map_net), str(map_glb))
+
+    requirements_txt = scenario_root / "requirements.txt"
+    if requirements_txt.exists():
+        import zoo.policies
+
+        with pkg_resources.path(zoo.policies, "") as path:
+            # Serve policies through the static file server, then kill after
+            # we've installed scenario requirements
+            pip_index_proc = subprocess.Popen(
+                ["twistd", "-n", "web", "--path", path],
+                # Hide output to keep display simple
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.STDOUT,
+            )
+
+            pip_install_cmd = [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "-r",
+                str(requirements_txt),
+            ]
+
+            click.echo(
+                f"Installing scenario dependencies via '{' '.join(pip_install_cmd)}'"
+            )
+
+            try:
+                subprocess.check_call(pip_install_cmd, stdout=subprocess.DEVNULL)
+            finally:
+                pip_index_proc.terminate()
+                pip_index_proc.wait()
+    
+    scenario_py = scenario_root / "scenario.py"
+    if scenario_py.exists():
+        cmd = str(sys.executable) + " " + str(scenario_py) + " --num_agents " + str(num_agents) + " --num_lanes " + str(num_lanes)
+        subprocess.check_call(cmd, shell=True)
+
 
 @scenario_cli.command(name="build", help="Generate a single scenario")
 @click.option(
@@ -95,6 +157,7 @@ def _build_single_scenario(clean, scenario):
     scenario_py = scenario_root / "scenario.py"
     if scenario_py.exists():
         subprocess.check_call([sys.executable, scenario_py])
+
 
 
 @scenario_cli.command(
