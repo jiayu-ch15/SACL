@@ -147,6 +147,8 @@ class SMARTS(DirectObject):
 
 
         self.engine = GraphicsEngine.get_global_ptr()
+
+
         self.graphicsEngine=self.engine
         fb_prop = FrameBufferProperties()
         fb_prop.rgb_color = 1
