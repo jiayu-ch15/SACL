@@ -30,12 +30,11 @@ def make_eval_env(all_args):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "SMARTS":
-                env = MPEEnv(all_args)
+                env=SMARTSEnv(all_args,all_args.seed* 50000 + rank * 1000)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
                 raise NotImplementedError
-            env.seed(all_args.seed * 50000 + rank * 10000)
             return env
         return init_env
     if all_args.n_eval_rollout_threads == 1:
@@ -49,11 +48,13 @@ def parse_args(args, parser):
     parser.add_argument("--scenario_path", type=str, default='../envs/smarts/SMARTS/scenarios/')
     parser.add_argument('--scenario_name', type=str, default='straight', help="Which scenario to run")
     parser.add_argument('--num_agents', type=int, default=1, help="number of players")
+
     parser.add_argument('--born_position_offset', nargs='+', type=int, default=1, help="distance between agents' borning position to the leftmost edge")
     parser.add_argument('--born_lane_id', nargs='+', type=int, default=1, help="index of lane that agents locate at when borning")
     parser.add_argument('--target_position_offset', nargs='+', type=int, default=1, help="distance between agents' target position to the middle")
     parser.add_argument('--target_lane_id', nargs='+', type=int, default=1, help="index of lane that agents target at")
     parser.add_argument("--rews_mode", type=str, default="single_frame", help="used to specify env's rew")
+
     parser.add_argument('--neighbor_num', type=int, default=3, help="number of neighbor you can see in the env")
 
 
