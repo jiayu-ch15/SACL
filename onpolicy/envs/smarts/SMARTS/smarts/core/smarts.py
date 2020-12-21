@@ -172,11 +172,12 @@ class SMARTS(DirectObject):
         self.setFrameRateMeter(False)
 
         self.render = NodePath("render")
-        self.cam = self.render.attach_new_node(Camera("camera"))
-        self.cam.node().set_lens(PerspectiveLens())
+        #self.cam = self.render.attach_new_node(Camera("camera"))
+        #self.cam.node().set_lens(PerspectiveLens())
         self.camera=None
         self.camList=[]
         self.mouse2cam = NodePath(Transform2SG('mouse2cam'))
+
 
         self.render.setAttrib(RescaleNormalAttrib.makeDefault())
 

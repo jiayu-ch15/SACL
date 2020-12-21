@@ -185,29 +185,32 @@ class SMARTSEnv(gym.Env):
 
         return observations
 
-    def reset(self):
-        try:
-            self.current_observations = self.base_reset()
-        except:
-            self.close()
-            self._smarts = SMARTS(
-                agent_interfaces=self.agent_interfaces,
-                traffic_sim=SumoTrafficSimulation(
-                    headless=self.all_args.sumo_headless,
-                    time_resolution=self.all_args.timestep_sec,
-                    num_external_sumo_clients=self.all_args.num_external_sumo_clients,
-                    sumo_port=self.all_args.sumo_port,
-                    auto_start=self.all_args.sumo_auto_start,
-                    endless_traffic=self.all_args.endless_traffic,
-                ),
-                envision=self.envision_client,
-                visdom=self.visdom_client,
-                timestep_sec=self.all_args.timestep_sec,
-                zoo_workers=self.all_args.zoo_workers,
-                auth_key=self.all_args.auth_key,
-            )
-            self.current_observations = self.base_reset()
-        return self.get_obs()
+    def reset(self, choose=True):
+        if choose:
+            try:
+                self.current_observations = self.base_reset()
+            except:
+                self.close()
+                self._smarts = SMARTS(
+                    agent_interfaces=self.agent_interfaces,
+                    traffic_sim=SumoTrafficSimulation(
+                        headless=self.all_args.sumo_headless,
+                        time_resolution=self.all_args.timestep_sec,
+                        num_external_sumo_clients=self.all_args.num_external_sumo_clients,
+                        sumo_port=self.all_args.sumo_port,
+                        auto_start=self.all_args.sumo_auto_start,
+                        endless_traffic=self.all_args.endless_traffic,
+                    ),
+                    envision=self.envision_client,
+                    visdom=self.visdom_client,
+                    timestep_sec=self.all_args.timestep_sec,
+                    zoo_workers=self.all_args.zoo_workers,
+                    auth_key=self.all_args.auth_key,
+                )
+                self.current_observations = self.base_reset()
+            return self.get_obs()
+        else:
+            return [np.zeros(self.obs_dim) for agent_id in self.agent_ids]
 
 
     def base_step(self, agent_actions):
@@ -215,7 +218,6 @@ class SMARTSEnv(gym.Env):
             agent_id: self._agent_specs[agent_id].action_adapter(action)
             for agent_id, action in agent_actions.items()
         }
-
         observations, rewards, agent_dones, extras = self._smarts.step(agent_actions)
 
         infos = {
@@ -250,18 +252,25 @@ class SMARTSEnv(gym.Env):
         return observations, rewards, agent_dones, infos
 
     def step(self, action_n):
-        actions = dict(zip(self.agent_ids, action_n))
-        self.current_observations, rewards, dones, infos = self.base_step(actions)
-        obs_n = []
-        r_n = []
-        d_n = []
-        info_n = []
-        for agent_id in self.agent_ids:
-            obs_n.append(self.current_observations.get(agent_id, np.zeros(self.obs_dim)))
-            r_n.append([rewards.get(agent_id, 0.)])
-            d_n.append(dones.get(agent_id, True))
-            info_n.append(infos.get(agent_id, {'scores':0.}))
-        return obs_n, r_n, d_n, info_n
+        if not np.all(action_n == np.ones((self.n_agents,)).astype(np.int) * (-1)):
+            actions = dict(zip(self.agent_ids, action_n))
+            self.current_observations, rewards, dones, infos = self.base_step(actions)
+            obs_n = []
+            r_n = []
+            d_n = []
+            info_n = []
+            for agent_id in self.agent_ids:
+                obs_n.append(self.current_observations.get(agent_id, np.zeros(self.obs_dim)))
+                r_n.append([rewards.get(agent_id, 0.)])
+                d_n.append(dones.get(agent_id, True))
+                info_n.append(infos.get(agent_id, {'scores':0.}))
+            return obs_n, r_n, d_n, info_n
+        else:
+            obs_n = [np.zeros(self.obs_dim) for agent_id in self.agent_ids]
+            r_n = [[0] for agent_id in self.agent_ids]
+            d_n = [None for agent_id in self.agent_ids]
+            info_n = [{} for agent_id in self.agent_ids]
+            return obs_n, r_n, d_n, info_n
 
 
     def get_obs(self):
