@@ -25,10 +25,11 @@ def get_lan_ttc_observation_adapter(neighbor_num,use_proximity):
         else:
             neighbor = [0] * (neighbor_num * 5)
 
-        if env_observation.occupancy_grid_map is not None:
-            proximity = cal_proximity(env_observation)
-        else:
-            proximity = [0] * 8
+        if use_proximity:
+            if env_observation.occupancy_grid_map is not None:
+                proximity = cal_proximity(env_observation)
+            else:
+                proximity = [0] * 8
 
         if use_proximity:
             return {
