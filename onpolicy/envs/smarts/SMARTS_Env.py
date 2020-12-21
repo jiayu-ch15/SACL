@@ -47,7 +47,6 @@ class Adapter:
     space: gym.Space
     transform: Callable
 
-
 def action_adapter(policy_action):
     if isinstance(policy_action, (list, tuple, np.ndarray)):
         action = np.argmax(policy_action)
