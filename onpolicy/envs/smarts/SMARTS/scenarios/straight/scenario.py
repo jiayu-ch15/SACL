@@ -10,10 +10,10 @@ def get_args(args):
     parser = argparse.ArgumentParser(description='smarts', formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--num_agents', type=int, default=3, help="number of cars")
     parser.add_argument('--num_lanes', type=int, default=3, help="number of lanes")
-    parser.add_argument('--born_position_offset', nargs='+', type=int, default=1, help="distance between agents' borning position to the leftmost edge")
-    parser.add_argument('--born_lane_id', nargs='+', type=int, default=1, help="index of lane that agents locate at when borning")
-    parser.add_argument('--target_position_offset', nargs='+', type=int, default=1, help="distance between agents' target position to the middle")
-    parser.add_argument('--target_lane_id', nargs='+', type=int, default=1, help="index of lane that agents target at")
+    parser.add_argument('--born_position_offset', nargs='+', required=True, help="distance between agents' borning position to the leftmost edge")
+    parser.add_argument('--born_lane_id', type=int, nargs='+', required=True, help="index of lane that agents locate at when borning")
+    parser.add_argument('--target_position_offset', nargs='+', required=True, help="distance between agents' target position to the middle")
+    parser.add_argument('--target_lane_id', type=int, nargs='+', required=True, help="index of lane that agents target at")
 
     all_args = parser.parse_args()
 
@@ -49,17 +49,16 @@ def main(args):
         ]
     )
 
-    # missions = [
-    # t.Mission(t.Route(begin=("west", 0, 10), end=("east", 0, "max"))),
-    # t.Mission(t.Route(begin=("west", 1, 10), end=("east", 1, "max"))),
-    # t.Mission(t.Route(begin=("west", 2, 10), end=("east", 2, "max")))
-    # ]
+    assert len(target_position_offset) == len(born_position_offset) == num_agents, ("different number")
+    assert num_lanes <= 3, ("number of lanes can not exceed 3")
     for _i in range(num_agents):
-        assert(born_lane_id[_i]<3)
-        assert(target_lane_id[_i]<3)
-        assert(born_position_offset[_i]<=100 or born_position_offset[_i] =="max" or born_position_offset[_i] == "random")
-        assert(target_position_offset[_i]<=100 or target_position_offset[_i] =="max" or target_position_offset[_i] == "random")
-
+        assert (born_lane_id[_i]<=2), ("the born_land_id can not exceed 2.")
+        assert (target_lane_id[_i]<=2), ("the target_land_id can not exceed 2.")
+        if not born_position_offset[_i] in ["max", "random"]:
+            assert int(born_position_offset[_i])<=100, ("the born_position_offset should use value 0~100 or max or random.")
+        if not target_position_offset[_i] in ["max", "random"]:
+            assert int(target_position_offset[_i])<=100, ("the target_position_offset should use value 0~100 or max or random.")
+    print("pass the assertion")
     missions = [t.Mission(t.Route(begin=("west", born_lane_id[agent_idx], born_position_offset[agent_idx]), end=("east", target_lane_id[agent_idx], target_position_offset[agent_idx]))) for agent_idx in range(num_agents)]
 
     scenario = t.Scenario(
