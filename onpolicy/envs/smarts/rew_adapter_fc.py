@@ -9,7 +9,7 @@ def get_reward_adapter(adapter_type="vanilla",neighbor_num=3):
 
     def standard(last_env_obs, env_obs, env_reward):
         penalty, bonus = 0.0, 0.0
-        _lane_ttc_observation_adapter=get_lan_ttc_observation_adapter(neighbor_num)
+        _lane_ttc_observation_adapter=get_lan_ttc_observation_adapter(neighbor_num,False)
         obs = _lane_ttc_observation_adapter(env_obs)
         last_obs = _lane_ttc_observation_adapter(last_env_obs)
 
