@@ -50,6 +50,7 @@ def parse_args(args, parser):
     parser.add_argument("--scenario_path", type=str, default='../envs/smarts/SMARTS/scenarios/')
     parser.add_argument('--scenario_name', type=str, default='straight', help="Which scenario to run")
     parser.add_argument('--num_agents', type=int, default=1, help="number of players")
+    parser.add_argument("--use_proximity", action="store_true", default=False)
 
     parser.add_argument("--rews_mode", type=str, default="standard", help="used to specify env's rew")
 

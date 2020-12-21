@@ -5,7 +5,7 @@ from smarts.core.utils.math import vec_2d
 import math
 
 
-def get_lan_ttc_observation_adapter(neighbor_num):
+def get_lan_ttc_observation_adapter(neighbor_num,use_proximity):
     def _lane_ttc_observation_adapter(env_observation):
 
         ego = env_observation.ego_vehicle_state
@@ -30,16 +30,27 @@ def get_lan_ttc_observation_adapter(neighbor_num):
         else:
             proximity = [0] * 8
 
-        return {
-            "distance_to_center": np.array([norm_dist_from_center]),
-            "angle_error": np.array([closest_wp.relative_heading(ego.heading)]),
-            "speed": np.array([ego.speed]),
-            "steering": np.array([ego.steering]),
-            "ego_ttc": np.array(ego_ttc),
-            "ego_lane_dist": np.array(ego_lane_dist),
-            "neighbor": np.array(neighbor),
-            "proximity": np.array(proximity)
-        }
+        if use_proximity:
+            return {
+                "distance_to_center": np.array([norm_dist_from_center]),
+                "angle_error": np.array([closest_wp.relative_heading(ego.heading)]),
+                "speed": np.array([ego.speed]),
+                "steering": np.array([ego.steering]),
+                "ego_ttc": np.array(ego_ttc),
+                "ego_lane_dist": np.array(ego_lane_dist),
+                "neighbor": np.array(neighbor),
+                "proximity": np.array(proximity)
+            }
+        else:
+            return {
+                "distance_to_center": np.array([norm_dist_from_center]),
+                "angle_error": np.array([closest_wp.relative_heading(ego.heading)]),
+                "speed": np.array([ego.speed]),
+                "steering": np.array([ego.steering]),
+                "ego_ttc": np.array(ego_ttc),
+                "ego_lane_dist": np.array(ego_lane_dist),
+                "neighbor": np.array(neighbor),
+            }
 
     return _lane_ttc_observation_adapter
 

@@ -20,19 +20,33 @@ from onpolicy.envs.smarts.obs_adapter_fc import \
 from onpolicy.envs.smarts.rew_adapter_fc import get_reward_adapter
 
 
-def defin_obs_space_dict(neighbor_num):
-    _LANE_TTC_OBSERVATION_SPACE = gym.spaces.Dict(
-        {
-            "distance_to_center": gym.spaces.Box(low=-1e10, high=1e10, shape=(1,)),
-            "angle_error": gym.spaces.Box(low=-np.pi, high=np.pi, shape=(1,)),
-            "speed": gym.spaces.Box(low=-1e10, high=1e10, shape=(1,)),
-            "steering": gym.spaces.Box(low=-1e10, high=1e10, shape=(1,)),
-            "ego_lane_dist": gym.spaces.Box(low=-1e10, high=1e10, shape=(3,)),
-            "ego_ttc": gym.spaces.Box(low=-1e10, high=1e10, shape=(3,)),
-            "neighbor":gym.spaces.Box(low=-1e3, high=1e3, shape=(neighbor_num * 5,)),
-            "proximity":gym.spaces.Box(low=-1e10, high=1e10, shape=(8,)),
-        }
-    )
+def defin_obs_space_dict(all_args):
+
+    if all_args.use_proximity:
+        _LANE_TTC_OBSERVATION_SPACE = gym.spaces.Dict(
+            {
+                "distance_to_center": gym.spaces.Box(low=-1e10, high=1e10, shape=(1,)),
+                "angle_error": gym.spaces.Box(low=-np.pi, high=np.pi, shape=(1,)),
+                "speed": gym.spaces.Box(low=-1e10, high=1e10, shape=(1,)),
+                "steering": gym.spaces.Box(low=-1e10, high=1e10, shape=(1,)),
+                "ego_lane_dist": gym.spaces.Box(low=-1e10, high=1e10, shape=(3,)),
+                "ego_ttc": gym.spaces.Box(low=-1e10, high=1e10, shape=(3,)),
+                "neighbor":gym.spaces.Box(low=-1e3, high=1e3, shape=(all_args.neighbor_num * 5,)),
+                "proximity":gym.spaces.Box(low=-1e10, high=1e10, shape=(8,)),
+            }
+        )
+    else:
+        _LANE_TTC_OBSERVATION_SPACE = gym.spaces.Dict(
+            {
+                "distance_to_center": gym.spaces.Box(low=-1e10, high=1e10, shape=(1,)),
+                "angle_error": gym.spaces.Box(low=-np.pi, high=np.pi, shape=(1,)),
+                "speed": gym.spaces.Box(low=-1e10, high=1e10, shape=(1,)),
+                "steering": gym.spaces.Box(low=-1e10, high=1e10, shape=(1,)),
+                "ego_lane_dist": gym.spaces.Box(low=-1e10, high=1e10, shape=(3,)),
+                "ego_ttc": gym.spaces.Box(low=-1e10, high=1e10, shape=(3,)),
+                "neighbor": gym.spaces.Box(low=-1e3, high=1e3, shape=(all_args.neighbor_num * 5,)),
+            }
+        )
     return _LANE_TTC_OBSERVATION_SPACE
 
 def get_dict_dim(space_dict):
@@ -64,7 +78,7 @@ class SMARTSEnv(gym.Env):
         self._log = logging.getLogger(self.__class__.__name__)
         smarts.core.seed(seed)
         self._dones_registered = 0
-        self.obs_dict=defin_obs_space_dict(all_args.neighbor_num)
+        self.obs_dict=defin_obs_space_dict(all_args)
         self.neighbor_num=all_args.neighbor_num
 
         self.rews_mode=all_args.rews_mode
@@ -140,7 +154,7 @@ class SMARTSEnv(gym.Env):
     def get_obs_adapter(self):
         def observation_adapter(env_observation):
             lane_ttc_observation_adapter = Adapter(
-                space=self.obs_dict, transform=get_lan_ttc_observation_adapter(self.neighbor_num)
+                space=self.obs_dict, transform=get_lan_ttc_observation_adapter(self.neighbor_num,self.all_args.use_proximity)
             )
             obs = lane_ttc_observation_adapter.transform(env_observation)
             obs_flatten = np.concatenate(list(obs.values()), axis=0)

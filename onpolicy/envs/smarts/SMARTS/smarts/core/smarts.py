@@ -154,13 +154,12 @@ class SMARTS(DirectObject):
         fb_prop.back_buffers = 1
         self.pipe = GraphicsPipeSelection.get_global_ptr().make_default_pipe()
 
+
         flags = GraphicsPipe.BFFbPropsOptional
         flags = flags | GraphicsPipe.BFRefuseWindow
-        
         self.win = self.engine.make_output(self.pipe, name="window", sort=0, fb_prop=fb_prop,
                                  win_prop=WindowProperties(size=(800, 600)),
                                  flags=flags)
-
 
         #self.setBackgroundColor(0, 0, 0, 1)
         #self.win.set_clear_color_active(True)
