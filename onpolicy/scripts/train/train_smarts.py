@@ -49,11 +49,7 @@ def parse_args(args, parser):
     parser.add_argument('--scenario_name', type=str, default='straight', help="Which scenario to run")
     parser.add_argument('--num_agents', type=int, default=1, help="number of players")
 
-    parser.add_argument('--born_position_offset', nargs='+', type=int, default=1, help="distance between agents' borning position to the leftmost edge")
-    parser.add_argument('--born_lane_id', nargs='+', type=int, default=1, help="index of lane that agents locate at when borning")
-    parser.add_argument('--target_position_offset', nargs='+', type=int, default=1, help="distance between agents' target position to the middle")
-    parser.add_argument('--target_lane_id', nargs='+', type=int, default=1, help="index of lane that agents target at")
-    parser.add_argument("--rews_mode", type=str, default="single_frame", help="used to specify env's rew")
+    parser.add_argument("--rews_mode", type=str, default="vanilla", help="used to specify env's rew")
 
     parser.add_argument('--neighbor_num', type=int, default=3, help="number of neighbor you can see in the env")
 
