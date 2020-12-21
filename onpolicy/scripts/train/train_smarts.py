@@ -23,8 +23,10 @@ def make_train_env(all_args):
             #env.seed(all_args.seed + rank * 1000)
             return env
         return init_env
-
-    return GuardSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
+    if all_args.n_eval_rollout_threads == 1:
+        return DummyVecEnv([get_env_fn(0)])
+    else:
+        return GuardSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
 def make_eval_env(all_args):
     def get_env_fn(rank):
@@ -49,7 +51,7 @@ def parse_args(args, parser):
     parser.add_argument('--scenario_name', type=str, default='straight', help="Which scenario to run")
     parser.add_argument('--num_agents', type=int, default=1, help="number of players")
 
-    parser.add_argument("--rews_mode", type=str, default="vanilla", help="used to specify env's rew")
+    parser.add_argument("--rews_mode", type=str, default="standard", help="used to specify env's rew")
 
     parser.add_argument('--neighbor_num', type=int, default=3, help="number of neighbor you can see in the env")
 
