@@ -93,15 +93,26 @@ class SMARTSEnv(gym.Env):
         self.scenarios = [(all_args.scenario_path + all_args.scenario_name)]
 
         self.seed = seed
-        self._agent_specs = {
-            agent_id: AgentSpec(
-                interface=AgentInterface.from_type(AgentType.VulnerDis, max_episode_steps=all_args.episode_length),
-                observation_adapter=self.get_obs_adapter(),
-                reward_adapter=get_reward_adapter(all_args.rews_mode,self.neighbor_num),
-                action_adapter=action_adapter,
-            )
-            for agent_id in self.agent_ids
-        }
+        if all_args.use_proximity:
+            self._agent_specs = {
+                agent_id: AgentSpec(
+                    interface=AgentInterface.from_type(AgentType.VulnerDis, max_episode_steps=all_args.episode_length),
+                    observation_adapter=self.get_obs_adapter(),
+                    reward_adapter=get_reward_adapter(all_args.rews_mode,self.neighbor_num),
+                    action_adapter=action_adapter,
+                )
+                for agent_id in self.agent_ids
+            }
+        else:
+            self._agent_specs = {
+                agent_id: AgentSpec(
+                    interface=AgentInterface.from_type(AgentType.VulnerDis_No_proximity, max_episode_steps=all_args.episode_length),
+                    observation_adapter=self.get_obs_adapter(),
+                    reward_adapter=get_reward_adapter(all_args.rews_mode, self.neighbor_num),
+                    action_adapter=action_adapter,
+                )
+                for agent_id in self.agent_ids
+            }
 
 
         self._scenarios_iterator = Scenario.scenario_variations(

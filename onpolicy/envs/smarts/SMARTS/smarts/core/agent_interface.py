@@ -130,6 +130,7 @@ class AgentType(IntEnum):
     VulnerDis = 11
     """Our type."""
     VulnerCon=12
+    VulnerDis_No_proximity=13
 
 
 @dataclass(frozen=True)
@@ -313,7 +314,13 @@ class AgentInterface:
             interface = AgentInterface(
                 waypoints=True,
                 neighborhood_vehicles=True,
-                ogm=True, action=ActionSpaceType.Lane)
+                ogm=True,
+                action=ActionSpaceType.Lane)
+        elif requested_type == AgentType.VulnerDis_No_proximity:
+            interface = AgentInterface(
+                waypoints=True,
+                neighborhood_vehicles=True,
+                action=ActionSpaceType.Lane)
         elif requested_type == AgentType.VulnerCon:
             interface = AgentInterface(
                 waypoints=True,
