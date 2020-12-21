@@ -46,11 +46,15 @@ def scenario_cli():
 @click.argument("scenario", type=click.Path(exists=True), metavar="<scenario>")
 @click.option("--num_agents", type=int, default=2)
 @click.option("--num_lanes", type=int, default=4)
-def build_scenario(clean, scenario, num_agents, num_lanes):
-    _build_attack_scenario(clean, scenario, num_agents, num_lanes)
+@click.option('--born_position_offset', type=str, default="10 20 30", help="distance between agents' borning position to the leftmost edge")
+@click.option('--born_lane_id', type=str, default="0 1 2", help="index of lane that agents locate at when borning")
+@click.option('--target_position_offset', type=str, default="10 20 30", help="distance between agents' target position to the middle")
+@click.option('--target_lane_id', type=str, default="0 1 2", help="index of lane that agents target at")
+def build_scenario(clean, scenario, num_agents, num_lanes, born_position_offset, born_lane_id, target_position_offset, target_lane_id):
+    _build_attack_scenario(clean, scenario, num_agents, num_lanes, born_position_offset, born_lane_id, target_position_offset, target_lane_id)
 
 
-def _build_attack_scenario(clean, scenario, num_agents, num_lanes):
+def _build_attack_scenario(clean, scenario, num_agents, num_lanes, born_position_offset, born_lane_id, target_position_offset, target_lane_id):
     click.echo(f"build-scenario {scenario}")
     if clean:
         _clean(scenario)
@@ -95,7 +99,9 @@ def _build_attack_scenario(clean, scenario, num_agents, num_lanes):
     
     scenario_py = scenario_root / "scenario.py"
     if scenario_py.exists():
-        cmd = str(sys.executable) + " " + str(scenario_py) + " --num_agents " + str(num_agents) + " --num_lanes " + str(num_lanes)
+        cmd = str(sys.executable) + " " + str(scenario_py) + " --num_agents " + str(num_agents) + " --num_lanes " + str(num_lanes) + \
+             " --born_position_offset " + str(born_position_offset) + " --born_lane_id " + str(born_lane_id) + \
+             " --target_position_offset " + str(target_position_offset) + " --target_lane_id " + str(target_lane_id)
         subprocess.check_call(cmd, shell=True)
 
 
