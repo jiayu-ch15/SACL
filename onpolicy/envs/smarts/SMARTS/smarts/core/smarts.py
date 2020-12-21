@@ -156,6 +156,7 @@ class SMARTS(DirectObject):
 
         flags = GraphicsPipe.BFFbPropsOptional
         flags = flags | GraphicsPipe.BFRefuseWindow
+        
         self.win = self.engine.make_output(self.pipe, name="window", sort=0, fb_prop=fb_prop,
                                  win_prop=WindowProperties(size=(800, 600)),
                                  flags=flags)

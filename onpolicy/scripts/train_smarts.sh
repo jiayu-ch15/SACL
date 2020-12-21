@@ -1,4 +1,4 @@
-# !/bin/sh
+#!/bin/sh
 # Specify the environment name "env" and "scenario"
 # Specify agents and their borning positions 
 # The borning positions are specified by the following four params.

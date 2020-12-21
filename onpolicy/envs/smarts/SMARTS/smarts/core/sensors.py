@@ -583,7 +583,7 @@ class CameraSensor(Sensor):
         # XXX: Though we don't need the depth buffer returned, setting this to 0
         #      causes undefined behaviour where the ordering of meshes is random.
         fb_props.setDepthBits(8)
-        #print(self._showbase.win)
+
         buffer = self._showbase.win.engine.makeOutput(
             self._showbase.pipe,
             "{}-buffer".format(name),
