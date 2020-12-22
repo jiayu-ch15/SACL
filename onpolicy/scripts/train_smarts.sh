@@ -11,7 +11,7 @@
 # Configuate the offset with respect to the leftmost edge of the straight road. 
 
 env="SMARTS"
-scenario="straight"
+scenario="loop"
 num_agents=3
 num_lanes=3
 born_lane_id="0 1 2"
@@ -23,7 +23,7 @@ exp="debug"
 seed_max=1
 
 echo "building scenario ${scenario} ..."
-scl scenario build-attack --clean --num_agents ${num_agents} --num_lanes ${num_lanes} --born_lane_id "${born_lane_id}" --born_position_offset "${born_position_offset}" --target_lane_id "${target_lane_id}" --target_position_offset "${target_position_offset}" ../envs/smarts/SMARTS/scenarios/${scenario}
+#scl scenario build-attack --clean --num_agents ${num_agents} --num_lanes ${num_lanes} --born_lane_id "${born_lane_id}" --born_position_offset "${born_position_offset}" --target_lane_id "${target_lane_id}" --target_position_offset "${target_position_offset}" ../envs/smarts/SMARTS/scenarios/${scenario}
 echo "build scenario ${scenario} successfully!"
 
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"

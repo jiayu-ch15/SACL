@@ -6,7 +6,7 @@ from smarts.core.utils.episodes import episodes
 
 from examples import default_argument_parser
 
-N_AGENTS = 4
+N_AGENTS = 3
 AGENT_IDS = ["Agent %i" % i for i in range(N_AGENTS)]
 
 
@@ -58,7 +58,6 @@ def main(scenarios, headless, num_episodes, seed, max_episode_steps=None):
 if __name__ == "__main__":
     parser = default_argument_parser("multi-agent-example")
     args = parser.parse_args()
-
     main(
         scenarios=args.scenarios,
         headless=args.headless,
