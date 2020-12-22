@@ -8,7 +8,7 @@ import numpy as np
 from pathlib import Path
 import torch
 from onpolicy.config import get_config
-from onpolicy.envs.env_wrappers import GuardSubprocVecEnv, DummyVecEnv
+from onpolicy.envs.env_wrappers import GuardSubprocVecEnv, DummyVecEnv, ChooseGuardSubprocVecEnv, ChooseSimpleDummyVecEnv
 from onpolicy.envs.smarts.SMARTS_Env import SMARTSEnv
 
 def make_train_env(all_args):
@@ -23,7 +23,7 @@ def make_train_env(all_args):
             #env.seed(all_args.seed + rank * 1000)
             return env
         return init_env
-    if all_args.n_eval_rollout_threads == 1:
+    if all_args.n_rollout_threads == 1:
         return DummyVecEnv([get_env_fn(0)])
     else:
         return GuardSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
@@ -40,9 +40,9 @@ def make_eval_env(all_args):
             return env
         return init_env
     if all_args.n_eval_rollout_threads == 1:
-        return DummyVecEnv([get_env_fn(0)])
+        return ChooseSimpleDummyVecEnv([get_env_fn(0)])
     else:
-        return GuardSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_eval_rollout_threads)])
+        return ChooseGuardSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_eval_rollout_threads)])
 
 
 def parse_args(args, parser):

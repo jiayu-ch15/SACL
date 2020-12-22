@@ -147,6 +147,8 @@ class SMARTS(DirectObject):
 
 
         self.engine = GraphicsEngine.get_global_ptr()
+
+
         self.graphicsEngine=self.engine
         fb_prop = FrameBufferProperties()
         fb_prop.rgb_color = 1
@@ -157,7 +159,6 @@ class SMARTS(DirectObject):
 
         flags = GraphicsPipe.BFFbPropsOptional
         flags = flags | GraphicsPipe.BFRefuseWindow
-
         self.win = self.engine.make_output(self.pipe, name="window", sort=0, fb_prop=fb_prop,
                                  win_prop=WindowProperties(size=(800, 600)),
                                  flags=flags)
@@ -171,11 +172,12 @@ class SMARTS(DirectObject):
         self.setFrameRateMeter(False)
 
         self.render = NodePath("render")
-        self.cam = self.render.attach_new_node(Camera("camera"))
-        self.cam.node().set_lens(PerspectiveLens())
+        #self.cam = self.render.attach_new_node(Camera("camera"))
+        #self.cam.node().set_lens(PerspectiveLens())
         self.camera=None
         self.camList=[]
         self.mouse2cam = NodePath(Transform2SG('mouse2cam'))
+
 
         self.render.setAttrib(RescaleNormalAttrib.makeDefault())
 

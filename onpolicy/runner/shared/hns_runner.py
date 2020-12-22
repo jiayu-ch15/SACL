@@ -202,7 +202,7 @@ class HNSRunner(Runner):
             with torch.no_grad():
                 eval_actions = np.ones((self.n_eval_rollout_threads, self.num_agents, action_shape)).astype(np.int) * (-1)
                 self.trainer.prep_rollout()
-                _, eval_actions, _, eval_rnn_states, eval_rnn_states_critic \
+                _, eval_action, _, eval_rnn_state, eval_rnn_state_critic \
                     = self.trainer.policy.get_actions(np.concatenate(eval_share_obs[eval_choose]),
                                                     np.concatenate(eval_obs[eval_choose]),
                                                     np.concatenate(eval_rnn_states[eval_choose]),
@@ -210,9 +210,9 @@ class HNSRunner(Runner):
                                                     np.concatenate(eval_masks[eval_choose]),
                                                     deterministic=True)
 
-                eval_actions[eval_choose] = np.array(np.split(_t2n(eval_actions), (eval_choose == True).sum()))
-                eval_rnn_states[eval_choose] = np.array(np.split(_t2n(eval_rnn_states), (eval_choose == True).sum()))
-                eval_rnn_states_critic[eval_choose] = np.array(np.split(_t2n(eval_rnn_states_critic), (eval_choose == True).sum()))
+                eval_actions[eval_choose] = np.array(np.split(_t2n(eval_action), (eval_choose == True).sum()))
+                eval_rnn_states[eval_choose] = np.array(np.split(_t2n(eval_rnn_state), (eval_choose == True).sum()))
+                eval_rnn_states_critic[eval_choose] = np.array(np.split(_t2n(eval_rnn_state_critic), (eval_choose == True).sum()))
 
             # Obser reward and next obs
             eval_obs, eval_share_obs, eval_rewards, eval_dones, eval_infos, _ = eval_envs.step(eval_actions)
