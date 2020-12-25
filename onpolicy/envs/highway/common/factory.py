@@ -7,6 +7,7 @@ import gym
 from onpolicy.envs.highway.configuration import Configurable
 
 import onpolicy.envs.highway.highway_env
+
 logger = logging.getLogger(__name__)
 
 
