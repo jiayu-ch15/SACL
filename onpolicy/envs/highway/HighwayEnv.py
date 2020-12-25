@@ -35,7 +35,7 @@ class highway_(gym.core.Wrapper):
         ob = []
         for i in range(self.n_agents):
             ob.append(np.concatenate(obs[i]))
-
+        #self.render()
         return ob,[[rew]]*self.n_agents,[done]*self.n_agents,info
 
     def reset(self):
