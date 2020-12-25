@@ -11,7 +11,7 @@
 # Configuate the offset with respect to the leftmost edge of the straight road. 
 
 env="SMARTS"
-scenario="loop"
+scenario="straight"
 num_agents=3
 num_lanes=3
 born_lane_id="0 1 2"
@@ -23,13 +23,13 @@ exp="test"
 seed_max=1
 
 echo "building scenario ${scenario} ..."
-#scl scenario build-attack --clean --num_agents ${num_agents} --num_lanes ${num_lanes} --born_lane_id "${born_lane_id}" --born_position_offset "${born_position_offset}" --target_lane_id "${target_lane_id}" --target_position_offset "${target_position_offset}" ../envs/smarts/SMARTS/scenarios/${scenario}
+#scl scenario build --clean --num_agents ${num_agents} --num_lanes ${num_lanes} --born_lane_id "${born_lane_id}" --born_position_offset "${born_position_offset}" --target_lane_id "${target_lane_id}" --target_position_offset "${target_position_offset}" ../envs/smarts/SMARTS/scenarios/${scenario}
 echo "build scenario ${scenario} successfully!"
 
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
 for seed in `seq ${seed_max}`;
 do
     echo "seed is ${seed}:"
-    CUDA_VISIBLE_DEVICES=2 python -W ignore train/train_smarts.py --env_name ${env} --algorithm_name ${algo} --experiment_name ${exp} --scenario_name ${scenario} --num_agents ${num_agents} --seed ${seed} --n_training_threads 1 --n_rollout_threads 8 --n_eval_rollout_threads 2 --num_mini_batch 1 --episode_length 1000 --num_env_steps 2000000000 --ppo_epoch 15 --gain 0.01 --lr 1e-4 --eval_interval 1
+    CUDA_VISIBLE_DEVICES=2 python -W ignore train/train_smarts.py --env_name ${env} --algorithm_name ${algo} --experiment_name ${exp} --scenario_name ${scenario} --num_agents ${num_agents} --seed ${seed} --n_training_threads 1 --n_rollout_threads 1 --n_eval_rollout_threads 2 --num_mini_batch 1 --episode_length 100 --num_env_steps 2000000000 --ppo_epoch 15 --gain 0.01 --lr 1e-4 --eval_interval 1 --use_wandb
     echo "training is done!"
 done

@@ -83,6 +83,7 @@ class SMARTSEnv(gym.Env):
 
         self.rews_mode=all_args.rews_mode
         self.n_agents = all_args.num_agents
+
         self.obs_dim = get_dict_dim(self.obs_dict)
         self.act_dim = 4
         self.observation_space = [gym.spaces.Box(low=-1e10, high=1e10, shape=(self.obs_dim,))] * self.n_agents
@@ -106,7 +107,7 @@ class SMARTSEnv(gym.Env):
         else:
             self._agent_specs = {
                 agent_id: AgentSpec(
-                    interface=AgentInterface.from_type(AgentType.VulnerDis_No_proximity, max_episode_steps=all_args.episode_length),
+                    interface=AgentInterface.from_type(AgentType.Laner, max_episode_steps=all_args.episode_length),
                     observation_adapter=self.get_obs_adapter(),
                     reward_adapter=get_reward_adapter(all_args.rews_mode, self.neighbor_num),
                     action_adapter=action_adapter,

@@ -8,77 +8,50 @@ import numpy as np
 from pathlib import Path
 import torch
 from onpolicy.config import get_config
-from onpolicy.envs.env_wrappers import GuardSubprocVecEnv, DummyVecEnv, ChooseGuardSubprocVecEnv, ChooseSimpleDummyVecEnv
-from onpolicy.envs.smarts.SMARTS_Env import SMARTSEnv
+from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv, ChooseGuardSubprocVecEnv, ChooseSimpleDummyVecEnv
+from onpolicy.envs.highway.HighwayEnv import highway
 
 def make_train_env(all_args):
     def get_env_fn(rank):
         def init_env():
-            if all_args.env_name == "SMARTS":
-                env=SMARTSEnv(all_args,all_args.seed + rank * 1000)
+            if all_args.env_name == "highway":
+                env=highway(all_args)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
                 raise NotImplementedError
-            #env.seed(all_args.seed + rank * 1000)
+            env.seed(all_args.seed + rank * 1000)
             return env
         return init_env
     if all_args.n_rollout_threads == 1:
         return DummyVecEnv([get_env_fn(0)])
     else:
-        return GuardSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
+        return SubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
 def make_eval_env(all_args):
     def get_env_fn(rank):
         def init_env():
-            if all_args.env_name == "SMARTS":
-                env=SMARTSEnv(all_args,all_args.seed* 50000 + rank * 1000)
+            if all_args.env_name == "highway":
+                env=highway(all_args)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
                 raise NotImplementedError
+            env.seed(all_args.seed + rank * 5000)
             return env
         return init_env
-    if all_args.n_eval_rollout_threads == 1:
-        return ChooseSimpleDummyVecEnv([get_env_fn(0)])
+    if all_args.n_rollout_threads == 1:
+        return DummyVecEnv([get_env_fn(0)])
     else:
-        return ChooseGuardSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_eval_rollout_threads)])
+        return SubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
 
 def parse_args(args, parser):
-    # smarts parameters, need to include these parameters in the bash file.
-    #parser.add_argument("--scenario_path", type=str, default='../envs/smarts/SMARTS/scenarios/')
-    parser.add_argument("--scenario_path", type=str, default='/home/jiangz/SMARTS/scenarios/')
+    parser.add_argument('--scenario_name', type=str,
+                        default='simple_spread', help="Which scenario to run on")
+    parser.add_argument('--num_agents', type=int,
+                        default=2, help="number of players")
 
-    parser.add_argument('--scenario_name', type=str, default='straight', help="Which scenario to run")
-    parser.add_argument('--num_agents', type=int, default=1, help="number of players")
-    parser.add_argument("--use_proximity", action="store_true", default=False)
-
-    parser.add_argument("--rews_mode", type=str, default="vanilla", help="used to specify env's rew")
-
-    parser.add_argument('--neighbor_num', type=int, default=3, help="number of neighbor you can see in the env")
-
-
-    # sumo parameters, u'd better to use the default value.
-    parser.add_argument("--headless", help="true|false envision disabled", action="store_true", default=False)
-    parser.add_argument("--visdom", help="true|false visdom integration", action="store_true", default=False)
-    parser.add_argument("--shuffle_scenarios", action="store_false", default=True)
-
-
-    parser.add_argument("--sumo_auto_start", help="true|false sumo will start automatically", action="store_false", default=True)
-    parser.add_argument("--sumo_headless", help="true|false for SUMO visualization disabled [sumo-gui|sumo]", action="store_false", default=True)
-    parser.add_argument("--sumo_port", help="used to specify a specific sumo port.", type=int, default=None)
-    parser.add_argument("--num_external_sumo_clients", help="the number of SUMO clients beyond SMARTS", type=int, default=0)
-    parser.add_argument("--timestep_sec", help="the step length for all components of the simulation", type=float, default=0.1)
-
-
-    parser.add_argument("--auth_key", type=str, default=None, help="Authentication key of type string for communication with Zoo Workers")
-    parser.add_argument("--zoo_workers", type=str, default=None, help="List of (ip, port) tuples of Zoo Workers, used to instantiate remote social agents")
-    
-    parser.add_argument("--envision_record_data_replay_path", type=str, default=None, help="used to specify envision's data replay output directory")
-    parser.add_argument("--envision_endpoint", type=str, default=None, help="used to specify envision's uri")
-    parser.add_argument("--endless_traffic", help="Run the simulation in endless mode.", action="store_false", default=True)
- 
     all_args = parser.parse_known_args(args)[0]
 
     return all_args
@@ -96,7 +69,6 @@ def main(args):
             "check recurrent policy!")
     else:
         raise NotImplementedError
-
     assert (all_args.share_policy == True and all_args.scenario_name == 'simple_speaker_listener') == False, (
         "The simple_speaker_listener scenario can not use shared policy. Please check the config.py.")
 
@@ -155,6 +127,7 @@ def main(args):
 
     # env init
     envs = make_train_env(all_args)
+
     eval_envs = make_eval_env(all_args) if all_args.use_eval else None
     num_agents = all_args.num_agents
 
@@ -169,7 +142,7 @@ def main(args):
 
     # run experiments
     if all_args.share_policy:
-        from onpolicy.runner.shared.smarts_runner import SMARTSRunner as Runner
+        from onpolicy.runner.shared.highway_runner import HighwayRunner as Runner
     else:
         from onpolicy.runner.separated.mpe_runner import MPERunner as Runner
 
