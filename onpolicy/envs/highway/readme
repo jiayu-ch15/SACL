@@ -1,0 +1,6 @@
+First install this two packages
+cd highway-env
+pip install -e .
+cd rl-agents
+pip install -e .
+
