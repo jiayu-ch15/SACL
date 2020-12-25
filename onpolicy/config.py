@@ -149,9 +149,8 @@ def get_config():
     parser.add_argument("--eval_episodes", type=int, default=32)
 
     # render parameters
-    parser.add_argument("--use_render", action='store_true', default=False)
-    parser.add_argument("--render_episodes", type=int, default=5)
     parser.add_argument("--save_gifs", action='store_true', default=False)
+    parser.add_argument("--render_episodes", type=int, default=5)
     parser.add_argument("--ifi", type=float, default=0.333333)
 
     # pretained parameters

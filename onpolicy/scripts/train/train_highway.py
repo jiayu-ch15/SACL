@@ -9,13 +9,13 @@ from pathlib import Path
 import torch
 from onpolicy.config import get_config
 from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv, ChooseGuardSubprocVecEnv, ChooseSimpleDummyVecEnv
-from onpolicy.envs.highway.HighWayEnv import HighWayEnv
+from onpolicy.envs.highway.HighwayEnv import HighwayEnv
 
 def make_train_env(all_args):
     def get_env_fn(rank):
         def init_env():
-            if all_args.env_name == "highway":
-                env=HighWayEnv(all_args)
+            if all_args.env_name == "Highway":
+                env=HighwayEnv(all_args)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
@@ -31,8 +31,8 @@ def make_train_env(all_args):
 def make_eval_env(all_args):
     def get_env_fn(rank):
         def init_env():
-            if all_args.env_name == "highway":
-                env=highway(all_args)
+            if all_args.env_name == "Highway":
+                env=HighwayEnv(all_args)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
@@ -48,9 +48,9 @@ def make_eval_env(all_args):
 
 def parse_args(args, parser):
     parser.add_argument('--scenario_name', type=str,
-                        default='simple_spread', help="Which scenario to run on")
+                        default='highway-v0', help="Which scenario to run on")
     parser.add_argument('--num_agents', type=int,
-                        default=2, help="number of players")
+                        default=2, help="number of cars")
 
     all_args = parser.parse_known_args(args)[0]
 
@@ -144,6 +144,7 @@ def main(args):
     if all_args.share_policy:
         from onpolicy.runner.shared.highway_runner import HighwayRunner as Runner
     else:
+        # ! wrong 
         from onpolicy.runner.separated.mpe_runner import MPERunner as Runner
 
     runner = Runner(config)

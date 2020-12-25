@@ -8,6 +8,7 @@
 | MAPPG |        :heavy_check_mark:           |       :heavy_check_mark:      |     :heavy_check_mark:        |:heavy_check_mark:        |
 | MATRPO[^1] |        :heavy_check_mark:           |       :heavy_check_mark:      |     :heavy_check_mark:        |:heavy_check_mark:        |
 |            |                   |             |             |
+
 [^1]: see trpo branch
 
 
@@ -18,9 +19,10 @@
 - Hide-and-Seek
 - social dilemmas
 - agar.io
+- SMARTS
+- HighWay
 
 ## TODOs:
-- [x] SMARTS
 - [ ] multi-agent FLOW
 
 
@@ -259,8 +261,10 @@ python examples/sumo/sugiyama.py
 
 5. all is ready , enjoy `./train_smarts.sh`
 
+## 8. HighWay
 
-## 8. Docs：
+
+## 9. Docs：
 
 ```
 pip install sphinx sphinxcontrib-apidoc sphinx_rtd_theme recommonmark

@@ -60,21 +60,18 @@ class HighwayRunner(Runner):
                                 total_num_steps,
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
-                '''
-                if self.env_name == "highway":
-                    env_infos = {}
-                    for agent_id in range(self.num_agents):
-                        scores = []
-                        for info in infos:
-                            if 'scores' in info[agent_id].keys():
-                                scores.append(info[agent_id]['scores'])
-                        agent_k = 'agent%i/scores' % agent_id
-                        env_infos[agent_k] = scores
-                '''
+                
+                if self.env_name == "Highway":
+                    env_infos = {"speed": [], "cost": [], "crashed": []}
+                    for info in infos:
+                        for key in env_infos.keys():
+                            if key in info.keys():
+                                env_infos[key].append(info[key])
+                
                 train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
                 print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
                 self.log_train(train_infos, total_num_steps)
-                #self.log_env(env_infos, total_num_steps)
+                self.log_env(env_infos, total_num_steps)
 
             # eval
             if episode % self.eval_interval == 0 and self.use_eval:
@@ -85,9 +82,8 @@ class HighwayRunner(Runner):
         obs = self.envs.reset()
         # replay buffer
         if self.use_centralized_V:
-            share_obs = obs
-            #share_obs = obs.reshape(self.n_rollout_threads, -1)
-            #share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
+            share_obs = obs.reshape(self.n_rollout_threads, -1)
+            share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
         else:
             share_obs = obs
 
@@ -123,9 +119,8 @@ class HighwayRunner(Runner):
         obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
 
         if self.use_centralized_V:
-            share_obs = obs
-            #share_obs = obs.reshape(self.n_rollout_threads, -1)
-            #share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
+            share_obs = obs.reshape(self.n_rollout_threads, -1)
+            share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
         else:
             share_obs = obs
 
@@ -148,10 +143,7 @@ class HighwayRunner(Runner):
         if eval_envs.action_space[0].__class__.__name__ == 'Discrete':
             action_shape = 1
 
-        eval_env_infos = {}
-        for agent_id in range(self.num_agents):
-            agent_k = 'agent%i/scores' % agent_id
-            eval_env_infos[agent_k] = []
+        eval_env_infos = {"speed": [], "cost": [], "crashed": []}            
 
         eval_episode_rewards = 0
         eval_reset_choose = np.ones(self.n_eval_rollout_threads) == 1.0
@@ -202,11 +194,11 @@ class HighwayRunner(Runner):
             eval_masks[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
             for eval_done, eval_info in zip(eval_dones, eval_infos):
-                if np.all(eval_done==True):                  
-                    for agent_id in range(self.num_agents):
-                        if 'scores' in eval_info[agent_id].keys():
-                            agent_k = 'agent%i/scores' % agent_id
-                            eval_env_infos[agent_k].append(eval_info[agent_id]['scores'])                 
+                if np.all(eval_done==True):
+                    for eval_info in eval_infos:
+                        for key in eval_env_infos.keys():
+                            if key in eval_info.keys():
+                                eval_env_infos[key].append(eval_info[key])                
 
         self.log_env(eval_env_infos, total_num_steps)
 
@@ -246,15 +238,8 @@ class HighwayRunner(Runner):
                 rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
                 rnn_states_critic = np.array(np.split(_t2n(rnn_states_critic), self.n_rollout_threads))
 
-                if envs.action_space[0].__class__.__name__ == 'MultiDiscrete':
-                    for i in range(envs.action_space[0].shape):
-                        uc_actions_env = np.eye(envs.action_space[0].high[i]+1)[actions[:, :, i]]
-                        if i == 0:
-                            actions_env = uc_actions_env
-                        else:
-                            actions_env = np.concatenate((actions_env, uc_actions_env), axis=2)
-                elif envs.action_space[0].__class__.__name__ == 'Discrete':
-                    actions_env = np.squeeze(np.eye(envs.action_space[0].n)[actions], 2)
+                if envs.action_space[0].__class__.__name__ == 'Discrete':
+                    actions_env = np.squeeze(actions, axis=-1)
                 else:
                     raise NotImplementedError
 
