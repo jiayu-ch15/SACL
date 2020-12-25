@@ -1,6 +1,6 @@
 env_dict={
     "id": "highway-v0",
-    "import_module": "highway_env",
+    "import_module": "onpolicy.envs.highway.highway_env",
     "controlled_vehicles": 3,
     "action": {
         "type": "MultiAgentAction",
@@ -17,7 +17,7 @@ env_dict={
 }
 
 import gym
-from rl_agents.agents.common.factory import load_environment
+from onpolicy.envs.highway.common.factory import load_environment
 import numpy as np
 class highway_(gym.core.Wrapper):
     def __init__(self,env,all_args):
@@ -46,7 +46,7 @@ class highway_(gym.core.Wrapper):
 
         return ob
 
-def highway(all_args):
+def HighWayEnv(all_args):
 
     env=load_environment(env_dict)
 

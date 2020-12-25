@@ -9,13 +9,13 @@ from pathlib import Path
 import torch
 from onpolicy.config import get_config
 from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv, ChooseGuardSubprocVecEnv, ChooseSimpleDummyVecEnv
-from onpolicy.envs.highway.HighwayEnv import highway
+from onpolicy.envs.highway.HighWayEnv import HighWayEnv
 
 def make_train_env(all_args):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "highway":
-                env=highway(all_args)
+                env=HighWayEnv(all_args)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
