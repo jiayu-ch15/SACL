@@ -1,11 +1,9 @@
 import numpy as np
+import math
 
 from smarts.core.utils.math import vec_2d
 
-import math
-
-
-def get_lan_ttc_observation_adapter(neighbor_num,use_proximity):
+def observation_adapter(neighbor_num, use_proximity):
     def _lane_ttc_observation_adapter(env_observation):
 
         ego = env_observation.ego_vehicle_state
@@ -55,12 +53,10 @@ def get_lan_ttc_observation_adapter(neighbor_num,use_proximity):
 
     return _lane_ttc_observation_adapter
 
-
 def _ego_ttc_lane_dist(env_observation, ego_lane_index):
     ttc_by_p, lane_dist_by_p = _ttc_by_path(env_observation)
 
     return _ego_ttc_calc(ego_lane_index, ttc_by_p, lane_dist_by_p)
-
 
 def _cal_angle(vec):
 
@@ -145,7 +141,6 @@ def cal_neighbor(env_obs, closest_neighbor_num):
 
     return features.reshape((-1,))
 
-
 def _ttc_by_path(env_observation):
     ego = env_observation.ego_vehicle_state
     waypoint_paths = env_observation.waypoint_paths
@@ -209,7 +204,6 @@ def _ttc_by_path(env_observation):
 
     return ttc_by_path_index, lane_dist_by_path_index
 
-
 def _ego_ttc_calc(ego_lane_index, ttc_by_path, lane_dist_by_path):
     ego_ttc = [0] * 3
     ego_lane_dist = [0] * 3
@@ -232,7 +226,6 @@ def _ego_ttc_calc(ego_lane_index, ttc_by_path, lane_dist_by_path):
         ego_ttc[0] = ttc_by_path[ego_lane_index - 1]
         ego_lane_dist[0] = lane_dist_by_path[ego_lane_index - 1]
     return ego_ttc, ego_lane_dist
-
 
 def proximity_detection(OGM):
     """
@@ -257,15 +250,3 @@ def cal_proximity(env_obs):
     proximity = proximity_detection(env_obs.occupancy_grid_map[1])
     return proximity
 
-def get_distance_from_center(env_obs):
-    ego_state = env_obs.ego_vehicle_state
-    wp_paths = env_obs.waypoint_paths
-    closest_wps = [path[0] for path in wp_paths]
-
-    # distance of vehicle from center of lane
-    closest_wp = min(closest_wps, key=lambda wp: wp.dist_to(ego_state.position))
-    signed_dist_from_center = closest_wp.signed_lateral_error(ego_state.position)
-    lane_hwidth = closest_wp.lane_width * 0.5
-    norm_dist_from_center = signed_dist_from_center / lane_hwidth
-
-    return norm_dist_from_center
