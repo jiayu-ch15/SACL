@@ -32,7 +32,7 @@ def make_eval_env(all_args):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "highway":
-                env=highway(all_args)
+                env=HighWayEnv(all_args)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")

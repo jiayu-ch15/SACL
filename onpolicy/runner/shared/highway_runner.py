@@ -4,7 +4,7 @@ import os
 import numpy as np
 from itertools import chain
 import torch
-
+import imageio
 from onpolicy.utils.util import update_linear_schedule
 from onpolicy.runner.shared.base_runner import Runner
 
@@ -83,6 +83,7 @@ class HighwayRunner(Runner):
     def warmup(self):
         # reset env
         obs = self.envs.reset()
+
         # replay buffer
         if self.use_centralized_V:
             share_obs = obs
@@ -218,12 +219,12 @@ class HighwayRunner(Runner):
         for episode in range(self.all_args.render_episodes):
             obs = envs.reset()
             if self.all_args.save_gifs:
-                image = envs.render('rgb_array', close=False)[0]
+                image = envs.render('rgb_array')[0]
                 all_frames.append(image)
 
-            share_obs = obs.reshape(self.n_rollout_threads, -1)
-            share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
-
+            #share_obs = obs.reshape(self.n_rollout_threads, -1)
+            #share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
+            share_obs = obs
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
             rnn_states_critic = np.zeros((self.n_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
             masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
@@ -246,15 +247,8 @@ class HighwayRunner(Runner):
                 rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
                 rnn_states_critic = np.array(np.split(_t2n(rnn_states_critic), self.n_rollout_threads))
 
-                if envs.action_space[0].__class__.__name__ == 'MultiDiscrete':
-                    for i in range(envs.action_space[0].shape):
-                        uc_actions_env = np.eye(envs.action_space[0].high[i]+1)[actions[:, :, i]]
-                        if i == 0:
-                            actions_env = uc_actions_env
-                        else:
-                            actions_env = np.concatenate((actions_env, uc_actions_env), axis=2)
-                elif envs.action_space[0].__class__.__name__ == 'Discrete':
-                    actions_env = np.squeeze(np.eye(envs.action_space[0].n)[actions], 2)
+                if self.envs.action_space[0].__class__.__name__ == 'Discrete':
+                    actions_env = np.squeeze(actions, axis=-1)
                 else:
                     raise NotImplementedError
 
@@ -262,8 +256,9 @@ class HighwayRunner(Runner):
                 obs, rewards, dones, infos = envs.step(actions_env)
                 episode_rewards.append(rewards)
 
-                share_obs = obs.reshape(self.n_rollout_threads, -1)
-                share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
+                share_obs=obs
+                #share_obs = obs.reshape(self.n_rollout_threads, -1)
+                #share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
 
                 rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.hidden_size), dtype=np.float32)
                 rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.hidden_size), dtype=np.float32)
@@ -271,14 +266,14 @@ class HighwayRunner(Runner):
                 masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
                 if self.all_args.save_gifs:
-                    image = envs.render('rgb_array', close=False)[0]
+                    image = envs.render('rgb_array')[0]
                     all_frames.append(image)
                     calc_end = time.time()
                     elapsed = calc_end - calc_start
                     if elapsed < self.all_args.ifi:
-                        time.sleep(ifi - elapsed)
+                        time.sleep(self.all_args.ifi - elapsed)
 
             print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
 
         if self.all_args.save_gifs:
-            imageio.mimsave(str(self.gif_dir) + 'render.gif', all_frames, duration=self.all_args.ifi)
+            imageio.mimsave(str(self.run_dir) + '/render.gif', all_frames, duration=self.all_args.ifi)

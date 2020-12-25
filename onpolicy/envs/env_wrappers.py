@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from multiprocessing import Process, Pipe
 from abc import ABC, abstractmethod
-
+from onpolicy.utils.util import tile_images
 
 class CloudpickleWrapper(object):
     """
@@ -107,7 +107,6 @@ class ShareVecEnv(ABC):
         return self.step_wait()
 
     def render(self, mode='human'):
-        from utils.util import tile_images
         imgs = self.get_images()
         bigimg = tile_images(imgs)
         if mode == 'human':
@@ -156,6 +155,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
         elif cmd == 'reset':
             ob = env.reset()
             remote.send((ob))
+        elif cmd == 'render':
+            remote.send(env.render(mode='rgb_array'))
         elif cmd == 'reset_task':
             ob = env.reset_task()
             remote.send(ob)
@@ -265,6 +266,7 @@ class SubprocVecEnv(ShareVecEnv):
             remote.send(('reset', None))
         obs = [remote.recv() for remote in self.remotes]
         return np.stack(obs)
+
 
     def reset_task(self):
         for remote in self.remotes:
@@ -572,6 +574,10 @@ class DummyVecEnv(ShareVecEnv):
     def close(self):
         for env in self.envs:
             env.close()
+
+    def render(self, mode="human"):
+        return [env.render(mode=mode) for env in self.envs]
+
 
 
 class ShareDummyVecEnv(ShareVecEnv):
