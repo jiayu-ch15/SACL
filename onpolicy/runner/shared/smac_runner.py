@@ -135,6 +135,10 @@ class SMACRunner(Runner):
 
         rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
+        
+        # rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.hidden_size), dtype=np.float32)
+        # rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.hidden_size), dtype=np.float32)
+        
         masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
         masks[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
@@ -197,6 +201,10 @@ class SMACRunner(Runner):
 
             eval_rnn_states[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
             eval_rnn_states_critic[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
+            
+            # eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.hidden_size), dtype=np.float32)
+            # eval_rnn_states_critic[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.hidden_size), dtype=np.float32)           
+
             eval_masks = np.ones((self.all_args.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
             eval_masks[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
