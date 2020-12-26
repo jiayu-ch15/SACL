@@ -12,13 +12,14 @@ class HighwayEnv(gym.core.Wrapper):
                     "id": all_args.scenario_name,
                     "import_module": "onpolicy.envs.highway.highway_env",
                     "controlled_vehicles": self.n_agents,
+                    "duration": all_args.episode_length,
+
                     "action": {
                         "type": "MultiAgentAction",
                         "action_config": {
                             "type": "DiscreteMetaAction"
                         }
                     },
-                    "duration":all_args.episode_length,
                     "observation": {
                         "type": "MultiAgentObservation",
                         "observation_config": {
@@ -41,10 +42,8 @@ class HighwayEnv(gym.core.Wrapper):
         
         self.observation_space = self.new_observation_space
         self.action_space=list(self.action_space)
-
     def step(self, action):
         o, r, d, infos = self.env.step(tuple(action))
-
         obs = [np.concatenate(o[i]) for i in range(self.n_agents)]
         rewards = [[r] for i in range(self.n_agents)]
         dones = [d for i in range(self.n_agents)]
