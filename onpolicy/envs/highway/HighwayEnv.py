@@ -43,7 +43,7 @@ class HighwayEnv(gym.core.Wrapper):
         self.observation_space = self.new_observation_space
         self.action_space=list(self.action_space)
     def step(self, action):
-        o, r, d, infos = self.env.step(tuple(action))
+        o, r, d, infos = self.env.step(tuple(action[0]))
         obs = [np.concatenate(o[i]) for i in range(self.n_agents)]
         rewards = [[r] for i in range(self.n_agents)]
         dones = [d for i in range(self.n_agents)]

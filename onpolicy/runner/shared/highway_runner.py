@@ -29,11 +29,9 @@ class HighwayRunner(Runner):
             for step in range(self.episode_length):
                 # Sample actions
                 values, actions, action_log_probs, rnn_states, rnn_states_critic, actions_env = self.collect(step)
-                    
                 # Obser reward and next obs
                 obs, rewards, dones, infos = self.envs.step(actions_env)
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
-                
                 # insert data into buffer
                 self.insert(data)
 
@@ -110,7 +108,8 @@ class HighwayRunner(Runner):
         rnn_states_critic = np.array(np.split(_t2n(rnn_states_critic), self.n_rollout_threads))
         # rearrange action
         if self.envs.action_space[0].__class__.__name__ == 'Discrete':
-            actions_env = np.squeeze(actions, axis=-1)
+            #actions_env = np.squeeze(actions, axis=-1)
+            actions_env=actions
         else:
             raise NotImplementedError
 
@@ -177,7 +176,8 @@ class HighwayRunner(Runner):
 
             # rearrange action
             if eval_envs.action_space[0].__class__.__name__ == 'Discrete':
-                eval_actions_env = np.squeeze(eval_actions, axis=-1)
+                #eval_actions_env = np.squeeze(eval_actions, axis=-1)
+                eval_actions_env = eval_actions
             else:
                 raise NotImplementedError
 
@@ -241,7 +241,8 @@ class HighwayRunner(Runner):
 
 
                 if envs.action_space[0].__class__.__name__ == 'Discrete':
-                    actions_env = np.squeeze(actions, axis=-1)
+                    #actions_env = np.squeeze(actions, axis=-1)
+                    actions_env=actions
                 else:
                     raise NotImplementedError
 
