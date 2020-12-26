@@ -248,7 +248,7 @@ class HighwayRunner(Runner):
                 # Obser reward and next obs
                 obs, rewards, dones, infos = envs.step(actions_env)
                 episode_rewards.append(rewards)
-
+               
                 share_obs=obs
                 #share_obs = obs.reshape(self.n_rollout_threads, -1)
                 #share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
