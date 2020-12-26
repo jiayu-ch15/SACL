@@ -18,6 +18,7 @@ class HighwayEnv(gym.core.Wrapper):
                             "type": "DiscreteMetaAction"
                         }
                     },
+                    "duration":all_args.episode_length,
                     "observation": {
                         "type": "MultiAgentObservation",
                         "observation_config": {
