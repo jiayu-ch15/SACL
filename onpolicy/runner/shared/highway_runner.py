@@ -22,6 +22,8 @@ class HighwayRunner(Runner):
         start = time.time()
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
 
+        episodes_rew=[0 for _ in range(self.n_rollout_threads)]
+        episodes_rews=[]
         for episode in range(episodes):
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
@@ -34,6 +36,17 @@ class HighwayRunner(Runner):
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
                 # insert data into buffer
                 self.insert(data)
+
+                for i in range(len(dones)):
+                    if np.all(dones[i]):
+                        episodes_rew[i]+=rewards[i][0][0]
+                        episodes_rews.append(episodes_rew[i])
+                        episodes_rew[i]=0
+                    else:
+                        episodes_rew[i]+=rewards[i][0][0]
+
+            epi_average_rew=np.mean(np.array(episodes_rews))
+            episodes_rews = []
 
             # compute return and update network
             self.compute()
@@ -66,8 +79,10 @@ class HighwayRunner(Runner):
                             if key in info.keys():
                                 env_infos[key].append(info[key])
                 
-                train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
-                print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
+                #train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
+                #print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
+                train_infos["average_episode_rewards"] = epi_average_rew
+                print("average episode rewards is {}".format(epi_average_rew))
                 self.log_train(train_infos, total_num_steps)
                 self.log_env(env_infos, total_num_steps)
 
