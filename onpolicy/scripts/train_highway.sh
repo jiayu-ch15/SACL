@@ -1,7 +1,7 @@
 #!/bin/sh
 env="Highway"
 scenario="highway-v0"
-num_agents=1
+num_agents=2
 algo="rmappo"
 exp="render"
 seed_max=1

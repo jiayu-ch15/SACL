@@ -47,7 +47,6 @@ class HighwayEnv(gym.core.Wrapper):
         obs = [np.concatenate(o[i]) for i in range(self.n_agents)]
         rewards = [[r] for i in range(self.n_agents)]
         dones = [d for i in range(self.n_agents)]
-
         return obs, rewards, dones, infos
 
     def reset(self):

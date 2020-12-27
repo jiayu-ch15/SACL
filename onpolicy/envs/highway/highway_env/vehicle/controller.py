@@ -297,3 +297,4 @@ class MDPVehicle(ControlledVehicle):
                 if (t % int(trajectory_timestep / dt)) == 0:
                     states.append(copy.deepcopy(v))
         return states
+
