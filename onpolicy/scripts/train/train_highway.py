@@ -9,13 +9,13 @@ from pathlib import Path
 import torch
 from onpolicy.config import get_config
 from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv, ChooseGuardSubprocVecEnv, ChooseSimpleDummyVecEnv
-from onpolicy.envs.highway.HighwayEnv import HighwayEnv
+from onpolicy.envs.highway.Highway_Env import HighwayEnv
 
-def make_train_env(all_args,device):
+def make_train_env(all_args, device):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "Highway":
-                env=HighwayEnv(all_args,device)
+                env = HighwayEnv(all_args, device)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
@@ -28,11 +28,11 @@ def make_train_env(all_args,device):
     else:
         return SubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
-def make_eval_env(all_args):
+def make_eval_env(all_args, device):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "Highway":
-                env=HighwayEnv(all_args)
+                env = HighwayEnv(all_args, device)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
@@ -40,23 +40,31 @@ def make_eval_env(all_args):
             env.seed(all_args.seed + rank * 5000)
             return env
         return init_env
-    if all_args.n_rollout_threads == 1:
+    if all_args.n_eval_rollout_threads == 1:
         return DummyVecEnv([get_env_fn(0)])
     else:
-        return SubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
+        return SubprocVecEnv([get_env_fn(i) for i in range(all_args.n_eval_rollout_threads)])
 
 
 def parse_args(args, parser):
     parser.add_argument('--scenario_name', type=str,
                         default='highway-v0', help="Which scenario to run on")
-    parser.add_argument('--num_agents', type=int,
-                        default=1, help="number of cars")
-    parser.add_argument('--n_attacker', type=int,
-                        default=1, help="number of attack cars")
-    parser.add_argument('--n_npc', type=int,
-                        default=0, help="number of npc cars")
-    parser.add_argument('--rl_agent_path', type=str,
-                        default='rl_agent/run_1/models/actor.pt', help="rl_agent_path")
+
+    parser.add_argument('--task_type', type=str,
+                        default='attack', choice = ["attack","defend","all"], help="train attacker or defender")
+
+    parser.add_argument('--n_defenders', type=int,
+                        default=1, help="number of defensive vehicles, default:1")
+    parser.add_argument('--n_attackers', type=int,
+                        default=1, help="number of attack vehicles")
+    parser.add_argument('--n_dummies', type=int,
+                        default=0, help="number of dummy vehicles")
+
+    parser.add_argument('--horizon', type=int,
+                        default=1, help="the max length of one task")
+
+    parser.add_argument('--policy_path', type=str,
+                        default='../envs/highway/agents/policy_pool/actor.pt', help="load_policy_path")
     all_args = parser.parse_known_args(args)[0]
 
     return all_args
@@ -131,10 +139,17 @@ def main(args):
     np.random.seed(all_args.seed)
 
     # env init
-    envs = make_train_env(all_args,device)
+    envs = make_train_env(all_args, device)
 
     eval_envs = make_eval_env(all_args) if all_args.use_eval else None
-    num_agents = all_args.num_agents
+    if all_args.task_type == "attack":
+        num_agents = all_args.n_attackers
+    elif all_args.task_type == "defend":
+        num_agents = all_args.n_defenders
+    elif all_args.task_type == "all":
+        num_agents = all_args.n_defenders + all_args.n_attackers
+    else:
+        raise NotImplementedError
 
     config = {
         "all_args": all_args,
@@ -149,8 +164,7 @@ def main(args):
     if all_args.share_policy:
         from onpolicy.runner.shared.highway_runner import HighwayRunner as Runner
     else:
-        # ! wrong 
-        from onpolicy.runner.separated.mpe_runner import MPERunner as Runner
+        raise NotImplementedError
 
     runner = Runner(config)
     runner.run()

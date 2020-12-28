@@ -15,23 +15,26 @@ def _t2n(x):
 class HighwayRunner(Runner):
     def __init__(self, config):
         super(HighwayRunner, self).__init__(config)
-
+        
     def run(self):
         self.warmup()   
 
         start = time.time()
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
 
-
         for episode in range(episodes):
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
 
+            self.env_infos = {"episode_rewards": [], 
+                            "episode_dummy_rewards": [], 
+                            "episode_other_rewards": []}
+
             for step in range(self.episode_length):
                 # Sample actions
-                values, actions, action_log_probs, rnn_states, rnn_states_critic, actions_env = self.collect(step)
+                values, actions, action_log_probs, rnn_states, rnn_states_critic = self.collect(step)
                 # Obser reward and next obs
-                obs, rewards, dones, infos = self.envs.step(actions_env)
+                obs, rewards, dones, infos = self.envs.step(actions)
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
                 # insert data into buffer
                 self.insert(data)
@@ -109,14 +112,8 @@ class HighwayRunner(Runner):
         action_log_probs = np.array(np.split(_t2n(action_log_prob), self.n_rollout_threads))
         rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
         rnn_states_critic = np.array(np.split(_t2n(rnn_states_critic), self.n_rollout_threads))
-        # rearrange action
-        if self.envs.action_space[0].__class__.__name__ == 'Discrete':
-            #actions_env = np.squeeze(actions, axis=-1)
-            actions_env=actions
-        else:
-            raise NotImplementedError
-
-        return values, actions, action_log_probs, rnn_states, rnn_states_critic, actions_env
+        
+        return values, actions, action_log_probs, rnn_states, rnn_states_critic
 
     def insert(self, data):
         obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
@@ -128,6 +125,14 @@ class HighwayRunner(Runner):
             share_obs = obs
 
         dones_env = np.all(dones, axis=-1)
+
+        for done_env, info in zip(dones_env, infos):
+            # if env is done, we need to take episode rewards!
+            if done_env:
+                for key in self.env_infos.keys():
+                    if key in info.keys():
+                        self.env_infos[key].append(info[key])
+
 
         rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
