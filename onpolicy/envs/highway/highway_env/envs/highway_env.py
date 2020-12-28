@@ -68,29 +68,34 @@ class HighwayEnv(AbstractEnv):
             self.controlled_vehicles.append(vehicle)
             self.road.vehicles.append(vehicle)
 
+
         vehicles_type = utils.class_from_path(self.config["other_vehicles_type"])
         for _ in range(self.config["vehicles_count"]):
             self.road.vehicles.append(vehicles_type.create_random(self.road, spacing=1 / self.config["vehicles_density"]))
 
-    def _reward(self, action: Action) -> float:
+    def _reward(self, action: Action) :#-> float: now we return a list
         """
         The reward is defined to foster driving at high speed, on the rightmost lanes, and to avoid collisions.
         :param action: the last action performed
         :return: the corresponding reward
         """
-        neighbours = self.road.network.all_side_lanes(self.vehicle.lane_index)
-        lane = self.vehicle.target_lane_index[2] if isinstance(self.vehicle, ControlledVehicle) \
-            else self.vehicle.lane_index[2]
-        scaled_speed = utils.lmap(self.vehicle.speed, self.config["reward_speed_range"], [0, 1])
-        reward = \
-            + self.config["collision_reward"] * self.vehicle.crashed \
-            + self.RIGHT_LANE_REWARD * lane / max(len(neighbours) - 1, 1) \
-            + self.HIGH_SPEED_REWARD * np.clip(scaled_speed, 0, 1)
-        reward = utils.lmap(reward,
-                          [self.config["collision_reward"], self.HIGH_SPEED_REWARD + self.RIGHT_LANE_REWARD],
-                          [0, 1])
-        reward = 0 if not self.vehicle.on_road else reward
-        return reward
+        rewards=[]
+        for vehicle in self.controlled_vehicles:
+            neighbours = self.road.network.all_side_lanes(vehicle.lane_index)
+            lane = vehicle.target_lane_index[2] if isinstance(vehicle, ControlledVehicle) \
+                else vehicle.lane_index[2]
+            scaled_speed = utils.lmap(vehicle.speed, self.config["reward_speed_range"], [0, 1])
+            reward = \
+                + self.config["collision_reward"] * vehicle.crashed \
+                + self.RIGHT_LANE_REWARD * lane / max(len(neighbours) - 1, 1) \
+                + self.HIGH_SPEED_REWARD * np.clip(scaled_speed, 0, 1)
+            reward = utils.lmap(reward,
+                              [self.config["collision_reward"], self.HIGH_SPEED_REWARD + self.RIGHT_LANE_REWARD],
+                              [0, 1])
+            reward = 0 if not vehicle.on_road else reward
+            rewards.append(reward)
+
+        return rewards
 
     def _is_terminal(self) -> bool:
         """The episode is over if the ego vehicle crashed or the time is out."""

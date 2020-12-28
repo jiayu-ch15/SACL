@@ -192,6 +192,7 @@ class AbstractEnv(gym.Env):
 
         obs = self.observation_type.observe()
         reward = self._reward(action)
+
         terminal = self._is_terminal()
 
         info = {

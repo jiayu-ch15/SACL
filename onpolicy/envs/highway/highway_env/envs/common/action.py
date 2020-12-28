@@ -219,8 +219,10 @@ class MultiAgentAction(ActionType):
 
     def act(self, action: Action) -> None:
         assert isinstance(action, tuple)
+
         for agent_action, action_type in zip(action, self.agents_action_types):
             action_type.act(agent_action)
+
 
 
 def action_factory(env: 'AbstractEnv', config: dict) -> ActionType:
