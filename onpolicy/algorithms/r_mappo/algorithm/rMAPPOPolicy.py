@@ -40,3 +40,7 @@ class R_MAPPOPolicy:
         action_log_probs, dist_entropy, policy_values = self.actor.evaluate_actions(obs, rnn_states_actor, action, masks, available_actions, active_masks)
         values, _ = self.critic(share_obs, rnn_states_critic, masks)
         return values, action_log_probs, dist_entropy, policy_values
+
+    def act(self, obs, rnn_states_actor, masks, available_actions=None, deterministic=False):
+        actions, _, rnn_states_actor = self.actor(obs, rnn_states_actor, masks, available_actions, deterministic)
+        return actions, rnn_states_actor
