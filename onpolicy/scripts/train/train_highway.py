@@ -53,6 +53,8 @@ def parse_args(args, parser):
                         default=1, help="number of cars")
     parser.add_argument('--n_attacker', type=int,
                         default=1, help="number of attack cars")
+    parser.add_argument('--n_npc', type=int,
+                        default=0, help="number of npc cars")
     parser.add_argument('--rl_agent_path', type=str,
                         default='rl_agent/run_1/models/actor.pt', help="rl_agent_path")
     all_args = parser.parse_known_args(args)[0]

@@ -79,6 +79,8 @@ class HighwayEnv(AbstractEnv):
         :param action: the last action performed
         :return: the corresponding reward
         """
+
+        # -> float: now we change it to return a list!!!!!
         rewards=[]
         for vehicle in self.controlled_vehicles:
             neighbours = self.road.network.all_side_lanes(vehicle.lane_index)
@@ -107,7 +109,55 @@ class HighwayEnv(AbstractEnv):
         """The cost signal is the occurrence of collision."""
         return float(self.vehicle.crashed)
 
+    def get_available_actions(self):
+        """
+        Get the list of currently available actions.
 
+        Lane changes are not available on the boundary of the road, and speed changes are not available at
+        maximal or minimal speed.
+
+        :return: the list of available actions
+        """
+        from onpolicy.envs.highway.highway_env.envs.common.action import  DiscreteMetaAction,MultiAgentAction
+
+        if isinstance(self.action_type, DiscreteMetaAction):
+            actions = [self.action_type.actions_indexes['IDLE']]
+            for l_index in self.road.network.side_lanes(self.vehicle.lane_index):
+                if l_index[2] < self.vehicle.lane_index[2] \
+                        and self.road.network.get_lane(l_index).is_reachable_from(self.vehicle.position) \
+                        and self.action_type.lateral:
+                    actions.append(self.action_type.actions_indexes['LANE_LEFT'])
+                if l_index[2] > self.vehicle.lane_index[2] \
+                        and self.road.network.get_lane(l_index).is_reachable_from(self.vehicle.position) \
+                        and self.action_type.lateral:
+                    actions.append(self.action_type.actions_indexes['LANE_RIGHT'])
+            if self.vehicle.speed_index < self.vehicle.SPEED_COUNT - 1 and self.action_type.longitudinal:
+                actions.append(self.action_type.actions_indexes['FASTER'])
+            if self.vehicle.speed_index > 0 and self.action_type.longitudinal:
+                actions.append(self.action_type.actions_indexes['SLOWER'])
+            return actions
+
+        elif isinstance(self.action_type, MultiAgentAction):
+            multi_actions=[]
+            for vehicle,action_type in zip(self.controlled_vehicles,self.action_type.agents_action_types):
+
+                actions = [action_type.actions_indexes['IDLE']]
+                for l_index in self.road.network.side_lanes(vehicle.lane_index):
+                    if l_index[2] < vehicle.lane_index[2] \
+                            and self.road.network.get_lane(l_index).is_reachable_from(self.vehicle.position) \
+                            and action_type.lateral:
+                        actions.append(action_type.actions_indexes['LANE_LEFT'])
+                    if l_index[2] > vehicle.lane_index[2] \
+                            and self.road.network.get_lane(l_index).is_reachable_from(self.vehicle.position) \
+                            and action_type.lateral:
+                        actions.append(action_type.actions_indexes['LANE_RIGHT'])
+                if vehicle.speed_index < vehicle.SPEED_COUNT - 1 and action_type.longitudinal:
+                    actions.append(action_type.actions_indexes['FASTER'])
+                if vehicle.speed_index > 0 and action_type.longitudinal:
+                    actions.append(action_type.actions_indexes['SLOWER'])
+                multi_actions.append(actions)
+
+            return multi_actions
 register(
     id='highway-v0',
     entry_point='onpolicy.envs.highway.highway_env.envs:HighwayEnv',

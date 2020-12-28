@@ -274,6 +274,7 @@ class AbstractEnv(gym.Env):
 
         :return: the list of available actions
         """
+
         if not isinstance(self.action_type, DiscreteMetaAction):
             raise ValueError("Only discrete meta-actions can be unavailable.")
         actions = [self.action_type.actions_indexes['IDLE']]

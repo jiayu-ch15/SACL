@@ -10,14 +10,14 @@ class HighwayEnv(gym.core.Wrapper):
         self.device=device
         self.n_agents = all_args.num_agents
         self.n_attacker=all_args.n_attacker
+        self.n_npc=all_args.n_npc
         self.use_centralized_V = all_args.use_centralized_V
         self.env_dict={
                     "id": all_args.scenario_name,
                     "import_module": "onpolicy.envs.highway.highway_env",
-                    "controlled_vehicles": self.n_agents+all_args.n_attacker,
+                    "controlled_vehicles": self.n_agents+ self.all_args.n_attacker+self.n_npc,
 
-                    "duration": all_args.episode_length,
-
+                    "duration": self.all_args.episode_length,
                     "action": {
                         "type": "MultiAgentAction",
                         "action_config": {
@@ -29,11 +29,12 @@ class HighwayEnv(gym.core.Wrapper):
                         "observation_config": {
                             "type": "Kinematics"
                         }
-                    }
-                }
-        env = load_environment(self.env_dict)
+                    },
+                    "vehicles_count": 50,
+        }
+        self.env_init = load_environment(self.env_dict)
 
-        super().__init__(env)
+        super().__init__(self.env_init)
 
         self.new_observation_space = []
         self.share_observation_space = []
@@ -47,40 +48,67 @@ class HighwayEnv(gym.core.Wrapper):
         self.observation_space = self.new_observation_space
         self.action_space=list(self.action_space)
 
-
-        #####rl_agent!
-        from onpolicy.algorithms.r_mappo.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
-        share_observation_space = self.share_observation_space[0] if all_args.use_centralized_V else self.observation_space[0]
-        all_arg=deepcopy(all_args)
-        all_arg.num_agents=1
-        self.rl_agent = Policy(all_arg,
-                             self.observation_space[0],
-                             share_observation_space,
-                             self.action_space[0],
-                             device=device,
-                             cat_self=False)
-        policy_actor_state_dict = torch.load(all_args.rl_agent_path,map_location=self.device)
-        self.rl_agent.actor.load_state_dict(policy_actor_state_dict)
+        self.load_rl_agents()
+        if self.n_npc>0:
+            self.load_npc_agents()
 
         self.episodes_rew = 0
         self.episodes_rews=[]
         self.time_step = 0
 
-    def step(self, action):
 
-        attack_actions,_, self.rnn_states = self.rl_agent.actor(self.obs, self.rnn_state, self.masks, deterministic=False)
+    def load_npc_agents(self):
+        from onpolicy.envs.highway.agents.tree_search.mcts import MCTSAgent
+        self.npcs=[]
+        for i in range(self.n_npc):
+            self.npcs.append( MCTSAgent(self.env_init,id=i+self.n_attacker+self.n_agents,
+                                        config=dict(budget=200, temperature=200, max_depth=1)))
+
+    def load_rl_agents(self):
+        all_arg = deepcopy(self.all_args)
+
+        ###pay attention:all_arg is for attack_agents initialization
+        ###to do: add if-else to redefine Policy,use_centralized_V,
+        from onpolicy.algorithms.r_mappo.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
+        share_observation_space = self.share_observation_space[0] if all_arg.use_centralized_V else \
+        self.observation_space[0]
+
+        all_arg.num_agents = self.n_attacker
+        self.rl_agent = Policy(all_arg,
+                               self.observation_space[0],
+                               share_observation_space,
+                               self.action_space[0],
+                               device=self.device,
+                               cat_self=False)
+        policy_actor_state_dict = torch.load(all_arg.rl_agent_path, map_location=self.device)
+        self.rl_agent.actor.load_state_dict(policy_actor_state_dict)
+
+
+    def step(self, action):
+        #### attack_agents action
+        attack_actions,_, self.rnn_states = self.rl_agent.actor(self.obs_attack, self.rnn_state, self.masks, deterministic=False)
         action=np.concatenate([action,attack_actions])
 
-        ####for discrete action!!!
+        #####npc action
+        if self.n_npc>0:
+            npc_action=[]
+            for npc in self.npcs:
+                a_npc = npc.act(self.o_npc)
+                npc_action.append([a_npc])
+            action = np.concatenate([action, npc_action])
+        ####for discrete action!
         action = np.squeeze(action, axis=-1)
-        o, r, d, infos = self.env.step(tuple(action))
 
+        o, r, d, infos = self.env.step(tuple(action))
+        self.o_npc=o
         obs = [np.concatenate(o[i]) for i in range(self.n_agents)]
         rewards = [[r[i]] for i in range(self.n_agents)]
         dones = [d for i in range(self.n_agents)]
 
+        ### attack_agents obs
         o = [np.concatenate(o[i]) for i in range(len(o))]
-        self.obs = torch.tensor(o[self.n_agents:]).to(self.device)
+        self.obs_attack = torch.tensor(o[self.n_agents:self.n_agents+self.n_attacker]).to(self.device)
+
 
         if np.all(dones):
             self.episodes_rew += rewards[0][0]
@@ -98,14 +126,14 @@ class HighwayEnv(gym.core.Wrapper):
         return obs, rewards, dones, infos
 
     def reset(self):
-
-
         o = self.env.reset()
+        self.o_npc = o
         obs = [np.concatenate(o[i]) for i in range(self.n_agents)]
 
+        ### init attack_agent obs
         self.rnn_state = torch.zeros((self.n_attacker, self.all_args.hidden_size)).to(self.device)
         o = [np.concatenate(o[i]) for i in range(len(o))]
-        self.obs = torch.tensor(o[self.n_agents:]).to(self.device)
+        self.obs_attack = torch.tensor(o[self.n_agents:self.n_agents+self.n_attacker]).to(self.device)
         self.masks=torch.ones((self.n_attacker,1)).to(self.device)
 
         return obs
