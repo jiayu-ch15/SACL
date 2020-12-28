@@ -9,13 +9,13 @@ from pathlib import Path
 import torch
 from onpolicy.config import get_config
 from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv, ChooseGuardSubprocVecEnv, ChooseSimpleDummyVecEnv
-from onpolicy.envs.highway.HighwayEnv import highway
+from onpolicy.envs.highway.HighwayEnv import HighwayEnv
 
-def make_train_env(all_args):
+def make_train_env(all_args,device):
     def get_env_fn(rank):
         def init_env():
-            if all_args.env_name == "highway":
-                env=highway(all_args)
+            if all_args.env_name == "Highway":
+                env=HighwayEnv(all_args,device)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
@@ -31,8 +31,8 @@ def make_train_env(all_args):
 def make_eval_env(all_args):
     def get_env_fn(rank):
         def init_env():
-            if all_args.env_name == "highway":
-                env=highway(all_args)
+            if all_args.env_name == "Highway":
+                env=HighwayEnv(all_args)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
@@ -48,10 +48,13 @@ def make_eval_env(all_args):
 
 def parse_args(args, parser):
     parser.add_argument('--scenario_name', type=str,
-                        default='simple_spread', help="Which scenario to run on")
+                        default='highway-v0', help="Which scenario to run on")
     parser.add_argument('--num_agents', type=int,
-                        default=2, help="number of players")
-
+                        default=1, help="number of cars")
+    parser.add_argument('--n_attacker', type=int,
+                        default=1, help="number of attack cars")
+    parser.add_argument('--rl_agent_path', type=str,
+                        default='rl_agent/run_1/models/actor.pt', help="rl_agent_path")
     all_args = parser.parse_known_args(args)[0]
 
     return all_args
@@ -126,7 +129,7 @@ def main(args):
     np.random.seed(all_args.seed)
 
     # env init
-    envs = make_train_env(all_args)
+    envs = make_train_env(all_args,device)
 
     eval_envs = make_eval_env(all_args) if all_args.use_eval else None
     num_agents = all_args.num_agents
@@ -144,6 +147,7 @@ def main(args):
     if all_args.share_policy:
         from onpolicy.runner.shared.highway_runner import HighwayRunner as Runner
     else:
+        # ! wrong 
         from onpolicy.runner.separated.mpe_runner import MPERunner as Runner
 
     runner = Runner(config)

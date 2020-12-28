@@ -1,15 +1,15 @@
-from onpolicy.envs.smarts.obs_adapter_fc import get_lan_ttc_observation_adapter
 import numpy as np
 from scipy.spatial import distance
-from onpolicy.envs.smarts.obs_adapter_fc import get_distance_from_center
 
-def get_reward_adapter(adapter_type="vanilla",neighbor_num=3):
+from .obs_adapter import observation_adapter
+
+def reward_adapter(adapter_type="vanilla", neighbor_num=3):
     def vanilla(env_obs, env_reward):
         return env_reward
 
     def standard(last_env_obs, env_obs, env_reward):
         penalty, bonus = 0.0, 0.0
-        _lane_ttc_observation_adapter=get_lan_ttc_observation_adapter(neighbor_num,False)
+        _lane_ttc_observation_adapter = observation_adapter(neighbor_num, False)
         obs = _lane_ttc_observation_adapter(env_obs)
         last_obs = _lane_ttc_observation_adapter(last_env_obs)
 
@@ -132,3 +132,16 @@ def get_reward_adapter(adapter_type="vanilla",neighbor_num=3):
         "standard": standard,
         "cruising": cruising,
     }[adapter_type]
+
+def get_distance_from_center(env_obs):
+    ego_state = env_obs.ego_vehicle_state
+    wp_paths = env_obs.waypoint_paths
+    closest_wps = [path[0] for path in wp_paths]
+
+    # distance of vehicle from center of lane
+    closest_wp = min(closest_wps, key=lambda wp: wp.dist_to(ego_state.position))
+    signed_dist_from_center = closest_wp.signed_lateral_error(ego_state.position)
+    lane_hwidth = closest_wp.lane_width * 0.5
+    norm_dist_from_center = signed_dist_from_center / lane_hwidth
+
+    return norm_dist_from_center
