@@ -78,7 +78,6 @@ class HighwayEnv(gym.core.Wrapper):
         obs = [np.concatenate(o[i]) for i in range(self.n_agents)]
         rewards = [[r[i]] for i in range(self.n_agents)]
         dones = [d for i in range(self.n_agents)]
-        self.render()
 
         o = [np.concatenate(o[i]) for i in range(len(o))]
         self.obs = torch.tensor(o[self.n_agents:]).to(self.device)
