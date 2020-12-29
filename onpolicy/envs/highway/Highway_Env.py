@@ -128,107 +128,115 @@ class HighwayEnv(gym.core.Wrapper):
 
 
     def step(self, action):
-        # we need to get actions of other agents
-        if self.n_other_agents > 0:
-            if self.use_same_other_policy:
-                other_actions, self.rnn_states \
-                    = self.other_agents(self.other_obs, 
-                                        self.rnn_states, 
-                                        self.masks, 
-                                        deterministic=True)
-                other_actions = other_actions.detach().numpy()
-            else:
-                other_actions = []
-                for agent_id in range(self.n_other_agents):
-                    other_action, rnn_state = \
-                        self.other_agents[agent_id](self.other_obs[agent_id,:], 
-                                                    self.rnn_states[agent_id,:], 
-                                                    self.masks[agent_id,:], 
-                                                    deterministic=True)
-                    other_actions.append(other_action.detach().numpy())
-                    self.rnn_states[agent_id] = rnn_state.detach().numpy()
+        if not np.all(action == np.ones((self.n_agents, 1)).astype(np.int) * (-1)):
+            # we need to get actions of other agents
+            if self.n_other_agents > 0:
+                if self.use_same_other_policy:
+                    other_actions, self.rnn_states \
+                        = self.other_agents(self.other_obs, 
+                                            self.rnn_states, 
+                                            self.masks, 
+                                            deterministic=True)
+                    other_actions = other_actions.detach().numpy()
+                else:
+                    other_actions = []
+                    for agent_id in range(self.n_other_agents):
+                        other_action, rnn_state = \
+                            self.other_agents[agent_id](self.other_obs[agent_id,:], 
+                                                        self.rnn_states[agent_id,:], 
+                                                        self.masks[agent_id,:], 
+                                                        deterministic=True)
+                        other_actions.append(other_action.detach().numpy())
+                        self.rnn_states[agent_id] = rnn_state.detach().numpy()
+                
+                if self.train_start_idx == 0:
+                    action = np.concatenate([action, other_actions])
+                else:
+                    action = np.concatenate([other_actions, action])
+
+            # then we need to get actions of dummies
+            if self.n_dummies > 0:
+                dummy_actions = []
+                for dummy in self.dummies:
+                    dummy_action = dummy.act(self.dummy_obs)
+                    dummy_actions.append([dummy_action])
+                action = np.concatenate([action, dummy_actions])
             
-            if self.train_start_idx == 0:
-                action = np.concatenate([action, other_actions])
-            else:
-                action = np.concatenate([other_actions, action])
+            # for discrete action, drop the unneeded axis
+            action = np.squeeze(action, axis=-1)
 
-        # then we need to get actions of dummies
-        if self.n_dummies > 0:
-            dummy_actions = []
-            for dummy in self.dummies:
-                dummy_action = dummy.act(self.dummy_obs)
-                dummy_actions.append([dummy_action])
-            action = np.concatenate([action, dummy_actions])
-        
-        # for discrete action, drop the unneeded axis
-        action = np.squeeze(action, axis=-1)
+            all_obs, all_rewards, all_dones, infos = self.env.step(tuple(action))
 
-        all_obs, all_rewards, all_dones, infos = self.env.step(tuple(action))
-        self.render()
+            if self.all_args.use_render:
+                self.render()
 
-        # obs
-        # 1. train obs
-        obs = np.array([np.concatenate(all_obs[self.train_start_idx + agent_id]) for agent_id in range(self.n_agents)])
-        # 2. other obs
-        self.other_obs = np.array([np.concatenate(all_obs[self.load_start_idx + agent_id]) \
-                                for agent_id in range(self.n_other_agents)])
-        # 3. dummy obs
-        #self.dummy_obs = all_obs
-        self.dummy_obs = np.array([np.concatenate(all_obs[self.n_attackers + self.n_defenders + agent_id]) \
-                                   for agent_id in range(self.n_dummies)])
+            # obs
+            # 1. train obs
+            obs = np.array([np.concatenate(all_obs[self.train_start_idx + agent_id]) for agent_id in range(self.n_agents)])
+            # 2. other obs
+            self.other_obs = np.array([np.concatenate(all_obs[self.load_start_idx + agent_id]) \
+                                    for agent_id in range(self.n_other_agents)])
+            # 3. dummy obs
+            #self.dummy_obs = all_obs
+            self.dummy_obs = np.array([np.concatenate(all_obs[self.n_attackers + self.n_defenders + agent_id]) \
+                                    for agent_id in range(self.n_dummies)])
 
-        # rewards
-        # ! @zhuo if agent is dead, rewards need to be set zero!
-        # 1. train rewards
-        rewards = [[all_rewards[self.train_start_idx + agent_id]] for agent_id in range(self.n_agents)]
-        self.episode_rewards.append(rewards)
-        # 2. other rewards
-        other_rewards = [[all_rewards[self.load_start_idx + agent_id]] \
-                                for agent_id in range(self.n_other_agents)]
-        self.episode_other_rewards.append(other_rewards)
-        # 3. dummy rewards
-        dummy_rewards = [[all_rewards[self.n_attackers + self.n_defenders + dummy_id]] \
-                                for dummy_id in range(self.n_dummies)]
-        self.episode_dummy_rewards.append(dummy_rewards)
+            # rewards
+            # ! @zhuo if agent is dead, rewards need to be set zero!
+            # 1. train rewards
+            rewards = [[all_rewards[self.train_start_idx + agent_id]] for agent_id in range(self.n_agents)]
+            self.episode_rewards.append(rewards)
+            # 2. other rewards
+            other_rewards = [[all_rewards[self.load_start_idx + agent_id]] \
+                                    for agent_id in range(self.n_other_agents)]
+            self.episode_other_rewards.append(other_rewards)
+            # 3. dummy rewards
+            dummy_rewards = [[all_rewards[self.n_attackers + self.n_defenders + dummy_id]] \
+                                    for dummy_id in range(self.n_dummies)]
+            self.episode_dummy_rewards.append(dummy_rewards)
 
-        # ! @zhuo u need to use this one!
-        # 1. train dones
-        dones = [all_dones[self.train_start_idx + agent_id] for agent_id in range(self.n_agents)]
-        # 2. other dones
-        other_dones = [all_dones[self.load_start_idx + agent_id] for agent_id in range(self.n_other_agents)]
-        # 3. dummy dones
-        dummy_dones = [all_dones[self.n_attackers + self.n_defenders + dummy_id] for dummy_id in range(self.n_dummies)]
-        
-        infos.update({"episode_rewards": np.sum(self.episode_rewards, axis=0), 
-                    "episode_other_rewards": np.sum(self.episode_other_rewards, axis=0),
-                    "episode_dummy_rewards": np.sum(self.episode_dummy_rewards, axis=0)})
-        
-        print(infos)
+            # ! @zhuo u need to use this one!
+            # 1. train dones
+            dones = [all_dones[self.train_start_idx + agent_id] for agent_id in range(self.n_agents)]
+            # 2. other dones
+            other_dones = [all_dones[self.load_start_idx + agent_id] for agent_id in range(self.n_other_agents)]
+            # 3. dummy dones
+            dummy_dones = [all_dones[self.n_attackers + self.n_defenders + dummy_id] for dummy_id in range(self.n_dummies)]
+            
+            infos.update({"episode_rewards": np.sum(self.episode_rewards, axis=0), 
+                        "episode_other_rewards": np.sum(self.episode_other_rewards, axis=0) if self.n_other_agents > 0 else 0.0,
+                        "episode_dummy_rewards": np.sum(self.episode_dummy_rewards, axis=0) if self.n_dummies > 0 else 0.0})
+        else:
+            obs = np.zeros((self.n_agents, self.obs_dim))
+            rewards = np.zeros((self.n_agents, 1))
+            dones = [None for agent_id in range(self.n_agents)]
+            infos = {}
 
         return obs, rewards, dones, infos
 
-    def reset(self):
+    def reset(self, choose = True):
+        
+        if choose:
+            self.episode_rewards = []
+            self.episode_dummy_rewards = []
+            self.episode_other_rewards = []
 
-        self.episode_rewards = []
-        self.episode_dummy_rewards = []
-        self.episode_other_rewards = []
+            all_obs = self.env.reset()
 
-        all_obs = self.env.reset()
+            # dummy needs to take all obs
+            #self.dummy_obs = all_obs
+            self.dummy_obs = np.array([np.concatenate(all_obs[self.n_attackers+self.n_defenders + agent_id]) \
+                    for agent_id in range(self.n_dummies)])
+            # deal with other agents
+            self.rnn_states = np.zeros((self.n_other_agents, self.all_args.hidden_size), dtype=np.float32)
+            # o = [np.concatenate(all_obs[i]) for i in range(len(all_obs))]
 
-        # dummy needs to take all obs
-        #self.dummy_obs = all_obs
-        self.dummy_obs = np.array([np.concatenate(all_obs[self.n_attackers+self.n_defenders + agent_id]) \
-                  for agent_id in range(self.n_dummies)])
-        # deal with other agents
-        self.rnn_states = np.zeros((self.n_other_agents, self.all_args.hidden_size), dtype=np.float32)
-        # o = [np.concatenate(all_obs[i]) for i in range(len(all_obs))]
+            self.other_obs = np.array([np.concatenate(all_obs[self.load_start_idx + agent_id]) \
+                                    for agent_id in range(self.n_other_agents)])
+            self.masks = np.ones((self.n_other_agents, 1), dtype=np.float32)
 
-        self.other_obs = np.array([np.concatenate(all_obs[self.load_start_idx + agent_id]) \
-                                for agent_id in range(self.n_other_agents)])
-        self.masks = np.ones((self.n_other_agents, 1), dtype=np.float32)
-
-        # deal with agents that need to train
-        obs = np.array([np.concatenate(all_obs[self.train_start_idx + agent_id]) for agent_id in range(self.n_agents)])
-
+            # deal with agents that need to train
+            obs = np.array([np.concatenate(all_obs[self.train_start_idx + agent_id]) for agent_id in range(self.n_agents)])
+        else:
+            obs = np.zeros((self.n_agents, self.obs_dim))
         return obs

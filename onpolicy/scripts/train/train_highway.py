@@ -189,10 +189,11 @@ def main(args):
     
     # post process
     envs.close()
-    if all_args.use_eval and eval_envs is not envs:
+    
+    if all_args.use_eval and eval_envs is not Nones:
         eval_envs.close()
 
-    if all_args.use_render and render_envs is not envs:
+    if all_args.use_render and render_envs is not None:
         render_envs.close()
 
     if all_args.use_wandb:
