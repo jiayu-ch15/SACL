@@ -123,6 +123,7 @@ class EnvViewer(object):
             simulation_frequency=self.env.config["simulation_frequency"],
             offscreen=self.offscreen)
 
+
         if not self.offscreen:
             self.screen.blit(self.sim_surface, (0, 0))
             if self.env.config["real_time_rendering"]:

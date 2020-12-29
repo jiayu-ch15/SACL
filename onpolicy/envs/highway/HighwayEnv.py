@@ -15,7 +15,7 @@ class HighwayEnv(gym.core.Wrapper):
         self.env_dict={
                     "id": all_args.scenario_name,
                     "import_module": "onpolicy.envs.highway.highway_env",
-                    "controlled_vehicles": self.n_agents+ self.all_args.n_attacker+self.n_npc,
+                    "controlled_vehicles": self.n_agents+ self.n_attacker+self.n_npc,
 
                     "duration": self.all_args.episode_length,
                     "action": {
@@ -44,9 +44,9 @@ class HighwayEnv(gym.core.Wrapper):
             self.share_obs_dim = self.obs_dim * self.n_agents if self.use_centralized_V else self.obs_dim
             self.new_observation_space.append(gym.spaces.Box(low=-1e10, high=1e10, shape=(self.obs_dim,)))
             self.share_observation_space.append(gym.spaces.Box(low=-1e10, high=1e10, shape=(self.share_obs_dim,)))
-        
+
         self.observation_space = self.new_observation_space
-        self.action_space=list(self.action_space)
+        self.action_space=list(self.action_space)[:self.n_agents]
 
         self.load_rl_agents()
         if self.n_npc>0:
@@ -88,7 +88,7 @@ class HighwayEnv(gym.core.Wrapper):
         #### attack_agents action
         attack_actions,_, self.rnn_states = self.rl_agent.actor(self.obs_attack, self.rnn_state, self.masks, deterministic=False)
         action=np.concatenate([action,attack_actions])
-
+        self.render()
         #####npc action
         if self.n_npc>0:
             npc_action=[]
@@ -100,6 +100,8 @@ class HighwayEnv(gym.core.Wrapper):
         action = np.squeeze(action, axis=-1)
 
         o, r, d, infos = self.env.step(tuple(action))
+        print(r)
+        self.render()
         self.o_npc=o
         obs = [np.concatenate(o[i]) for i in range(self.n_agents)]
         rewards = [[r[i]] for i in range(self.n_agents)]
