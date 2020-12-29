@@ -100,7 +100,7 @@ class HighwayEnv(gym.core.Wrapper):
         action = np.squeeze(action, axis=-1)
 
         o, r, d, infos = self.env.step(tuple(action))
-        print(r)
+        #print(r)
         self.render()
         self.o_npc=o
         obs = [np.concatenate(o[i]) for i in range(self.n_agents)]

@@ -15,23 +15,29 @@ def _t2n(x):
 class HighwayRunner(Runner):
     def __init__(self, config):
         super(HighwayRunner, self).__init__(config)
-
+        
     def run(self):
         self.warmup()   
 
         start = time.time()
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
 
-
         for episode in range(episodes):
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
 
+            self.env_infos = {"episode_rewards": [], 
+                              "episode_dummy_rewards": [], 
+                              "episode_other_rewards": [],
+                              "speed": [], 
+                              "cost": [], 
+                              "crashed": []}
+
             for step in range(self.episode_length):
                 # Sample actions
-                values, actions, action_log_probs, rnn_states, rnn_states_critic, actions_env = self.collect(step)
+                values, actions, action_log_probs, rnn_states, rnn_states_critic = self.collect(step)
                 # Obser reward and next obs
-                obs, rewards, dones, infos = self.envs.step(actions_env)
+                obs, rewards, dones, infos = self.envs.step(actions)
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
                 # insert data into buffer
                 self.insert(data)
@@ -60,19 +66,11 @@ class HighwayRunner(Runner):
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
                 
-                if self.env_name == "Highway":
-                    env_infos = {"speed": [], "cost": [], "crashed": [],"mean_rew":[]}
-                    for info in infos:
-                        for key in env_infos.keys():
-                            if key in info.keys():
-                                env_infos[key].append(info[key])
-                
-                #train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
-                #print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
-                train_infos["average_episode_rewards"] = np.mean(env_infos["mean_rew"])
-                print("average episode rewards is {}".format(np.mean(env_infos["mean_rew"])))
+                train_infos["average_step_rewards"] = np.mean(self.buffer.rewards)
+                print("average step rewards is {}".format(train_infos["average_step_rewards"]))
+                print("average episode rewards is {}".format(np.mean(env_infos["episode_rewards"])))
                 self.log_train(train_infos, total_num_steps)
-                self.log_env(env_infos, total_num_steps)
+                self.log_env(self.env_infos, total_num_steps)
 
             # eval
             if episode % self.eval_interval == 0 and self.use_eval:
@@ -102,21 +100,14 @@ class HighwayRunner(Runner):
                             np.concatenate(self.buffer.rnn_states_critic[step]),
                             np.concatenate(self.buffer.masks[step]))
 
-
         # [self.envs, agents, dim]
         values = np.array(np.split(_t2n(value), self.n_rollout_threads))
         actions = np.array(np.split(_t2n(action), self.n_rollout_threads))
         action_log_probs = np.array(np.split(_t2n(action_log_prob), self.n_rollout_threads))
         rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
         rnn_states_critic = np.array(np.split(_t2n(rnn_states_critic), self.n_rollout_threads))
-        # rearrange action
-        if self.envs.action_space[0].__class__.__name__ == 'Discrete':
-            #actions_env = np.squeeze(actions, axis=-1)
-            actions_env=actions
-        else:
-            raise NotImplementedError
-
-        return values, actions, action_log_probs, rnn_states, rnn_states_critic, actions_env
+        
+        return values, actions, action_log_probs, rnn_states, rnn_states_critic
 
     def insert(self, data):
         obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
@@ -128,6 +119,13 @@ class HighwayRunner(Runner):
             share_obs = obs
 
         dones_env = np.all(dones, axis=-1)
+
+        for done_env, info in zip(dones_env, infos):
+            # if env is done, we need to take episode rewards!
+            if done_env:
+                for key in self.env_infos.keys():
+                    if key in info.keys():
+                        self.env_infos[key].append(info[key])
 
         rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
@@ -146,15 +144,15 @@ class HighwayRunner(Runner):
         if eval_envs.action_space[0].__class__.__name__ == 'Discrete':
             action_shape = 1
 
-        eval_env_infos = {"speed": [], "cost": [], "crashed": []}            
+        eval_env_infos = {"episode_rewards": [], 
+                        "episode_dummy_rewards": [], 
+                        "episode_other_rewards": []}         
 
         eval_episode_rewards = 0
         eval_reset_choose = np.ones(self.n_eval_rollout_threads) == 1.0
         eval_obs = eval_envs.reset(eval_reset_choose)
-        eval_share_obs = eval_obs if self.use_centralized_V else eval_obs
 
         eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
-        eval_rnn_states_critic = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
         eval_dones_env = np.zeros(self.n_eval_rollout_threads, dtype=bool)
 
@@ -165,35 +163,23 @@ class HighwayRunner(Runner):
             with torch.no_grad():
                 eval_actions = np.ones((self.n_eval_rollout_threads, self.num_agents, action_shape)).astype(np.int) * (-1)
                 self.trainer.prep_rollout()
-                _, eval_action, _, eval_rnn_state, eval_rnn_state_critic \
-                    = self.trainer.policy.get_actions(np.concatenate(eval_share_obs[eval_choose]),
-                                                    np.concatenate(eval_obs[eval_choose]),
-                                                    np.concatenate(eval_rnn_states[eval_choose]),
-                                                    np.concatenate(eval_rnn_states_critic[eval_choose]),
-                                                    np.concatenate(eval_masks[eval_choose]),
-                                                    deterministic=True)
+                eval_action, eval_rnn_state \
+                    = self.trainer.policy.act(np.concatenate(eval_obs[eval_choose]),
+                                                np.concatenate(eval_rnn_states[eval_choose]),
+                                                np.concatenate(eval_masks[eval_choose]),
+                                                deterministic=True)
                 
                 eval_actions[eval_choose] = np.array(np.split(_t2n(eval_action), (eval_choose == True).sum()))
                 eval_rnn_states[eval_choose] = np.array(np.split(_t2n(eval_rnn_state), (eval_choose == True).sum()))
-                eval_rnn_states_critic[eval_choose] = np.array(np.split(_t2n(eval_rnn_state_critic), (eval_choose == True).sum()))
-
-            # rearrange action
-            if eval_envs.action_space[0].__class__.__name__ == 'Discrete':
-                #eval_actions_env = np.squeeze(eval_actions, axis=-1)
-                eval_actions_env = eval_actions
-            else:
-                raise NotImplementedError
-
+               
             # Observe reward and next obs
-            eval_obs, eval_rewards, eval_dones, eval_infos = eval_envs.step(eval_actions_env)
-            eval_dones_env = np.all(eval_dones, axis=-1)
+            eval_obs, eval_rewards, eval_dones, eval_infos = eval_envs.step(eval_actions)
 
-            eval_share_obs = eval_obs if self.use_centralized_V else eval_obs
+            eval_dones_env = np.all(eval_dones, axis=-1)
 
             eval_episode_rewards += eval_rewards
 
             eval_rnn_states[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
-            eval_rnn_states_critic[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
             eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
             eval_masks[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
@@ -217,48 +203,26 @@ class HighwayRunner(Runner):
                 image = envs.render('rgb_array')[0]
                 all_frames.append(image)
 
-            #share_obs = obs.reshape(self.n_rollout_threads, -1)
-            #share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
-            share_obs = obs
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
-            rnn_states_critic = np.zeros((self.n_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
             masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
             
             episode_rewards = []
             
             for step in range(self.episode_length):
                 calc_start = time.time()
-                if not self.use_centralized_V:
-                    share_obs = obs
                 self.trainer.prep_rollout()
-                _, action, _, rnn_states, rnn_states_critic \
-                    = self.trainer.policy.get_actions(np.concatenate(share_obs),
-                                                    np.concatenate(obs),
-                                                    np.concatenate(rnn_states),
-                                                    np.concatenate(rnn_states_critic),
-                                                    np.concatenate(masks),
-                                                    deterministic=True)
+                action, rnn_states = self.trainer.policy.act(np.concatenate(obs),
+                                                            np.concatenate(rnn_states),
+                                                            np.concatenate(masks),
+                                                            deterministic=True)
                 actions = np.array(np.split(_t2n(action), self.n_rollout_threads))
                 rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
-                rnn_states_critic = np.array(np.split(_t2n(rnn_states_critic), self.n_rollout_threads))
-
-
-                if envs.action_space[0].__class__.__name__ == 'Discrete':
-                    #actions_env = np.squeeze(actions, axis=-1)
-                    actions_env=actions
-                else:
-                    raise NotImplementedError
 
                 # Obser reward and next obs
-                obs, rewards, dones, infos = envs.step(actions_env)
-                episode_rewards.append(rewards)
-               
-                share_obs=obs
-                #share_obs = obs.reshape(self.n_rollout_threads, -1)
-                #share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
+                obs, rewards, dones, infos = envs.step(actions)
 
+                episode_rewards.append(rewards)
                 rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.hidden_size), dtype=np.float32)
-                rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.hidden_size), dtype=np.float32)
                 masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
