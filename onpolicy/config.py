@@ -150,6 +150,7 @@ def get_config():
 
     # render parameters
     parser.add_argument("--save_gifs", action='store_true', default=False)
+    parser.add_argument("--use_render", action='store_true', default=False)
     parser.add_argument("--render_episodes", type=int, default=5)
     parser.add_argument("--ifi", type=float, default=0.333333)
 

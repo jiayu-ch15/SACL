@@ -15,6 +15,8 @@ def _t2n(x):
 class HighwayRunner(Runner):
     def __init__(self, config):
         super(HighwayRunner, self).__init__(config)
+        self.render_envs = config['render_envs']
+        self.n_render_rollout_threads = 1 # hard-code
         
     def run(self):
         self.warmup()   
@@ -68,7 +70,8 @@ class HighwayRunner(Runner):
                 
                 train_infos["average_step_rewards"] = np.mean(self.buffer.rewards)
                 print("average step rewards is {}".format(train_infos["average_step_rewards"]))
-                #print("average episode rewards is {}".format(np.mean(env_infos["episode_rewards"])))
+                print("average episode rewards is {}".format(np.mean(self.env_infos["episode_rewards"])))
+
                 self.log_train(train_infos, total_num_steps)
                 self.log_env(self.env_infos, total_num_steps)
 
@@ -141,6 +144,7 @@ class HighwayRunner(Runner):
     @torch.no_grad()
     def eval(self, total_num_steps):
         eval_envs = self.eval_envs
+        
         if eval_envs.action_space[0].__class__.__name__ == 'Discrete':
             action_shape = 1
 
@@ -194,7 +198,7 @@ class HighwayRunner(Runner):
 
     @torch.no_grad()
     def render(self):
-        envs = self.envs
+        envs = self.render_envs
         
         all_frames = []
         for episode in range(self.all_args.render_episodes):
@@ -203,8 +207,8 @@ class HighwayRunner(Runner):
                 image = envs.render('rgb_array')[0]
                 all_frames.append(image)
 
-            rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
-            masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+            rnn_states = np.zeros((self.n_render_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
+            masks = np.ones((self.n_render_rollout_threads, self.num_agents, 1), dtype=np.float32)
             
             episode_rewards = []
             
@@ -215,15 +219,15 @@ class HighwayRunner(Runner):
                                                             np.concatenate(rnn_states),
                                                             np.concatenate(masks),
                                                             deterministic=True)
-                actions = np.array(np.split(_t2n(action), self.n_rollout_threads))
-                rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
+                actions = np.array(np.split(_t2n(action), self.n_render_rollout_threads))
+                rnn_states = np.array(np.split(_t2n(rnn_states), self.n_render_rollout_threads))
 
                 # Obser reward and next obs
                 obs, rewards, dones, infos = envs.step(actions)
 
                 episode_rewards.append(rewards)
                 rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.hidden_size), dtype=np.float32)
-                masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+                masks = np.ones((self.n_render_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
                 if self.all_args.save_gifs:
@@ -234,7 +238,7 @@ class HighwayRunner(Runner):
                     if elapsed < self.all_args.ifi:
                         time.sleep(self.all_args.ifi - elapsed)
 
-            print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
+            print("render average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
 
         if self.all_args.save_gifs:
             imageio.mimsave(str(self.run_dir) + '/render.gif', all_frames, duration=self.all_args.ifi)
