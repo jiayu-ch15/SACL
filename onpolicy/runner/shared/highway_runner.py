@@ -15,8 +15,6 @@ def _t2n(x):
 class HighwayRunner(Runner):
     def __init__(self, config):
         super(HighwayRunner, self).__init__(config)
-        self.render_envs = config['render_envs']
-        self.n_render_rollout_threads = 1 # hard-code
         
     def run(self):
         self.warmup()   
@@ -226,10 +224,7 @@ class HighwayRunner(Runner):
                 obs, rewards, dones, infos = envs.step(actions)
 
                 episode_rewards.append(rewards)
-                rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.hidden_size), dtype=np.float32)
-                masks = np.ones((self.n_render_rollout_threads, self.num_agents, 1), dtype=np.float32)
-                masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
-
+                
                 if self.all_args.save_gifs:
                     image = envs.render('rgb_array')[0]
                     all_frames.append(image)
@@ -237,6 +232,11 @@ class HighwayRunner(Runner):
                     elapsed = calc_end - calc_start
                     if elapsed < self.all_args.ifi:
                         time.sleep(self.all_args.ifi - elapsed)
+                
+                dones_env = np.all(dones, axis=-1)
+
+                if np.any(dones_env):
+                    break
 
             print("render average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
 

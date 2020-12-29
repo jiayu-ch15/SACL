@@ -21,6 +21,8 @@ class Runner(object):
         self.eval_envs = config['eval_envs']
         self.device = config['device']
         self.num_agents = config['num_agents']
+        if config.__contains__("render_envs"):
+            self.render_envs = config['render_envs']       
 
         # parameters
         self.env_name = self.all_args.env_name
@@ -32,6 +34,7 @@ class Runner(object):
         self.episode_length = self.all_args.episode_length
         self.n_rollout_threads = self.all_args.n_rollout_threads
         self.n_eval_rollout_threads = self.all_args.n_eval_rollout_threads
+        self.n_render_rollout_threads = self.all_args.n_render_rollout_threads
         self.use_linear_lr_decay = self.all_args.use_linear_lr_decay
         self.hidden_size = self.all_args.hidden_size
         self.use_wandb = self.all_args.use_wandb
@@ -84,6 +87,7 @@ class Runner(object):
                             self.envs.action_space[0],
                             device = self.device,
                             cat_self = False)
+
         if self.model_dir is not None:
             self.restore()
 

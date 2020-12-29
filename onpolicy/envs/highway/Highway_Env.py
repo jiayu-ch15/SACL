@@ -200,21 +200,11 @@ class HighwayEnv(gym.core.Wrapper):
         # 3. dummy dones
         dummy_dones = [all_dones[self.n_attackers + self.n_defenders + dummy_id] for dummy_id in range(self.n_dummies)]
         
-        # wrong way!
-        # dones = [all_dones for agent_id in range(self.n_agents)]
-
-        # if np.all(dones):
-        #     self.episodes_rew += rewards[0][0]
-        #     self.episodes_rews.append(self.episodes_rew)
-        #     self.episodes_rew = 0
-        # else:
-        #     self.episodes_rew += rewards[0][0]
-
-        #     self.epi_average_rew = np.mean(np.array(self.episodes_rews))
-
         infos.update({"episode_rewards": np.sum(self.episode_rewards, axis=0), 
                     "episode_other_rewards": np.sum(self.episode_other_rewards, axis=0),
                     "episode_dummy_rewards": np.sum(self.episode_dummy_rewards, axis=0)})
+        
+        print(infos)
 
         return obs, rewards, dones, infos
 
