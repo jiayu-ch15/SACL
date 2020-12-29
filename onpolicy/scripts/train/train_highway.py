@@ -8,7 +8,7 @@ import numpy as np
 from pathlib import Path
 import torch
 from onpolicy.config import get_config
-from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv, ChooseGuardSubprocVecEnv, ChooseSimpleDummyVecEnv
+from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv, ChooseSimpleSubprocVecEnv, ChooseSimpleDummyVecEnv
 from onpolicy.envs.highway.Highway_Env import HighwayEnv
 
 def make_train_env(all_args):
@@ -41,10 +41,23 @@ def make_eval_env(all_args):
             return env
         return init_env
     if all_args.n_eval_rollout_threads == 1:
-        return DummyVecEnv([get_env_fn(0)])
+        return ChooseSimpleDummyVecEnv([get_env_fn(0)])
     else:
-        return SubprocVecEnv([get_env_fn(i) for i in range(all_args.n_eval_rollout_threads)])
+        return ChooseSimpleSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_eval_rollout_threads)])
 
+def make_render_env(all_args):
+    def get_env_fn(rank):
+        def init_env():
+            if all_args.env_name == "Highway":
+                env = HighwayEnv(all_args)
+            else:
+                print("Can not support the " +
+                      all_args.env_name + "environment.")
+                raise NotImplementedError
+            env.seed(all_args.seed + rank * 5000)
+            return env
+        return init_env
+    return ChooseSimpleDummyVecEnv([get_env_fn(0)])
 
 def parse_args(args, parser):
     parser.add_argument('--scenario_name', type=str,
@@ -143,6 +156,8 @@ def main(args):
     envs = make_train_env(all_args)
 
     eval_envs = make_eval_env(all_args) if all_args.use_eval else None
+
+    render_envs = make_render_env(all_args) if all_args.use_render else None
     
     if all_args.task_type == "attack":
         num_agents = all_args.n_attackers
