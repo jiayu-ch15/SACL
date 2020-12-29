@@ -11,11 +11,11 @@ from onpolicy.config import get_config
 from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv, ChooseGuardSubprocVecEnv, ChooseSimpleDummyVecEnv
 from onpolicy.envs.highway.Highway_Env import HighwayEnv
 
-def make_train_env(all_args, device):
+def make_train_env(all_args):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "Highway":
-                env = HighwayEnv(all_args, device)
+                env = HighwayEnv(all_args)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
@@ -28,11 +28,11 @@ def make_train_env(all_args, device):
     else:
         return SubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
-def make_eval_env(all_args, device):
+def make_eval_env(all_args):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "Highway":
-                env = HighwayEnv(all_args, device)
+                env = HighwayEnv(all_args)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
@@ -51,7 +51,7 @@ def parse_args(args, parser):
                         default='highway-v0', help="Which scenario to run on")
 
     parser.add_argument('--task_type', type=str,
-                        default='attack', choice = ["attack","defend","all"], help="train attacker or defender")
+                        default='attack', choices = ["attack","defend","all"], help="train attacker or defender")
 
     parser.add_argument('--n_defenders', type=int,
                         default=1, help="number of defensive vehicles, default:1")
@@ -61,8 +61,9 @@ def parse_args(args, parser):
                         default=0, help="number of dummy vehicles")
 
     parser.add_argument('--horizon', type=int,
-                        default=1, help="the max length of one task")
+                        default=40, help="the max length of one task")
 
+    parser.add_argument("--use_same_other_policy", action='store_false', default=True, help="whether to use the same model")
     parser.add_argument('--policy_path', type=str,
                         default='../envs/highway/agents/policy_pool/actor.pt', help="load_policy_path")
     all_args = parser.parse_known_args(args)[0]
@@ -139,9 +140,10 @@ def main(args):
     np.random.seed(all_args.seed)
 
     # env init
-    envs = make_train_env(all_args, device)
+    envs = make_train_env(all_args)
 
     eval_envs = make_eval_env(all_args) if all_args.use_eval else None
+    
     if all_args.task_type == "attack":
         num_agents = all_args.n_attackers
     elif all_args.task_type == "defend":
