@@ -19,10 +19,12 @@ class EnvViewer(object):
 
     SAVE_IMAGES = False
 
-    def __init__(self, env: 'AbstractEnv') -> None:
+    def __init__(self, env: 'AbstractEnv',n_attackers=None, n_defenders=None,n_dummies=None) -> None:
         self.env = env
         self.offscreen = env.config["offscreen_rendering"]
-
+        self.n_attackers=n_attackers
+        self.n_defenders=n_defenders
+        self.n_dummies=n_dummies
         pygame.init()
         pygame.display.set_caption("Highway-env")
         panel_size = (self.env.config["screen_width"], self.env.config["screen_height"])
@@ -117,9 +119,13 @@ class EnvViewer(object):
                 else:
                     self.screen.blit(self.agent_surface, (self.env.config["screen_width"], 0))
 
+
         RoadGraphics.display_traffic(
             self.env.road,
             self.sim_surface,
+            self.n_defenders,
+            self.n_attackers,
+            self.n_dummies,
             simulation_frequency=self.env.config["simulation_frequency"],
             offscreen=self.offscreen)
 

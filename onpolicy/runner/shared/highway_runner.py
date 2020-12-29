@@ -68,7 +68,7 @@ class HighwayRunner(Runner):
                 
                 train_infos["average_step_rewards"] = np.mean(self.buffer.rewards)
                 print("average step rewards is {}".format(train_infos["average_step_rewards"]))
-                print("average episode rewards is {}".format(np.mean(env_infos["episode_rewards"])))
+                #print("average episode rewards is {}".format(np.mean(env_infos["episode_rewards"])))
                 self.log_train(train_infos, total_num_steps)
                 self.log_env(self.env_infos, total_num_steps)
 

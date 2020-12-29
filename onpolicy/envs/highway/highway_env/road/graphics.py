@@ -240,7 +240,7 @@ class RoadGraphics(object):
                     LaneGraphics.display(l, surface)
 
     @staticmethod
-    def display_traffic(road: Road, surface: WorldSurface, simulation_frequency: int = 15, offscreen: bool = False) \
+    def display_traffic(road: Road, surface: WorldSurface, n_defenders=None,n_attackers=None,n_dummies=None,simulation_frequency: int = 15, offscreen: bool = False) \
             -> None:
         """
         Display the road vehicles on a surface.
@@ -250,11 +250,27 @@ class RoadGraphics(object):
         :param simulation_frequency: simulation frequency
         :param offscreen: render without displaying on a screen
         """
+
         if road.record_history:
             for v in road.vehicles:
                 VehicleGraphics.display_history(v, surface, simulation=simulation_frequency, offscreen=offscreen)
-        for v in road.vehicles:
-            VehicleGraphics.display(v, surface, offscreen=offscreen)
+        if (n_defenders is not None) or (n_attackers is not None) or (n_dummies is not None):
+            attack = (30, 70, 66)  ##deep green
+            defend = (200, 0, 150) ##purple
+            npc = (100, 0, 37)
+            for i,v in enumerate(road.vehicles):
+                if i<n_defenders:
+                    VehicleGraphics.display(v, surface, offscreen=offscreen,color=defend)
+                elif i<n_defenders+n_attackers:
+                    VehicleGraphics.display(v, surface, offscreen=offscreen,color=attack)
+                elif i<n_dummies+n_attackers+n_defenders:
+                    VehicleGraphics.display(v, surface, offscreen=offscreen,color=npc)
+                else:
+                    VehicleGraphics.display(v, surface, offscreen=offscreen)
+
+        else:
+            for v in road.vehicles:
+                VehicleGraphics.display(v, surface, offscreen=offscreen)
 
     @staticmethod
     def display_road_objects(road: Road, surface: WorldSurface, offscreen: bool = False) -> None:

@@ -40,7 +40,9 @@ class HighwayEnv(gym.core.Wrapper):
                     "import_module": "onpolicy.envs.highway.highway_env",
                     # u must keep this order!!! can not change that!!!
                     "controlled_vehicles": self.n_defenders + self.n_attackers + self.n_dummies,
-
+                    "n_defenders":self.n_defenders,
+                    "n_attackers":self.n_attackers,
+                    "n_dummies":self.n_dummies,
                     "duration": self.all_args.horizon,
                     "action": {
                         "type": "MultiAgentAction",
@@ -163,6 +165,7 @@ class HighwayEnv(gym.core.Wrapper):
         action = np.squeeze(action, axis=-1)
 
         all_obs, all_rewards, all_dones, infos = self.env.step(tuple(action))
+        self.render()
 
         # obs
         # 1. train obs
@@ -171,8 +174,10 @@ class HighwayEnv(gym.core.Wrapper):
         self.other_obs = np.array([np.concatenate(all_obs[self.load_start_idx + agent_id]) \
                                 for agent_id in range(self.n_other_agents)])
         # 3. dummy obs
-        self.dummy_obs = all_obs
-       
+        #self.dummy_obs = all_obs
+        self.dummy_obs = np.array([np.concatenate(all_obs[self.n_attackers + self.n_defenders + agent_id]) \
+                                   for agent_id in range(self.n_dummies)])
+
         # rewards
         # ! @zhuo if agent is dead, rewards need to be set zero!
         # 1. train rewards
@@ -222,8 +227,9 @@ class HighwayEnv(gym.core.Wrapper):
         all_obs = self.env.reset()
 
         # dummy needs to take all obs
-        self.dummy_obs = all_obs 
-
+        #self.dummy_obs = all_obs
+        self.dummy_obs = np.array([np.concatenate(all_obs[self.n_attackers+self.n_defenders + agent_id]) \
+                  for agent_id in range(self.n_dummies)])
         # deal with other agents
         self.rnn_states = np.zeros((self.n_other_agents, self.all_args.hidden_size), dtype=np.float32)
         # o = [np.concatenate(all_obs[i]) for i in range(len(all_obs))]

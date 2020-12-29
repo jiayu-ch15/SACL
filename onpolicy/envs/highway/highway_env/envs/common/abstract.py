@@ -68,7 +68,7 @@ class AbstractEnv(gym.Env):
         self.rendering_mode = 'human'
         self.enable_auto_render = False
 
-        self.reset()
+        #self.reset()
 
     @property
     def vehicle(self) -> Vehicle:
@@ -239,7 +239,10 @@ class AbstractEnv(gym.Env):
         self.rendering_mode = mode
 
         if self.viewer is None:
-            self.viewer = EnvViewer(self)
+            if self.config.get('n_attackers',False) or self.config.get('n_attackers',False)or self.config.get('n_dummies',False):
+                self.viewer = EnvViewer(self,self.config['n_attackers'],self.config['n_defenders'],self.config['n_dummies'])
+            else:
+                self.viewer = EnvViewer(self)
 
         self.enable_auto_render = True
 

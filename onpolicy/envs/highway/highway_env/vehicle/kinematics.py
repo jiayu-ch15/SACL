@@ -38,7 +38,8 @@ class Vehicle(object):
                  road: Road,
                  position: Vector,
                  heading: float = 0,
-                 speed: float = 0):
+                 speed: float = 0,
+                 ):
         self.road = road
         self.position = np.array(position).astype('float')
         self.heading = heading
@@ -49,6 +50,7 @@ class Vehicle(object):
         self.crashed = False
         self.log = []
         self.history = deque(maxlen=30)
+
 
     @classmethod
     def make_on_lane(cls, road: Road, lane_index: LaneIndex, longitudinal: float, speed: float = 0) -> "Vehicle":
@@ -67,8 +69,7 @@ class Vehicle(object):
         return cls(road, lane.position(longitudinal, 0), lane.heading_at(longitudinal), speed)
 
     @classmethod
-    def create_random(cls, road: Road, speed: float = None, lane_id: Optional[int] = None, spacing: float = 1) \
-            -> "Vehicle":
+    def create_random(cls, road: Road, speed: float = None, lane_id: Optional[int] = None, spacing: float = 1):
         """
         Create a random vehicle on the road.
 

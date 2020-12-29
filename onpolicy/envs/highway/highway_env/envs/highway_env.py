@@ -16,7 +16,6 @@ class HighwayEnv(AbstractEnv):
     The vehicle is driving on a straight highway with several lanes, and is rewarded for reaching a high speed,
     staying on the rightmost lanes and avoiding collisions.
     """
-
     RIGHT_LANE_REWARD: float = 0.1
     """The reward received when driving on the right-most lanes, linearly mapped to zero for other lanes."""
 
@@ -60,11 +59,13 @@ class HighwayEnv(AbstractEnv):
     def _create_vehicles(self) -> None:
         """Create some new random vehicles of a given type, and add them on the road."""
         self.controlled_vehicles = []
-        for _ in range(self.config["controlled_vehicles"]):
+
+        for i in range(self.config["controlled_vehicles"]):
             vehicle = self.action_type.vehicle_class.create_random(self.road,
                                                                    speed=25,
                                                                    lane_id=self.config["initial_lane_id"],
-                                                                   spacing=self.config["ego_spacing"])
+                                                                   spacing=self.config["ego_spacing"],
+                                                                   )
             self.controlled_vehicles.append(vehicle)
             self.road.vehicles.append(vehicle)
 
@@ -88,22 +89,25 @@ class HighwayEnv(AbstractEnv):
                 else vehicle.lane_index[2]
             scaled_speed = utils.lmap(vehicle.speed, self.config["reward_speed_range"], [0, 1])
             reward = \
-                + self.config["collision_reward"] * vehicle.crashed \
-                + self.RIGHT_LANE_REWARD * lane / max(len(neighbours) - 1, 1) \
-                + self.HIGH_SPEED_REWARD * np.clip(scaled_speed, 0, 1)
+                self.HIGH_SPEED_REWARD * np.clip(scaled_speed, 0, 1)
             reward = utils.lmap(reward,
                               [self.config["collision_reward"], self.HIGH_SPEED_REWARD + self.RIGHT_LANE_REWARD],
                               [0, 1])
             reward = 0 if not vehicle.on_road else reward
+            reward = 0 if vehicle.crashed else reward
             rewards.append(reward)
 
         return rewards
 
-    def _is_terminal(self) -> bool:
+    def _is_terminal(self) :#-> bool:
         """The episode is over if the ego vehicle crashed or the time is out."""
-        return self.vehicle.crashed or \
+        #now we change it to return a list
+        dones=[]
+        for vehicle in self.controlled_vehicles:
+            dones.append(vehicle.crashed or \
             self.steps >= self.config["duration"] or \
-            (self.config["offroad_terminal"] and not self.vehicle.on_road)
+            (self.config["offroad_terminal"] and not vehicle.on_road))
+        return dones
 
     def _cost(self, action: int) -> float:
         """The cost signal is the occurrence of collision."""

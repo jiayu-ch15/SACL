@@ -26,7 +26,7 @@ class VehicleGraphics(object):
 
     @classmethod
     def display(cls, vehicle: Vehicle, surface: "WorldSurface", transparent: bool = False, offscreen: bool = False,
-                label: bool = False) -> None:
+                label: bool = False,color=None) -> None:
         """
         Display a vehicle on a pygame surface.
 
@@ -48,7 +48,7 @@ class VehicleGraphics(object):
         length = v.LENGTH + 2 * tire_length
         vehicle_surface = pygame.Surface((surface.pix(length), surface.pix(length)), flags=pygame.SRCALPHA)  # per-pixel alpha
         rect = (surface.pix(tire_length), surface.pix(length / 2 - v.WIDTH / 2), surface.pix(v.LENGTH), surface.pix(v.WIDTH))
-        pygame.draw.rect(vehicle_surface, cls.get_color(v, transparent), rect, 0)
+        pygame.draw.rect(vehicle_surface, cls.get_color(v, transparent,color), rect, 0)
         pygame.draw.rect(vehicle_surface, cls.BLACK, rect, 1)
 
         # Tires
@@ -140,18 +140,22 @@ class VehicleGraphics(object):
             cls.display(v, surface, transparent=True, offscreen=offscreen)
 
     @classmethod
-    def get_color(cls, vehicle: Vehicle, transparent: bool = False) -> Tuple[int]:
+    def get_color(cls, vehicle: Vehicle, transparent: bool = False,in_color=None) -> Tuple[int]:
         color = cls.DEFAULT_COLOR
-        if getattr(vehicle, "color", None):
+        if in_color is not None:
+            color=in_color
+        elif getattr(vehicle, "color", None):
             color = vehicle.color
-        elif vehicle.crashed:
-            color = cls.RED
         elif isinstance(vehicle, LinearVehicle):
             color = cls.YELLOW
         elif isinstance(vehicle, IDMVehicle):
             color = cls.BLUE
         elif isinstance(vehicle, MDPVehicle):
             color = cls.EGO_COLOR
+
+        if vehicle.crashed:
+            color = cls.RED
+
         if transparent:
             color = (color[0], color[1], color[2], 30)
         return color
