@@ -12,16 +12,17 @@ from onpolicy.algorithms.utils.rnn import RNNLayer
 from onpolicy.algorithms.utils.act import ACTLayer
 from onpolicy.utils.util import get_shape_from_obs_space
 
-class Policy(nn.Module):
-    def __init__(self, obs_space, action_space, hidden_size, use_recurrent_policy=True, device=torch.device("cpu")):
-        super(Policy, self).__init__()
+class R_actor(nn.Module):
+    def __init__(self, args, obs_space, action_space, hidden_size, use_recurrent_policy=True):
+        super(R_actor, self).__init__()
         self.hidden_size = hidden_size
+        self._use_recurrent_policy = use_recurrent_policy
 
-        self._gain = 0.01
-        self._use_orthogonal = True
-        self._use_recurrent_policy = use_recurrent_policy  
-        self._recurrent_N = args.recurrent_N  
-        self.tpdv = dict(dtype=torch.float32, device=device)
+        self._gain = args.gain
+        self._use_orthogonal = args.use_orthogonal
+        self._recurrent_N = args.recurrent_N
+
+        self.tpdv = dict(dtype=torch.float32)
 
         obs_shape = get_shape_from_obs_space(obs_space)
 
@@ -32,8 +33,6 @@ class Policy(nn.Module):
             self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
 
         self.act = ACTLayer(action_space, self.hidden_size, self._use_orthogonal, self._gain)
-
-        self.to(device)
 
     def forward(self, obs, rnn_states, masks, available_actions=None, deterministic=False):        
         obs = check(obs).to(**self.tpdv)
