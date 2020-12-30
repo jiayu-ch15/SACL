@@ -90,6 +90,8 @@ class HighwayEnv(AbstractEnv):
         positions=[]
         for vehicle in self.controlled_vehicles:
             positions.append(vehicle.position)
+        defender_pos=positions[:n_defenders]
+        attacker_pos=positions[:n_defenders:n_defenders+n_attackers]
 
         for vehicle in self.controlled_vehicles:
             neighbours = self.road.network.all_side_lanes(vehicle.lane_index)
