@@ -43,8 +43,12 @@ class HighwayRunner(Runner):
                 # insert data into buffer
                 self.insert(data)
 
-            # ! pack data @zhuo
-            # self.pack_data(self.envs, start_idx)
+                # ! pack data @zhuo
+                # for done in dones:
+                #     if done:
+                #     # fake data
+                #     start_idx = [0 for i in range(self.n_rollout_threads)]
+                #     self.pack_data(self.envs, start_idx)
 
             # compute return and update network
             self.compute()
@@ -143,23 +147,27 @@ class HighwayRunner(Runner):
         self.buffer.insert(share_obs, obs, rnn_states, rnn_states_critic, actions, action_log_probs, values, rewards, masks, active_masks=active_masks)
 
     def pack_data(self, env, start_idx, suffix="train"):
-        # compute funx
-
         # env could be train or eval env
-        for e, idx in zip(env, start_idx):
-            if idx != -1 and self.all_args.use_render:
-                frames = e.render_vulunerability(idx, T=20)
-            if self.all_args.save_gifs:
-                save_dir = Path(str(self.run_dir) + 'vulner_' + suffix)
-                if not save_dir.exists():
-                    curr_vulner = 'vulner1'
-                else:
-                    exst_vulner_nums = [int(str(folder.name).split('vulner')[1]) for folder in save_dir.iterdir() if str(folder.name).startswith('vulner')]
-                    if len(exst_vulner_nums) == 0:
+        if self.all_args.use_render_vulnerability:
+            frames = env.render_vulnerability(start_idx)
+        if self.all_args.save_gifs:
+            for idx, frame in zip(start_idx, frames):
+                if frame is not None:
+                    save_dir = Path(str(self.run_dir) + '/vulner_' + suffix)
+                    print(save_dir)
+                    if not save_dir.exists():
                         curr_vulner = 'vulner1'
                     else:
-                        curr_vulner = 'vulner%i' % (max(exst_vulner_nums) + 1)
-                imageio.mimsave(str(save_dir / curr_vulner / idx) + ".gif" , frames, duration=self.all_args.ifi)
+                        exst_vulner_nums = [int(str(folder.name).split('vulner')[1]) for folder in save_dir.iterdir() if str(folder.name).startswith('vulner')]
+                        if len(exst_vulner_nums) == 0:
+                            curr_vulner = 'vulner1'
+                        else:
+                            curr_vulner = 'vulner%i' % (max(exst_vulner_nums) + 1)
+                    vulner_dir = save_dir / curr_vulner
+                    if not vulner_dir.exists():
+                        os.makedirs(str(vulner_dir))
+                    import pdb; pdb.set_trace()
+                    imageio.mimsave(str(vulner_dir / str(idx)) + ".gif", frame, duration=self.all_args.ifi)
 
 
     @torch.no_grad()
@@ -265,4 +273,4 @@ class HighwayRunner(Runner):
             print("render average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
 
         if self.all_args.save_gifs:
-            imageio.mimsave(str(self.run_dir) + '/render.gif', all_frames, duration=self.all_args.ifi)
+            imageio.mimsave(str(self.run_dir) + '/full.gif', all_frames, duration=self.all_args.ifi)

@@ -169,6 +169,9 @@ def worker(remote, parent_remote, env_fn_wrapper):
         elif cmd == 'get_spaces':
             remote.send(
                 (env.observation_space, env.share_observation_space, env.action_space))
+        elif cmd == 'render_vulnerability':
+            fr = env.render_vulnerability(data)
+            remote.send((fr))
         else:
             raise NotImplementedError
 
@@ -289,6 +292,12 @@ class SubprocVecEnv(ShareVecEnv):
         for p in self.ps:
             p.join()
         self.closed = True
+    
+    def render_vulnerability(self, start_idx):
+        for remote, idx in zip(self.remotes, start_idx):
+            remote.send(('render_vulnerability', idx))
+        frames = [remote.recv() for remote in self.remotes]
+        return frames
 
 
 def shareworker(remote, parent_remote, env_fn_wrapper):
@@ -319,6 +328,9 @@ def shareworker(remote, parent_remote, env_fn_wrapper):
         elif cmd == 'get_spaces':
             remote.send(
                 (env.observation_space, env.share_observation_space, env.action_space))
+        elif cmd == 'render_vulnerability':
+            fr = env.render_vulnerability(data)
+            remote.send((fr))
         else:
             raise NotImplementedError
 
@@ -402,6 +414,9 @@ def choosesimpleworker(remote, parent_remote, env_fn_wrapper):
         elif cmd == 'get_spaces':
             remote.send(
                 (env.observation_space, env.share_observation_space, env.action_space))
+        elif cmd == 'render_vulnerability':
+            fr = env.render_vulnerability(data)
+            remote.send((fr))
         else:
             raise NotImplementedError
 
@@ -460,6 +475,12 @@ class ChooseSimpleSubprocVecEnv(ShareVecEnv):
         for p in self.ps:
             p.join()
         self.closed = True
+
+    def render_vulnerability(self, start_idx):
+        for remote, idx in zip(self.remotes, start_idx):
+            remote.send(('render_vulnerability', idx))
+        frames = [remote.recv() for remote in self.remotes]
+        return frames
 
 
 

@@ -88,7 +88,6 @@ class HighwayEnv(AbstractEnv):
         n_dummies=self.config["n_dummies"]
         rewards=[]
         for vehicle in self.controlled_vehicles:
-            print(vehicle.position)
             neighbours = self.road.network.all_side_lanes(vehicle.lane_index)
             lane = vehicle.target_lane_index[2] if isinstance(vehicle, ControlledVehicle) \
                 else vehicle.lane_index[2]
