@@ -43,7 +43,7 @@ class AbstractEnv(gym.Env):
 
         # Seeding
         self.np_random = None
-        self.seed()
+        #self.seed()
 
         # Scene
         self.road = None

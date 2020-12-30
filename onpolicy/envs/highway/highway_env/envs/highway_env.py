@@ -61,6 +61,7 @@ class HighwayEnv(AbstractEnv):
         self.controlled_vehicles = []
 
         for i in range(self.config["controlled_vehicles"]):
+
             vehicle = self.action_type.vehicle_class.create_random(self.road,
                                                                    speed=25,
                                                                    lane_id=self.config["initial_lane_id"],
@@ -82,10 +83,12 @@ class HighwayEnv(AbstractEnv):
         """
 
         # -> float: now we change it to return a list!!!!!
+        n_defenders=self.config["n_defenders"]
+        n_attackers=self.config["n_attackers"]
+        n_dummies=self.config["n_dummies"]
         rewards=[]
         for vehicle in self.controlled_vehicles:
             print(vehicle.position)
-            while True:pass
             neighbours = self.road.network.all_side_lanes(vehicle.lane_index)
             lane = vehicle.target_lane_index[2] if isinstance(vehicle, ControlledVehicle) \
                 else vehicle.lane_index[2]
