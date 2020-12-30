@@ -7,6 +7,7 @@ import torch
 import imageio
 from onpolicy.utils.util import update_linear_schedule
 from onpolicy.runner.shared.base_runner import Runner
+from pathlib import Path
 
 
 def _t2n(x):
@@ -41,6 +42,9 @@ class HighwayRunner(Runner):
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
                 # insert data into buffer
                 self.insert(data)
+
+            # ! pack data @zhuo
+            # self.pack_data(self.envs, start_idx)
 
             # compute return and update network
             self.compute()
@@ -139,6 +143,26 @@ class HighwayRunner(Runner):
 
         self.buffer.insert(share_obs, obs, rnn_states, rnn_states_critic, actions, action_log_probs, values, rewards, masks, active_masks=active_masks)
 
+    def pack_data(self, env, start_idx, suffix="train"):
+        # compute funx
+
+        # env could be train or eval env
+        for e, idx in zip(env, start_idx)
+            if idx != -1 and self.all_args.use_render:
+                frames = e.render_vulunerability(idx, T=20)
+            if self.all_args.save_gifs:
+                save_dir = Path(str(self.run_dir) + 'vulner_' + suffix)
+                if not save_dir.exists():
+                    curr_vulner = 'vulner1'
+                else:
+                    exst_vulner_nums = [int(str(folder.name).split('vulner')[1]) for folder in save_dir.iterdir() if str(folder.name).startswith('vulner')]
+                    if len(exst_vulner_nums) == 0:
+                        curr_vulner = 'vulner1'
+                    else:
+                        curr_vulner = 'vulner%i' % (max(exst_vulner_nums) + 1)
+                imageio.mimsave(str(save_dir / curr_vulner / idx) + ".gif" , frames, duration=self.all_args.ifi)
+
+
     @torch.no_grad()
     def eval(self, total_num_steps):
         eval_envs = self.eval_envs
@@ -200,7 +224,8 @@ class HighwayRunner(Runner):
         
         all_frames = []
         for episode in range(self.all_args.render_episodes):
-            obs = envs.reset()
+            render_choose = np.ones(self.n_render_rollout_threads) == 1.0
+            obs = envs.reset(render_choose)
             if self.all_args.save_gifs:
                 image = envs.render('rgb_array')[0]
                 all_frames.append(image)
