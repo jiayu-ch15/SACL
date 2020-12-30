@@ -145,8 +145,9 @@ class Runner(object):
         else:
             policy_actor_state_dict = torch.load(str(self.model_dir) + '/actor.pt')
             self.policy.actor.load_state_dict(policy_actor_state_dict)
-            policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic.pt')
-            self.policy.critic.load_state_dict(policy_critic_state_dict)
+            if not self.all_args.use_render:
+                policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic.pt')
+                self.policy.critic.load_state_dict(policy_critic_state_dict)
  
     def log_train(self, train_infos, total_num_steps):
         for k, v in train_infos.items():

@@ -147,7 +147,7 @@ class HighwayRunner(Runner):
         # compute funx
 
         # env could be train or eval env
-        for e, idx in zip(env, start_idx)
+        for e, idx in zip(env, start_idx):
             if idx != -1 and self.all_args.use_render:
                 frames = e.render_vulunerability(idx, T=20)
             if self.all_args.save_gifs:
@@ -221,13 +221,14 @@ class HighwayRunner(Runner):
     @torch.no_grad()
     def render(self):
         envs = self.render_envs
+        print(envs)
         
         all_frames = []
         for episode in range(self.all_args.render_episodes):
             render_choose = np.ones(self.n_render_rollout_threads) == 1.0
             obs = envs.reset(render_choose)
             if self.all_args.save_gifs:
-                image = envs.render('rgb_array')[0]
+                image = envs.render('rgb_array', close=True)[0]
                 all_frames.append(image)
 
             rnn_states = np.zeros((self.n_render_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
@@ -251,7 +252,7 @@ class HighwayRunner(Runner):
                 episode_rewards.append(rewards)
                 
                 if self.all_args.save_gifs:
-                    image = envs.render('rgb_array')[0]
+                    image = envs.render('rgb_array', close=True)[0]
                     all_frames.append(image)
                     calc_end = time.time()
                     elapsed = calc_end - calc_start
