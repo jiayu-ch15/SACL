@@ -125,8 +125,8 @@ def main(args):
 
     config = {
         "all_args": all_args,
-        "envs": None,
-        "eval_envs": None,
+        "envs": render_envs,
+        "eval_envs": render_envs,
         "render_envs": render_envs,
         "num_agents": num_agents,
         "device": device,
