@@ -26,7 +26,7 @@ def make_render_env(all_args):
             env.seed(all_args.seed + rank * 5000)
             return env
         return init_env
-    return DummyVecEnv([get_env_fn(0)])
+    return ChooseSimpleDummyVecEnv([get_env_fn(0)])
 
 def parse_args(args, parser):
     parser.add_argument('--scenario_name', type=str,
