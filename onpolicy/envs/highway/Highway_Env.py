@@ -11,7 +11,7 @@ class HighwayEnv(gym.core.Wrapper):
         self.all_args = all_args
         self.use_centralized_V = all_args.use_centralized_V
         self.use_same_other_policy = all_args.use_same_other_policy
-        self.use_render = all_args.use_render
+        self.use_render_vulnerability = all_args.use_render_vulnerability
         self.task_type = all_args.task_type
 
         self.n_defenders = all_args.n_defenders
@@ -173,7 +173,7 @@ class HighwayEnv(gym.core.Wrapper):
 
             all_obs, all_rewards, all_dones, infos = self.env.step(tuple(action))
 
-            if self.use_render:
+            if self.use_render_vulnerability:
                 self.cache_frames.append(self.render('rgb_array')[0])
                 self.current_step += 1
 
@@ -245,7 +245,7 @@ class HighwayEnv(gym.core.Wrapper):
 
             # deal with agents that need to train
             obs = np.array([np.concatenate(all_obs[self.train_start_idx + agent_id]) for agent_id in range(self.n_agents)])
-            if self.use_render:
+            if self.use_render_vulnerability:
                 self.cache_frames.append(self.render('rgb_array')[0])
                 self.current_step += 1
                 

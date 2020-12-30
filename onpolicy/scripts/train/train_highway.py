@@ -77,6 +77,7 @@ def parse_args(args, parser):
                         default=40, help="the max length of one task")
 
     parser.add_argument("--use_same_other_policy", action='store_false', default=True, help="whether to use the same model")
+    parser.add_argument("--use_render_vulnerability", action='store_true', default=False, help="whether to use the same model")
     parser.add_argument('--policy_path', type=str,
                         default='../envs/highway/agents/policy_pool/actor.pt', help="load_policy_path")
     all_args = parser.parse_known_args(args)[0]

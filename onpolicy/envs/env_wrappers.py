@@ -753,3 +753,6 @@ class ChooseSimpleDummyVecEnv(ShareVecEnv):
     def close(self):
         for env in self.envs:
             env.close()
+
+    def render(self, mode="human", close=True):
+        return [env.render(mode=mode, close=close) for env in self.envs]
