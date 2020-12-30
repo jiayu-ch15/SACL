@@ -137,8 +137,6 @@ class ShareVecEnv(ABC):
         return self.viewer
 
 
-
-
 def worker(remote, parent_remote, env_fn_wrapper):
     parent_remote.close()
     env = env_fn_wrapper.x()
@@ -167,11 +165,7 @@ def worker(remote, parent_remote, env_fn_wrapper):
             remote.close()
             break
         elif cmd == 'get_spaces':
-            remote.send(
-                (env.observation_space, env.share_observation_space, env.action_space))
-        elif cmd == 'render_vulnerability':
-            fr = env.render_vulnerability(data)
-            remote.send((fr))
+            remote.send((env.observation_space, env.share_observation_space, env.action_space))
         else:
             raise NotImplementedError
 
@@ -292,12 +286,6 @@ class SubprocVecEnv(ShareVecEnv):
         for p in self.ps:
             p.join()
         self.closed = True
-    
-    def render_vulnerability(self, start_idx):
-        for remote, idx in zip(self.remotes, start_idx):
-            remote.send(('render_vulnerability', idx))
-        frames = [remote.recv() for remote in self.remotes]
-        return frames
 
 
 def shareworker(remote, parent_remote, env_fn_wrapper):
@@ -321,6 +309,8 @@ def shareworker(remote, parent_remote, env_fn_wrapper):
         elif cmd == 'reset_task':
             ob = env.reset_task()
             remote.send(ob)
+        elif cmd == 'render':
+            remote.send(env.render(mode='rgb_array'))
         elif cmd == 'close':
             env.close()
             remote.close()
@@ -411,12 +401,12 @@ def choosesimpleworker(remote, parent_remote, env_fn_wrapper):
             env.close()
             remote.close()
             break
+        elif cmd == 'render':
+            fr = env.render(mode=data)
+            remote.send(fr)
         elif cmd == 'get_spaces':
             remote.send(
                 (env.observation_space, env.share_observation_space, env.action_space))
-        elif cmd == 'render_vulnerability':
-            fr = env.render_vulnerability(data)
-            remote.send((fr))
         else:
             raise NotImplementedError
 
@@ -459,6 +449,12 @@ class ChooseSimpleSubprocVecEnv(ShareVecEnv):
         obs = [remote.recv() for remote in self.remotes]
         return np.stack(obs)
 
+    def render(self, mode="rgb_array"):
+        for remote, mo in zip(self.remotes, mode):
+            remote.send(('render', mo))
+        frame = [remote.recv() for remote in self.remotes]
+        return np.stack(frame)
+
     def reset_task(self):
         for remote in self.remotes:
             remote.send(('reset_task', None))
@@ -475,13 +471,6 @@ class ChooseSimpleSubprocVecEnv(ShareVecEnv):
         for p in self.ps:
             p.join()
         self.closed = True
-
-    def render_vulnerability(self, start_idx):
-        for remote, idx in zip(self.remotes, start_idx):
-            remote.send(('render_vulnerability', idx))
-        frames = [remote.recv() for remote in self.remotes]
-        return frames
-
 
 
 def chooseworker(remote, parent_remote, env_fn_wrapper):
@@ -502,6 +491,8 @@ def chooseworker(remote, parent_remote, env_fn_wrapper):
             env.close()
             remote.close()
             break
+        elif cmd == 'render':
+            remote.send(env.render(mode='rgb_array'))
         elif cmd == 'get_spaces':
             remote.send(
                 (env.observation_space, env.share_observation_space, env.action_space))

@@ -4,6 +4,7 @@ from functools import reduce
 import torch
 from onpolicy.envs.highway.common.factory import load_environment
 from copy import deepcopy
+from pathlib import Path
 
 
 class HighwayEnv(gym.core.Wrapper):
@@ -173,9 +174,15 @@ class HighwayEnv(gym.core.Wrapper):
             all_obs, all_rewards, all_dones, infos = self.env.step(tuple(action))
 
             if self.use_render_vulnerability:
-                self.cache_frames.append(self.render('rgb_array')[0])
+                self.cache_frames.append(self.render('rgb_array'))
                 self.current_step += 1
-            #self.render()
+                reward_flag = 0
+                if self.current_step > 20:
+                    reward_flag = 1
+                if reward_flag == 1: # save gif
+                    self.pick_frames.append(self.render_vulnerability(self.current_step))
+                    infos.update({"frames": self.pick_frames})
+
             # obs
             # 1. train obs
             obs = np.array([np.concatenate(all_obs[self.train_start_idx + agent_id]) for agent_id in range(self.n_agents)])
@@ -227,6 +234,8 @@ class HighwayEnv(gym.core.Wrapper):
             self.episode_dummy_rewards = []
             self.episode_other_rewards = []
             self.current_step = 0
+            self.cache_frames = []
+            self.pick_frames = []
 
             all_obs = self.env.reset()
 
@@ -245,21 +254,20 @@ class HighwayEnv(gym.core.Wrapper):
             # deal with agents that need to train
             obs = np.array([np.concatenate(all_obs[self.train_start_idx + agent_id]) for agent_id in range(self.n_agents)])
             if self.use_render_vulnerability:
-                self.cache_frames.append(self.render('rgb_array')[0])
+                self.cache_frames.append(self.render('rgb_array'))
                 self.current_step += 1
-                
+                                                
         else:
             obs = np.zeros((self.n_agents, self.obs_dim))
         return obs
 
-    def render_vulnerability(self, start_idx, T=20):
+    def render_vulnerability(self, end_idx, T=10):
         '''
         assume we find a crash at step t, it could be a vulunerability, then we need to record the full process of the crash.
         start_state is the state at step t-10 (if step t < 10, then we get state at step t=0).
-        T is the render length, which is default 20.
+        T is the render length, which is default 10.
         '''
-        if start_idx != -1:
-            end_idx = self.current_step if (start_idx + T)>self.current_step else (start_idx + T)
-            return self.cache_frames[start_idx:end_idx]
-        else:
-            return None
+        start_idx = end_idx - T
+        if start_idx < 0:
+            start_idx = 0
+        return self.cache_frames[start_idx:end_idx]
