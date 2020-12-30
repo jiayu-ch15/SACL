@@ -177,7 +177,7 @@ class HighwayEnv(gym.core.Wrapper):
             if self.use_render_vulnerability:
                 self.cache_frames.append(self.render('rgb_array')[0])
                 self.current_step += 1
-            self.render()
+            #self.render()
             # obs
             # 1. train obs
             obs = np.array([np.concatenate(all_obs[self.train_start_idx + agent_id]) for agent_id in range(self.n_agents)])
