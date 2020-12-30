@@ -172,6 +172,7 @@ def main(args):
         "all_args": all_args,
         "envs": envs,
         "eval_envs": eval_envs,
+        "render_envs":render_envs,
         "num_agents": num_agents,
         "device": device,
         "run_dir": run_dir
