@@ -220,7 +220,7 @@ class HighwayRunner(Runner):
     @torch.no_grad()
     def render(self):
         envs = self.render_envs
-        
+
         all_frames = []
         for episode in range(self.all_args.render_episodes):
             render_choose = np.ones(self.n_render_rollout_threads) == 1.0

@@ -11,7 +11,7 @@ class HighwayEnv(gym.core.Wrapper):
         self.all_args = all_args
         self.use_centralized_V = all_args.use_centralized_V
         self.use_same_other_policy = all_args.use_same_other_policy
-        self.use_render = all_args.use_render
+        self.use_render_vulnerability = all_args.use_render_vulnerability
         self.task_type = all_args.task_type
 
         self.n_defenders = all_args.n_defenders
@@ -174,9 +174,9 @@ class HighwayEnv(gym.core.Wrapper):
 
             all_obs, all_rewards, all_dones, infos = self.env.step(tuple(action))
 
-            if self.use_render:
+            if self.use_render_vulnerability:
                 self.cache_frames.append(self.render('rgb_array')[0])
-                self.step += 1
+                self.current_step += 1
 
             # obs
             # 1. train obs
@@ -228,7 +228,7 @@ class HighwayEnv(gym.core.Wrapper):
             self.episode_rewards = []
             self.episode_dummy_rewards = []
             self.episode_other_rewards = []
-            self.step = 0
+            self.current_step = 0
 
             all_obs = self.env.reset()
 
@@ -246,9 +246,9 @@ class HighwayEnv(gym.core.Wrapper):
 
             # deal with agents that need to train
             obs = np.array([np.concatenate(all_obs[self.train_start_idx + agent_id]) for agent_id in range(self.n_agents)])
-            if self.use_render:
+            if self.use_render_vulnerability:
                 self.cache_frames.append(self.render('rgb_array')[0])
-                self.step += 1
+                self.current_step += 1
                 
         else:
             obs = np.zeros((self.n_agents, self.obs_dim))
@@ -260,5 +260,5 @@ class HighwayEnv(gym.core.Wrapper):
         start_state is the state at step t-10 (if step t < 10, then we get state at step t=0).
         T is the render length, which is default 20.
         '''
-        end_idx = self.step if (start_idx + T)>self.step else (start_idx + T)
+        end_idx = self.current_step if (start_idx + T)>self.current_step else (start_idx + T)
         return self.cache_frames[start_idx:end_idx]
