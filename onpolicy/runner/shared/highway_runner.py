@@ -146,7 +146,7 @@ class HighwayRunner(Runner):
         # compute funx
 
         # env could be train or eval env
-        for e, idx in zip(env, start_idx)
+        for e, idx in zip(env, start_idx):
             if idx != -1 and self.all_args.use_render:
                 frames = e.render_vulunerability(idx, T=20)
             if self.all_args.save_gifs:

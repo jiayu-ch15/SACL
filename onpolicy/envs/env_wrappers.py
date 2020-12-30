@@ -194,6 +194,7 @@ class GuardSubprocVecEnv(ShareVecEnv):
                              share_observation_space, action_space)
 
     def step_async(self, actions):
+
         for remote, action in zip(self.remotes, actions):
             remote.send(('step', action))
         self.waiting = True
@@ -251,11 +252,13 @@ class SubprocVecEnv(ShareVecEnv):
                              share_observation_space, action_space)
 
     def step_async(self, actions):
+
         for remote, action in zip(self.remotes, actions):
             remote.send(('step', action))
         self.waiting = True
 
     def step_wait(self):
+
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
         obs, rews, dones, infos = zip(*results)

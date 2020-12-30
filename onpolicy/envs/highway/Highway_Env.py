@@ -156,6 +156,7 @@ class HighwayEnv(gym.core.Wrapper):
                         self.rnn_states[agent_id] = rnn_state.detach().numpy()
                 
                 if self.train_start_idx == 0:
+
                     action = np.concatenate([action, other_actions])
                 else:
                     action = np.concatenate([other_actions, action])

@@ -84,6 +84,8 @@ class HighwayEnv(AbstractEnv):
         # -> float: now we change it to return a list!!!!!
         rewards=[]
         for vehicle in self.controlled_vehicles:
+            print(vehicle.position)
+            while True:pass
             neighbours = self.road.network.all_side_lanes(vehicle.lane_index)
             lane = vehicle.target_lane_index[2] if isinstance(vehicle, ControlledVehicle) \
                 else vehicle.lane_index[2]
