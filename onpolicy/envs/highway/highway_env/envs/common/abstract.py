@@ -384,8 +384,8 @@ class AbstractEnv(gym.Env):
                 v.randomize_behavior()
         return env_copy
 
-    def to_finite_mdp(self):
-        return finite_mdp(self, time_quantization=1/self.config["policy_frequency"])
+    def to_finite_mdp(self, vehicle_id = 0):
+        return finite_mdp(self, time_quantization=1/self.config["policy_frequency"], vehicle_id = vehicle_id)
 
     def __deepcopy__(self, memo):
         """Perform a deep copy but without copying the environment viewer."""

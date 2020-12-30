@@ -75,7 +75,8 @@ class HighwayEnv(gym.core.Wrapper):
         
         # here we load other agents and dummies, can not change the order of the following code!!
         self.load_other_agents()
-        self.load_dummies()
+        self.dummy_agent_type = "RobustValueIteration" # "ValueIteration" or "RobustValueIteration" or "MonteCarloTreeSearchDeterministic"
+        self.load_dummies() 
         
         # get new obs and action space
         self.new_observation_space = [] # just for store
@@ -95,12 +96,33 @@ class HighwayEnv(gym.core.Wrapper):
         self.cache_frames = []
 
     def load_dummies(self):
-        from .agents.tree_search.mcts import MCTSAgent as DummyAgent
         self.dummies = []
-        for dummy_id in range(self.n_dummies):
-            self.dummies.append(DummyAgent(self.env_init, 
-                                            id = dummy_id + self.n_attackers + self.n_defenders,
-                                            config=dict(budget=200, temperature=200, max_depth=1)))
+        if self.dummy_agent_type == "ValueIteration":
+            from .agents.dynamic_programming.value_iteration import ValueIterationAgent
+            agent_config = {
+                "env_preprocessors": [{"method":"simplify"}],
+                "budget": 50,
+                "gamma": 0.7,
+            }
+            for dummy_id in range(self.n_dummies):
+                self.dummies.append(ValueIterationAgent(self.env_init, agent_config, vehicle_id=dummy_id + self.n_attackers + self.n_defenders))
+
+        elif self.dummy_agent_type == "RobustValueIteration":
+            from .agents.dynamic_programming.robust_value_iteration import RobustValueIterationAgent
+            agent_config = {
+                "env_preprocessors": [{"method":"simplify"}],
+                "budget": 50,
+                "gamma": 0.7,
+            }
+            for dummy_id in range(self.n_dummies):
+                self.dummies.append(RobustValueIterationAgent(self.env_init, agent_config,vehicle_id=dummy_id + self.n_attackers + self.n_defenders))
+        
+        elif self.dummy_agent_type == "MonteCarloTreeSearchDeterministic":
+            from .agents.tree_search.mcts import MCTSAgent as DummyAgent    
+            for dummy_id in range(self.n_dummies):
+                self.dummies.append(DummyAgent(self.env_init, 
+                                                id = dummy_id + self.n_attackers + self.n_defenders,
+                                                config=dict(budget=200, temperature=200, max_depth=1)))
 
     def load_other_agents(self):
         from .agents.policy_pool.policy import R_actor as Policy
@@ -161,11 +183,17 @@ class HighwayEnv(gym.core.Wrapper):
 
             # then we need to get actions of dummies
             if self.n_dummies > 0:
-                dummy_actions = []
-                for dummy in self.dummies:
-                    dummy_action = dummy.act(self.dummy_obs)
-                    dummy_actions.append([dummy_action])
-                action = np.concatenate([action, dummy_actions])
+                if self.dummy_agent_type == "ValueIteration" or "RobustValueIteration":
+                    dummy_actions = []
+                    for dummy_id in range(self.n_dummies):
+                        dummy_actions.append([self.dummies[dummy_id].act(self.dummy_obs[dummy_id])]) 
+                    action = np.concatenate([action, dummy_actions])
+                elif self.dummy_agent_type == "MonteCarloTreeSearchDeterministic":
+                    dummy_actions = []
+                    for dummy in self.dummies:
+                        dummy_action = dummy.act(self.dummy_obs)
+                        dummy_actions.append([dummy_action])
+                    action = np.concatenate([action, dummy_actions])
             
             # for discrete action, drop the unneeded axis
             action = np.squeeze(action, axis=-1)
@@ -183,9 +211,8 @@ class HighwayEnv(gym.core.Wrapper):
             self.other_obs = np.array([np.concatenate(all_obs[self.load_start_idx + agent_id]) \
                                     for agent_id in range(self.n_other_agents)])
             # 3. dummy obs
-            #self.dummy_obs = all_obs
             self.dummy_obs = np.array([np.concatenate(all_obs[self.n_attackers + self.n_defenders + agent_id]) \
-                                    for agent_id in range(self.n_dummies)])
+                                        for agent_id in range(self.n_dummies)])
 
             # rewards
             # ! @zhuo if agent is dead, rewards need to be set zero!
