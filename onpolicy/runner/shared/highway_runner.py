@@ -80,8 +80,6 @@ class HighwayRunner(Runner):
     def warmup(self):
         # reset env
         obs = self.envs.reset()
-        self.render()
-        while True:pass
         # replay buffer
         if self.use_centralized_V:
             share_obs = obs.reshape(self.n_rollout_threads, -1)
