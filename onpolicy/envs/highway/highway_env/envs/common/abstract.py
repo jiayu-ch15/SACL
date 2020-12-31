@@ -98,8 +98,8 @@ class AbstractEnv(gym.Env):
             "simulation_frequency": 15,  # [Hz]
             "policy_frequency": 1,  # [Hz]
             "other_vehicles_type": "onpolicy.envs.highway.highway_env.vehicle.behavior.IDMVehicle",
-            "screen_width": 600,  # [px]
-            "screen_height": 150,  # [px]
+            "screen_width": 1000,  # [px]
+            "screen_height": 200,  # [px]
             "centering_position": [0.3, 0.5],
             "scaling": 5.5,
             "show_trajectories": False,
