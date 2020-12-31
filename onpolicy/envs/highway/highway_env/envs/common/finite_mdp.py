@@ -3,7 +3,7 @@ from functools import partial
 from typing import TYPE_CHECKING, Optional
 
 import numpy as np
-
+import gym
 from onpolicy.envs.highway.highway_env import utils
 from onpolicy.envs.highway.highway_env.vehicle.kinematics import Vehicle
 
@@ -13,7 +13,8 @@ if TYPE_CHECKING:
 
 def finite_mdp(env: 'AbstractEnv',
                time_quantization: float = 1.,
-               horizon: float = 10.) -> object:
+               horizon: float = 10.,
+               vehicle_id: Optional[int] = 0) -> object:
     """
     Time-To-Collision (TTC) representation of the state.
 
@@ -39,16 +40,26 @@ def finite_mdp(env: 'AbstractEnv',
     :param horizon: the horizon on which the collisions are predicted [s]
     """
     # Compute TTC grid
-    grid = compute_ttc_grid(env, time_quantization, horizon)
+    if vehicle_id > 0:
+        grid = compute_ttc_grid(env, time_quantization, horizon, env.controlled_vehicles[vehicle_id])
+    else:
+        grid = compute_ttc_grid(env, time_quantization, horizon)
 
     # Compute current state
-    grid_state = (env.vehicle.speed_index, env.vehicle.lane_index[2], 0)
-    state = np.ravel_multi_index(grid_state, grid.shape)
-
+    if vehicle_id > 0:
+        grid_state = (env.controlled_vehicles[vehicle_id].speed_index, env.controlled_vehicles[vehicle_id].lane_index[2], 0)
+        state = np.ravel_multi_index(grid_state, grid.shape)
+    else:
+        grid_state = (env.vehicle.speed_index, env.vehicle.lane_index[2], 0)
+        state = np.ravel_multi_index(grid_state, grid.shape)
+    
     # Compute transition function
     transition_model_with_grid = partial(transition_model, grid=grid)
-    transition = np.fromfunction(transition_model_with_grid, grid.shape + (env.action_space.n,), dtype=int)
-    transition = np.reshape(transition, (np.size(grid), env.action_space.n))
+    transform_action_space = env.action_space
+    if isinstance(env.action_space ,gym.spaces.tuple.Tuple):
+        transform_action_space = transform_action_space[vehicle_id]
+    transition = np.fromfunction(transition_model_with_grid, grid.shape + (transform_action_space.n,), dtype=int)
+    transition = np.reshape(transition, (np.size(grid), transform_action_space.n))
 
     # Compute reward function
     v, l, t = grid.shape
@@ -72,7 +83,7 @@ def finite_mdp(env: 'AbstractEnv',
 
     # Creation of a new finite MDP
     try:
-        module = importlib.import_module("finite_mdp.mdp")
+        module = importlib.import_module("onpolicy.envs.highway.finite_mdp.mdp")
         mdp = module.DeterministicMDP(transition, reward, terminal, state=state)
         mdp.original_shape = grid.shape
         return mdp

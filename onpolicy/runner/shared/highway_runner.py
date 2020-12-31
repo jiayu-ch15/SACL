@@ -43,13 +43,6 @@ class HighwayRunner(Runner):
                 # insert data into buffer
                 self.insert(data)
 
-                # ! pack data @zhuo
-                # for done in dones:
-                #     if done:
-                #     # fake data
-                #     start_idx = [0 for i in range(self.n_rollout_threads)]
-                #     self.pack_data(self.envs, start_idx)
-
             # compute return and update network
             self.compute()
             train_infos = self.train()
@@ -133,9 +126,12 @@ class HighwayRunner(Runner):
         for done_env, info in zip(dones_env, infos):
             # if env is done, we need to take episode rewards!
             if done_env:
-                for key in self.env_infos.keys():
-                    if key in info.keys():
+                for key in info.keys():
+                    if key in self.env_infos.keys():
                         self.env_infos[key].append(info[key])
+                    if key == "frames" and self.all_args.use_render_vulnerability:
+                        self.render_vulnerability(info[key], suffix="train")
+
 
         rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
@@ -148,29 +144,22 @@ class HighwayRunner(Runner):
 
         self.buffer.insert(share_obs, obs, rnn_states, rnn_states_critic, actions, action_log_probs, values, rewards, masks, active_masks=active_masks)
 
-    def pack_data(self, env, start_idx, suffix="train"):
-        # env could be train or eval env
-        if self.all_args.use_render_vulnerability:
-            frames = env.render_vulnerability(start_idx)
+    def render_vulnerability(self, frames, suffix="train"):
         if self.all_args.save_gifs:
-            for idx, frame in zip(start_idx, frames):
-                if frame is not None:
-                    save_dir = Path(str(self.run_dir) + '/vulner_' + suffix)
-                    print(save_dir)
-                    if not save_dir.exists():
-                        curr_vulner = 'vulner1'
-                    else:
-                        exst_vulner_nums = [int(str(folder.name).split('vulner')[1]) for folder in save_dir.iterdir() if str(folder.name).startswith('vulner')]
-                        if len(exst_vulner_nums) == 0:
-                            curr_vulner = 'vulner1'
-                        else:
-                            curr_vulner = 'vulner%i' % (max(exst_vulner_nums) + 1)
-                    vulner_dir = save_dir / curr_vulner
-                    if not vulner_dir.exists():
-                        os.makedirs(str(vulner_dir))
-                    import pdb; pdb.set_trace()
-                    imageio.mimsave(str(vulner_dir / str(idx)) + ".gif", frame, duration=self.all_args.ifi)
-
+            save_dir = Path(str(self.run_dir) + '/vulner_' + suffix)
+            if not save_dir.exists():
+                curr_vulner = 'vulner1'
+            else:
+                exst_vulner_nums = [int(str(folder.name).split('vulner')[1]) for folder in save_dir.iterdir() if str(folder.name).startswith('vulner')]
+                if len(exst_vulner_nums) == 0:
+                    curr_vulner = 'vulner1'
+                else:
+                    curr_vulner = 'vulner%i' % (max(exst_vulner_nums) + 1)
+            vulner_dir = save_dir / curr_vulner
+            if not vulner_dir.exists():
+                os.makedirs(str(vulner_dir))
+            for idx, frame in enumerate(frames):
+                imageio.mimsave(str(vulner_dir / str(idx)) + ".gif", frame, duration=self.all_args.ifi)
 
     @torch.no_grad()
     def eval(self, total_num_steps):
@@ -209,6 +198,7 @@ class HighwayRunner(Runner):
                
             # Observe reward and next obs
             eval_obs, eval_rewards, eval_dones, eval_infos = eval_envs.step(eval_actions)
+            eval_envs.render('rgb_array')[0]
 
             eval_dones_env = np.all(eval_dones, axis=-1)
 
