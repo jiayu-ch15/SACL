@@ -133,7 +133,6 @@ class ContinuousAction(ActionType):
             })
         self.last_action = action
 
-
 class DiscreteMetaAction(ActionType):
 
     """
@@ -170,7 +169,6 @@ class DiscreteMetaAction(ActionType):
                  **kwargs) -> None:
         """
         Create a discrete action space of meta-actions.
-
         :param env: the environment
         :param longitudinal: include longitudinal actions
         :param lateral: include lateral actions
@@ -195,6 +193,8 @@ class DiscreteMetaAction(ActionType):
 
     def act(self, action: int) -> None:
         self.controlled_vehicle.act(self.actions[action])
+
+
 
 
 class MultiAgentAction(ActionType):
@@ -222,6 +222,7 @@ class MultiAgentAction(ActionType):
 
         for agent_action, action_type in zip(action, self.agents_action_types):
             action_type.act(agent_action)
+
 
 
 

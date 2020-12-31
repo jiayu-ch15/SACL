@@ -188,6 +188,7 @@ class AbstractEnv(gym.Env):
             raise NotImplementedError("The road and vehicle must be initialized in the environment implementation")
 
         self.steps += 1
+
         self._simulate(action)
 
         obs = self.observation_type.observe()
@@ -209,23 +210,22 @@ class AbstractEnv(gym.Env):
 
     def _simulate(self, action: Optional[Action] = None) -> None:
         """Perform several steps of simulation with constant action."""
-        for _ in range(int(self.config["simulation_frequency"] // self.config["policy_frequency"])):
+        for i in range(int(self.config["simulation_frequency"] // self.config["policy_frequency"])):
             # Forward action to the vehicle
             if action is not None \
                     and not self.config["manual_control"] \
                     and self.time % int(self.config["simulation_frequency"] // self.config["policy_frequency"]) == 0:
                 self.action_type.act(action)
-
             self.road.act()
             self.road.step(1 / self.config["simulation_frequency"])
             self.time += 1
-
             # Automatically render intermediate simulation steps if a viewer has been launched
             # Ignored if the rendering is done offscreen
             self._automatic_rendering()
 
             # Stop at terminal states
-            if self.done or self._is_terminal():
+            if self.done or self._is_done():
+            #if self.done or self._is_terminal():
                 break
         self.enable_auto_render = False
 

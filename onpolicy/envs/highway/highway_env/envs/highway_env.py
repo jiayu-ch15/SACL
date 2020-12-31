@@ -92,11 +92,11 @@ class HighwayEnv(AbstractEnv):
             positions.append(vehicle.position)
         defender_pos=positions[:n_defenders]
         attacker_pos=positions[:n_defenders:n_defenders+n_attackers]
-
         for vehicle in self.controlled_vehicles:
-            neighbours = self.road.network.all_side_lanes(vehicle.lane_index)
-            lane = vehicle.target_lane_index[2] if isinstance(vehicle, ControlledVehicle) \
-                else vehicle.lane_index[2]
+            '''
+            #neighbours = self.road.network.all_side_lanes(vehicle.lane_index)
+            #lane = vehicle.target_lane_index[2] if isinstance(vehicle, ControlledVehicle) \
+            #    else vehicle.lane_index[2]
             scaled_speed = utils.lmap(vehicle.speed, self.config["reward_speed_range"], [0, 1])
             reward = \
                 self.HIGH_SPEED_REWARD * np.clip(scaled_speed, 0, 1)
@@ -105,6 +105,21 @@ class HighwayEnv(AbstractEnv):
                               [0, 1])
             reward = 0 if not vehicle.on_road else reward
             reward = 0 if vehicle.crashed else reward
+            '''
+
+            neighbours = self.road.network.all_side_lanes(vehicle.lane_index)
+            lane = vehicle.target_lane_index[2] if isinstance(vehicle, ControlledVehicle) \
+                else vehicle.lane_index[2]
+            scaled_speed = utils.lmap(vehicle.speed, self.config["reward_speed_range"], [0, 1])
+            reward = \
+                + self.config["collision_reward"] * vehicle.crashed \
+                + self.RIGHT_LANE_REWARD * lane / max(len(neighbours) - 1, 1) \
+                + self.HIGH_SPEED_REWARD * np.clip(scaled_speed, 0, 1)
+            reward = utils.lmap(reward,
+                                [self.config["collision_reward"], self.HIGH_SPEED_REWARD + self.RIGHT_LANE_REWARD],
+                                [0, 1])
+            reward = 0 if not vehicle.on_road else reward
+
             rewards.append(reward)
 
         return rewards
@@ -114,10 +129,27 @@ class HighwayEnv(AbstractEnv):
         #now we change it to return a list
         dones=[]
         for vehicle in self.controlled_vehicles:
-            dones.append(vehicle.crashed or \
-            self.steps >= self.config["duration"] or \
-            (self.config["offroad_terminal"] and not vehicle.on_road))
+            #dones.append(vehicle.crashed or \
+            #self.steps >= self.config["duration"] or \
+            #(self.config["offroad_terminal"] and not vehicle.on_road))
+            dones.append(self._is_done())
         return dones
+
+    def _is_done(self) :#-> bool:
+        """The episode is over if the ego vehicle crashed or the time is out."""
+        #now we change it to return a list
+        dones = []
+        for vehicle in self.controlled_vehicles:
+            dones.append(vehicle.crashed or \
+                         self.steps >= self.config["duration"] or \
+                         (self.config["offroad_terminal"] and not vehicle.on_road))
+        defender_done = dones[:self.config["n_defenders"]]
+        attacker_done = dones[self.config["n_defenders"]:self.config["n_defenders"] + self.config["n_attackers"]]
+        if np.all(defender_done) or np.all(attacker_done):
+            return True
+        else:
+            return False
+
 
     def _cost(self, action: int) -> float:
         """The cost signal is the occurrence of collision."""
@@ -154,7 +186,6 @@ class HighwayEnv(AbstractEnv):
         elif isinstance(self.action_type, MultiAgentAction):
             multi_actions=[]
             for vehicle,action_type in zip(self.controlled_vehicles,self.action_type.agents_action_types):
-
                 actions = [action_type.actions_indexes['IDLE']]
                 for l_index in self.road.network.side_lanes(vehicle.lane_index):
                     if l_index[2] < vehicle.lane_index[2] \
@@ -170,8 +201,8 @@ class HighwayEnv(AbstractEnv):
                 if vehicle.speed_index > 0 and action_type.longitudinal:
                     actions.append(action_type.actions_indexes['SLOWER'])
                 multi_actions.append(actions)
-
             return multi_actions
+
 register(
     id='highway-v0',
     entry_point='onpolicy.envs.highway.highway_env.envs:HighwayEnv',

@@ -187,7 +187,7 @@ class HighwayEnv(gym.core.Wrapper):
                 if self.dummy_agent_type == "ValueIteration" or "RobustValueIteration":
                     dummy_actions = []
                     for dummy_id in range(self.n_dummies):
-                        dummy_actions.append([self.dummies[dummy_id].act(self.dummy_obs[dummy_id])]) 
+                        dummy_actions.append([self.dummies[dummy_id].act(self.dummy_obs)])
                     action = np.concatenate([action, dummy_actions])
                 elif self.dummy_agent_type == "MonteCarloTreeSearchDeterministic":
                     dummy_actions = []
@@ -198,7 +198,7 @@ class HighwayEnv(gym.core.Wrapper):
             
             # for discrete action, drop the unneeded axis
             action = np.squeeze(action, axis=-1)
-
+            self.render()
             all_obs, all_rewards, all_dones, infos = self.env.step(tuple(action))
 
             if self.use_render_vulnerability:
