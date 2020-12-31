@@ -93,7 +93,6 @@ class HighwayEnv(gym.core.Wrapper):
         self.action_space = self.new_action_space
 
         self.cache_frames = []
-        
 
     def load_dummies(self):
         from .agents.tree_search.mcts import MCTSAgent as DummyAgent
@@ -130,7 +129,6 @@ class HighwayEnv(gym.core.Wrapper):
                 policy.load_state_dict(policy_state_dict)
                 policy.eval()
                 self.other_agents.append(policy)
-
 
     def step(self, action):
         if not np.all(action == np.ones((self.n_agents, 1)).astype(np.int) * (-1)):
@@ -254,11 +252,14 @@ class HighwayEnv(gym.core.Wrapper):
             obs = np.zeros((self.n_agents, self.obs_dim))
         return obs
 
-    def render_vulunerability(self, start_idx, T=20):
+    def render_vulnerability(self, start_idx, T=20):
         '''
         assume we find a crash at step t, it could be a vulunerability, then we need to record the full process of the crash.
         start_state is the state at step t-10 (if step t < 10, then we get state at step t=0).
         T is the render length, which is default 20.
         '''
-        end_idx = self.current_step if (start_idx + T)>self.current_step else (start_idx + T)
-        return self.cache_frames[start_idx:end_idx]
+        if start_idx != -1:
+            end_idx = self.current_step if (start_idx + T)>self.current_step else (start_idx + T)
+            return self.cache_frames[start_idx:end_idx]
+        else:
+            return None
