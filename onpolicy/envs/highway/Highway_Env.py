@@ -58,7 +58,7 @@ class HighwayEnv(gym.core.Wrapper):
                             "type": "Kinematics"
                         }
                     },
-                    "vehicles_count": 5,
+                    "vehicles_count": 50,
         }
 
         self.env_init = load_environment(self.env_dict)
@@ -198,7 +198,7 @@ class HighwayEnv(gym.core.Wrapper):
             
             # for discrete action, drop the unneeded axis
             action = np.squeeze(action, axis=-1)
-            self.render()
+            #self.render()
             all_obs, all_rewards, all_dones, infos = self.env.step(tuple(action))
 
             if self.use_render_vulnerability:

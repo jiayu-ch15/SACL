@@ -93,7 +93,7 @@ class HighwayEnv(AbstractEnv):
         defender_pos=positions[:n_defenders]
         attacker_pos=positions[:n_defenders:n_defenders+n_attackers]
         for vehicle in self.controlled_vehicles:
-            '''
+
             #neighbours = self.road.network.all_side_lanes(vehicle.lane_index)
             #lane = vehicle.target_lane_index[2] if isinstance(vehicle, ControlledVehicle) \
             #    else vehicle.lane_index[2]
@@ -105,21 +105,7 @@ class HighwayEnv(AbstractEnv):
                               [0, 1])
             reward = 0 if not vehicle.on_road else reward
             reward = 0 if vehicle.crashed else reward
-            '''
-
-            neighbours = self.road.network.all_side_lanes(vehicle.lane_index)
-            lane = vehicle.target_lane_index[2] if isinstance(vehicle, ControlledVehicle) \
-                else vehicle.lane_index[2]
-            scaled_speed = utils.lmap(vehicle.speed, self.config["reward_speed_range"], [0, 1])
-            reward = \
-                + self.config["collision_reward"] * vehicle.crashed \
-                + self.RIGHT_LANE_REWARD * lane / max(len(neighbours) - 1, 1) \
-                + self.HIGH_SPEED_REWARD * np.clip(scaled_speed, 0, 1)
-            reward = utils.lmap(reward,
-                                [self.config["collision_reward"], self.HIGH_SPEED_REWARD + self.RIGHT_LANE_REWARD],
-                                [0, 1])
-            reward = 0 if not vehicle.on_road else reward
-
+            
             rewards.append(reward)
 
         return rewards
