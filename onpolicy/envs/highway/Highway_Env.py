@@ -79,7 +79,7 @@ class HighwayEnv(gym.core.Wrapper):
             self.load_other_agents()
         if self.n_dummies>0:
             self.dummy_agent_type = "RobustValueIteration" # "ValueIteration" or "RobustValueIteration" or "MonteCarloTreeSearchDeterministic"
-            self.load_dummies()
+            self.load_dummies() 
         
         # get new obs and action space
         self.new_observation_space = [] # just for store

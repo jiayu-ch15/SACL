@@ -78,8 +78,7 @@ class Runner(object):
                 from onpolicy.algorithms.r_mappg.algorithm.rMAPPGPolicy import R_MAPPGPolicy as Policy
         else:
             raise NotImplementedError
-        print(self.envs.share_observateion_space)
-        while Ture:pass
+        
         share_observation_space = self.envs.share_observation_space[0] if self.use_centralized_V else self.envs.observation_space[0]
 
         # policy network
