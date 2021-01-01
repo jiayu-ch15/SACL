@@ -6,6 +6,10 @@
 Welcome to onpolicy's documentation!
 ====================================
 
+.. image:: full.gif
+
+.. include:: quickstart.rst
+
 .. toctree::
    :maxdepth: 2
    :caption: API Reference:
