@@ -58,7 +58,7 @@ class HighwayEnv(gym.core.Wrapper):
                             "type": "Kinematics"
                         }
                     },
-                    "vehicles_count": 5,
+                    "vehicles_count": 50,
         }
 
         self.env_init = load_environment(self.env_dict)
