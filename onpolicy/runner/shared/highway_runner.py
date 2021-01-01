@@ -121,7 +121,7 @@ class HighwayRunner(Runner):
 
         dones_env = np.all(dones, axis=-1)
 
-        ###done_env compute the three kinds rew
+        # done_env compute the three kinds rew
 
         for done_env, info in zip(dones_env, infos):
             # if env is done, we need to take episode rewards!
