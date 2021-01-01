@@ -198,7 +198,6 @@ class HighwayRunner(Runner):
                
             # Observe reward and next obs
             eval_obs, eval_rewards, eval_dones, eval_infos = eval_envs.step(eval_actions)
-            eval_envs.render('rgb_array')[0]
 
             eval_dones_env = np.all(eval_dones, axis=-1)
 
@@ -211,9 +210,13 @@ class HighwayRunner(Runner):
             for eval_done, eval_info in zip(eval_dones, eval_infos):
                 if np.all(eval_done==True):
                     for eval_info in eval_infos:
-                        for key in eval_env_infos.keys():
-                            if key in eval_info.keys():
-                                eval_env_infos[key].append(eval_info[key])                
+                        for key in eval_info.keys():
+                            if key in eval_env_infos.keys():
+                                eval_env_infos[key].append(eval_info[key]) 
+                            if key == "frames" and self.all_args.use_render_vulnerability:
+                                self.render_vulnerability(info[key], suffix="eval") 
+
+            print("eval average episode rewards is {}".format(np.sum(eval_episode_rewards, axis=-1)))              
 
         self.log_env(eval_env_infos, total_num_steps)
 
@@ -226,7 +229,7 @@ class HighwayRunner(Runner):
             render_choose = np.ones(self.n_render_rollout_threads) == 1.0
             obs = envs.reset(render_choose)
             if self.all_args.save_gifs:
-                image = envs.render('rgb_array')[0]
+                image = envs.render('rgb_array')
                 all_frames.append(image)
 
             rnn_states = np.zeros((self.n_render_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
@@ -250,7 +253,7 @@ class HighwayRunner(Runner):
                 episode_rewards.append(rewards)
                 
                 if self.all_args.save_gifs:
-                    image = envs.render('rgb_array')[0]
+                    image = envs.render('rgb_array')
                     all_frames.append(image)
                     calc_end = time.time()
                     elapsed = calc_end - calc_start

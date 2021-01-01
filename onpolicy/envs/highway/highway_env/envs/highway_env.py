@@ -93,7 +93,7 @@ class HighwayEnv(AbstractEnv):
         defender_pos=positions[:n_defenders]
         attacker_pos=positions[:n_defenders:n_defenders+n_attackers]
         for vehicle in self.controlled_vehicles:
-            '''
+
             #neighbours = self.road.network.all_side_lanes(vehicle.lane_index)
             #lane = vehicle.target_lane_index[2] if isinstance(vehicle, ControlledVehicle) \
             #    else vehicle.lane_index[2]
@@ -103,22 +103,8 @@ class HighwayEnv(AbstractEnv):
             reward = utils.lmap(reward,
                               [self.config["collision_reward"], self.HIGH_SPEED_REWARD + self.RIGHT_LANE_REWARD],
                               [0, 1])
-            reward = 0 if not vehicle.on_road else reward
-            reward = 0 if vehicle.crashed else reward
-            '''
-
-            neighbours = self.road.network.all_side_lanes(vehicle.lane_index)
-            lane = vehicle.target_lane_index[2] if isinstance(vehicle, ControlledVehicle) \
-                else vehicle.lane_index[2]
-            scaled_speed = utils.lmap(vehicle.speed, self.config["reward_speed_range"], [0, 1])
-            reward = \
-                + self.config["collision_reward"] * vehicle.crashed \
-                + self.RIGHT_LANE_REWARD * lane / max(len(neighbours) - 1, 1) \
-                + self.HIGH_SPEED_REWARD * np.clip(scaled_speed, 0, 1)
-            reward = utils.lmap(reward,
-                                [self.config["collision_reward"], self.HIGH_SPEED_REWARD + self.RIGHT_LANE_REWARD],
-                                [0, 1])
-            reward = 0 if not vehicle.on_road else reward
+            reward = -0.5 if not vehicle.on_road else reward
+            reward = -0.5 if vehicle.crashed else reward
 
             rewards.append(reward)
 
@@ -127,12 +113,21 @@ class HighwayEnv(AbstractEnv):
     def _is_terminal(self) :#-> bool:
         """The episode is over if the ego vehicle crashed or the time is out."""
         #now we change it to return a list
-        dones=[]
+        dones = []
         for vehicle in self.controlled_vehicles:
-            #dones.append(vehicle.crashed or \
-            #self.steps >= self.config["duration"] or \
-            #(self.config["offroad_terminal"] and not vehicle.on_road))
-            dones.append(self._is_done())
+            dones.append(vehicle.crashed or \
+                         self.steps >= self.config["duration"] or \
+                         (self.config["offroad_terminal"] and not vehicle.on_road))
+
+        defender_done = dones[:self.config["n_defenders"]]
+        attacker_done = dones[self.config["n_defenders"]:self.config["n_defenders"] + self.config["n_attackers"]]
+
+        if np.all(defender_done):
+            for i in range(len(dones)):
+                dones[i] = True
+        elif len(attacker_done) > 0 and np.all(attacker_done):
+            for i in range(len(dones)):
+                dones[i] = True
         return dones
 
     def _is_done(self) :#-> bool:
@@ -143,9 +138,17 @@ class HighwayEnv(AbstractEnv):
             dones.append(vehicle.crashed or \
                          self.steps >= self.config["duration"] or \
                          (self.config["offroad_terminal"] and not vehicle.on_road))
+
         defender_done = dones[:self.config["n_defenders"]]
         attacker_done = dones[self.config["n_defenders"]:self.config["n_defenders"] + self.config["n_attackers"]]
-        if np.all(defender_done) or np.all(attacker_done):
+
+        if np.all(defender_done):
+            for i in range(len(dones)):
+                dones[i]=True
+            return True
+        elif len(attacker_done)>0 and np.all(attacker_done):
+            for i in range(len(dones)):
+                dones[i]=True
             return True
         else:
             return False
