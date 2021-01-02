@@ -121,7 +121,7 @@ class HighwayRunner(Runner):
 
         dones_env = np.all(dones, axis=-1)
 
-        ###done_env compute the three kinds rew
+        # done_env compute the three kinds rew
 
         for done_env, info in zip(dones_env, infos):
             # if env is done, we need to take episode rewards!
@@ -229,7 +229,7 @@ class HighwayRunner(Runner):
             render_choose = np.ones(self.n_render_rollout_threads) == 1.0
             obs = envs.reset(render_choose)
             if self.all_args.save_gifs:
-                image = envs.render('rgb_array')[0]
+                image = envs.render('rgb_array')
                 all_frames.append(image)
 
             rnn_states = np.zeros((self.n_render_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
@@ -253,7 +253,7 @@ class HighwayRunner(Runner):
                 episode_rewards.append(rewards)
                 
                 if self.all_args.save_gifs:
-                    image = envs.render('rgb_array')[0]
+                    image = envs.render('rgb_array')
                     all_frames.append(image)
                     calc_end = time.time()
                     elapsed = calc_end - calc_start

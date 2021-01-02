@@ -42,7 +42,7 @@ class HighwayEnv(AbstractEnv):
             "ego_spacing": 2,
             "vehicles_density": 1,
             "collision_reward": -1,  # The reward received when colliding with a vehicle.
-            "reward_speed_range": [20, 30],
+            "reward_speed_range": [20, 35],
             "offroad_terminal": False
         })
         return config
@@ -93,22 +93,20 @@ class HighwayEnv(AbstractEnv):
         defender_pos=positions[:n_defenders]
         attacker_pos=positions[:n_defenders:n_defenders+n_attackers]
         for vehicle in self.controlled_vehicles:
-
-            #neighbours = self.road.network.all_side_lanes(vehicle.lane_index)
-            #lane = vehicle.target_lane_index[2] if isinstance(vehicle, ControlledVehicle) \
-            #    else vehicle.lane_index[2]
+            
+            neighbours = self.road.network.all_side_lanes(vehicle.lane_index)
+            lane = vehicle.target_lane_index[2] if isinstance(vehicle, ControlledVehicle) \
+                else vehicle.lane_index[2]
             scaled_speed = utils.lmap(vehicle.speed, self.config["reward_speed_range"], [0, 1])
             reward = \
-                self.HIGH_SPEED_REWARD * np.clip(scaled_speed, 0, 1)
+                + self.config["collision_reward"] * vehicle.crashed \
+                + self.RIGHT_LANE_REWARD * lane / max(len(neighbours) - 1, 1) \
+                + self.HIGH_SPEED_REWARD * np.clip(scaled_speed, 0, 1)
             reward = utils.lmap(reward,
-                              [self.config["collision_reward"], self.HIGH_SPEED_REWARD + self.RIGHT_LANE_REWARD],
-                              [0, 1])
-
-            reward = -0.5 if not vehicle.on_road else reward
-            reward = -0.5 if vehicle.crashed else reward
-
+                                [self.config["collision_reward"], self.HIGH_SPEED_REWARD + self.RIGHT_LANE_REWARD],
+                                [0, 1])
+            reward = 0 if not vehicle.on_road else reward
             rewards.append(reward)
-
         return rewards
 
     def _is_terminal(self) :#-> bool:
