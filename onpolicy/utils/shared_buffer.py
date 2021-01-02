@@ -18,8 +18,7 @@ class SharedReplayBuffer(object):
         self.gae_lambda = args.gae_lambda
         self._use_gae = args.use_gae
         self._use_popart = args.use_popart
-        self._use_proper_time_limits = args.use_proper_time_limits 
-        self._use_return_active_masks = args.use_return_active_masks      
+        self._use_proper_time_limits = args.use_proper_time_limits     
 
         obs_shape = get_shape_from_obs_space(obs_space)
         share_obs_shape = get_shape_from_obs_space(share_obs_space)

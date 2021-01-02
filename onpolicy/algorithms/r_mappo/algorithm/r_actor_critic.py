@@ -18,7 +18,8 @@ class R_Actor(nn.Module):
         self.hidden_size = args.hidden_size
 
         self._gain = args.gain
-        self._use_orthogonal = args.use_orthogonal  
+        self._use_orthogonal = args.use_orthogonal 
+        self._use_policy_active_masks = args.use_policy_active_masks 
         self._use_naive_recurrent_policy = args.use_naive_recurrent_policy
         self._use_recurrent_policy = args.use_recurrent_policy 
         self._use_policy_vhead = args.use_policy_vhead 
@@ -74,7 +75,7 @@ class R_Actor(nn.Module):
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
 
-        action_log_probs, dist_entropy = self.act.evaluate_actions(actor_features, action, available_actions, active_masks)
+        action_log_probs, dist_entropy = self.act.evaluate_actions(actor_features, action, available_actions, active_masks=active_masks if self._use_policy_active_masks else None)
 
         values = self.v_out(actor_features) if self._use_policy_vhead else None
        
