@@ -179,7 +179,6 @@ class HighwayEnv(gym.core.Wrapper):
                         self.rnn_states[agent_id] = rnn_state.detach().numpy()
                 
                 if self.train_start_idx == 0:
-
                     action = np.concatenate([action, other_actions])
                 else:
                     action = np.concatenate([other_actions, action])
@@ -202,16 +201,6 @@ class HighwayEnv(gym.core.Wrapper):
             action = np.squeeze(action, axis=-1)
             self.render()
             all_obs, all_rewards, all_dones, infos = self.env.step(tuple(action))
-
-            if self.use_render_vulnerability:
-                self.cache_frames.append(self.render('rgb_array'))
-                self.current_step += 1
-                reward_flag = 0
-                if self.current_step > 20:
-                    reward_flag = 1
-                if reward_flag == 1: # save gif
-                    self.pick_frames.append(self.render_vulnerability(self.current_step))
-                    infos.update({"frames": self.pick_frames})
 
             # obs
             # 1. train obs
@@ -244,16 +233,30 @@ class HighwayEnv(gym.core.Wrapper):
             other_dones = [all_dones[self.load_start_idx + agent_id] for agent_id in range(self.n_other_agents)]
             # 3. dummy dones
             dummy_dones = [all_dones[self.n_attackers + self.n_defenders + dummy_id] for dummy_id in range(self.n_dummies)]
-            
-            infos.update({"episode_rewards": np.sum(self.episode_rewards, axis=0), 
+
+            if self.use_render_vulnerability:
+                self.cache_frames.append(self.render('rgb_array'))
+                self.current_step += 1
+                reward_flag = 0
+                if np.all(dones):
+                    reward_flag=1
+                if reward_flag == 1: # save gif
+                    self.pick_frames.append(self.render_vulnerability(self.current_step))
+                    infos.update({"frames": self.pick_frames})
+
+            if self.task_type == "attack":
+                adv_rew=self.env.unwrapped.adv_rew()
+            else:
+                adv_rew=0
+            infos.update({"episode_rewards": np.sum(self.episode_rewards, axis=0),
                         "episode_other_rewards": np.sum(self.episode_other_rewards, axis=0) if self.n_other_agents > 0 else 0.0,
-                        "episode_dummy_rewards": np.sum(self.episode_dummy_rewards, axis=0) if self.n_dummies > 0 else 0.0})
+                        "episode_dummy_rewards": np.sum(self.episode_dummy_rewards, axis=0) if self.n_dummies > 0 else 0.0,
+                        "adv_rew":adv_rew})
         else:
             obs = np.zeros((self.n_agents, self.obs_dim))
             rewards = np.zeros((self.n_agents, 1))
             dones = [None for agent_id in range(self.n_agents)]
             infos = {}
-
         return obs, rewards, dones, infos
 
     def reset(self, choose = True):
