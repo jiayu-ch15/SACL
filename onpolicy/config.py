@@ -148,7 +148,7 @@ def get_config():
             time duration between contiunous twice log printing.
     Eval Parameters:
         --use_eval
-            by default, do not start evaluation. If set, start evaluation alongside with training.
+            by default, do not start evaluation. If set`, start evaluation alongside with training.
         --eval_interval <int>
             time duration between contiunous twice evaluation progress.
         --eval_episodes <int>
@@ -287,8 +287,8 @@ def get_config():
     parser.add_argument("--use_huber_loss", action='store_false', default=True)
     parser.add_argument("--use_value_active_masks",
                         action='store_false', default=True)
-    parser.add_argument("--use_policy_active_masks",
-                        action='store_false', default=True)
+    parser.add_argument("--use_return_active_masks",
+                        action='store_true', default=False)
     parser.add_argument("--huber_delta", type=float, default=10.0)
 
     # ppg parameters
@@ -318,7 +318,7 @@ def get_config():
     parser.add_argument("--save_gifs", action='store_true', default=False)
     parser.add_argument("--use_render", action='store_true', default=False)
     parser.add_argument("--render_episodes", type=int, default=5)
-    parser.add_argument("--ifi", type=float, default=0.1)
+    parser.add_argument("--ifi", type=float, default=0.5)
 
     # pretrained parameters
     parser.add_argument("--model_dir", type=str, default=None)
