@@ -179,7 +179,7 @@ def get_config():
     parser.add_argument("--cuda_deterministic",
                         action='store_false', default=True, help="by default, make sure random seed effective. if set, bypass such function.")
     parser.add_argument("--n_training_threads", type=int,
-                        default=1, help="Number of torch threads for training", help=" number of training threads working in parallel. by default 1")
+                        default=1, help="Number of torch threads for training")
     parser.add_argument("--n_rollout_threads", type=int, default=32,
                         help="Number of parallel envs for training rollout")
     parser.add_argument("--n_eval_rollout_threads", type=int, default=1,
@@ -286,8 +286,8 @@ def get_config():
     parser.add_argument("--use_huber_loss", action='store_false', default=True, help="by default, use huber loss. If set, do not use huber loss.")
     parser.add_argument("--use_value_active_masks",
                         action='store_false', default=True, help="by default True, whether to mask useless data in value loss.")
-    parser.add_argument("--use_return_active_masks",
-                        action='store_true', default=False, help="by default True, whether to mask useless data in return data.")
+    parser.add_argument("--use_policy_active_masks",
+                        action='store_true', default=False, help="by default True, whether to mask useless data in policy loss.")
     parser.add_argument("--huber_delta", type=float, default=10.0, help=" coefficience of huber loss.")
 
     # ppg parameters
