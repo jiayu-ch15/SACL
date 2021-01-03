@@ -209,6 +209,8 @@ def get_config():
                         default=False, help="Whether to use conv1d")
     parser.add_argument("--stacked_frames", type=int, default=1,
                         help="Dimension of hidden layers for actor/critic networks")
+    parser.add_argument("--use_stacked_frames", action='store_true',
+                        default=False, help="Whether to use stacked_frames")
     parser.add_argument("--hidden_size", type=int, default=64,
                         help="Dimension of hidden layers for actor/critic networks") # TODO @zoeyuchao. The same comment might in need of change.
     parser.add_argument("--layer_N", type=int, default=1,
@@ -287,7 +289,7 @@ def get_config():
     parser.add_argument("--use_value_active_masks",
                         action='store_false', default=True, help="by default True, whether to mask useless data in value loss.")
     parser.add_argument("--use_policy_active_masks",
-                        action='store_true', default=False, help="by default True, whether to mask useless data in policy loss.")
+                        action='store_false', default=True, help="by default True, whether to mask useless data in policy loss.")
     parser.add_argument("--huber_delta", type=float, default=10.0, help=" coefficience of huber loss.")
 
     # ppg parameters
