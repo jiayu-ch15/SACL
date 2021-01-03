@@ -137,7 +137,7 @@ def get_config():
         --clone_coef <float>
             clone term coefficient (default: 0.01)
         --use_single_network
-            by default, whether to share base for policy and value network.    # TODO @zoeyuchao. Difference with use_centralized_V ?
+            by default, whether to share base for policy and value network. # TODO @zoeyuchao. Difference with use_centralized_V ?
     run parameters：
         --use_linear_lr_decay
             by default, do not apply linear decay to learning rate. If set, use a linear schedule on the learning rate
@@ -173,9 +173,8 @@ def get_config():
     parser.add_argument("--algorithm_name", type=str,
                         default='mappo', choices=["rmappo", "mappo", "rmappg", "mappg"])
 
-    parser.add_argument("--experiment_name", type=str, default="check")
-    parser.add_argument("--seed", type=int, default=1,
-                        help="Random seed for numpy/torch", help="an identifier to distinguish different experiment.")
+    parser.add_argument("--experiment_name", type=str, default="check", help="an identifier to distinguish different experiment.")
+    parser.add_argument("--seed", type=int, default=1, help="Random seed for numpy/torch")
     parser.add_argument("--cuda", action='store_false', default=True, help="by default True, will use GPU to train; or else will use CPU;")
     parser.add_argument("--cuda_deterministic",
                         action='store_false', default=True, help="by default, make sure random seed effective. if set, bypass such function.")
