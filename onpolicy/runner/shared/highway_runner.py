@@ -14,6 +14,9 @@ def _t2n(x):
     return x.detach().cpu().numpy()
 
 class HighwayRunner(Runner):
+    """
+    A wrapper to start the RL agent training algorithm.
+    """
     def __init__(self, config):
         super(HighwayRunner, self).__init__(config)
         
