@@ -193,7 +193,9 @@ class AbstractEnv(gym.Env):
 
         obs = self.observation_type.observe()
         reward = self._reward(action)
-
+        #print("position:", self.vehicle.position)
+        #print("speed:", self.vehicle.speed)
+        #print("reward:",reward)
         terminal = self._is_terminal()
 
         info = {
@@ -224,7 +226,7 @@ class AbstractEnv(gym.Env):
             self._automatic_rendering()
 
             # Stop at terminal states
-            if self.done or self._is_done():
+            if self._is_done():
             #if self.done or self._is_terminal():
                 break
         self.enable_auto_render = False
@@ -239,7 +241,7 @@ class AbstractEnv(gym.Env):
         self.rendering_mode = mode
 
         if self.viewer is None:
-            if self.config.get('n_attackers',False) or self.config.get('n_attackers',False)or self.config.get('n_dummies',False):
+            if self.config.get('n_attackers',False) or self.config.get('n_defenders',False)or self.config.get('n_dummies',False):
                 self.viewer = EnvViewer(self,self.config['n_attackers'],self.config['n_defenders'],self.config['n_dummies'])
             else:
                 self.viewer = EnvViewer(self)

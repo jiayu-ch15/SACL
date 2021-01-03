@@ -19,7 +19,7 @@ class HighwayEnv(AbstractEnv):
     RIGHT_LANE_REWARD: float = 0.1
     """The reward received when driving on the right-most lanes, linearly mapped to zero for other lanes."""
 
-    HIGH_SPEED_REWARD: float = 0.4
+    HIGH_SPEED_REWARD: float = 0.9
     """The reward received when driving at full speed, linearly mapped to zero for lower speeds according to config["reward_speed_range"]."""
 
     LANE_CHANGE_REWARD: float = 0
@@ -42,7 +42,7 @@ class HighwayEnv(AbstractEnv):
             "ego_spacing": 2,
             "vehicles_density": 1,
             "collision_reward": -1,  # The reward received when colliding with a vehicle.
-            "reward_speed_range": [20, 35],
+            "reward_speed_range": [20, 30],
             "offroad_terminal": False
         })
         return config
@@ -87,13 +87,8 @@ class HighwayEnv(AbstractEnv):
         n_attackers=self.config["n_attackers"]
         n_dummies=self.config["n_dummies"]
         rewards=[]
-        positions=[]
         for vehicle in self.controlled_vehicles:
-            positions.append(vehicle.position)
-        defender_pos=positions[:n_defenders]
-        attacker_pos=positions[:n_defenders:n_defenders+n_attackers]
-        for vehicle in self.controlled_vehicles:
-            
+        
             neighbours = self.road.network.all_side_lanes(vehicle.lane_index)
             lane = vehicle.target_lane_index[2] if isinstance(vehicle, ControlledVehicle) \
                 else vehicle.lane_index[2]
@@ -102,10 +97,21 @@ class HighwayEnv(AbstractEnv):
                 + self.config["collision_reward"] * vehicle.crashed \
                 + self.RIGHT_LANE_REWARD * lane / max(len(neighbours) - 1, 1) \
                 + self.HIGH_SPEED_REWARD * np.clip(scaled_speed, 0, 1)
-            reward = utils.lmap(reward,
-                                [self.config["collision_reward"], self.HIGH_SPEED_REWARD + self.RIGHT_LANE_REWARD],
-                                [0, 1])
-            reward = 0 if not vehicle.on_road else reward
+            #reward = utils.lmap(reward,
+            #              [self.config["collision_reward"], self.HIGH_SPEED_REWARD + self.RIGHT_LANE_REWARD],
+            #              [0, 1])
+            #reward = 0 if not vehicle.on_road else reward
+            reward = -1 if not vehicle.on_road else reward
+            '''
+            scaled_speed = utils.lmap(vehicle.speed, self.config["reward_speed_range"], [0, 1])
+            reward = \
+                + self.config["collision_reward"] * vehicle.crashed \
+                + self.HIGH_SPEED_REWARD * np.clip(scaled_speed, 0, 1)
+            #reward = utils.lmap(reward,
+            #                    [self.config["collision_reward"], self.HIGH_SPEED_REWARD ],
+            #                    [0, 1])
+            reward = -1 if not vehicle.on_road else reward
+            '''
             rewards.append(reward)
         return rewards
 
@@ -128,6 +134,21 @@ class HighwayEnv(AbstractEnv):
             for i in range(len(dones)):
                 dones[i] = True
         return dones
+
+    def adv_rew(self) :#-> bool:
+        dones = []
+        for vehicle in self.controlled_vehicles:
+            dones.append(vehicle.crashed or \
+                         self.steps >= self.config["duration"] or \
+                         (self.config["offroad_terminal"] and not vehicle.on_road))
+
+        defender_done = dones[:self.config["n_defenders"]]
+        attacker_done = dones[self.config["n_defenders"]:self.config["n_defenders"] + self.config["n_attackers"]]
+
+        if np.all(defender_done) and (not np.all(attacker_done)):
+            return 1
+        else:
+            return 0
 
     def _is_done(self) :#-> bool:
         """The episode is over if the ego vehicle crashed or the time is out."""

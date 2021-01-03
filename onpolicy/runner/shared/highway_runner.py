@@ -251,7 +251,6 @@ class HighwayRunner(Runner):
                 obs, rewards, dones, infos = envs.step(actions)
 
                 episode_rewards.append(rewards)
-                
                 if self.all_args.save_gifs:
                     image = envs.render('rgb_array')
                     all_frames.append(image)
@@ -261,7 +260,6 @@ class HighwayRunner(Runner):
                         time.sleep(self.all_args.ifi - elapsed)
                 
                 dones_env = np.all(dones, axis=-1)
-
                 if np.any(dones_env):
                     break
 
