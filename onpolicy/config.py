@@ -9,13 +9,13 @@ def get_config():
 
     prepare parameters:
         --algorithm_name <algorithm_name>
-            specifiy the algorithm, including `["rmappo", "mappo", "rmappg", "mappg"]`
+            specifiy the algorithm, including `["rmappo", "mappo", "rmappg", "mappg", "trpo"]`
         --experiment_name <str>
             an identifier to distinguish different experiment.
         --seed <int>
-            set seed 
+            set seed for numpy and torch 
         --cuda
-            by default, use GPU CUDA; if set, use CPU; 
+            by default True, will use GPU to train; or else will use CPU; 
         --cuda_deterministic
             by default, make sure random seed effective. if set, bypass such function.
         --n_training_threads <int>
@@ -31,22 +31,22 @@ def get_config():
         --user_name <str>
             [for wandb usage], to specify user's name for simply collecting training data.
         --use_wandb
-            [for wandb usage], by default, use wandb. set for local training test (do not upload data to wandb server)
+            [for wandb usage], by default True, will log date to wandb server. or else will use tensorboard to log data.
     Env parameters:
         --env_name <str>
             specify the name of environment
         --use_obs_instead_of_state
-            [only for some env] by default, use global state; if set, use concatenated obs.
+            [only for some env] by default False, will use global state; or else will use concatenated local obs.
     Replay Buffer parameters:
         --episode_length <int>
-            the number of steps in an single episode
+            the max length of episode in the buffer. 
     network parameters:
         --share_policy
-            by default, training agents share the same polic; set to make training agents use different policies. 
+            by default True, all agents will share the same network; set to make training agents use different policies. 
         --use_centralized_V
-            by default, used centralized Value Function; if set, do not use centralized_V, otherwise 
+            by default True, use centralized training mode; or else will decentralized training mode.
         --use_conv1d
-            by default, do not use conv1d. If set, use conv1d
+            by default False, do not use conv1d. or else, will use conv1d to extract features.
         --stacked_frames <int>
             Number of input frames which should be stack together.
         --hidden_size <int>
@@ -54,39 +54,39 @@ def get_config():
         --layer_N <int>
             Number of layers for actor/critic networks
         --use_ReLU
-            by default, use relu. If set, eliminate ReLu
+            by default True, will use ReLU. or else will use Tanh.
         --use_popart
-            by default, use  # TODO @zoeyuchao. The same comment might in need of change.
+            by default True, use running mean and std to normalize rewards. 
         --use_feature_popart
-            by default, do not use popart to inputs. if set, apply popart to inputs. # TODO @zoeyuchao. The same comment might in need of change.
+            by default False, do not apply popart to normalize inputs. if set, apply popart to normalize inputs. # TODO @zoeyuchao. The same comment might in need of change.
         --use_feature_normalization
-            by default, apply layernorm to the inputs 
+            by default True, apply layernorm to normalize inputs. 
         --use_orthogonal
-            by default, use Orthogonal initialization for weights and 0 initialization for biases. If set, do not use Orthogonal inilialization.
+            by default True, use Orthogonal initialization for weights and 0 initialization for biases. or else, will use xavier uniform inilialization.
         --gain
-            by default, use the gain # of last action layer
+            by default 0.01, use the gain # of last action layer
         --use_naive_recurrent_policy
-            by default, do not use naive version, if set, use a naive recurrent policy
+            by default False, use the whole trajectory to calculate hidden states.
         --use_recurrent_policy
             by default, use Recurrent Policy. If set, do not use.
         --recurrent_N <int>
-            The number of recurrent Network? (only support 1 for now, default 1). 
+            The number of recurrent Network? (only support 1 for now, default 1). # TODO @Akash nned to support more
         --data_chunk_length <int>
             Time length of chunks used to train a recurrent_policy, default 10.
         --use_attn
-            by default, use attention tactics. # TODO @zoeyuchao. 
+            by default False, use attention tactics. # TODO @zoeyuchao. 
         --attn_N
-            the number of ??? by default 1,  # TODO @zoeyuchao. 
+            the number of attn layers, by default 1,  # TODO @zoeyuchao. 
         --attn_size
-            by default, use # TODO @zoeyuchao. 
+            by default, the hidden size of attn layer. # TODO @zoeyuchao. 
         --attn_heads
-            by default, use # TODO @zoeyuchao. 
+            by default, the # of multiply heads. # TODO @zoeyuchao. 
         --dropout
-            by default, use  # TODO @zoeyuchao. 
+            by default 0, the dropout ratio of attn layer.  # TODO @zoeyuchao. 
         --use_average_pool 
-            by default, do not use average pooling. If set, use average pooling
+            by default True, use average pooling for attn model.
         --use_cat_self
-            by default, use  # TODO @zoeyuchao. 
+            by default True, whether to strengthen own characteristics. # TODO @zoeyuchao. 
     Optimizer Parameters:
         --lr <float>
             learning rate parameter,  (default: 5e-4, fixed).
@@ -127,17 +127,17 @@ def get_config():
         --use_huber_loss
             by default, use huber loss. If set, do not use huber loss.
         --use_value_active_masks
-            by default, true  # TODO @zoeyuchao. 
-        --use_return_active_masks
-            by default, true  # TODO @zoeyuchao. 
+            by default True, whether to mask useless data in value loss.  # TODO @zoeyuchao. 
+        --use_policy_active_masks
+            by default True, whether to mask useless data in policy loss.  # TODO @zoeyuchao. 
         --huber_delta <float>
-            set value of huber delta   # TODO @zoeyuchao. 
+            coefficience of huber loss.   # TODO @zoeyuchao. 
         --aux_epoch <int>
-            number of auxiliary epochs (default: 4)
+            number of auxiliary epochs. (default: 4)
         --clone_coef <float>
             clone term coefficient (default: 0.01)
         --use_single_network
-            by default, do not use centralized V function.    # TODO @zoeyuchao. Difference with use_centralized_V ?
+            by default, whether to share base for policy and value network.    # TODO @zoeyuchao. Difference with use_centralized_V ?
     run parameters：
         --use_linear_lr_decay
             by default, do not apply linear decay to learning rate. If set, use a linear schedule on the learning rate
