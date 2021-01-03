@@ -12,6 +12,9 @@ from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv, ChooseSimpleS
 from onpolicy.envs.highway.Highway_Env import HighwayEnv
 
 def make_train_env(all_args):
+    """
+    the wrapper to instantiate the Highway env with multiple vehicles controlled by trained agents, Value Iteration based RL agent, training agent and rule-based agents (Intelligent Driver Model, IDM model).
+    """
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "Highway":

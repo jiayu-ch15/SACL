@@ -2,13 +2,177 @@ import argparse
 
 
 def get_config():
+    """
+    The configuration parser for common hyperparameters of all environment. 
+    Please reach each `scripts/train/<env>_runner.py` file to find private hyperparameters
+    only used in <env>.
 
+    prepare parameters:
+        --algorithm_name <algorithm_name>
+            specifiy the algorithm, including `["rmappo", "mappo", "rmappg", "mappg", "trpo"]`
+        --experiment_name <str>
+            an identifier to distinguish different experiment.
+        --seed <int>
+            set seed for numpy and torch 
+        --cuda
+            by default True, will use GPU to train; or else will use CPU; 
+        --cuda_deterministic
+            by default, make sure random seed effective. if set, bypass such function.
+        --n_training_threads <int>
+            number of training threads working in parallel. by default 1
+        --n_rollout_threads <int>
+            number of parallel envs for training rollout. by default 32
+        --n_eval_rollout_threads <int>
+            number of parallel envs for evaluating rollout. by default 1
+        --n_render_rollout_threads <int>
+            number of parallel envs for rendering, could only be set as 1 for some environments.
+        --num_env_steps <int>
+            number of env steps to train (default: 10e6)
+        --user_name <str>
+            [for wandb usage], to specify user's name for simply collecting training data.
+        --use_wandb
+            [for wandb usage], by default True, will log date to wandb server. or else will use tensorboard to log data.
+    Env parameters:
+        --env_name <str>
+            specify the name of environment
+        --use_obs_instead_of_state
+            [only for some env] by default False, will use global state; or else will use concatenated local obs.
+    Replay Buffer parameters:
+        --episode_length <int>
+            the max length of episode in the buffer. 
+    network parameters:
+        --share_policy
+            by default True, all agents will share the same network; set to make training agents use different policies. 
+        --use_centralized_V
+            by default True, use centralized training mode; or else will decentralized training mode.
+        --use_conv1d
+            by default False, do not use conv1d. or else, will use conv1d to extract features.
+        --stacked_frames <int>
+            Number of input frames which should be stack together.
+        --hidden_size <int>
+            Dimension of hidden layers for actor/critic networks
+        --layer_N <int>
+            Number of layers for actor/critic networks
+        --use_ReLU
+            by default True, will use ReLU. or else will use Tanh.
+        --use_popart
+            by default True, use running mean and std to normalize rewards. 
+        --use_feature_popart
+            by default False, do not apply popart to normalize inputs. if set, apply popart to normalize inputs. # TODO @zoeyuchao. The same comment might in need of change.
+        --use_feature_normalization
+            by default True, apply layernorm to normalize inputs. 
+        --use_orthogonal
+            by default True, use Orthogonal initialization for weights and 0 initialization for biases. or else, will use xavier uniform inilialization.
+        --gain
+            by default 0.01, use the gain # of last action layer
+        --use_naive_recurrent_policy
+            by default False, use the whole trajectory to calculate hidden states.
+        --use_recurrent_policy
+            by default, use Recurrent Policy. If set, do not use.
+        --recurrent_N <int>
+            The number of recurrent Network? (only support 1 for now, default 1). # TODO @Akash nned to support more
+        --data_chunk_length <int>
+            Time length of chunks used to train a recurrent_policy, default 10.
+        --use_attn
+            by default False, use attention tactics. # TODO @zoeyuchao. 
+        --attn_N
+            the number of attn layers, by default 1,  # TODO @zoeyuchao. 
+        --attn_size
+            by default, the hidden size of attn layer. # TODO @zoeyuchao. 
+        --attn_heads
+            by default, the # of multiply heads. # TODO @zoeyuchao. 
+        --dropout
+            by default 0, the dropout ratio of attn layer.  # TODO @zoeyuchao. 
+        --use_average_pool 
+            by default True, use average pooling for attn model.
+        --use_cat_self
+            by default True, whether to strengthen own characteristics. # TODO @zoeyuchao. 
+    Optimizer Parameters:
+        --lr <float>
+            learning rate parameter,  (default: 5e-4, fixed).
+        --critic_lr <float>
+            learning rate of critic  (default: 5e-4, fixed)
+        --opti_eps <float>
+            RMSprop optimizer epsilon (default: 1e-5)
+        --weight_decay <float>
+            coefficience of weight decay (default: 0) # TODO @zoeyuchao. Not sure about the meaning
+    
+    PPO Parameters:
+        --ppo_epoch <int>
+            number of ppo epochs (default: 15)
+        --use_policy_vhead
+            by default, do not use policy vhead. if set, use policy vhead.
+        --use_clipped_value_loss 
+            by default, clip loss value. If set, do not clip loss value.
+        --clip_param <float>
+            ppo clip parameter (default: 0.2)
+        --num_mini_batch <int>
+            number of batches for ppo (default: 1)
+        --policy_value_loss_coef <float>
+            policy value loss coefficient (default: 0.5)
+        --entropy_coef <float>
+            entropy term coefficient (default: 0.01)
+        --use_max_grad_norm 
+            by default, use max norm of gradients. If set, do not use.
+        --max_grad_norm <float>
+            max norm of gradients (default: 0.5)
+        --use_gae
+            by default, use generalized advantage estimation. If set, do not use gae.
+        --gamma <float>
+            discount factor for rewards (default: 0.99)
+        --gae_lambda <float>
+            gae lambda parameter (default: 0.95)
+        --use_proper_time_limits
+            by default, the return value does consider limits of time. If set, compute returns with considering time limits factor.
+        --use_huber_loss
+            by default, use huber loss. If set, do not use huber loss.
+        --use_value_active_masks
+            by default True, whether to mask useless data in value loss.  # TODO @zoeyuchao. 
+        --use_policy_active_masks
+            by default True, whether to mask useless data in policy loss.  # TODO @zoeyuchao. 
+        --huber_delta <float>
+            coefficience of huber loss.   # TODO @zoeyuchao. 
+        --aux_epoch <int>
+            number of auxiliary epochs. (default: 4)
+        --clone_coef <float>
+            clone term coefficient (default: 0.01)
+        --use_single_network
+            by default, whether to share base for policy and value network.    # TODO @zoeyuchao. Difference with use_centralized_V ?
+    run parameters：
+        --use_linear_lr_decay
+            by default, do not apply linear decay to learning rate. If set, use a linear schedule on the learning rate
+    Save & Log parameters:
+        --save_interval <int>
+            time duration between contiunous twice models saving.
+        --log_interval <int>
+            time duration between contiunous twice log printing.
+    Eval Parameters:
+        --use_eval
+            by default, do not start evaluation. If set`, start evaluation alongside with training.
+        --eval_interval <int>
+            time duration between contiunous twice evaluation progress.
+        --eval_episodes <int>
+            number of episodes of a single evaluation.
+    Render parameters:
+        --save_gifs
+            by default, do not save render video. If set, save video.
+        --use_render
+            by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.
+        --render_episodes <int>
+            the number of episodes to render a given env
+        --ifi <float>
+            the play interval of each rendered image in saved video.
+    Pretrained Parameters:
+        --model_dir <str>
+            by default None. set the path to pretrained model.
+    """
     parser = argparse.ArgumentParser(
         description='onpolicy', formatter_class=argparse.RawDescriptionHelpFormatter)
 
     # prepare parameters
     parser.add_argument("--algorithm_name", type=str,
                         default='mappo', choices=["rmappo", "mappo", "rmappg", "mappg"])
+
     parser.add_argument("--experiment_name", type=str, default="check")
     parser.add_argument("--seed", type=int, default=1,
                         help="Random seed for numpy/torch")
@@ -47,7 +211,7 @@ def get_config():
     parser.add_argument("--stacked_frames", type=int, default=1,
                         help="Dimension of hidden layers for actor/critic networks")
     parser.add_argument("--hidden_size", type=int, default=64,
-                        help="Dimension of hidden layers for actor/critic networks")
+                        help="Dimension of hidden layers for actor/critic networks") # TODO @zoeyuchao. The same comment might in need of change.
     parser.add_argument("--layer_N", type=int, default=1,
                         help="Number of layers for actor/critic networks")
     parser.add_argument("--use_ReLU", action='store_false',
@@ -84,16 +248,16 @@ def get_config():
 
     # optimizer parameters
     parser.add_argument("--lr", type=float, default=5e-4,
-                        help='learning rate (default: 7e-4)')
+                        help='learning rate (default: 5e-4)')
     parser.add_argument("--critic_lr", type=float, default=5e-4,
-                        help='critic learning rate (default: 7e-4)')
+                        help='critic learning rate (default: 5e-4)')
     parser.add_argument("--opti_eps", type=float, default=1e-5,
                         help='RMSprop optimizer epsilon (default: 1e-5)')
     parser.add_argument("--weight_decay", type=float, default=0)
 
     # ppo parameters
     parser.add_argument("--ppo_epoch", type=int, default=15,
-                        help='number of ppo epochs (default: 4)')
+                        help='number of ppo epochs (default: 15)')
     parser.add_argument("--use_policy_vhead",
                         action='store_true', default=False)
     parser.add_argument("--use_clipped_value_loss",
@@ -101,7 +265,7 @@ def get_config():
     parser.add_argument("--clip_param", type=float, default=0.2,
                         help='ppo clip parameter (default: 0.2)')
     parser.add_argument("--num_mini_batch", type=int, default=1,
-                        help='number of batches for ppo (default: 32)')
+                        help='number of batches for ppo (default: 1)')
     parser.add_argument("--policy_value_loss_coef", type=float,
                         default=1, help='policy value loss coefficient (default: 0.5)')
     parser.add_argument("--entropy_coef", type=float, default=0.01,
@@ -123,8 +287,8 @@ def get_config():
     parser.add_argument("--use_huber_loss", action='store_false', default=True)
     parser.add_argument("--use_value_active_masks",
                         action='store_false', default=True)
-    parser.add_argument("--use_policy_active_masks",
-                        action='store_false', default=True)
+    parser.add_argument("--use_return_active_masks",
+                        action='store_true', default=False)
     parser.add_argument("--huber_delta", type=float, default=10.0)
 
     # ppg parameters
@@ -154,9 +318,9 @@ def get_config():
     parser.add_argument("--save_gifs", action='store_true', default=False)
     parser.add_argument("--use_render", action='store_true', default=False)
     parser.add_argument("--render_episodes", type=int, default=5)
-    parser.add_argument("--ifi", type=float, default=0.1)
+    parser.add_argument("--ifi", type=float, default=0.5)
 
-    # pretained parameters
+    # pretrained parameters
     parser.add_argument("--model_dir", type=str, default=None)
 
     return parser

@@ -4,6 +4,7 @@ import wandb
 import os
 import numpy as np
 from itertools import chain
+from functools import reduce
 import torch
 
 from onpolicy.utils.util import update_linear_schedule
@@ -90,6 +91,8 @@ class SMACRunner(Runner):
                     
                     last_battles_game = battles_game
                     last_battles_won = battles_won
+
+                train_infos['dead_ratio'] = 1 - self.buffer.active_masks.sum() / reduce(lambda x, y: x*y, list(self.buffer.active_masks.shape)) 
                 
                 self.log_train(train_infos, total_num_steps)
 

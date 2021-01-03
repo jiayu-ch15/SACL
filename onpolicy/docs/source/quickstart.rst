@@ -40,7 +40,8 @@ Take highway env as an example,
 
 Take highway environment as an example:
 
-
+.. automodule:: scripts.train.train_highway.make_train_env
+    :members:
 
  Hierarchical structure 
  --------------------

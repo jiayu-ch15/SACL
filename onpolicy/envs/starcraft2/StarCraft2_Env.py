@@ -210,6 +210,7 @@ class StarCraft2Env(MultiAgentEnv):
         self.use_state_agent = args.use_state_agent
         self.use_mustalive = args.use_mustalive
         self.add_center_xy = args.add_center_xy
+        self.stacked_frames = args.stacked_frames
 
         map_params = get_map_params(self.map_name)
         self.n_agents = map_params["n_agents"]
