@@ -59,6 +59,7 @@ class HighwayEnv(gym.core.Wrapper):
                         }
                     },
                     "vehicles_count": 50,
+                    "offscreen_rendering": True,
         }
 
         self.env_init = load_environment(self.env_dict)
