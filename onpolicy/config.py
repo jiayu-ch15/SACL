@@ -303,6 +303,8 @@ def get_config():
     parser.add_argument("--use_linear_lr_decay", action='store_true',
                         default=False, help='use a linear schedule on the learning rate')
 
+    parser.add_argument("--use_policy_active_masks", action='store_true',
+                        default=True, help='use a linear schedule on the learning rate')
     # save parameters
     parser.add_argument("--save_interval", type=int, default=1)
 
@@ -318,7 +320,7 @@ def get_config():
     parser.add_argument("--save_gifs", action='store_true', default=False)
     parser.add_argument("--use_render", action='store_true', default=False)
     parser.add_argument("--render_episodes", type=int, default=5)
-    parser.add_argument("--ifi", type=float, default=0.5)
+    parser.add_argument("--ifi", type=float, default=0.1)
 
     # pretrained parameters
     parser.add_argument("--model_dir", type=str, default=None)
