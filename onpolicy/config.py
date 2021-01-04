@@ -58,7 +58,7 @@ def get_config():
         --use_popart
             by default True, use running mean and std to normalize rewards. 
         --use_feature_popart
-            by default False, do not apply popart to normalize inputs. if set, apply popart to normalize inputs. # TODO @zoeyuchao. The same comment might in need of change.
+            by default False, do not apply popart to normalize inputs. if set, apply popart to normalize inputs.
         --use_feature_normalization
             by default True, apply layernorm to normalize inputs. 
         --use_orthogonal
@@ -128,8 +128,8 @@ def get_config():
             by default, use huber loss. If set, do not use huber loss.
         --use_value_active_masks
             by default True, whether to mask useless data in value loss.  # TODO @zoeyuchao. 
-        --use_policy_active_masks
-            by default True, whether to mask useless data in policy loss.  # TODO @zoeyuchao. 
+        --use_return_active_masks
+            by default True, whether to mask useless data in return data.  # TODO @zoeyuchao. 
         --huber_delta <float>
             coefficience of huber loss.   # TODO @zoeyuchao. 
         --aux_epoch <int>
@@ -137,7 +137,7 @@ def get_config():
         --clone_coef <float>
             clone term coefficient (default: 0.01)
         --use_single_network
-            by default, whether to share base for policy and value network.    # TODO @zoeyuchao. Difference with use_centralized_V ?
+            by default, whether to share base for policy and value network. # TODO @zoeyuchao. Difference with use_centralized_V ?
     run parameters：
         --use_linear_lr_decay
             by default, do not apply linear decay to learning rate. If set, use a linear schedule on the learning rate
@@ -173,12 +173,11 @@ def get_config():
     parser.add_argument("--algorithm_name", type=str,
                         default='mappo', choices=["rmappo", "mappo", "rmappg", "mappg"])
 
-    parser.add_argument("--experiment_name", type=str, default="check")
-    parser.add_argument("--seed", type=int, default=1,
-                        help="Random seed for numpy/torch")
-    parser.add_argument("--cuda", action='store_false', default=True)
+    parser.add_argument("--experiment_name", type=str, default="check", help="an identifier to distinguish different experiment.")
+    parser.add_argument("--seed", type=int, default=1, help="Random seed for numpy/torch")
+    parser.add_argument("--cuda", action='store_false', default=True, help="by default True, will use GPU to train; or else will use CPU;")
     parser.add_argument("--cuda_deterministic",
-                        action='store_false', default=True)
+                        action='store_false', default=True, help="by default, make sure random seed effective. if set, bypass such function.")
     parser.add_argument("--n_training_threads", type=int,
                         default=1, help="Number of torch threads for training")
     parser.add_argument("--n_rollout_threads", type=int, default=32,
@@ -189,11 +188,11 @@ def get_config():
                         help="Number of parallel envs for rendering rollout")
     parser.add_argument("--num_env_steps", type=int, default=10e6,
                         help='Number of environment steps to train (default: 10e6)')
-    parser.add_argument("--user_name", type=str, default='yuchao')
-    parser.add_argument("--use_wandb", action='store_false', default=True)
+    parser.add_argument("--user_name", type=str, default='yuchao',help="[for wandb usage], to specify user's name for simply collecting training data.")
+    parser.add_argument("--use_wandb", action='store_false', default=True, help="[for wandb usage], by default True, will log date to wandb server. or else will use tensorboard to log data.")
 
     # env parameters
-    parser.add_argument("--env_name", type=str, default='StarCraft2')
+    parser.add_argument("--env_name", type=str, default='StarCraft2', help="specify the name of environment")
     parser.add_argument("--use_obs_instead_of_state", action='store_true',
                         default=False, help="Whether to use global state or concatenated obs")
 
@@ -210,15 +209,17 @@ def get_config():
                         default=False, help="Whether to use conv1d")
     parser.add_argument("--stacked_frames", type=int, default=1,
                         help="Dimension of hidden layers for actor/critic networks")
+    parser.add_argument("--use_stacked_frames", action='store_true',
+                        default=False, help="Whether to use stacked_frames")
     parser.add_argument("--hidden_size", type=int, default=64,
                         help="Dimension of hidden layers for actor/critic networks") # TODO @zoeyuchao. The same comment might in need of change.
     parser.add_argument("--layer_N", type=int, default=1,
                         help="Number of layers for actor/critic networks")
     parser.add_argument("--use_ReLU", action='store_false',
                         default=True, help="Whether to use ReLU")
-    parser.add_argument("--use_popart", action='store_false', default=True)
+    parser.add_argument("--use_popart", action='store_false', default=True, help="by default True, use running mean and std to normalize rewards.")
     parser.add_argument("--use_feature_popart", action='store_true',
-                        default=False, help="Whether to apply popart to the inputs")
+                        default=False, help="Whether to apply popart to the inputs, by default False.")
     parser.add_argument("--use_feature_normalization", action='store_false',
                         default=True, help="Whether to apply layernorm to the inputs")
     parser.add_argument("--use_orthogonal", action='store_false', default=True,
@@ -232,19 +233,19 @@ def get_config():
     parser.add_argument("--use_recurrent_policy", action='store_false',
                         default=True, help='use a recurrent policy')
     # TODO now only 1 is support
-    parser.add_argument("--recurrent_N", type=int, default=1)
+    parser.add_argument("--recurrent_N", type=int, default=1, help="The number of recurrent Network, only support 1 for now.")
     parser.add_argument("--data_chunk_length", type=int, default=10,
                         help="Time length of chunks used to train a recurrent_policy")
 
     # attn parameters
-    parser.add_argument("--use_attn", action='store_true', default=False)
-    parser.add_argument("--attn_N", type=int, default=1)
-    parser.add_argument("--attn_size", type=int, default=64)
-    parser.add_argument("--attn_heads", type=int, default=4)
-    parser.add_argument("--dropout", type=float, default=0.0)
+    parser.add_argument("--use_attn", action='store_true', default=False, help=" by default False, use attention tactics.")
+    parser.add_argument("--attn_N", type=int, default=1, help="the number of attn layers, by default 1")
+    parser.add_argument("--attn_size", type=int, default=64, help="by default, the hidden size of attn layer")
+    parser.add_argument("--attn_heads", type=int, default=4, help="by default, the # of multiply heads")
+    parser.add_argument("--dropout", type=float, default=0.0, help="by default 0, the dropout ratio of attn layer.")
     parser.add_argument("--use_average_pool",
-                        action='store_false', default=True)
-    parser.add_argument("--use_cat_self", action='store_false', default=True)
+                        action='store_false', default=True, help="by default True, use average pooling for attn model.")
+    parser.add_argument("--use_cat_self", action='store_false', default=True, help="by default True, whether to strengthen own characteristics")
 
     # optimizer parameters
     parser.add_argument("--lr", type=float, default=5e-4,
@@ -259,9 +260,9 @@ def get_config():
     parser.add_argument("--ppo_epoch", type=int, default=15,
                         help='number of ppo epochs (default: 15)')
     parser.add_argument("--use_policy_vhead",
-                        action='store_true', default=False)
+                        action='store_true', default=False, help="by default, do not use policy vhead. if set, use policy vhead.")
     parser.add_argument("--use_clipped_value_loss",
-                        action='store_false', default=True)
+                        action='store_false', default=True, help="by default, clip loss value. If set, do not clip loss value.")
     parser.add_argument("--clip_param", type=float, default=0.2,
                         help='ppo clip parameter (default: 0.2)')
     parser.add_argument("--num_mini_batch", type=int, default=1,
@@ -273,7 +274,7 @@ def get_config():
     parser.add_argument("--value_loss_coef", type=float,
                         default=1, help='value loss coefficient (default: 0.5)')
     parser.add_argument("--use_max_grad_norm",
-                        action='store_false', default=True)
+                        action='store_false', default=True, help="by default, use max norm of gradients. If set, do not use.")
     parser.add_argument("--max_grad_norm", type=float, default=10.0,
                         help='max norm of gradients (default: 0.5)')
     parser.add_argument("--use_gae", action='store_false',
@@ -284,12 +285,12 @@ def get_config():
                         help='gae lambda parameter (default: 0.95)')
     parser.add_argument("--use_proper_time_limits", action='store_true',
                         default=False, help='compute returns taking into account time limits')
-    parser.add_argument("--use_huber_loss", action='store_false', default=True)
+    parser.add_argument("--use_huber_loss", action='store_false', default=True, help="by default, use huber loss. If set, do not use huber loss.")
     parser.add_argument("--use_value_active_masks",
-                        action='store_false', default=True)
-    parser.add_argument("--use_return_active_masks",
-                        action='store_true', default=False)
-    parser.add_argument("--huber_delta", type=float, default=10.0)
+                        action='store_false', default=True, help="by default True, whether to mask useless data in value loss.")
+    parser.add_argument("--use_policy_active_masks",
+                        action='store_false', default=True, help="by default True, whether to mask useless data in policy loss.")
+    parser.add_argument("--huber_delta", type=float, default=10.0, help=" coefficience of huber loss.")
 
     # ppg parameters
     parser.add_argument("--aux_epoch", type=int, default=5,
@@ -306,23 +307,23 @@ def get_config():
     parser.add_argument("--use_policy_active_masks", action='store_true',
                         default=True, help='use a linear schedule on the learning rate')
     # save parameters
-    parser.add_argument("--save_interval", type=int, default=1)
+    parser.add_argument("--save_interval", type=int, default=1, help="time duration between contiunous twice models saving.")
 
     # log parameters
-    parser.add_argument("--log_interval", type=int, default=5)
+    parser.add_argument("--log_interval", type=int, default=5, help="time duration between contiunous twice log printing.")
 
     # eval parameters
-    parser.add_argument("--use_eval", action='store_true', default=False)
-    parser.add_argument("--eval_interval", type=int, default=25)
-    parser.add_argument("--eval_episodes", type=int, default=32)
+    parser.add_argument("--use_eval", action='store_true', default=False, help="by default, do not start evaluation. If set`, start evaluation alongside with training.")
+    parser.add_argument("--eval_interval", type=int, default=25, help="time duration between contiunous twice evaluation progress.")
+    parser.add_argument("--eval_episodes", type=int, default=32, help="number of episodes of a single evaluation.")
 
     # render parameters
-    parser.add_argument("--save_gifs", action='store_true', default=False)
-    parser.add_argument("--use_render", action='store_true', default=False)
-    parser.add_argument("--render_episodes", type=int, default=5)
-    parser.add_argument("--ifi", type=float, default=0.1)
+    parser.add_argument("--save_gifs", action='store_true', default=False, help="by default, do not save render video. If set, save video.")
+    parser.add_argument("--use_render", action='store_true', default=False, help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
+    parser.add_argument("--render_episodes", type=int, default=5, help="the number of episodes to render a given env")
+    parser.add_argument("--ifi", type=float, default=0.1, help="the play interval of each rendered image in saved video.")
 
     # pretrained parameters
-    parser.add_argument("--model_dir", type=str, default=None)
+    parser.add_argument("--model_dir", type=str, default=None, help="by default None. set the path to pretrained model.")
 
     return parser
