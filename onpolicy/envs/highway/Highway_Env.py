@@ -199,7 +199,7 @@ class HighwayEnv(gym.core.Wrapper):
             
             # for discrete action, drop the unneeded axis
             action = np.squeeze(action, axis=-1)
-            self.render()
+            #self.render()
             all_obs, all_rewards, all_dones, infos = self.env.step(tuple(action))
 
             # obs
