@@ -179,27 +179,17 @@ class MPERunner(Runner):
         eval_episode_rewards = []
         eval_obs = self.eval_envs.reset()
 
-        eval_share_obs = []
-        for o in eval_obs:
-            eval_share_obs.append(list(chain(*o)))
-        eval_share_obs = np.array(eval_share_obs)
-
         eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
-        eval_rnn_states_critic = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
 
         for eval_step in range(self.episode_length):
             eval_temp_actions_env = []
             for agent_id in range(self.num_agents):
-                if not self.use_centralized_V:
-                    eval_share_obs = np.array(list(eval_obs[:, agent_id]))
                 self.trainer[agent_id].prep_rollout()
-                _, eval_action, _, eval_rnn_state, eval_rnn_state_critic = self.trainer[agent_id].policy.get_actions(eval_share_obs,
-                                                                                                            np.array(list(eval_obs[:, agent_id])),
-                                                                                                            eval_rnn_states[:, agent_id],
-                                                                                                            eval_rnn_states_critic[:, agent_id],
-                                                                                                            eval_masks[:, agent_id],
-                                                                                                            deterministic=True)
+                eval_action, eval_rnn_state = self.trainer[agent_id].policy.act(np.array(list(eval_obs[:, agent_id])),
+                                                                                eval_rnn_states[:, agent_id],
+                                                                                eval_masks[:, agent_id],
+                                                                                deterministic=True)
 
                 eval_action = eval_action.detach().cpu().numpy()
                 # rearrange action
@@ -217,8 +207,7 @@ class MPERunner(Runner):
 
                 eval_temp_actions_env.append(eval_action_env)
                 eval_rnn_states[:, agent_id] = _t2n(eval_rnn_state)
-                eval_rnn_states_critic[:, agent_id] = _t2n(eval_rnn_state_critic)
-
+                
             # [envs, agents, dim]
             eval_actions_env = []
             for i in range(self.n_eval_rollout_threads):
@@ -231,13 +220,7 @@ class MPERunner(Runner):
             eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions_env)
             eval_episode_rewards.append(eval_rewards)
 
-            eval_share_obs = []
-            for o in eval_obs:
-                eval_share_obs.append(list(chain(*o)))
-            eval_share_obs = np.array(eval_share_obs)
-
             eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.hidden_size), dtype=np.float32)
-            eval_rnn_states_critic[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.hidden_size), dtype=np.float32)
             eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
             eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), 1), dtype=np.float32)
 
@@ -261,13 +244,7 @@ class MPERunner(Runner):
                 image = self.envs.render('rgb_array', close=False)[0]
                 all_frames.append(image)
 
-            share_obs = []
-            for o in obs:
-                share_obs.append(list(chain(*o)))
-            share_obs = np.array(share_obs)
-
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
-            rnn_states_critic = np.zeros((self.n_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
             masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
 
             for step in range(self.episode_length):
@@ -276,12 +253,10 @@ class MPERunner(Runner):
                     if not self.use_centralized_V:
                         share_obs = np.array(list(obs[:, agent_id]))
                     self.trainer[agent_id].prep_rollout()
-                    _, action, _, rnn_state, rnn_state_critic = self.trainer[agent_id].policy.get_actions(share_obs,
-                                                                                                                np.array(list(obs[:, agent_id])),
-                                                                                                                rnn_states[:, agent_id],
-                                                                                                                rnn_states_critic[:, agent_id],
-                                                                                                                masks[:, agent_id],
-                                                                                                                deterministic=True)
+                    action, rnn_state = self.trainer[agent_id].policy.act(np.array(list(obs[:, agent_id])),
+                                                                        rnn_states[:, agent_id],
+                                                                        masks[:, agent_id],
+                                                                        deterministic=True)
 
                     action = action.detach().cpu().numpy()
                     # rearrange action
@@ -299,8 +274,7 @@ class MPERunner(Runner):
 
                     temp_actions_env.append(action_env)
                     rnn_states[:, agent_id] = _t2n(rnn_state)
-                    rnn_states_critic[:, agent_id] = _t2n(rnn_state_critic)
-
+                   
                 # [envs, agents, dim]
                 actions_env = []
                 for i in range(self.n_rollout_threads):
@@ -313,13 +287,7 @@ class MPERunner(Runner):
                 obs, rewards, dones, infos = self.envs.step(actions_env)
                 episode_rewards.append(rewards)
 
-                share_obs = []
-                for o in obs:
-                    share_obs.append(list(chain(*o)))
-                share_obs = np.array(share_obs)
-
                 rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.hidden_size), dtype=np.float32)
-                rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.hidden_size), dtype=np.float32)
                 masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 

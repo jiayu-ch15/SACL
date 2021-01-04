@@ -228,10 +228,7 @@ class HanabiRunner(Runner):
         
         eval_obs, eval_share_obs, eval_available_actions = eval_envs.reset(eval_reset_choose)
 
-        eval_share_obs = eval_share_obs if self.use_centralized_V else eval_obs
-
-        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
-        eval_rnn_states_critic = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
+        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
 
         while True:
@@ -246,24 +243,18 @@ class HanabiRunner(Runner):
                     break
 
                 self.trainer.prep_rollout()
-                _, eval_action, _, eval_rnn_state, eval_rnn_state_critic \
-                    = self.trainer.policy.get_actions(eval_share_obs[eval_choose],
-                                                    eval_obs[eval_choose],
+                eval_action, eval_rnn_state = self.trainer.policy.act(eval_obs[eval_choose],
                                                     eval_rnn_states[eval_choose, agent_id],
-                                                    eval_rnn_states_critic[eval_choose, agent_id],
                                                     eval_masks[eval_choose, agent_id],
                                                     eval_available_actions[eval_choose],
                                                     deterministic=True)
 
                 eval_actions[eval_choose] = _t2n(eval_action)
                 eval_rnn_states[eval_choose, agent_id] = _t2n(eval_rnn_state)
-                eval_rnn_states_critic[eval_choose, agent_id] = _t2n(eval_rnn_state_critic)
 
                 # Obser reward and next obs
                 eval_obs, eval_share_obs, eval_rewards, eval_dones, eval_infos, eval_available_actions = eval_envs.step(eval_actions)
                 
-                eval_share_obs = eval_share_obs if self.use_centralized_V else eval_obs
-
                 eval_available_actions[eval_dones == True] = np.zeros(((eval_dones == True).sum(), *self.buffer.available_actions.shape[3:]), dtype=np.float32)
 
                 for eval_done, eval_info in zip(eval_dones, eval_infos):

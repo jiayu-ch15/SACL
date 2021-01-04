@@ -212,10 +212,7 @@ class HNSRunner(Runner):
 
         eval_obs, eval_share_obs, _ = eval_envs.reset(eval_reset_choose)
 
-        eval_share_obs = eval_share_obs if self.use_centralized_V else eval_obs
-
         eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
-        eval_rnn_states_critic = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
         eval_dones = np.zeros(self.n_eval_rollout_threads, dtype=bool)
 
@@ -228,28 +225,22 @@ class HNSRunner(Runner):
                 for agent_id in range(self.num_agents):
                     agent_eval_actions = np.ones((self.n_eval_rollout_threads, action_shape)).astype(np.int) * (-1)
                     self.trainer[agent_id].prep_rollout()
-                    _, eval_action, _, eval_rnn_state, eval_rnn_state_critic \
-                        = self.trainer[agent_id].policy.get_actions(eval_share_obs[eval_choose, agent_id],
-                                                                    eval_obs[eval_choose, agent_id],
-                                                                    eval_rnn_states[eval_choose, agent_id],          
-                                                                    eval_rnn_states_critic[eval_choose, agent_id],
-                                                                    eval_masks[eval_choose, agent_id],
-                                                                    deterministic=True)
+                    eval_action, eval_rnn_state = self.trainer[agent_id].policy.act(eval_obs[eval_choose, agent_id],
+                                                                                    eval_rnn_states[eval_choose, agent_id],          
+                                                                                    eval_masks[eval_choose, agent_id],
+                                                                                    deterministic=True)
                     agent_eval_actions[eval_choose] = _t2n(eval_action)
                     eval_actions.append(agent_eval_actions)
                     eval_rnn_states[eval_choose, agent_id] = _t2n(eval_rnn_state)
-                    eval_rnn_states_critic[eval_choose, agent_id] = _t2n(eval_rnn_state_critic)
-
+                    
                 eval_actions = np.array(eval_actions).transpose(1, 0, 2)
 
             # Obser reward and next obs
             eval_obs, eval_share_obs, eval_rewards, eval_dones, eval_infos, _ = eval_envs.step(eval_actions)
-            eval_share_obs = eval_share_obs if self.use_centralized_V else eval_obs
-
+            
             eval_episode_rewards += eval_rewards
 
             eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
-            eval_rnn_states_critic[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
             eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
             eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.num_agents, 1), dtype=np.float32)
 
@@ -272,7 +263,6 @@ class HNSRunner(Runner):
             discard_obs, discard_share_obs, _ = eval_envs.reset(discard_reset_choose)
 
             eval_obs[discard_reset_choose == True] = discard_obs[discard_reset_choose == True]
-            eval_share_obs[discard_reset_choose == True] = discard_share_obs[discard_reset_choose == True]
             eval_dones[discard_reset_choose == True] = np.zeros(discard_reset_choose.sum(), dtype=bool)
 
         if self.env_name == "BoxLocking" or self.env_name == "BlueprintConstruction":
