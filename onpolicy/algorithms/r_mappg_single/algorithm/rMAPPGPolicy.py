@@ -46,3 +46,7 @@ class R_MAPPGPolicy:
         action_log_probs, dist_entropy = self.model.evaluate_actions(obs, rnn_states_actor, action, masks, available_actions, active_masks)
 
         return action_log_probs, dist_entropy
+
+    def act(self, obs, rnn_states_actor, masks, available_actions=None, deterministic=False):
+        actions, _, rnn_states_actor = self.model.get_actions(obs, rnn_states_actor, masks, available_actions, deterministic)
+        return actions, rnn_states_actor

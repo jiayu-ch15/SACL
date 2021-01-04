@@ -88,16 +88,11 @@ def main(args):
     all_args = parse_args(args, parser)
 
     if all_args.algorithm_name == "rmappo" or all_args.algorithm_name == "rmappg":
-        assert (
-            all_args.use_recurrent_policy or all_args.use_naive_recurrent_policy), ("check recurrent policy!")
+        assert (all_args.use_recurrent_policy or all_args.use_naive_recurrent_policy), ("check recurrent policy!")
     elif all_args.algorithm_name == "mappo" or all_args.algorithm_name == "mappg":
-        assert (all_args.use_recurrent_policy and all_args.use_naive_recurrent_policy) == False, (
-            "check recurrent policy!")
+        assert (all_args.use_recurrent_policy==False) and (all_args.use_naive_recurrent_policy == False), ("check recurrent policy!")
     else:
         raise NotImplementedError
-
-    assert (all_args.share_policy == True and all_args.scenario_name == 'simple_speaker_listener') == False, (
-        "The simple_speaker_listener scenario can not use shared policy. Please check the config.py.")
 
     # cuda
     if all_args.cuda and torch.cuda.is_available():

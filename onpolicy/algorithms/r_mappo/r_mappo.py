@@ -41,7 +41,6 @@ class R_MAPPO():
         self._use_policy_active_masks = args.use_policy_active_masks
         self._use_policy_vhead = args.use_policy_vhead
         
-
         if self._use_popart:
             self.value_normalizer = PopArt(1, device=self.device)
         else:
