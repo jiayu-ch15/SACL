@@ -19,7 +19,7 @@ class HighwayEnv(AbstractEnv):
     RIGHT_LANE_REWARD: float = 0.1
     """The reward received when driving on the right-most lanes, linearly mapped to zero for other lanes."""
 
-    HIGH_SPEED_REWARD: float = 1
+    HIGH_SPEED_REWARD: float = 0.9
     """The reward received when driving at full speed, linearly mapped to zero for lower speeds according to config["reward_speed_range"]."""
 
     LANE_CHANGE_REWARD: float = 0
@@ -88,6 +88,21 @@ class HighwayEnv(AbstractEnv):
         n_dummies=self.config["n_dummies"]
         rewards=[]
         for vehicle in self.controlled_vehicles:
+        
+            neighbours = self.road.network.all_side_lanes(vehicle.lane_index)
+            lane = vehicle.target_lane_index[2] if isinstance(vehicle, ControlledVehicle) \
+                else vehicle.lane_index[2]
+            scaled_speed = utils.lmap(vehicle.speed, self.config["reward_speed_range"], [0, 1])
+            reward = \
+                + self.config["collision_reward"] * vehicle.crashed \
+                + self.RIGHT_LANE_REWARD * lane / max(len(neighbours) - 1, 1) \
+                + self.HIGH_SPEED_REWARD * np.clip(scaled_speed, 0, 1)
+            #reward = utils.lmap(reward,
+            #              [self.config["collision_reward"], self.HIGH_SPEED_REWARD + self.RIGHT_LANE_REWARD],
+            #              [0, 1])
+            #reward = 0 if not vehicle.on_road else reward
+            reward = -1 if not vehicle.on_road else reward
+            '''
             scaled_speed = utils.lmap(vehicle.speed, self.config["reward_speed_range"], [0, 1])
             reward = \
                 + self.config["collision_reward"] * vehicle.crashed \
@@ -96,6 +111,7 @@ class HighwayEnv(AbstractEnv):
             #                    [self.config["collision_reward"], self.HIGH_SPEED_REWARD ],
             #                    [0, 1])
             reward = -1 if not vehicle.on_road else reward
+            '''
             rewards.append(reward)
         return rewards
 

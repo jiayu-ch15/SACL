@@ -304,8 +304,10 @@ def get_config():
     parser.add_argument("--use_linear_lr_decay", action='store_true',
                         default=False, help='use a linear schedule on the learning rate')
 
+    parser.add_argument("--use_policy_active_masks", action='store_true',
+                        default=True, help='use a linear schedule on the learning rate')
     # save parameters
-    parser.add_argument("--save_interval", type=int, default=50, help="time duration between contiunous twice models saving.")
+    parser.add_argument("--save_interval", type=int, default=1, help="time duration between contiunous twice models saving.")
 
     # log parameters
     parser.add_argument("--log_interval", type=int, default=5, help="time duration between contiunous twice log printing.")
@@ -319,7 +321,7 @@ def get_config():
     parser.add_argument("--save_gifs", action='store_true', default=False, help="by default, do not save render video. If set, save video.")
     parser.add_argument("--use_render", action='store_true', default=False, help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
     parser.add_argument("--render_episodes", type=int, default=5, help="the number of episodes to render a given env")
-    parser.add_argument("--ifi", type=float, default=0.5, help="the play interval of each rendered image in saved video.")
+    parser.add_argument("--ifi", type=float, default=0.1, help="the play interval of each rendered image in saved video.")
 
     # pretrained parameters
     parser.add_argument("--model_dir", type=str, default=None, help="by default None. set the path to pretrained model.")
