@@ -27,7 +27,7 @@ class HanabiRunner(Runner):
         self.turn_values = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
         self.turn_actions = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
         self.turn_action_log_probs = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-        self.turn_rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
+        self.turn_rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
         self.turn_rnn_states_critic = np.zeros_like(self.turn_rnn_states)
         self.turn_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
         self.turn_active_masks = np.ones_like(self.turn_masks)
@@ -178,8 +178,8 @@ class HanabiRunner(Runner):
             # deal with all agents
             self.use_available_actions[dones == True] = np.zeros(((dones == True).sum(), *self.use_available_actions.shape[2:]), dtype=np.float32)
             self.turn_masks[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, 1), dtype=np.float32)
-            self.turn_rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
-            self.turn_rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
+            self.turn_rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
+            self.turn_rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[2:]), dtype=np.float32)
 
             # deal with current agent
             self.turn_active_masks[dones == True, current_agent_id] = np.ones(((dones == True).sum(), 1), dtype=np.float32)
@@ -234,7 +234,7 @@ class HanabiRunner(Runner):
         
         eval_obs, eval_share_obs, eval_available_actions = eval_envs.reset(eval_reset_choose)
 
-        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
+        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
 
         while True:

@@ -159,8 +159,8 @@ class HNSRunner(Runner):
         if len(rewards.shape) < 3:
             rewards = rewards[:, :, np.newaxis]
 
-        rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
-        rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
+        rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
+        rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
         masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
         masks[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, 1), dtype=np.float32)
 
@@ -188,7 +188,7 @@ class HNSRunner(Runner):
 
         eval_obs, eval_share_obs, _ = eval_envs.reset(eval_reset_choose)
 
-        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
+        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
         eval_dones = np.zeros(self.n_eval_rollout_threads, dtype=bool)
 
@@ -212,7 +212,7 @@ class HNSRunner(Runner):
             
             eval_episode_rewards += eval_rewards
 
-            eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
+            eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
             eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
             eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.num_agents, 1), dtype=np.float32)
 
