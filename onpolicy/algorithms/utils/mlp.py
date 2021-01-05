@@ -43,9 +43,9 @@ class CONVLayer(nn.Module):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
 
         self.conv = nn.Sequential(
-                init_(nn.Conv1d(in_channels=input_dim, out_channels=hidden_size//4, kernel_size=3, stride=2, padding=0)), active_func, nn.BatchNorm1d(hidden_size//4),
-                init_(nn.Conv1d(in_channels=hidden_size//4, out_channels=hidden_size//2, kernel_size=3, stride=1, padding=1)), active_func, nn.BatchNorm1d(hidden_size//2),
-                init_(nn.Conv1d(in_channels=hidden_size//2, out_channels=hidden_size, kernel_size=3, stride=1, padding=1)), active_func, nn.BatchNorm1d(hidden_size))
+                init_(nn.Conv1d(in_channels=input_dim, out_channels=hidden_size//4, kernel_size=3, stride=2, padding=0)), active_func, #nn.BatchNorm1d(hidden_size//4),
+                init_(nn.Conv1d(in_channels=hidden_size//4, out_channels=hidden_size//2, kernel_size=3, stride=1, padding=1)), active_func, #nn.BatchNorm1d(hidden_size//2),
+                init_(nn.Conv1d(in_channels=hidden_size//2, out_channels=hidden_size, kernel_size=3, stride=1, padding=1)), active_func) #, nn.BatchNorm1d(hidden_size))
 
     def forward(self, x):
         x = self.conv(x)
@@ -100,7 +100,7 @@ class MLPBase(nn.Module):
 
         if self._use_conv1d:
             self.conv = CONVLayer(self._stacked_frames, self.hidden_size, self._use_orthogonal, self._use_ReLU)
-            random_x = torch.FloatTensor(1, self._stacked_frames, inputs_dim)
+            random_x = torch.FloatTensor(1, self._stacked_frames, inputs_dim//self._stacked_frames)
             random_out = self.conv(random_x)
             assert len(random_out.shape)==3
             inputs_dim = random_out.size(-1) * random_out.size(-2)
