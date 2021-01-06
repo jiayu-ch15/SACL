@@ -75,9 +75,9 @@ class HanabiRunner(Runner):
                 obs, share_obs, available_actions = self.envs.reset(self.reset_choose)
                 share_obs = share_obs if self.use_centralized_V else obs
 
-                self.use_obs[self.reset_choose] = obs[self.reset_choose]
-                self.use_share_obs[self.reset_choose] = share_obs[self.reset_choose]
-                self.use_available_actions[self.reset_choose] = available_actions[self.reset_choose]
+                self.use_obs[self.reset_choose] = obs[self.reset_choose].copy()
+                self.use_share_obs[self.reset_choose] = share_obs[self.reset_choose].copy()
+                self.use_available_actions[self.reset_choose] = available_actions[self.reset_choose].copy()
             
             # post process
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads           
@@ -173,7 +173,7 @@ class HanabiRunner(Runner):
             self.reset_choose[dones == True] = np.ones((dones == True).sum(), dtype=bool)
 
             # deal with all agents
-            self.use_available_actions[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.available_actions.shape[3:]), dtype=np.float32)
+            self.use_available_actions[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.available_actions.shape[3:]), dtype=np.float32)
             self.turn_masks[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, 1), dtype=np.float32)
             self.turn_rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
             self.turn_rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
@@ -189,8 +189,14 @@ class HanabiRunner(Runner):
             self.turn_rewards_since_last_action[dones == True, left_agent_id:] = np.zeros(((dones == True).sum(), left_agents_num, 1), dtype=np.float32)
             # other variables use what at last time, action will be useless.
             self.turn_values[dones == True, left_agent_id:] = np.zeros(((dones == True).sum(), left_agents_num, 1), dtype=np.float32)
-            self.turn_obs[dones == True, left_agent_id:] = 0
-            self.turn_share_obs[dones == True, left_agent_id:] = 0
+            
+            for idx in range(left_agents_num):
+                surrogate_obs = np.zeros(((dones == True).sum(), *self.buffer.obs.shape[3:]))
+                surrogate_obs[:, -(left_agent_id + idx)] = 1
+                surrogate_share_obs = np.zeros(((dones == True).sum(), *self.buffer.share_obs.shape[3:]))
+                surrogate_share_obs[:, -(left_agent_id + idx)] = 1
+                self.turn_obs[dones == True, left_agent_id+idx] = surrogate_obs
+                self.turn_share_obs[dones == True, left_agent_id+idx] = surrogate_share_obs
 
             # deal with the previous agents
             # recover rewards
@@ -213,7 +219,7 @@ class HanabiRunner(Runner):
    
     def train(self):
         self.trainer.prep_training()
-        train_infos = self.trainer.train(self.buffer)      
+        train_infos = self.trainer.train(self.buffer)     
         self.buffer.chooseafter_update()
         return train_infos
   
@@ -228,10 +234,7 @@ class HanabiRunner(Runner):
         
         eval_obs, eval_share_obs, eval_available_actions = eval_envs.reset(eval_reset_choose)
 
-        eval_share_obs = eval_share_obs if self.use_centralized_V else eval_obs
-
         eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
-        eval_rnn_states_critic = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
 
         while True:
@@ -246,25 +249,19 @@ class HanabiRunner(Runner):
                     break
 
                 self.trainer.prep_rollout()
-                _, eval_action, _, eval_rnn_state, eval_rnn_state_critic \
-                    = self.trainer.policy.get_actions(eval_share_obs[eval_choose],
-                                                    eval_obs[eval_choose],
-                                                    eval_rnn_states[eval_choose, agent_id],
-                                                    eval_rnn_states_critic[eval_choose, agent_id],
-                                                    eval_masks[eval_choose, agent_id],
-                                                    eval_available_actions[eval_choose],
-                                                    deterministic=True)
+                eval_action, eval_rnn_state = self.trainer.policy.act(eval_obs[eval_choose],
+                                                eval_rnn_states[eval_choose, agent_id],
+                                                eval_masks[eval_choose, agent_id],
+                                                eval_available_actions[eval_choose],
+                                                deterministic=True)
 
                 eval_actions[eval_choose] = _t2n(eval_action)
                 eval_rnn_states[eval_choose, agent_id] = _t2n(eval_rnn_state)
-                eval_rnn_states_critic[eval_choose, agent_id] = _t2n(eval_rnn_state_critic)
-
+               
                 # Obser reward and next obs
                 eval_obs, eval_share_obs, eval_rewards, eval_dones, eval_infos, eval_available_actions = eval_envs.step(eval_actions)
                 
-                eval_share_obs = eval_share_obs if self.use_centralized_V else eval_obs
-
-                eval_available_actions[eval_dones == True] = np.zeros(((eval_dones == True).sum(), *self.buffer.available_actions.shape[3:]), dtype=np.float32)
+                eval_available_actions[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.num_agents, *self.buffer.available_actions.shape[3:]), dtype=np.float32)
 
                 for eval_done, eval_info in zip(eval_dones, eval_infos):
                     if eval_done:
