@@ -173,7 +173,7 @@ class HanabiRunner(Runner):
             self.reset_choose[dones == True] = np.ones((dones == True).sum(), dtype=bool)
 
             # deal with all agents
-            self.use_available_actions[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.available_actions.shape[3:]), dtype=np.float32)
+            self.use_available_actions[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.available_actions.shape[3:]), dtype=np.float32)
             self.turn_masks[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, 1), dtype=np.float32)
             self.turn_rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
             self.turn_rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
@@ -261,7 +261,7 @@ class HanabiRunner(Runner):
                 # Obser reward and next obs
                 eval_obs, eval_share_obs, eval_rewards, eval_dones, eval_infos, eval_available_actions = eval_envs.step(eval_actions)
                 
-                eval_available_actions[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.num_agents, *self.buffer.available_actions.shape[3:]), dtype=np.float32)
+                eval_available_actions[eval_dones == True] = np.zeros(((eval_dones == True).sum(), *self.buffer.available_actions.shape[3:]), dtype=np.float32)
 
                 for eval_done, eval_info in zip(eval_dones, eval_infos):
                     if eval_done:
