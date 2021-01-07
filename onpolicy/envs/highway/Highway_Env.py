@@ -18,7 +18,6 @@ class HighwayEnv(gym.core.Wrapper):
         self.n_defenders = all_args.n_defenders
         self.n_attackers = all_args.n_attackers
         self.n_dummies = all_args.n_dummies
-
         if self.task_type == "attack":
             self.n_agents = self.n_attackers
             self.n_other_agents = self.n_defenders
@@ -200,7 +199,7 @@ class HighwayEnv(gym.core.Wrapper):
             
             # for discrete action, drop the unneeded axis
             action = np.squeeze(action, axis=-1)
-            #self.render()
+            self.render()
             all_obs, all_rewards, all_dones, infos = self.env.step(tuple(action))
 
             # obs
