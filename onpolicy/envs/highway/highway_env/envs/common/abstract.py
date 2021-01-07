@@ -308,6 +308,7 @@ class AbstractEnv(gym.Env):
         If a callback has been set, use it to perform the rendering. This is useful for the environment wrappers
         such as video-recording monitor that need to access these intermediate renderings.
         """
+        self.enable_auto_render = True
         if self.viewer is not None and self.enable_auto_render:
             self.should_update_rendering = True
 
