@@ -164,6 +164,7 @@ class AbstractEnv(gym.Env):
         self.done = False
         self._reset()
         self.define_spaces()  # Second, to link the obs and actions to the vehicles once the scene is created
+        self.rendered_image = []
         return self.observation_type.observe()
 
     def _reset(self) -> None:
@@ -197,7 +198,6 @@ class AbstractEnv(gym.Env):
         #print("speed:", self.vehicle.speed)
         #print("reward:",reward)
         terminal = self._is_terminal()
-
         info = {
             "speed": self.vehicle.speed,
             "crashed": self.vehicle.crashed,
@@ -256,6 +256,7 @@ class AbstractEnv(gym.Env):
             self.viewer.handle_events()
         if mode == 'rgb_array':
             image = self.viewer.get_image()
+            self.rendered_image.append(image)
             return image
         self.should_update_rendering = False
 
@@ -401,6 +402,8 @@ class AbstractEnv(gym.Env):
                 setattr(result, k, None)
         return result
 
+    def get_rendered_image(self) -> list:
+        return self.rendered_image
 
 class MultiAgentWrapper(Wrapper):
     def step(self, action):
