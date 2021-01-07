@@ -287,6 +287,12 @@ class SubprocVecEnv(ShareVecEnv):
             p.join()
         self.closed = True
 
+    def render(self, mode="rgb_array"):
+        for remote, mo in zip(self.remotes, mode):
+            remote.send(('render', mo))
+        frame = [remote.recv() for remote in self.remotes]
+        return np.stack(frame)
+
 
 def shareworker(remote, parent_remote, env_fn_wrapper):
     parent_remote.close()
@@ -715,6 +721,9 @@ class ShareDummyVecEnv(ShareVecEnv):
     def close(self):
         for env in self.envs:
             env.close()
+    
+    def render(self, mode="human"):
+        return [env.render(mode=mode) for env in self.envs]
 
 
 class ChooseDummyVecEnv(ShareVecEnv):
@@ -744,6 +753,9 @@ class ChooseDummyVecEnv(ShareVecEnv):
     def close(self):
         for env in self.envs:
             env.close()
+
+    def render(self, mode="human"):
+        return [env.render(mode=mode) for env in self.envs]
 
 class ChooseSimpleDummyVecEnv(ShareVecEnv):
     def __init__(self, env_fns):
