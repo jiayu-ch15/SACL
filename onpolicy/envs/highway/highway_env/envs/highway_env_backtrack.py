@@ -2,12 +2,12 @@ import numpy as np
 from typing import Tuple
 from gym.envs.registration import register
 
-from onpolicy.envs.highway import utils
-from onpolicy.envs.highway_env.envs.common.abstract import AbstractEnv
-from onpolicy.envs.highway_env.envs.common.action import Action
-from onpolicy.envs.highway_env.road.road import Road, RoadNetwork
-from onpolicy.envs.highway_env.vehicle.controller import ControlledVehicle
-from onpolicy.envs.highway_env.vehicle.behavior import IDMVehicle
+from onpolicy.envs.highway.highway_env import utils
+from onpolicy.envs.highway.highway_env.envs.common.abstract import AbstractEnv
+from onpolicy.envs.highway.highway_env.envs.common.action import Action
+from onpolicy.envs.highway.highway_env.road.road import Road, RoadNetwork
+from onpolicy.envs.highway.highway_env.vehicle.controller import ControlledVehicle
+from onpolicy.envs.highway.highway_env.vehicle.behavior import IDMVehicle
 import json, imageio
 from copy import copy
 
@@ -303,5 +303,5 @@ class HighwayEnvBacktrack(AbstractEnv):
 
 register(
     id='highwayBacktrack-v0',
-    entry_point='highway_env.envs:HighwayEnvBacktrack',
+    entry_point='onpolicy.envs.highway.highway_env.envs:HighwayEnvBacktrack',
 )
