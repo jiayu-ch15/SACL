@@ -12,6 +12,7 @@ class HighwayEnv(gym.core.Wrapper):
         self.all_args = all_args
         self.use_centralized_V = all_args.use_centralized_V
         self.use_same_other_policy = all_args.use_same_other_policy
+        self.use_render = all_args.use_render
         self.use_render_vulnerability = all_args.use_render_vulnerability
         self.task_type = all_args.task_type
 
@@ -58,7 +59,7 @@ class HighwayEnv(gym.core.Wrapper):
                         }
                     },
                     "vehicles_count": 50,
-                    "offscreen_rendering": True,
+                    "offscreen_rendering": self.use_render,
         }
 
         self.env_init = load_environment(self.env_dict)
