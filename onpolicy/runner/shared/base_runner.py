@@ -39,6 +39,7 @@ class Runner(object):
         self.hidden_size = self.all_args.hidden_size
         self.use_wandb = self.all_args.use_wandb
         self.use_single_network = self.all_args.use_single_network
+        self.use_render = self.all_args.use_render
 
         # interval
         self.save_interval = self.all_args.save_interval
@@ -78,7 +79,7 @@ class Runner(object):
                 from onpolicy.algorithms.r_mappg.algorithm.rMAPPGPolicy import R_MAPPGPolicy as Policy
         else:
             raise NotImplementedError
-          
+        
         share_observation_space = self.envs.share_observation_space[0] if self.use_centralized_V else self.envs.observation_space[0]
 
         # policy network
@@ -141,10 +142,10 @@ class Runner(object):
 
     def restore(self):
         if self.use_single_network:
-            policy_model_state_dict = torch.load(str(self.model_dir) + '/model.pt')#, map_location='cpu')
+            policy_model_state_dict = torch.load(str(self.model_dir) + '/model.pt', map_location='cpu')
             self.policy.model.load_state_dict(policy_model_state_dict)
         else:
-            policy_actor_state_dict = torch.load(str(self.model_dir) + '/actor.pt')#, map_location='cpu')
+            policy_actor_state_dict = torch.load(str(self.model_dir) + '/actor.pt', map_location='cpu')
             self.policy.actor.load_state_dict(policy_actor_state_dict)
             if not self.all_args.use_render:
                 policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic.pt')

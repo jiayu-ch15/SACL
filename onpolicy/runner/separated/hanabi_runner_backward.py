@@ -5,9 +5,11 @@ import os
 import numpy as np
 from itertools import chain
 import torch
+from tensorboardX import SummaryWriter
 
+from onpolicy.utils.separated_buffer import SeparatedReplayBuffer
 from onpolicy.utils.util import update_linear_schedule
-from onpolicy.runner.shared.base_runner import Runner
+from onpolicy.runner.separated.base_runner import Runner
 
 def _t2n(x):
     return x.detach().cpu().numpy()
@@ -15,31 +17,31 @@ def _t2n(x):
 class HanabiRunner(Runner):
     def __init__(self, config):
         super(HanabiRunner, self).__init__(config)
-    
+
     def run(self):
-        self.turn_obs = np.zeros((self.n_rollout_threads,*self.buffer.obs.shape[2:]), dtype=np.float32)
-        self.turn_share_obs = np.zeros((self.n_rollout_threads,*self.buffer.share_obs.shape[2:]), dtype=np.float32)
-        self.turn_available_actions = np.zeros((self.n_rollout_threads,*self.buffer.available_actions.shape[2:]), dtype=np.float32)
-        self.turn_values = np.zeros((self.n_rollout_threads,*self.buffer.value_preds.shape[2:]), dtype=np.float32)
-        self.turn_actions = np.zeros((self.n_rollout_threads,*self.buffer.actions.shape[2:]), dtype=np.float32)       
-        self.turn_action_log_probs = np.zeros((self.n_rollout_threads,*self.buffer.action_log_probs.shape[2:]), dtype=np.float32)
-        self.turn_rnn_states = np.zeros((self.n_rollout_threads,*self.buffer.rnn_states.shape[2:]), dtype=np.float32)
+        self.warmup()
+
+        self.turn_obs = np.zeros((self.n_rollout_threads, self.num_agents,*self.use_obs.shape[2:]), dtype=np.float32)
+        self.turn_share_obs = np.zeros((self.n_rollout_threads, self.num_agents,*self.use_share_obs.shape[2:]), dtype=np.float32)
+        self.turn_available_actions = np.zeros((self.n_rollout_threads, self.num_agents, *self.use_available_actions.shape[2:]), dtype=np.float32)
+        self.turn_values = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+        self.turn_actions = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+        self.turn_action_log_probs = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+        self.turn_rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
         self.turn_rnn_states_critic = np.zeros_like(self.turn_rnn_states)
-        self.turn_masks = np.ones((self.n_rollout_threads,*self.buffer.masks.shape[2:]), dtype=np.float32)
+        self.turn_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
         self.turn_active_masks = np.ones_like(self.turn_masks)
         self.turn_bad_masks = np.ones_like(self.turn_masks)
-        self.turn_rewards = np.zeros((self.n_rollout_threads,*self.buffer.rewards.shape[2:]), dtype=np.float32)
-
-        self.turn_rewards_since_last_action = np.zeros_like(self.turn_rewards)
-
-        self.warmup()   
-
+        self.turn_rewards_since_last_action = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+        self.turn_rewards = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+            
         start = time.time()
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
 
         for episode in range(episodes):
             if self.use_linear_lr_decay:
-                self.trainer.policy.lr_decay(episode, episodes)
+                for agent_id in range(self.num_agents):
+                    self.trainer[agent_id].policy.lr_decay(episode, episodes)
 
             self.scores = []
             for step in range(self.episode_length):
@@ -49,28 +51,29 @@ class HanabiRunner(Runner):
 
                 if step == 0 and episode > 0:
                     # deal with the data of the last index in buffer
-                    self.buffer.share_obs[-1] = self.turn_share_obs.copy()
-                    self.buffer.obs[-1] = self.turn_obs.copy()
-                    self.buffer.available_actions[-1] = self.turn_available_actions.copy()
-                    self.buffer.active_masks[-1] = self.turn_active_masks.copy()
+                    for agent_id in range(self.num_agents):
+                        self.buffer[agent_id].share_obs[-1] = self.turn_share_obs[:,agent_id].copy()
+                        self.buffer[agent_id].obs[-1] = self.turn_obs[:,agent_id].copy()
+                        self.buffer[agent_id].available_actions[-1] = self.turn_available_actions[:,agent_id].copy()
 
                     # compute return and update network
                     self.compute()
                     train_infos = self.train()
 
                 # insert turn data into buffer
-                self.buffer.chooseinsert(self.turn_share_obs,
-                                        self.turn_obs,
-                                        self.turn_rnn_states,
-                                        self.turn_rnn_states_critic,
-                                        self.turn_actions,
-                                        self.turn_action_log_probs,
-                                        self.turn_values,
-                                        self.turn_rewards,
-                                        self.turn_masks,
-                                        self.turn_bad_masks,
-                                        self.turn_active_masks,
-                                        self.turn_available_actions)
+                for agent_id in range(self.num_agents):
+                    self.buffer[agent_id].chooseinsert(self.turn_share_obs[:, agent_id],
+                                                    self.turn_obs[:, agent_id],
+                                                    self.turn_rnn_states[:, agent_id],
+                                                    self.turn_rnn_states_critic[:, agent_id],
+                                                    self.turn_actions[:, agent_id],
+                                                    self.turn_action_log_probs[:, agent_id],
+                                                    self.turn_values[:, agent_id],
+                                                    self.turn_rewards[:, agent_id],
+                                                    self.turn_masks[:, agent_id],
+                                                    self.turn_bad_masks[:, agent_id],
+                                                    self.turn_active_masks[:, agent_id],
+                                                    self.turn_available_actions[:, agent_id])
                 # env reset
                 obs, share_obs, available_actions = self.envs.reset(self.reset_choose)
                 share_obs = share_obs if self.use_centralized_V else obs
@@ -80,7 +83,7 @@ class HanabiRunner(Runner):
                 self.use_available_actions[self.reset_choose] = available_actions[self.reset_choose]
             
             # post process
-            total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads           
+            total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads            
             # save model
             if (episode % self.save_interval == 0 or episode == episodes - 1):
                 self.save()
@@ -97,7 +100,7 @@ class HanabiRunner(Runner):
                                 total_num_steps,
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
-
+                
                 if self.env_name == "Hanabi":
                     average_score = np.mean(self.scores) if len(self.scores) > 0 else 0.0
                     print("average score is {}.".format(average_score))
@@ -106,8 +109,8 @@ class HanabiRunner(Runner):
                     else:
                         self.writter.add_scalars('average_score', {'average_score': average_score}, total_num_steps)
 
-                train_infos["average_step_rewards"] = np.mean(self.buffer.rewards)
-                
+                for agent_id in range(self.num_agents):
+                    train_infos.append({"average_step_rewards": np.mean(self.buffer[agent_id].rewards)})
                 self.log_train(train_infos, total_num_steps)
 
             # eval
@@ -129,21 +132,21 @@ class HanabiRunner(Runner):
     @torch.no_grad()
     def collect(self, step):
         for current_agent_id in range(self.num_agents):
-            env_actions = np.ones((self.n_rollout_threads, *self.buffer.actions.shape[3:]), dtype=np.float32)*(-1.0)
+            env_actions = np.ones((self.n_rollout_threads, 1), dtype=np.float32)*(-1.0)
             choose = np.any(self.use_available_actions == 1, axis=1)
             if ~np.any(choose):
                 self.reset_choose = np.ones(self.n_rollout_threads) == 1.0
                 break
-            
-            self.trainer.prep_rollout()
+
+            self.trainer[current_agent_id].prep_rollout()
             value, action, action_log_prob, rnn_state, rnn_state_critic \
-                = self.trainer.policy.get_actions(self.use_share_obs[choose],
-                                                self.use_obs[choose],
-                                                self.turn_rnn_states[choose, current_agent_id],
-                                                self.turn_rnn_states_critic[choose, current_agent_id],
-                                                self.turn_masks[choose, current_agent_id],
-                                                self.use_available_actions[choose])
-            
+                = self.trainer[current_agent_id].policy.get_actions(self.use_share_obs[choose],
+                                                                    self.use_obs[choose],
+                                                                    self.turn_rnn_states[choose, current_agent_id],
+                                                                    self.turn_rnn_states_critic[choose, current_agent_id],
+                                                                    self.turn_masks[choose, current_agent_id],
+                                                                    self.use_available_actions[choose])
+
             self.turn_obs[choose, current_agent_id] = self.use_obs[choose].copy()
             self.turn_share_obs[choose, current_agent_id] = self.use_share_obs[choose].copy()
             self.turn_available_actions[choose, current_agent_id] = self.use_available_actions[choose].copy()
@@ -173,15 +176,15 @@ class HanabiRunner(Runner):
             self.reset_choose[dones == True] = np.ones((dones == True).sum(), dtype=bool)
 
             # deal with all agents
-            self.use_available_actions[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.available_actions.shape[3:]), dtype=np.float32)
+            self.use_available_actions[dones == True] = np.zeros(((dones == True).sum(), *self.use_available_actions.shape[2:]), dtype=np.float32)
             self.turn_masks[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, 1), dtype=np.float32)
-            self.turn_rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
-            self.turn_rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
+            self.turn_rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
+            self.turn_rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[2:]), dtype=np.float32)
 
-            # deal with the current agent
+            # deal with current agent
             self.turn_active_masks[dones == True, current_agent_id] = np.ones(((dones == True).sum(), 1), dtype=np.float32)
 
-            # deal with the left agents
+            # deal with left agents
             left_agent_id = current_agent_id + 1
             left_agents_num = self.num_agents - left_agent_id
             self.turn_active_masks[dones == True, left_agent_id:] = np.zeros(((dones == True).sum(), left_agents_num, 1), dtype=np.float32)
@@ -189,11 +192,10 @@ class HanabiRunner(Runner):
             self.turn_rewards_since_last_action[dones == True, left_agent_id:] = np.zeros(((dones == True).sum(), left_agents_num, 1), dtype=np.float32)
             # other variables use what at last time, action will be useless.
             self.turn_values[dones == True, left_agent_id:] = np.zeros(((dones == True).sum(), left_agents_num, 1), dtype=np.float32)
-            self.turn_obs[dones == True, left_agent_id:] = 0
-            self.turn_share_obs[dones == True, left_agent_id:] = 0
+            self.turn_obs[dones == True, left_agent_id:] = 0.0
+            self.turn_share_obs[dones == True, left_agent_id:] = 0.0
 
-            # deal with the previous agents
-            # recover rewards
+            # deal with previous agents
             # p0 p1 p2 done p3 -> p0, p1 are previous agents, the reward of p0 should be r + p1 + p2
             self.turn_rewards[dones == True, 0:current_agent_id] += self.turn_rewards_since_last_action[dones == True, 0:current_agent_id]
             self.turn_rewards_since_last_action[dones == True, 0:current_agent_id] = np.zeros(((dones == True).sum(), current_agent_id, 1), dtype=np.float32)
@@ -210,13 +212,17 @@ class HanabiRunner(Runner):
                 if done:
                     if 'score' in info.keys():
                         self.scores.append(info['score'])
-   
+
     def train(self):
-        self.trainer.prep_training()
-        train_infos = self.trainer.train(self.buffer)      
-        self.buffer.chooseafter_update()
+        train_infos = []
+        for agent_id in range(self.num_agents):
+            self.trainer[agent_id].prep_training()
+            train_info = self.trainer[agent_id].train(self.buffer[agent_id])
+            train_infos.append(train_info)       
+            self.buffer[agent_id].chooseafter_update()
+
         return train_infos
-  
+   
     @torch.no_grad()
     def eval(self, total_num_steps):
         eval_envs = self.eval_envs
@@ -228,10 +234,7 @@ class HanabiRunner(Runner):
         
         eval_obs, eval_share_obs, eval_available_actions = eval_envs.reset(eval_reset_choose)
 
-        eval_share_obs = eval_share_obs if self.use_centralized_V else eval_obs
-
-        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
-        eval_rnn_states_critic = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
+        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
 
         while True:
@@ -245,26 +248,20 @@ class HanabiRunner(Runner):
                     eval_finish = True
                     break
 
-                self.trainer.prep_rollout()
-                _, eval_action, _, eval_rnn_state, eval_rnn_state_critic \
-                    = self.trainer.policy.get_actions(eval_share_obs[eval_choose],
-                                                    eval_obs[eval_choose],
-                                                    eval_rnn_states[eval_choose, agent_id],
-                                                    eval_rnn_states_critic[eval_choose, agent_id],
-                                                    eval_masks[eval_choose, agent_id],
-                                                    eval_available_actions[eval_choose],
-                                                    deterministic=True)
+                self.trainer[agent_id].prep_rollout()
+                eval_action, eval_rnn_state = self.trainer[agent_id].policy.act(eval_obs[eval_choose],
+                                                                eval_rnn_states[eval_choose, agent_id],
+                                                                eval_masks[eval_choose, agent_id],
+                                                                eval_available_actions[eval_choose],
+                                                                deterministic=True)
 
                 eval_actions[eval_choose] = _t2n(eval_action)
                 eval_rnn_states[eval_choose, agent_id] = _t2n(eval_rnn_state)
-                eval_rnn_states_critic[eval_choose, agent_id] = _t2n(eval_rnn_state_critic)
-
+                
                 # Obser reward and next obs
                 eval_obs, eval_share_obs, eval_rewards, eval_dones, eval_infos, eval_available_actions = eval_envs.step(eval_actions)
                 
-                eval_share_obs = eval_share_obs if self.use_centralized_V else eval_obs
-
-                eval_available_actions[eval_dones == True] = np.zeros(((eval_dones == True).sum(), *self.buffer.available_actions.shape[3:]), dtype=np.float32)
+                eval_available_actions[eval_dones == True] = np.zeros(((eval_dones == True).sum(), *self.use_available_actions.shape[2:]), dtype=np.float32)
 
                 for eval_done, eval_info in zip(eval_dones, eval_infos):
                     if eval_done:

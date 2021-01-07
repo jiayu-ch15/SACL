@@ -210,8 +210,9 @@ class StarCraft2Env(MultiAgentEnv):
         self.use_state_agent = args.use_state_agent
         self.use_mustalive = args.use_mustalive
         self.add_center_xy = args.add_center_xy
+        self.use_stacked_frames = args.use_stacked_frames
         self.stacked_frames = args.stacked_frames
-
+        
         map_params = get_map_params(self.map_name)
         self.n_agents = map_params["n_agents"]
         self.n_enemies = map_params["n_enemies"]
@@ -319,6 +320,11 @@ class StarCraft2Env(MultiAgentEnv):
             self.observation_space.append(self.get_obs_size())
             self.share_observation_space.append(self.get_state_size())
 
+        if self.use_stacked_frames:
+            self.stacked_local_obs = np.zeros((self.n_agents, self.stacked_frames, int(self.get_obs_size()[0]/self.stacked_frames)), dtype=np.float32)
+            self.stacked_global_state = np.zeros((self.n_agents, self.stacked_frames, int(self.get_state_size()[0]/self.stacked_frames)), dtype=np.float32)
+
+
     def _launch(self):
         """Launch the StarCraft II game."""
         self._run_config = run_configs.get(version=self.game_version)
@@ -413,7 +419,19 @@ class StarCraft2Env(MultiAgentEnv):
         else:
             global_state = [self.get_state(agent_id) for agent_id in range(self.n_agents)]
 
-        return self.get_obs(), global_state, available_actions
+        local_obs = self.get_obs()
+
+        if self.use_stacked_frames:
+            self.stacked_local_obs = np.roll(self.stacked_local_obs, 1, axis=1)
+            self.stacked_global_state = np.roll(self.stacked_global_state, 1, axis=1)
+
+            self.stacked_local_obs[:, -1, :] = np.array(local_obs).copy()
+            self.stacked_global_state[:, -1, :] = np.array(global_state).copy()
+
+            local_obs = self.stacked_local_obs.reshape(self.n_agents, -1)
+            global_state = self.stacked_global_state.reshape(self.n_agents, -1)
+
+        return local_obs, global_state, available_actions
 
     def _restart(self):
         """Restart the environment by killing all units on the map.
@@ -493,7 +511,19 @@ class StarCraft2Env(MultiAgentEnv):
             else:
                 global_state = [self.get_state(agent_id) for agent_id in range(self.n_agents)]
 
-            return self.get_obs(), global_state, [[0]]*self.n_agents, dones, infos, available_actions
+            local_obs = self.get_obs()
+
+            if self.use_stacked_frames:
+                self.stacked_local_obs = np.roll(self.stacked_local_obs, 1, axis=1)
+                self.stacked_global_state = np.roll(self.stacked_global_state, 1, axis=1)
+
+                self.stacked_local_obs[:, -1, :] = np.array(local_obs).copy()
+                self.stacked_global_state[:, -1, :] = np.array(global_state).copy()
+
+                local_obs = self.stacked_local_obs.reshape(self.n_agents, -1)
+                global_state = self.stacked_global_state.reshape(self.n_agents, -1)
+
+            return local_obs, global_state, [[0]]*self.n_agents, dones, infos, available_actions
 
         self._total_steps += 1
         self._episode_steps += 1
@@ -568,7 +598,19 @@ class StarCraft2Env(MultiAgentEnv):
         else:
             global_state = [self.get_state(agent_id) for agent_id in range(self.n_agents)]
 
-        return self.get_obs(), global_state, rewards, dones, infos, available_actions
+        local_obs = self.get_obs()
+
+        if self.use_stacked_frames:
+            self.stacked_local_obs = np.roll(self.stacked_local_obs, 1, axis=1)
+            self.stacked_global_state = np.roll(self.stacked_global_state, 1, axis=1)
+
+            self.stacked_local_obs[:, -1, :] = np.array(local_obs).copy()
+            self.stacked_global_state[:, -1, :] = np.array(global_state).copy()
+
+            local_obs = self.stacked_local_obs.reshape(self.n_agents, -1)
+            global_state = self.stacked_global_state.reshape(self.n_agents, -1)
+
+        return local_obs, global_state, rewards, dones, infos, available_actions
 
     def get_agent_action(self, a_id, action):
         """Construct the action for agent a_id."""
@@ -1598,7 +1640,7 @@ class StarCraft2Env(MultiAgentEnv):
             timestep_feats = 1
             all_feats += timestep_feats
 
-        return [all_feats, [n_allies, n_ally_feats], [n_enemies, n_enemy_feats], [1, move_feats], [1, own_feats+agent_id_feats+timestep_feats]]
+        return [all_feats * self.stacked_frames if self.use_stacked_frames else all_feats, [n_allies, n_ally_feats], [n_enemies, n_enemy_feats], [1, move_feats], [1, own_feats+agent_id_feats+timestep_feats]]
 
     def get_state_size(self):
         """Returns the size of the global state."""
@@ -1628,7 +1670,7 @@ class StarCraft2Env(MultiAgentEnv):
                 timestep_feats = 1
                 all_feats += timestep_feats
 
-            return [all_feats, [n_allies, n_ally_feats], [n_enemies, n_enemy_feats], [1, move_feats], [1, own_feats+agent_id_feats+timestep_feats]]
+            return [all_feats * self.stacked_frames if self.use_stacked_frames else all_feats, [n_allies, n_ally_feats], [n_enemies, n_enemy_feats], [1, move_feats], [1, own_feats+agent_id_feats+timestep_feats]]
 
         
         nf_al = 2 + self.shield_bits_ally + self.unit_type_bits
@@ -1684,7 +1726,7 @@ class StarCraft2Env(MultiAgentEnv):
             agent_id_feats = self.n_agents
             size += agent_id_feats
 
-        return [size, [self.n_agents, nf_al], [self.n_enemies, nf_en], [1, move_state + obs_agent_size + timestep_state + agent_id_feats]]
+        return [size * self.stacked_frames if self.use_stacked_frames else size, [self.n_agents, nf_al], [self.n_enemies, nf_en], [1, move_state + obs_agent_size + timestep_state + agent_id_feats]]
     
     def get_visibility_matrix(self):
         """Returns a boolean numpy array of dimensions 

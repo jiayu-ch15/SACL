@@ -19,6 +19,7 @@ class HighwayRunner(Runner):
     """
     def __init__(self, config):
         super(HighwayRunner, self).__init__(config)
+        self.use_render_vulnerability = self.all_args.use_render_vulnerability
         
     def run(self):
         self.warmup()   
@@ -42,6 +43,10 @@ class HighwayRunner(Runner):
                 values, actions, action_log_probs, rnn_states, rnn_states_critic = self.collect(step)
                 # Obser reward and next obs
                 obs, rewards, dones, infos = self.envs.step(actions)
+
+                if self.use_render:
+                    self.envs.render(mode='human')
+
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
                 # insert data into buffer
                 self.insert(data)
@@ -132,12 +137,12 @@ class HighwayRunner(Runner):
                 for key in info.keys():
                     if key in self.env_infos.keys():
                         self.env_infos[key].append(info[key])
-                    if key == "frames" and self.all_args.use_render_vulnerability:
+                    if key == "frames" and self.use_render_vulnerability:
                         self.render_vulnerability(info[key], suffix="train")
 
 
-        rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
-        rnn_states_critic[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
+        rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
+        rnn_states_critic[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
         masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
         masks[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
@@ -179,7 +184,7 @@ class HighwayRunner(Runner):
         eval_reset_choose = np.ones(self.n_eval_rollout_threads) == 1.0
         eval_obs = eval_envs.reset(eval_reset_choose)
 
-        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
+        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
         eval_dones_env = np.zeros(self.n_eval_rollout_threads, dtype=bool)
 
@@ -206,7 +211,7 @@ class HighwayRunner(Runner):
 
             eval_episode_rewards += eval_rewards
 
-            eval_rnn_states[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
+            eval_rnn_states[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
             eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
             eval_masks[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
@@ -216,7 +221,7 @@ class HighwayRunner(Runner):
                         for key in eval_info.keys():
                             if key in eval_env_infos.keys():
                                 eval_env_infos[key].append(eval_info[key]) 
-                            if key == "frames" and self.all_args.use_render_vulnerability:
+                            if key == "frames" and self.use_render_vulnerability:
                                 self.render_vulnerability(info[key], suffix="eval") 
 
             print("eval average episode rewards is {}".format(np.sum(eval_episode_rewards, axis=-1)))              
@@ -235,7 +240,7 @@ class HighwayRunner(Runner):
                 image = envs.render('rgb_array')
                 all_frames.append(image)
 
-            rnn_states = np.zeros((self.n_render_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
+            rnn_states = np.zeros((self.n_render_rollout_threads, self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
             masks = np.ones((self.n_render_rollout_threads, self.num_agents, 1), dtype=np.float32)
             
             episode_rewards = []

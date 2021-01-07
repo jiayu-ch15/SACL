@@ -81,6 +81,7 @@ def parse_args(args, parser):
 
     parser.add_argument("--use_same_other_policy", action='store_false', default=True, help="whether to use the same model")
     parser.add_argument("--use_render_vulnerability", action='store_true', default=False, help="whether to use the same model")
+    parser.add_argument("--use_offscreen_render", action='store_true', default=False, help="whether to use the same model")
     parser.add_argument('--policy_path', type=str,
                         default='../envs/highway/agents/policy_pool/actor.pt', help="load_policy_path")
     all_args = parser.parse_known_args(args)[0]
@@ -93,13 +94,13 @@ def main(args):
     all_args = parse_args(args, parser)
 
     if all_args.algorithm_name == "rmappo" or all_args.algorithm_name == "rmappg":
-        assert (
-            all_args.use_recurrent_policy or all_args.use_naive_recurrent_policy), ("check recurrent policy!")
+        assert (all_args.use_recurrent_policy or all_args.use_naive_recurrent_policy), ("check recurrent policy!")
     elif all_args.algorithm_name == "mappo" or all_args.algorithm_name == "mappg":
-        assert (all_args.use_recurrent_policy and all_args.use_naive_recurrent_policy) == False, (
-            "check recurrent policy!")
+        assert (all_args.use_recurrent_policy == False and all_args.use_naive_recurrent_policy == False), ("check recurrent policy!")
     else:
         raise NotImplementedError
+
+    assert (all_args.use_render and all_args.use_render_vulnerability)==False, ("can not set render options both True, turn off one of them.")
 
     # cuda
     if all_args.cuda and torch.cuda.is_available():

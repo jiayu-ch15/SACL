@@ -12,13 +12,13 @@ class HighwayEnv(gym.core.Wrapper):
         self.all_args = all_args
         self.use_centralized_V = all_args.use_centralized_V
         self.use_same_other_policy = all_args.use_same_other_policy
+        self.use_offscreen_render = all_args.use_offscreen_render
         self.use_render_vulnerability = all_args.use_render_vulnerability
         self.task_type = all_args.task_type
 
         self.n_defenders = all_args.n_defenders
         self.n_attackers = all_args.n_attackers
         self.n_dummies = all_args.n_dummies
-
         if self.task_type == "attack":
             self.n_agents = self.n_attackers
             self.n_other_agents = self.n_defenders
@@ -59,6 +59,7 @@ class HighwayEnv(gym.core.Wrapper):
                         }
                     },
                     "vehicles_count": 50,
+                    "offscreen_rendering": self.use_offscreen_render,
         }
 
         self.env_init = load_environment(self.env_dict)
@@ -79,7 +80,7 @@ class HighwayEnv(gym.core.Wrapper):
             self.load_other_agents()
         if self.n_dummies>0:
             self.dummy_agent_type = "RobustValueIteration" # "ValueIteration" or "RobustValueIteration" or "MonteCarloTreeSearchDeterministic"
-            self.load_dummies()
+            self.load_dummies() 
         
         # get new obs and action space
         self.new_observation_space = [] # just for store
@@ -199,9 +200,9 @@ class HighwayEnv(gym.core.Wrapper):
             
             # for discrete action, drop the unneeded axis
             action = np.squeeze(action, axis=-1)
-            #self.render()
-            all_obs, all_rewards, all_dones, infos = self.env.step(tuple(action))
 
+            all_obs, all_rewards, all_dones, infos = self.env.step(tuple(action))
+            
             # obs
             # 1. train obs
             obs = np.array([np.concatenate(all_obs[self.train_start_idx + agent_id]) for agent_id in range(self.n_agents)])

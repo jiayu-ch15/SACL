@@ -95,7 +95,7 @@ class AbstractEnv(gym.Env):
             "action": {
                 "type": "DiscreteMetaAction"
             },
-            "simulation_frequency": 15,  # [Hz]
+            "simulation_frequency": 2,  # [Hz]
             "policy_frequency": 1,  # [Hz]
             "other_vehicles_type": "onpolicy.envs.highway.highway_env.vehicle.behavior.IDMVehicle",
             "screen_width": 1000,  # [px]
@@ -164,6 +164,7 @@ class AbstractEnv(gym.Env):
         self.done = False
         self._reset()
         self.define_spaces()  # Second, to link the obs and actions to the vehicles once the scene is created
+        self.rendered_image = []
         return self.observation_type.observe()
 
     def _reset(self) -> None:
@@ -188,7 +189,7 @@ class AbstractEnv(gym.Env):
             raise NotImplementedError("The road and vehicle must be initialized in the environment implementation")
 
         self.steps += 1
-
+        print(self.vehicle.speed)
         self._simulate(action)
 
         obs = self.observation_type.observe()
@@ -197,7 +198,6 @@ class AbstractEnv(gym.Env):
         #print("speed:", self.vehicle.speed)
         #print("reward:",reward)
         terminal = self._is_terminal()
-
         info = {
             "speed": self.vehicle.speed,
             "crashed": self.vehicle.crashed,
@@ -256,6 +256,7 @@ class AbstractEnv(gym.Env):
             self.viewer.handle_events()
         if mode == 'rgb_array':
             image = self.viewer.get_image()
+            self.rendered_image.append(image)
             return image
         self.should_update_rendering = False
 
@@ -307,6 +308,7 @@ class AbstractEnv(gym.Env):
         If a callback has been set, use it to perform the rendering. This is useful for the environment wrappers
         such as video-recording monitor that need to access these intermediate renderings.
         """
+        self.enable_auto_render = True
         if self.viewer is not None and self.enable_auto_render:
             self.should_update_rendering = True
 
@@ -401,6 +403,8 @@ class AbstractEnv(gym.Env):
                 setattr(result, k, None)
         return result
 
+    def get_rendered_image(self) -> list:
+        return self.rendered_image
 
 class MultiAgentWrapper(Wrapper):
     def step(self, action):

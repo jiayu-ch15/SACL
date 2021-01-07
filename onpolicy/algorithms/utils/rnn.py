@@ -24,10 +24,10 @@ class RNNLayer(nn.Module):
 
     def forward(self, x, hxs, masks):
         if x.size(0) == hxs.size(0):
-            x, hxs = self.rnn(x.unsqueeze(0), (hxs * masks).unsqueeze(0))
+            x, hxs = self.rnn(x.unsqueeze(0), (hxs * masks.repeat(1, self._recurrent_N).unsqueeze(-1)).transpose(0, 1).contiguous())
             #x= self.gru(x.unsqueeze(0))
             x = x.squeeze(0)
-            hxs = hxs.squeeze(0)
+            hxs = hxs.transpose(0, 1)
         else:
             # x is a (T, N, -1) tensor that has been flatten to (T * N, -1)
             N = hxs.size(0)
@@ -57,16 +57,16 @@ class RNNLayer(nn.Module):
             # add t=0 and t=T to the list
             has_zeros = [0] + has_zeros + [T]
 
-            hxs = hxs.unsqueeze(0)
+            hxs = hxs.transpose(0, 1)
 
             outputs = []
             for i in range(len(has_zeros) - 1):
                 # We can now process steps that don't have any zeros in masks together!
                 # This is much faster
                 start_idx = has_zeros[i]
-                end_idx = has_zeros[i + 1]
-                rnn_scores, hxs = self.rnn(
-                    x[start_idx:end_idx], hxs * masks[start_idx].view(1, -1, 1))
+                end_idx = has_zeros[i + 1]               
+                temp = (hxs * masks[start_idx].view(1, -1, 1).repeat(self._recurrent_N, 1, 1)).contiguous()
+                rnn_scores, hxs = self.rnn(x[start_idx:end_idx], temp)
                 outputs.append(rnn_scores)
 
             # assert len(outputs) == T
@@ -75,7 +75,7 @@ class RNNLayer(nn.Module):
 
             # flatten
             x = x.reshape(T * N, -1)
-            hxs = hxs.squeeze(0)
+            hxs = hxs.transpose(0, 1)
 
         x = self.norm(x)
         return x, hxs

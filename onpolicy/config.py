@@ -7,7 +7,7 @@ def get_config():
     Please reach each `scripts/train/<env>_runner.py` file to find private hyperparameters
     only used in <env>.
 
-    prepare parameters:
+    Prepare parameters:
         --algorithm_name <algorithm_name>
             specifiy the algorithm, including `["rmappo", "mappo", "rmappg", "mappg", "trpo"]`
         --experiment_name <str>
@@ -32,15 +32,18 @@ def get_config():
             [for wandb usage], to specify user's name for simply collecting training data.
         --use_wandb
             [for wandb usage], by default True, will log date to wandb server. or else will use tensorboard to log data.
+    
     Env parameters:
         --env_name <str>
             specify the name of environment
         --use_obs_instead_of_state
             [only for some env] by default False, will use global state; or else will use concatenated local obs.
+    
     Replay Buffer parameters:
         --episode_length <int>
             the max length of episode in the buffer. 
-    network parameters:
+    
+    Network parameters:
         --share_policy
             by default True, all agents will share the same network; set to make training agents use different policies. 
         --use_centralized_V
@@ -70,9 +73,11 @@ def get_config():
         --use_recurrent_policy
             by default, use Recurrent Policy. If set, do not use.
         --recurrent_N <int>
-            The number of recurrent Network? (only support 1 for now, default 1). # TODO @Akash nned to support more
+            The number of recurrent layers ( default 1).
         --data_chunk_length <int>
             Time length of chunks used to train a recurrent_policy, default 10.
+    
+    Attn parameters:
         --use_attn
             by default False, use attention tactics. # TODO @zoeyuchao. 
         --attn_N
@@ -87,7 +92,8 @@ def get_config():
             by default True, use average pooling for attn model.
         --use_cat_self
             by default True, whether to strengthen own characteristics. # TODO @zoeyuchao. 
-    Optimizer Parameters:
+    
+    Optimizer parameters:
         --lr <float>
             learning rate parameter,  (default: 5e-4, fixed).
         --critic_lr <float>
@@ -97,7 +103,7 @@ def get_config():
         --weight_decay <float>
             coefficience of weight decay (default: 0) # TODO @zoeyuchao. Not sure about the meaning
     
-    PPO Parameters:
+    PPO parameters:
         --ppo_epoch <int>
             number of ppo epochs (default: 15)
         --use_policy_vhead
@@ -131,28 +137,34 @@ def get_config():
         --use_return_active_masks
             by default True, whether to mask useless data in return data.  # TODO @zoeyuchao. 
         --huber_delta <float>
-            coefficience of huber loss.   # TODO @zoeyuchao. 
+            coefficient of huber loss.   # TODO @zoeyuchao.   
+        --use_single_network
+            by default, whether to share base for policy and value network.
+    
+    PPG parameters:
         --aux_epoch <int>
             number of auxiliary epochs. (default: 4)
         --clone_coef <float>
             clone term coefficient (default: 0.01)
-        --use_single_network
-            by default, whether to share base for policy and value network. # TODO @zoeyuchao. Difference with use_centralized_V ?
-    run parameters：
+    
+    Run parameters：
         --use_linear_lr_decay
             by default, do not apply linear decay to learning rate. If set, use a linear schedule on the learning rate
+    
     Save & Log parameters:
         --save_interval <int>
             time duration between contiunous twice models saving.
         --log_interval <int>
             time duration between contiunous twice log printing.
-    Eval Parameters:
+    
+    Eval parameters:
         --use_eval
             by default, do not start evaluation. If set`, start evaluation alongside with training.
         --eval_interval <int>
             time duration between contiunous twice evaluation progress.
         --eval_episodes <int>
             number of episodes of a single evaluation.
+    
     Render parameters:
         --save_gifs
             by default, do not save render video. If set, save video.
@@ -162,7 +174,8 @@ def get_config():
             the number of episodes to render a given env
         --ifi <float>
             the play interval of each rendered image in saved video.
-    Pretrained Parameters:
+    
+    Pretrained parameters:
         --model_dir <str>
             by default None. set the path to pretrained model.
     """
@@ -188,7 +201,7 @@ def get_config():
                         help="Number of parallel envs for rendering rollout")
     parser.add_argument("--num_env_steps", type=int, default=10e6,
                         help='Number of environment steps to train (default: 10e6)')
-    parser.add_argument("--user_name", type=str, default='yuchao',help="[for wandb usage], to specify user's name for simply collecting training data.")
+    parser.add_argument("--user_name", type=str, default='zoeyuchao',help="[for wandb usage], to specify user's name for simply collecting training data.")
     parser.add_argument("--use_wandb", action='store_false', default=True, help="[for wandb usage], by default True, will log date to wandb server. or else will use tensorboard to log data.")
 
     # env parameters
@@ -209,6 +222,8 @@ def get_config():
                         default=False, help="Whether to use conv1d")
     parser.add_argument("--stacked_frames", type=int, default=1,
                         help="Dimension of hidden layers for actor/critic networks")
+    parser.add_argument("--use_stacked_frames", action='store_true',
+                        default=False, help="Whether to use stacked_frames")
     parser.add_argument("--hidden_size", type=int, default=64,
                         help="Dimension of hidden layers for actor/critic networks") # TODO @zoeyuchao. The same comment might in need of change.
     parser.add_argument("--layer_N", type=int, default=1,
@@ -230,8 +245,7 @@ def get_config():
                         default=False, help='Whether to use a naive recurrent policy')
     parser.add_argument("--use_recurrent_policy", action='store_false',
                         default=True, help='use a recurrent policy')
-    # TODO now only 1 is support
-    parser.add_argument("--recurrent_N", type=int, default=1, help="The number of recurrent Network, only support 1 for now.")
+    parser.add_argument("--recurrent_N", type=int, default=1, help="The number of recurrent layers.")
     parser.add_argument("--data_chunk_length", type=int, default=10,
                         help="Time length of chunks used to train a recurrent_policy")
 
@@ -287,7 +301,7 @@ def get_config():
     parser.add_argument("--use_value_active_masks",
                         action='store_false', default=True, help="by default True, whether to mask useless data in value loss.")
     parser.add_argument("--use_policy_active_masks",
-                        action='store_true', default=False, help="by default True, whether to mask useless data in policy loss.")
+                        action='store_false', default=True, help="by default True, whether to mask useless data in policy loss.")
     parser.add_argument("--huber_delta", type=float, default=10.0, help=" coefficience of huber loss.")
 
     # ppg parameters
@@ -301,9 +315,8 @@ def get_config():
     # run parameters
     parser.add_argument("--use_linear_lr_decay", action='store_true',
                         default=False, help='use a linear schedule on the learning rate')
-
     # save parameters
-    parser.add_argument("--save_interval", type=int, default=50, help="time duration between contiunous twice models saving.")
+    parser.add_argument("--save_interval", type=int, default=1, help="time duration between contiunous twice models saving.")
 
     # log parameters
     parser.add_argument("--log_interval", type=int, default=5, help="time duration between contiunous twice log printing.")
@@ -316,8 +329,9 @@ def get_config():
     # render parameters
     parser.add_argument("--save_gifs", action='store_true', default=False, help="by default, do not save render video. If set, save video.")
     parser.add_argument("--use_render", action='store_true', default=False, help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
+    parser.add_argument("--use_offscreen_render", action='store_true', default=False, help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
     parser.add_argument("--render_episodes", type=int, default=5, help="the number of episodes to render a given env")
-    parser.add_argument("--ifi", type=float, default=0.5, help="the play interval of each rendered image in saved video.")
+    parser.add_argument("--ifi", type=float, default=0.1, help="the play interval of each rendered image in saved video.")
 
     # pretrained parameters
     parser.add_argument("--model_dir", type=str, default=None, help="by default None. set the path to pretrained model.")

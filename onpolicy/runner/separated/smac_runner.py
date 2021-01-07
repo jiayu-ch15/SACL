@@ -154,8 +154,8 @@ class SMACRunner(Runner):
 
         dones_env = np.all(dones, axis=1)
 
-        rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
-        rnn_states_critic[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
+        rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
+        rnn_states_critic[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[2:]), dtype=np.float32)
         masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
         masks[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
@@ -202,46 +202,30 @@ class SMACRunner(Runner):
         one_episode_rewards = []
         eval_obs, eval_share_obs, eval_available_actions = self.eval_envs.reset()
 
-        if self.use_centralized_V:
-            eval_share_obs = np.expand_dims(eval_share_obs, 1).repeat(self.num_agents, axis=1)
-        else:
-            eval_share_obs = eval_obs
-
-        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.hidden_size), dtype=np.float32)
-        eval_rnn_states_critic = np.zeros_like(eval_rnn_states)
+        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
 
         while True:
             eval_actions = []
             for agent_id in range(self.num_agents):
                 self.trainer[agent_id].prep_rollout()
-                _, eval_action, _, eval_rnn_state, eval_rnn_state_critic = \
-                    self.trainer[agent_id].policy.get_actions(eval_share_obs[:, agent_id],
-                                                            eval_obs[:, agent_id],
-                                                            eval_rnn_states[:, agent_id],
-                                                            eval_rnn_states_critic[:, agent_id],
-                                                            eval_masks[:, agent_id],
-                                                            eval_available_actions[:, agent_id],
-                                                            deterministic=True)
+                eval_action, eval_rnn_state = self.trainer[agent_id].policy.act(eval_obs[:, agent_id],
+                                                    eval_rnn_states[:, agent_id],
+                                                    eval_masks[:, agent_id],
+                                                    eval_available_actions[:, agent_id],
+                                                    deterministic=True)
 
                 eval_actions.append(_t2n(eval_action))
                 eval_rnn_states[:, agent_id] = _t2n(eval_rnn_state)
-                eval_rnn_states_critic[:, agent_id] = _t2n(eval_rnn_state_critic)
-
+                
             eval_actions = np.array(eval_actions).transpose(1, 0, 2)
 
             # Obser reward and next obs
             eval_obs, eval_share_obs, eval_rewards, eval_dones, eval_infos, eval_available_actions = self.eval_envs.step(eval_actions)
             
-            if self.use_centralized_V:
-                eval_share_obs = np.expand_dims(eval_share_obs, 1).repeat(self.num_agents, axis=1)
-            else:
-                eval_share_obs = eval_obs
-
             eval_dones_env = np.all(eval_dones, axis=1)
 
-            eval_rnn_states[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
-            eval_rnn_states_critic[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, self.hidden_size), dtype=np.float32)
+            eval_rnn_states[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
             eval_masks = np.ones((self.all_args.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
             eval_masks[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
