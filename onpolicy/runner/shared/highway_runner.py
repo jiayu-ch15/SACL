@@ -19,6 +19,7 @@ class HighwayRunner(Runner):
     """
     def __init__(self, config):
         super(HighwayRunner, self).__init__(config)
+        self.use_render_vulnerability = self.all_args.use_render_vulnerability
         
     def run(self):
         self.warmup()   
@@ -45,7 +46,7 @@ class HighwayRunner(Runner):
 
                 assert self.use_render and self.use_render_vulnerability, ("can not set render options both True, turn off one of them.")
             
-                if self.all_args.use_render:
+                if self.use_render:
                     self.envs.render()
 
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
@@ -138,7 +139,7 @@ class HighwayRunner(Runner):
                 for key in info.keys():
                     if key in self.env_infos.keys():
                         self.env_infos[key].append(info[key])
-                    if key == "frames" and self.all_args.use_render_vulnerability:
+                    if key == "frames" and self.use_render_vulnerability:
                         self.render_vulnerability(info[key], suffix="train")
 
 
@@ -222,7 +223,7 @@ class HighwayRunner(Runner):
                         for key in eval_info.keys():
                             if key in eval_env_infos.keys():
                                 eval_env_infos[key].append(eval_info[key]) 
-                            if key == "frames" and self.all_args.use_render_vulnerability:
+                            if key == "frames" and self.use_render_vulnerability:
                                 self.render_vulnerability(info[key], suffix="eval") 
 
             print("eval average episode rewards is {}".format(np.sum(eval_episode_rewards, axis=-1)))              
