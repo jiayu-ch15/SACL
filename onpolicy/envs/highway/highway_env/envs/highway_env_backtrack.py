@@ -7,8 +7,7 @@ from onpolicy.envs.highway.highway_env.envs.common.abstract import AbstractEnv
 from onpolicy.envs.highway.highway_env.envs.common.action import Action
 from onpolicy.envs.highway.highway_env.road.road import Road, RoadNetwork
 from onpolicy.envs.highway.highway_env.vehicle.controller import ControlledVehicle
-from onpolicy.envs.highway.highway_env.vehicle.behavior import IDMVehicle
-import json, imageio
+import imageio
 from copy import copy
 
 class HighwayEnvBacktrack(AbstractEnv):
@@ -26,7 +25,7 @@ class HighwayEnvBacktrack(AbstractEnv):
     RIGHT_LANE_REWARD: float = 0.1
     """The reward received when driving on the right-most lanes, linearly mapped to zero for other lanes."""
 
-    HIGH_SPEED_REWARD: float = 0.4
+    HIGH_SPEED_REWARD: float = 0.9
     """The reward received when driving at full speed, linearly mapped to zero for lower speeds according to config["reward_speed_range"]."""
 
     LANE_CHANGE_REWARD: float = 0
@@ -43,8 +42,8 @@ class HighwayEnvBacktrack(AbstractEnv):
             },
             "lanes_count": 4,
             "other_vehicles_type": "highway_env.vehicle.behavior.IDMVehicle",
-            "vehicles_count": 2,
-            "controlled_vehicles": 2,
+            "vehicles_count": 50,
+            "controlled_vehicles": 1,
             "initial_lane_id": 0,
             "duration": 40,  # [s]
             "ego_spacing": 2,
@@ -52,36 +51,8 @@ class HighwayEnvBacktrack(AbstractEnv):
             "collision_reward": -1,  # The reward received when colliding with a vehicle.
             "reward_speed_range": [20, 30],
             "offroad_terminal": False,
-            "full_reset": True,
-            "reset_from_json_file": True,
-            "backtrack_state_path": "/home/jimmy/work/RL/env/edited/highway/scripts/configs/HighwayEnv/vehicle_checkpoint/test_vehicle_checkout.json",
-            "backtrack_state": {
-                "trained_vehicles":[
-                    {
-                        "trained_vehicle_lane_index": 0,
-                        "trained_vehicle_longitude_position": 20,
-                        "trained_vehicle_speed": 25
-                    },
-                    {
-                        "trained_vehicle_lane_index": 2,
-                        "trained_vehicle_longitude_position": 30,
-                        "trained_vehicle_speed": 25
-                    }
-                ],              
-                "npc_vehicles":[
-                    {
-                        "npc_vehicle_lane_index": 0,
-                        "npc_vehicle_longitude_position": 30,
-                        "npc_vehicle_speed": 25
-                    },
-                    {
-                        "npc_vehicle_lane_index": 3,
-                        "npc_vehicle_longitude_position": 40,
-                        "npc_vehicle_speed": 25
-                    }
-                ]
-            },
-            "reward_shape_correction": True,
+    
+  
             "enable_backtrack": True,
             "backward_step": 20
         })
@@ -95,17 +66,16 @@ class HighwayEnvBacktrack(AbstractEnv):
         self.backtrack_time  = 0
         return config
 
-
     def _reset(self) -> None:
         if self._inner_reset_backward:
             self.road.vehicles = []
             self._reset_from_inner_backup()
-        elif self.config["full_reset"]:
-            self._create_road()
-            self._create_vehicles()
         else:
             self._create_road()
-            self._reset_from_file()
+            self._create_vehicles()
+            self._inner_controlled_vechiles_backup_config = []
+            self._inner_other_vechiles_backup_config = []
+            self._inner_controlled_vechiles_backup_action = []
 
     def _reset_from_inner_backup(self) -> None:
         """Create some new random vehicles of a given type, and add them on the road."""
@@ -129,102 +99,196 @@ class HighwayEnvBacktrack(AbstractEnv):
             self.other_vehicles.append(other_vehicle)
             self.road.vehicles.append(other_vehicle)
 
-
-    def _reset_from_file(self) -> None:
-        """Create some new random vehicles of a given type, and add them on the road."""
-        self.controlled_vehicles = []
-        if(self.config["reset_from_json_file"]):
-            with open(self.config["backtrack_state_path"]) as f:
-                backtrack_config = json.loads(f.read())
-        else:
-            backtrack_config = self.config["backtrack_state"]
-        train_config=backtrack_config["trained_vehicles"]
-        npc_config=backtrack_config["npc_vehicles"]
-        for _ in range(self.config["controlled_vehicles"]):
-            vehicle = self.action_type.vehicle_class.make_on_lane(self.road, ('0', '1', train_config[_]["trained_vehicle_lane_index"]), train_config[_]["trained_vehicle_longitude_position"], train_config[_]["trained_vehicle_speed"])
-            self.controlled_vehicles.append(vehicle)
-            self.road.vehicles.append(vehicle)
-
-        vehicles_type = utils.class_from_path(self.config["other_vehicles_type"])
-        self.other_vehicles = []
-        for _ in range(self.config["vehicles_count"]):
-            other_vehicle = vehicles_type.make_on_lane(self.road, ('0', '1', npc_config[_]["npc_vehicle_lane_index"]), npc_config[_]["npc_vehicle_longitude_position"], npc_config[_]["npc_vehicle_speed"])
-            self.other_vehicles.append(other_vehicle)
-            self.road.vehicles.append(other_vehicle)
-
-
     def _create_road(self) -> None:
         """Create a road composed of straight adjacent lanes."""
         self.road = Road(network=RoadNetwork.straight_road_network(self.config["lanes_count"]),
                          np_random=self.np_random, record_history=self.config["show_trajectories"])
 
-
     def _create_vehicles(self) -> None:
         """Create some new random vehicles of a given type, and add them on the road."""
         self.controlled_vehicles = []
-        for _ in range(self.config["controlled_vehicles"]):
+
+        for i in range(self.config["controlled_vehicles"]):
+
             vehicle = self.action_type.vehicle_class.create_random(self.road,
                                                                    speed=25,
                                                                    lane_id=self.config["initial_lane_id"],
-                                                                   spacing=self.config["ego_spacing"])
+                                                                   spacing=self.config["ego_spacing"],
+                                                                   )
             self.controlled_vehicles.append(vehicle)
             self.road.vehicles.append(vehicle)
 
+
         vehicles_type = utils.class_from_path(self.config["other_vehicles_type"])
         self.other_vehicles = []
+
         for _ in range(self.config["vehicles_count"]):
             other_vehicle = vehicles_type.create_random(self.road, spacing=1 / self.config["vehicles_density"])
             self.other_vehicles.append(other_vehicle)
             self.road.vehicles.append(other_vehicle)
-    
             
-    def _reward(self, action: Action) -> float:
+
+    def _reward(self, action: Action) :#-> float: now we return a list
         """
         The reward is defined to foster driving at high speed, on the rightmost lanes, and to avoid collisions.
         :param action: the last action performed
         :return: the corresponding reward
         """
-        neighbours = self.road.network.all_side_lanes(self.vehicle.lane_index)
-        lane = self.vehicle.target_lane_index[2] if isinstance(self.vehicle, ControlledVehicle) \
-            else self.vehicle.lane_index[2]
-        scaled_speed = utils.lmap(self.vehicle.speed, self.config["reward_speed_range"], [0, 1])
-        reward = \
-            + self.config["collision_reward"] * self.vehicle.crashed \
-            + self.RIGHT_LANE_REWARD * lane / max(len(neighbours) - 1, 1) \
-            + self.HIGH_SPEED_REWARD * np.clip(scaled_speed, 0, 1)
-        reward = utils.lmap(reward,
-                          [self.config["collision_reward"], self.HIGH_SPEED_REWARD + self.RIGHT_LANE_REWARD],
-                          [0, 1])
-        reward = 0 if not self.vehicle.on_road else reward
-        
-        # save configuration to self._inner_backup_config
-        if self.config["enable_backtrack"]:
-            self._save_backtrack_configuration(action)
-        
-        # reward correction based on the last several steps' behavior
-        if self.vehicle.crashed:
-            reward = self._reward_backward_correction(reward)
 
-        if self._is_terminal():
-            self._inner_controlled_vechiles_backup_config = []
-            self._inner_other_vechiles_backup_config = []
-            self._inner_controlled_vechiles_backup_action = []
+        # -> float: now we change it to return a list!!!!!
+        n_defenders=self.config["n_defenders"]
+        n_attackers=self.config["n_attackers"]
+        n_dummies=self.config["n_dummies"]
+        rewards=[]
+        for vehicle in self.controlled_vehicles:
         
-        return reward
+            neighbours = self.road.network.all_side_lanes(vehicle.lane_index)
+            lane = vehicle.target_lane_index[2] if isinstance(vehicle, ControlledVehicle) \
+                else vehicle.lane_index[2]
+            scaled_speed = utils.lmap(vehicle.speed, self.config["reward_speed_range"], [0, 1])
+            reward = \
+                + self.config["collision_reward"] * vehicle.crashed \
+                + self.RIGHT_LANE_REWARD * lane / max(len(neighbours) - 1, 1) \
+                + self.HIGH_SPEED_REWARD * np.clip(scaled_speed, 0, 1)
+            #reward = utils.lmap(reward,
+            #              [self.config["collision_reward"], self.HIGH_SPEED_REWARD + self.RIGHT_LANE_REWARD],
+            #              [0, 1])
+            #reward = 0 if not vehicle.on_road else reward
+            reward = -1 if not vehicle.on_road else reward
+            '''
+            scaled_speed = utils.lmap(vehicle.speed, self.config["reward_speed_range"], [0, 1])
+            reward = \
+                + self.config["collision_reward"] * vehicle.crashed \
+                + self.HIGH_SPEED_REWARD * np.clip(scaled_speed, 0, 1)
+            #reward = utils.lmap(reward,
+            #                    [self.config["collision_reward"], self.HIGH_SPEED_REWARD ],
+            #                    [0, 1])
+            reward = -1 if not vehicle.on_road else reward
+            '''
+            rewards.append(reward)
 
+            # save configuration to self._inner_backup_config
+            if self.config["enable_backtrack"]:
+                self._save_backtrack_configuration(action)
+            
+            # reward correction based on the last several steps' behavior
+            # currently reward is not changed. Just implement backtrack
+            if self.vehicle.crashed:
+                reward = self._reward_backward_correction(reward)
+    
+         
+        return rewards
 
-    def _is_terminal(self) -> bool:
+    def _is_terminal(self) :#-> bool:
         """The episode is over if the ego vehicle crashed or the time is out."""
-        return self.vehicle.crashed or \
-            self.steps >= self.config["duration"] or \
-            (self.config["offroad_terminal"] and not self.vehicle.on_road)
+        #now we change it to return a list
+        dones = []
+        for vehicle in self.controlled_vehicles:
+            dones.append(vehicle.crashed or \
+                         self.steps >= self.config["duration"] or \
+                         (self.config["offroad_terminal"] and not vehicle.on_road))
+
+        defender_done = dones[:self.config["n_defenders"]]
+        attacker_done = dones[self.config["n_defenders"]:self.config["n_defenders"] + self.config["n_attackers"]]
+
+        if np.all(defender_done):
+            for i in range(len(dones)):
+                dones[i] = True
+        elif len(attacker_done) > 0 and np.all(attacker_done):
+            for i in range(len(dones)):
+                dones[i] = True
+        return dones
+
+    def adv_rew(self) :#-> bool:
+        dones = []
+        for vehicle in self.controlled_vehicles:
+            dones.append(vehicle.crashed or \
+                         self.steps >= self.config["duration"] or \
+                         (self.config["offroad_terminal"] and not vehicle.on_road))
+
+        defender_done = dones[:self.config["n_defenders"]]
+        attacker_done = dones[self.config["n_defenders"]:self.config["n_defenders"] + self.config["n_attackers"]]
+
+        if np.all(defender_done) and (not np.all(attacker_done)):
+            return 1
+        else:
+            return 0
+
+    def _is_done(self) :#-> bool:
+        """The episode is over if the ego vehicle crashed or the time is out."""
+        #now we change it to return a list
+        dones = []
+        for vehicle in self.controlled_vehicles:
+            dones.append(vehicle.crashed or \
+                         self.steps >= self.config["duration"] or \
+                         (self.config["offroad_terminal"] and not vehicle.on_road))
+
+        defender_done = dones[:self.config["n_defenders"]]
+        attacker_done = dones[self.config["n_defenders"]:self.config["n_defenders"] + self.config["n_attackers"]]
+
+        if np.all(defender_done):
+            for i in range(len(dones)):
+                dones[i]=True
+            return True
+        elif len(attacker_done)>0 and np.all(attacker_done):
+            for i in range(len(dones)):
+                dones[i]=True
+            return True
+        else:
+            return False
 
 
     def _cost(self, action: int) -> float:
         """The cost signal is the occurrence of collision."""
         return float(self.vehicle.crashed)
 
+    def get_available_actions(self):
+        """
+        Get the list of currently available actions.
 
+        Lane changes are not available on the boundary of the road, and speed changes are not available at
+        maximal or minimal speed.
+
+        :return: the list of available actions
+        """
+        from onpolicy.envs.highway.highway_env.envs.common.action import  DiscreteMetaAction,MultiAgentAction
+
+        if isinstance(self.action_type, DiscreteMetaAction):
+            actions = [self.action_type.actions_indexes['IDLE']]
+            for l_index in self.road.network.side_lanes(self.vehicle.lane_index):
+                if l_index[2] < self.vehicle.lane_index[2] \
+                        and self.road.network.get_lane(l_index).is_reachable_from(self.vehicle.position) \
+                        and self.action_type.lateral:
+                    actions.append(self.action_type.actions_indexes['LANE_LEFT'])
+                if l_index[2] > self.vehicle.lane_index[2] \
+                        and self.road.network.get_lane(l_index).is_reachable_from(self.vehicle.position) \
+                        and self.action_type.lateral:
+                    actions.append(self.action_type.actions_indexes['LANE_RIGHT'])
+            if self.vehicle.speed_index < self.vehicle.SPEED_COUNT - 1 and self.action_type.longitudinal:
+                actions.append(self.action_type.actions_indexes['FASTER'])
+            if self.vehicle.speed_index > 0 and self.action_type.longitudinal:
+                actions.append(self.action_type.actions_indexes['SLOWER'])
+            return actions
+
+        elif isinstance(self.action_type, MultiAgentAction):
+            multi_actions=[]
+            for vehicle,action_type in zip(self.controlled_vehicles,self.action_type.agents_action_types):
+                actions = [action_type.actions_indexes['IDLE']]
+                for l_index in self.road.network.side_lanes(vehicle.lane_index):
+                    if l_index[2] < vehicle.lane_index[2] \
+                            and self.road.network.get_lane(l_index).is_reachable_from(self.vehicle.position) \
+                            and action_type.lateral:
+                        actions.append(action_type.actions_indexes['LANE_LEFT'])
+                    if l_index[2] > vehicle.lane_index[2] \
+                            and self.road.network.get_lane(l_index).is_reachable_from(self.vehicle.position) \
+                            and action_type.lateral:
+                        actions.append(action_type.actions_indexes['LANE_RIGHT'])
+                if vehicle.speed_index < vehicle.SPEED_COUNT - 1 and action_type.longitudinal:
+                    actions.append(action_type.actions_indexes['FASTER'])
+                if vehicle.speed_index > 0 and action_type.longitudinal:
+                    actions.append(action_type.actions_indexes['SLOWER'])
+                multi_actions.append(actions)
+            return multi_actions
     def _save_backtrack_configuration(self, action) -> None:
         temp_dict_list = []
         for _i in range(self.config["controlled_vehicles"]):
@@ -296,9 +360,8 @@ class HighwayEnvBacktrack(AbstractEnv):
             imageio.mimsave(uri="backtrack"+str(self.backtrack_time)+".gif", ims=images, format="GIF", duration=0.01) 
             self.backtrack_time += 1
         return reward
-        
-
 register(
     id='highwayBacktrack-v0',
     entry_point='onpolicy.envs.highway.highway_env.envs:HighwayEnvBacktrack',
 )
+
