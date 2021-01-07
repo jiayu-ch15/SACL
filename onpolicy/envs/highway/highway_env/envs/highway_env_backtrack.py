@@ -248,23 +248,23 @@ class HighwayEnvBacktrack(AbstractEnv):
 
     def _reward_backward_correction(self, reward) -> float:
         if self._inner_reset_backward:
-            print(f"pass")
+            # print(f"pass")
             pass
         elif self.config["reward_shape_correction"]:
-            print(f"\n{self.backtrack_time}")
+            # print(f"\n{self.backtrack_time}")
             self._inner_reset_backward = True
             reward_before = reward
             step_when_backward = self.steps # the number of step when env backups to "backward_step" before.
             self._inner_backup_backtrack_step = max(self.steps - self.config["backward_step"],0) # backward to 10 steps before.
-            print(f"current step = {self.steps}; backup step = {self._inner_backup_backtrack_step}")
-            print(f"self._inner_controlled_vechiles_backup_config = {self._inner_controlled_vechiles_backup_config}")
-            print(f"self._inner_other_vechiles_backup_config = {self._inner_other_vechiles_backup_config}")
+            # print(f"current step = {self.steps}; backup step = {self._inner_backup_backtrack_step}")
+            # print(f"self._inner_controlled_vechiles_backup_config = {self._inner_controlled_vechiles_backup_config}")
+            # print(f"self._inner_other_vechiles_backup_config = {self._inner_other_vechiles_backup_config}")
             for _ in range(self.config["vehicles_count"]):
-                print(f"last npc position = {self.other_vehicles[_].position[0]}")
+                # print(f"last npc position = {self.other_vehicles[_].position[0]}")
             for _i in range(self.config["controlled_vehicles"]):
-                print(f"last controlled vehicle={self.controlled_vehicles[_i].position[0]}")
+                # print(f"last controlled vehicle={self.controlled_vehicles[_i].position[0]}")
             backup_action = self._inner_controlled_vechiles_backup_action
-            print(f"backup_action = {backup_action}")
+            # print(f"backup_action = {backup_action}")
             images = []
             rendered_image = self.get_rendered_image()
             for single_image in rendered_image:
@@ -272,30 +272,27 @@ class HighwayEnvBacktrack(AbstractEnv):
             imageio.mimsave(uri="crash"+str(self.backtrack_time)+".gif", ims=images, format="GIF", duration=0.01) 
             
             self.reset()
-            # self.render(mode='rgb_array')
             images = []
             for _ in range(self.config["vehicles_count"]):
-                print(f"at lane {self.other_vehicles[_].lane_index} npc position = {self.other_vehicles[_].position[0]}")
+                # print(f"at lane {self.other_vehicles[_].lane_index} npc position = {self.other_vehicles[_].position[0]}")
             for _i in range(self.config["controlled_vehicles"]):
-                print(f"at lane {self.controlled_vehicles[_i].lane_index} controlled vehicle={self.controlled_vehicles[_i].position[0]}")
+                # print(f"at lane {self.controlled_vehicles[_i].lane_index} controlled vehicle={self.controlled_vehicles[_i].position[0]}")
             backtrack_action_list = []
             temp_terminal = False
             for _i in range(min(self.config["backward_step"]-1, step_when_backward-1)):
                 if not temp_terminal:
-                    # print(f"call step {_i}")
                     taken_action = backup_action[self._inner_backup_backtrack_step + _i + 1]
                     temp_observation, temp_reward, temp_terminal, temp_info = self.step(taken_action[0])
                     backtrack_action_list.append(taken_action)
-                    # images.append(self.viewer.get_image())
             rendered_image = self.get_rendered_image()
             for single_image in rendered_image:
                 images.append(single_image)
             self._inner_reset_backward = False
-            print(f"backtrack action list = {backtrack_action_list}")
+            # print(f"backtrack action list = {backtrack_action_list}")
             for _ in range(self.config["vehicles_count"]):
-                print(f"at lane {self.other_vehicles[_].lane_index} npc position = {self.other_vehicles[_].position[0]}")
+                # print(f"at lane {self.other_vehicles[_].lane_index} npc position = {self.other_vehicles[_].position[0]}")
             for _i in range(self.config["controlled_vehicles"]):
-                print(f"at lane {self.controlled_vehicles[_i].lane_index} controlled vehicle={self.controlled_vehicles[_i].position[0]}")
+                # print(f"at lane {self.controlled_vehicles[_i].lane_index} controlled vehicle={self.controlled_vehicles[_i].position[0]}")
             imageio.mimsave(uri="backtrack"+str(self.backtrack_time)+".gif", ims=images, format="GIF", duration=0.01) 
             self.backtrack_time += 1
         return reward
