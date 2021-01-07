@@ -42,6 +42,12 @@ class HighwayRunner(Runner):
                 values, actions, action_log_probs, rnn_states, rnn_states_critic = self.collect(step)
                 # Obser reward and next obs
                 obs, rewards, dones, infos = self.envs.step(actions)
+
+                assert self.use_render and self.use_render_vulnerability, ("can not set render options both True, turn off one of them.")
+            
+                if self.all_args.use_render:
+                    self.envs.render()
+
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
                 # insert data into buffer
                 self.insert(data)
