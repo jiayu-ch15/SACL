@@ -99,6 +99,8 @@ def main(args):
     else:
         raise NotImplementedError
 
+    assert (all_args.use_render and all_args.use_render_vulnerability)==False, ("can not set render options both True, turn off one of them.")
+
     # cuda
     if all_args.cuda and torch.cuda.is_available():
         print("choose to use gpu...")

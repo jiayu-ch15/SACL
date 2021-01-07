@@ -44,8 +44,6 @@ class HighwayRunner(Runner):
                 # Obser reward and next obs
                 obs, rewards, dones, infos = self.envs.step(actions)
 
-                assert self.use_render and self.use_render_vulnerability, ("can not set render options both True, turn off one of them.")
-            
                 if self.use_render:
                     self.envs.render()
 
