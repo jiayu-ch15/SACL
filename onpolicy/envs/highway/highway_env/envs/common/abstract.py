@@ -95,7 +95,7 @@ class AbstractEnv(gym.Env):
             "action": {
                 "type": "DiscreteMetaAction"
             },
-            "simulation_frequency": 15,  # [Hz]
+            "simulation_frequency": 1,  # [Hz]
             "policy_frequency": 1,  # [Hz]
             "other_vehicles_type": "onpolicy.envs.highway.highway_env.vehicle.behavior.IDMVehicle",
             "screen_width": 1000,  # [px]
