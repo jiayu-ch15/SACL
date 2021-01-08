@@ -15,6 +15,7 @@ def _t2n(x):
 class HanabiRunner(Runner):
     def __init__(self, config):
         super(HanabiRunner, self).__init__(config)
+        self.true_total_num_steps = 0
     
     def run(self):
         self.turn_obs = np.zeros((self.n_rollout_threads,*self.buffer.obs.shape[2:]), dtype=np.float32)
@@ -28,7 +29,7 @@ class HanabiRunner(Runner):
         self.turn_masks = np.ones((self.n_rollout_threads,*self.buffer.masks.shape[2:]), dtype=np.float32)
         self.turn_active_masks = np.ones_like(self.turn_masks)
         self.turn_bad_masks = np.ones_like(self.turn_masks)
-        self.turn_rewards = np.zeros((self.n_rollout_threads,*self.buffer.rewards.shape[2:]), dtype=np.float32)
+        self.turn_rewards = np.zeros((self.n_rollout_threads, *self.buffer.rewards.shape[2:]), dtype=np.float32)
 
         self.turn_rewards_since_last_action = np.zeros_like(self.turn_rewards)
 
@@ -108,17 +109,17 @@ class HanabiRunner(Runner):
                     average_score = np.mean(self.scores) if len(self.scores) > 0 else 0.0
                     print("average score is {}.".format(average_score))
                     if self.use_wandb:
-                        wandb.log({'average_score': average_score}, step=total_num_steps)
+                        wandb.log({'average_score': average_score}, step = self.true_total_num_steps)
                     else:
-                        self.writter.add_scalars('average_score', {'average_score': average_score}, total_num_steps)
+                        self.writter.add_scalars('average_score', {'average_score': average_score}, self.true_total_num_steps)
 
                 train_infos["average_step_rewards"] = np.mean(self.buffer.rewards)
                 
-                self.log_train(train_infos, total_num_steps)
+                self.log_train(train_infos, self.true_total_num_steps)
 
             # eval
             if episode % self.eval_interval == 0 and self.use_eval:
-                self.eval(total_num_steps)
+                self.eval(self.true_total_num_steps)
 
     def warmup(self):
         # reset env
@@ -161,6 +162,8 @@ class HanabiRunner(Runner):
             self.turn_rnn_states_critic[choose, current_agent_id] = _t2n(rnn_state_critic)
 
             obs, share_obs, rewards, dones, infos, available_actions = self.envs.step(env_actions)
+            
+            self.true_total_num_steps += (choose==True).sum()
             share_obs = share_obs if self.use_centralized_V else obs
 
             # truly used value
@@ -213,6 +216,7 @@ class HanabiRunner(Runner):
                 if done:
                     if 'score' in info.keys():
                         self.scores.append(info['score'])
+            
    
     def train(self):
         self.trainer.prep_training()
