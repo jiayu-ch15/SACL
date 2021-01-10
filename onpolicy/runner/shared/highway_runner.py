@@ -45,6 +45,7 @@ class HighwayRunner(Runner):
                 obs, rewards, dones, infos = self.envs.step(actions)
 
                 if self.use_render:
+                    print("i am in render")
                     self.envs.render(mode='human')
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
                 # insert data into buffer
