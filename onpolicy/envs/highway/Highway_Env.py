@@ -99,6 +99,7 @@ class HighwayEnv(gym.core.Wrapper):
         self.action_space = self.new_action_space
 
         self.cache_frames = []
+        self.episode_num=0
 
     def load_dummies(self):
         self.dummies = []
@@ -233,7 +234,8 @@ class HighwayEnv(gym.core.Wrapper):
             infos["speed"]=np.mean(self.episode_speeds, axis=0)
 
             crashs = [[infos["crashed"][self.train_start_idx + agent_id]] for agent_id in range(self.n_agents)]
-            infos["crashed"] = np.mean(crashs, axis=0)
+            self.crashs.append(np.mean(crashs, axis=0))
+            infos["crashed"] = np.mean(self.crashs, axis=0)
 
             # ! @zhuo u need to use this one!
             # 1. train dones
@@ -271,9 +273,12 @@ class HighwayEnv(gym.core.Wrapper):
     def reset(self, choose = True):
         
         if choose:
+            if self.episode_num%100==0:
+                self.episode_speeds = []
+                self.crashs = []
+            self.episode_num+=1
+
             self.episode_rewards = []
-            self.episode_speeds=[]
-            self.crashs=[]
             self.episode_dummy_rewards = []
             self.episode_other_rewards = []
             self.current_step = 0
