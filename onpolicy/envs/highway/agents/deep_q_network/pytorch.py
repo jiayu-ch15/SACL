@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class DQNAgent(AbstractDQNAgent):
-    def __init__(self, env, config=None, vehicle_id = 0)::
+    def __init__(self, env, config=None, vehicle_id = 0):
         super(DQNAgent, self).__init__(env, config, vehicle_id)
         size_model_config(self.env, self.config["model"])
         self.value_net = model_factory(self.config["model"])
@@ -28,6 +28,7 @@ class DQNAgent(AbstractDQNAgent):
                                            self.value_net.parameters(),
                                            **self.config["optimizer"])
         self.steps = 0
+        self.vehicle_id = vehicle_id
 
     def step_optimizer(self, loss):
         # Optimize the model
@@ -87,10 +88,14 @@ class DQNAgent(AbstractDQNAgent):
         return filename
 
     def load(self, filename):
+        print(f"self.device = {self.device}")
+        print(f"load_filename= {filename}")
         checkpoint = torch.load(filename, map_location=self.device)
         self.value_net.load_state_dict(checkpoint['state_dict'])
         self.target_net.load_state_dict(checkpoint['state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer'])
+        print(f"filename done = {filename}")
+
         return filename
 
     def initialize_model(self):
@@ -98,7 +103,12 @@ class DQNAgent(AbstractDQNAgent):
 
     def set_writer(self, writer):
         super().set_writer(writer)
-        obs_shape = self.env.observation_space[vehicle_id].shape if isinstance(self.env.observation_space[vehicle_id], spaces.Box) else \
+        print(f"self.env.observation_space={self.env.observation_space}")
+        print(f"observation {self.env.observation_space[self.vehicle_id]}")
+        try:
+            if isinstance(self.env.observation_space[self.vehicle_id], spaces.Box):
+                obs_shape = self.env.observation_space[self.vehicle_id].shape 
+        except: 
             raise AttributeError
         model_input = torch.zeros((1, *obs_shape), dtype=torch.float, device=self.device)
         self.writer.add_graph(self.value_net, input_to_model=(model_input,)),

@@ -5,7 +5,7 @@ import torch
 from onpolicy.envs.highway.common.factory import load_environment
 from copy import deepcopy
 from pathlib import Path
-
+import os
 
 class HighwayEnv(gym.core.Wrapper):
     def __init__(self, all_args):
@@ -84,7 +84,7 @@ class HighwayEnv(gym.core.Wrapper):
         if self.n_other_agents>0:
             self.load_other_agents()
         if self.n_dummies>0:
-            self.dummy_agent_type = "RobustValueIteration" # "ValueIteration" or "RobustValueIteration" or "MonteCarloTreeSearchDeterministic" or "Trained_dueling_ddqn_agent"
+            self.dummy_agent_type = "Trained_dueling_ddqn_agent" # "ValueIteration" or "RobustValueIteration" or "MonteCarloTreeSearchDeterministic" or "Trained_dueling_ddqn_agent"
             self.load_dummies() 
         
         # get new obs and action space
@@ -147,8 +147,9 @@ class HighwayEnv(gym.core.Wrapper):
                     "temperature": 1.0,
                     "final_temperature": 0.05
                 },
+                "device":"cpu",
                 "loss_function": "l2",
-                "double": true,
+                "double": True,
                 "model": {
                     "type": "DuelingNetwork",
                     "base_module": {
@@ -160,19 +161,16 @@ class HighwayEnv(gym.core.Wrapper):
                     "advantage": {
                         "layers": [128]
                     }
-                }, 
-                "model_path": '../envs/highway/agents/deep_q_network/trained_dueling_ddqn_agent.tar'
+                } 
             }
             from .agents.deep_q_network.pytorch import DQNAgent as DummyAgent    
             for dummy_id in range(self.n_dummies):
                 self.dummies.append(DummyAgent(self.env_init, agent_config,                
                                                 vehicle_id = dummy_id + self.n_attackers + self.n_defenders))
-                if isinstance(agent_config["model_path"], str):
-                    model_path = Path(agent_config["model_path"])
-                    print(f" model_path = {model_path}")
-                    model_path = self.dummies[dummy_id].load(filename=model_path)
-                    if model_path:
-                        print("Loaded {} model from {}".format(self.dummies[dummy_id].__class__.__name__, model_path))
+                model_path = (os.path.split(os.path.dirname(os.path.abspath(__file__)))[0]+"/highway/agents/deep_q_network/trained_dueling_ddqn_agent.tar")
+                model_path = self.dummies[dummy_id].load(filename=model_path)
+                if model_path:
+                    print("Loaded {} model from {}".format(self.dummies[dummy_id].__class__.__name__, model_path))
 
                     # put trained agent into evaluation mode
                     try:

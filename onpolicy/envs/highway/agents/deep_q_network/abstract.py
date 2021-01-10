@@ -9,7 +9,7 @@ from onpolicy.envs.highway.agents.common.memory import ReplayMemory, Transition
 
 class AbstractDQNAgent(AbstractStochasticAgent, ABC):
     def __init__(self, env, config=None, vehicle_id=0):
-        super(AbstractDQNAgent, self).__init__(config, vehicle_id)
+        super(AbstractDQNAgent, self).__init__(config)
         self.env = env
         assert isinstance(env.action_space[vehicle_id], spaces.Discrete) or isinstance(env.action_space[vehicle_id], spaces.Tuple), \
             "Only compatible with Discrete action spaces."
