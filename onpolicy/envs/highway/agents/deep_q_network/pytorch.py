@@ -88,14 +88,10 @@ class DQNAgent(AbstractDQNAgent):
         return filename
 
     def load(self, filename):
-        print(f"self.device = {self.device}")
-        print(f"load_filename= {filename}")
         checkpoint = torch.load(filename, map_location=self.device)
         self.value_net.load_state_dict(checkpoint['state_dict'])
         self.target_net.load_state_dict(checkpoint['state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer'])
-        print(f"filename done = {filename}")
-
         return filename
 
     def initialize_model(self):

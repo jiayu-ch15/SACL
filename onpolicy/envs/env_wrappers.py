@@ -293,7 +293,6 @@ class SubprocVecEnv(ShareVecEnv):
 
     def render(self, mode="rgb_array"):
         for remote, mo in zip(self.remotes, mode):
-            print("second render")
             remote.send(('render', mo))
         if mode == "rgb_array":   
             frame = [remote.recv() for remote in self.remotes]
