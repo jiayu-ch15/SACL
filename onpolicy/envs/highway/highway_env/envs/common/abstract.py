@@ -95,7 +95,7 @@ class AbstractEnv(gym.Env):
             "action": {
                 "type": "DiscreteMetaAction"
             },
-            "simulation_frequency": 15,  # [Hz]
+            "simulation_frequency": 2,  # [Hz]
             "policy_frequency": 1,  # [Hz]
             "other_vehicles_type": "onpolicy.envs.highway.highway_env.vehicle.behavior.IDMVehicle",
             "screen_width": 1000,  # [px]
@@ -189,7 +189,6 @@ class AbstractEnv(gym.Env):
             raise NotImplementedError("The road and vehicle must be initialized in the environment implementation")
 
         self.steps += 1
-
         self._simulate(action)
 
         obs = self.observation_type.observe()
@@ -199,8 +198,8 @@ class AbstractEnv(gym.Env):
         #print("reward:",reward)
         terminal = self._is_terminal()
         info = {
-            "speed": self.vehicle.speed,
-            "crashed": self.vehicle.crashed,
+            "speed": [vehicle.speed for vehicle in self.controlled_vehicles],
+            "crashed": [vehicle.crashed for vehicle in self.controlled_vehicles],
             "action": action,
         }
         try:
