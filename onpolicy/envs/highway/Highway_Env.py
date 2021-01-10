@@ -58,10 +58,14 @@ class HighwayEnv(gym.core.Wrapper):
                             "type": "Kinematics"
                         }
                     },
+                    "other_vehicles_type": "onpolicy.envs.highway.highway_env.vehicle.dummy.DummyVehicle",
+                    # other vehicles could also set as "onpolicy.envs.highway.highway_env.vehicle.dummy.DummyVehicle" 
+                    # Dummy Vehicle is the vehicle keeping lane with the speed of 25 m/s.
+                    # While IDM Vehicle is the vehicle which is able to change lane and speed based on the obs of its front & rear vehicle
                     "vehicles_count": 50,
                     "offscreen_rendering": self.use_offscreen_render,
         }
-
+        
         self.env_init = load_environment(self.env_dict)
 
         super().__init__(self.env_init)
