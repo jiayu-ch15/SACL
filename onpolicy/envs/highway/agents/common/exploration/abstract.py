@@ -2,7 +2,7 @@ import numpy as np
 from gym.utils import seeding
 from abc import abstractmethod, ABC
 
-from rl_agents.configuration import Configurable
+from onpolicy.envs.highway.configuration import Configurable
 
 
 class DiscreteDistribution(Configurable, ABC):
@@ -49,9 +49,9 @@ def exploration_factory(exploration_config, action_space):
     :param action_space: the environment action space
     :return: a new exploration policy
     """
-    from rl_agents.agents.common.exploration.boltzmann import Boltzmann
-    from rl_agents.agents.common.exploration.epsilon_greedy import EpsilonGreedy
-    from rl_agents.agents.common.exploration.greedy import Greedy
+    from onpolicy.envs.highway.agents.common.exploration.boltzmann import Boltzmann
+    from onpolicy.envs.highway.agents.common.exploration.epsilon_greedy import EpsilonGreedy
+    from onpolicy.envs.highway.agents.common.exploration.greedy import Greedy
 
     if exploration_config['method'] == 'Greedy':
         return Greedy(action_space, exploration_config)

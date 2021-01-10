@@ -1,17 +1,17 @@
 from __future__ import division, print_function
 
-from rl_agents.agents.budgeted_ftq.agent import BFTQAgent
-from rl_agents.agents.budgeted_ftq.graphics import BFTQGraphics
-from rl_agents.agents.deep_q_network.abstract import AbstractDQNAgent
-from rl_agents.agents.deep_q_network.graphics import DQNGraphics
-from rl_agents.agents.dynamic_programming.graphics import ValueIterationGraphics
-from rl_agents.agents.dynamic_programming.value_iteration import ValueIterationAgent
-from rl_agents.agents.tree_search.abstract import AbstractTreeSearchAgent
-from rl_agents.agents.tree_search.mdp_gape import MDPGapEAgent
-from rl_agents.agents.tree_search.graphics import TreeGraphics, MCTSGraphics, DiscreteRobustPlannerGraphics, \
+from onpolicy.envs.highway.agents.budgeted_ftq.agent import BFTQAgent
+from onpolicy.envs.highway.agents.budgeted_ftq.graphics import BFTQGraphics
+from onpolicy.envs.highway.agents.deep_q_network.abstract import AbstractDQNAgent
+from onpolicy.envs.highway.agents.deep_q_network.graphics import DQNGraphics
+from onpolicy.envs.highway.agents.dynamic_programming.graphics import ValueIterationGraphics
+from onpolicy.envs.highway.agents.dynamic_programming.value_iteration import ValueIterationAgent
+from onpolicy.envs.highway.agents.tree_search.abstract import AbstractTreeSearchAgent
+from onpolicy.envs.highway.agents.tree_search.mdp_gape import MDPGapEAgent
+from onpolicy.envs.highway.agents.tree_search.graphics import TreeGraphics, MCTSGraphics, DiscreteRobustPlannerGraphics, \
     IntervalRobustPlannerGraphics
-from rl_agents.agents.tree_search.mcts import MCTSAgent
-from rl_agents.agents.tree_search.robust import DiscreteRobustPlannerAgent, IntervalRobustPlannerAgent
+from onpolicy.envs.highway.agents.tree_search.mcts import MCTSAgent
+from onpolicy.envs.highway.agents.tree_search.robust import DiscreteRobustPlannerAgent, IntervalRobustPlannerAgent
 
 
 class AgentGraphics(object):
