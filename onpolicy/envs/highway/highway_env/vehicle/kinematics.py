@@ -130,6 +130,7 @@ class Vehicle(object):
         """
         self.clip_actions()
         delta_f = self.action['steering']
+
         beta = np.arctan(1 / 2 * np.tan(delta_f))
         v = self.speed * np.array([np.cos(self.heading + beta),
                                    np.sin(self.heading + beta)])

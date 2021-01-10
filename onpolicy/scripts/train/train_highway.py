@@ -81,7 +81,7 @@ def parse_args(args, parser):
 
     parser.add_argument("--use_same_other_policy", action='store_false', default=True, help="whether to use the same model")
     parser.add_argument("--use_render_vulnerability", action='store_true', default=False, help="whether to use the same model")
-    #parser.add_argument("--use_offscreen_render", action='store_true', default=False, help="whether to use the same model")
+    parser.add_argument("--use_offscreen_render", action='store_true', default=False, help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
     parser.add_argument('--policy_path', type=str,
                         default='../envs/highway/agents/policy_pool/actor.pt', help="load_policy_path")
     all_args = parser.parse_known_args(args)[0]
