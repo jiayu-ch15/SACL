@@ -5,7 +5,7 @@ import torch
 from onpolicy.envs.highway.common.factory import load_environment
 from copy import deepcopy
 from pathlib import Path
-
+import os
 
 class HighwayEnv(gym.core.Wrapper):
     def __init__(self, all_args):
@@ -58,11 +58,15 @@ class HighwayEnv(gym.core.Wrapper):
                             "type": "Kinematics"
                         }
                     },
+                    "other_vehicles_type": "onpolicy.envs.highway.highway_env.vehicle.behavior.IDMVehicle",
+                    # other vehicles could also set as "onpolicy.envs.highway.highway_env.vehicle.dummy.DummyVehicle" 
+                    # Dummy Vehicle is the vehicle keeping lane with the speed of 25 m/s.
+                    # While IDM Vehicle is the vehicle which is able to change lane and speed based on the obs of its front & rear vehicle
                     "vehicles_count": 50,
-                    "offscreen_rendering": self.use_offscreen_render,
+                    "offscreen_rendering": False, # TODO @zeoyuchao self.use_offscreen_render,
                     "collision_reward": -2,
         }
-
+        
         self.env_init = load_environment(self.env_dict)
 
         super().__init__(self.env_init)
@@ -80,7 +84,7 @@ class HighwayEnv(gym.core.Wrapper):
         if self.n_other_agents>0:
             self.load_other_agents()
         if self.n_dummies>0:
-            self.dummy_agent_type = "RobustValueIteration" # "ValueIteration" or "RobustValueIteration" or "MonteCarloTreeSearchDeterministic"
+            self.dummy_agent_type = "Trained_dueling_ddqn_agent" # "ValueIteration" or "RobustValueIteration" or "MonteCarloTreeSearchDeterministic" or "Trained_dueling_ddqn_agent"
             self.load_dummies() 
         
         # get new obs and action space
@@ -99,6 +103,7 @@ class HighwayEnv(gym.core.Wrapper):
         self.action_space = self.new_action_space
 
         self.cache_frames = []
+        self.episode_num=0
 
     def load_dummies(self):
         self.dummies = []
@@ -128,6 +133,52 @@ class HighwayEnv(gym.core.Wrapper):
                 self.dummies.append(DummyAgent(self.env_init, 
                                                 id = dummy_id + self.n_attackers + self.n_defenders,
                                                 config=dict(budget=200, temperature=200, max_depth=1)))
+
+        elif self.dummy_agent_type == "Trained_dueling_ddqn_agent":
+            agent_config ={
+                "__class__": "<class 'onpolicy.envs.highway.agents.deep_q_network.pytorch.DQNAgent'>",
+                "gamma": 0.8,
+                "n_steps": 1,
+                "batch_size": 32,
+                "memory_capacity": 15000,
+                "target_update": 50,
+                "exploration": {
+                    "method": "EpsilonGreedy",
+                    "tau": 6000,
+                    "temperature": 1.0,
+                    "final_temperature": 0.05
+                },
+                "device":"cpu",
+                "loss_function": "l2",
+                "double": True,
+                "model": {
+                    "type": "DuelingNetwork",
+                    "base_module": {
+                        "layers": [256, 128]
+                    },
+                    "value": {
+                        "layers": [128]
+                    },
+                    "advantage": {
+                        "layers": [128]
+                    }
+                } 
+            }
+            from .agents.deep_q_network.pytorch import DQNAgent as DummyAgent    
+            for dummy_id in range(self.n_dummies):
+                self.dummies.append(DummyAgent(self.env_init, agent_config,                
+                                                vehicle_id = dummy_id + self.n_attackers + self.n_defenders))
+                model_path = (os.path.split(os.path.dirname(os.path.abspath(__file__)))[0]+"/highway/agents/deep_q_network/trained_dueling_ddqn_agent.tar")
+                model_path = self.dummies[dummy_id].load(filename=model_path)
+                if model_path:
+                    print("Loaded {} model from {}".format(self.dummies[dummy_id].__class__.__name__, model_path))
+
+                    # put trained agent into evaluation mode
+                    try:
+                        self.dummies[dummy_id].eval()
+                    except AttributeError:
+                        pass
+
 
     def load_other_agents(self):
         from .agents.policy_pool.policy import R_actor as Policy
@@ -198,7 +249,12 @@ class HighwayEnv(gym.core.Wrapper):
                         dummy_action = dummy.act(self.dummy_obs)
                         dummy_actions.append([dummy_action])
                     action = np.concatenate([action, dummy_actions])
-            
+                elif self.dummy_agent_type == "Trained_dueling_ddqn_agent":
+                    dummy_actions = []
+                    for dummy in self.dummies:
+                        dummy_action = dummy.plan(self.dummy_obs)
+                        dummy_actions.append([dummy_action])
+                    action = np.concatenate([action, dummy_actions])
             # for discrete action, drop the unneeded axis
             action = np.squeeze(action, axis=-1)
 
@@ -233,7 +289,8 @@ class HighwayEnv(gym.core.Wrapper):
             infos["speed"]=np.mean(self.episode_speeds, axis=0)
 
             crashs = [[infos["crashed"][self.train_start_idx + agent_id]] for agent_id in range(self.n_agents)]
-            infos["crashed"] = np.mean(crashs, axis=0)
+            self.crashs.append(np.mean(crashs, axis=0))
+            infos["crashed"] = np.mean(self.crashs, axis=0)
 
             # ! @zhuo u need to use this one!
             # 1. train dones
@@ -271,9 +328,12 @@ class HighwayEnv(gym.core.Wrapper):
     def reset(self, choose = True):
         
         if choose:
+            if self.episode_num%100==0:
+                self.episode_speeds = []
+                self.crashs = []
+            self.episode_num+=1
+
             self.episode_rewards = []
-            self.episode_speeds=[]
-            self.crashs=[]
             self.episode_dummy_rewards = []
             self.episode_other_rewards = []
             self.current_step = 0
