@@ -2,25 +2,26 @@
 
 ## support algorithms
 
-| Algorithms | recurrent-verison | mlp-version | cnn-version | share-base version |
-| :--------: | :---------------: | :---------: | :---------: |:---------------: |
-| MAPPO      | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |:heavy_check_mark:        |
-| MAPPG |        :heavy_check_mark:           |       :heavy_check_mark:      |     :heavy_check_mark:        |:heavy_check_mark:        |
-| MATRPO[^1] |        :heavy_check_mark:           |       :heavy_check_mark:      |     :heavy_check_mark:        |:heavy_check_mark:        |
-|            |                   |             |             |
+| Algorithms | recurrent-verison | mlp-version | cnn-version | share-base version | independent version |
+| :--------: | :---------------: | :---------: | :---------: |:---------------: |:---------------: |
+| MAPPO      | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |:heavy_check_mark:        |:heavy_check_mark:        |
+| MAPPG |        :heavy_check_mark:           |       :heavy_check_mark:      |     :heavy_check_mark:        |:heavy_check_mark:        |:heavy_check_mark:        |
+| MATRPO[^1] |        :heavy_check_mark:           |       :heavy_check_mark:      |     :heavy_check_mark:        |:heavy_check_mark:        |:heavy_check_mark:        |
+|            |                   |             |             | |
 
 [^1]: see trpo branch
 
 
 ## support environments:
-- StarCraftII
-- Hanabi
-- MPE
-- Hide-and-Seek
-- social dilemmas
+**Pay Attention:** we sometimes hack the environment code to fit our task and setting. 
+- [StarCraftII](https://github.com/oxwhirl/smac)
+- [Hanabi](https://github.com/deepmind/hanabi-learning-environment)
+- [MPE](https://github.com/openai/multiagent-particle-envs)
+- [Hide-and-Seek](https://github.com/openai/multi-agent-emergence-environments)
+- [social dilemmas](https://github.com/eugenevinitsky/sequential_social_dilemma_games)
 - agar.io
-- SMARTS
-- HighWay
+- [SMARTS](https://github.com/huawei-noah/SMARTS)
+- [HighWay](https://github.com/eleurent/highway-env)
 
 ## TODOs:
 - [ ] multi-agent FLOW
@@ -28,6 +29,8 @@
 
 
 ## 1. Install
+
+### 1.1 instructions
 
    test on CUDA == 10.1
 
@@ -41,9 +44,17 @@
    pip install -e . 
 ```
 
+### 1.2 hyperparameters
+
 * config.py: contains all hyper-parameters
 
 * default: use GPU, chunk-version recurrent policy and shared policy
+
+* other important hyperparameters:
+  - use_centralized_V: Centralized training (MA) or Centralized training (I)
+  - use_single_network: share base or not
+  - use_recurrent_policy: rnn or mlp
+  - use_eval: turn on evaluation while training, if True, u need to set "n_eval_rollout_threads"
 
 ## 2. StarCraftII
 
@@ -133,6 +144,7 @@ you can see our training curves via [wandb link](https://wandb.ai/zoeyuchao/Star
 |      corridor      |        5        |        1       |   mlp   | 10M |  99.06(2.1)  |   97.5(4.1)  |   0.97(1.88)   |       \      |     \     |   \   |    \   |
 |      corridor      |        5        |        1       |   rnn   | 10M |     0(0)     |     0(0)     |      0(0)      |    75.625    |     0     |   0   |    0   |
 
+if you want to run MADDPG/MATD3/MASAC algorithms, welcome to use this repository [offpolicy](https://github.com/marlbenchmark/offpolicy)
 ## 3. Hanabi
 
   ### 3.1 Hanabi
@@ -160,15 +172,21 @@ you can see our training curves via [wandb link](https://wandb.ai/zoeyuchao/Star
 ``` Bash
    conda activate onpolicy
    cd scripts
-   chmod +x train_hanabi.sh
-   ./train_hanabi.sh
+   chmod +x train_hanabi_forward.sh
+   ./train_hanabi_forward.sh
+```
+we also have a backward version training script, which uses a different way to calculate reward of one turn.
+
+``` Bash
+   conda activate onpolicy
+   cd scripts
+   chmod +x train_hanabi_backward.sh
+   ./train_hanabi_backward.sh
 ```
 
 ## 4. MPE
 
 ### 4.1 Install MPE
-
-   
 
 ``` Bash
    # install this package first
@@ -301,6 +319,8 @@ python examples/sumo/sugiyama.py
 
 ## 8. HighWay
 
+1. training script: `./train_highway.sh`
+1. rendering script `./render_highway.sh`
 
 ## 9. Docs：
 
