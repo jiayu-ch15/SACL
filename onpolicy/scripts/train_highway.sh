@@ -14,6 +14,8 @@ echo "env is ${env}, scenario is ${scenario}, task is ${task}, algo is ${algo}, 
 for seed in `seq ${seed_max}`
 do
     echo "seed is ${seed}:"
-    CUDA_VISIBLE_DEVICES=7 python train/train_highway.py --env_name ${env} --algorithm_name ${algo} --experiment_name ${exp} --scenario_name ${scenario} --task_type ${task} --n_attackers ${n_attackers} --n_defenders ${n_defenders} --n_dummies ${n_dummies} --seed ${seed} --n_training_threads 1 --n_rollout_threads 100 --n_eval_rollout_threads 1 --horizon 40 --episode_length100 --log_interval 1
+
+    CUDA_VISIBLE_DEVICES=7 python train/train_highway.py --env_name ${env} --algorithm_name ${algo} --experiment_name ${exp} --scenario_name ${scenario} --task_type ${task} --n_attackers ${n_attackers} --n_defenders ${n_defenders} --n_dummies ${n_dummies} --seed ${seed} --n_training_threads 1 --n_rollout_threads 50 --n_eval_rollout_threads 1 --horizon 400 --episode_length 400 --log_interval 1
+
     echo "training is done!"
 done

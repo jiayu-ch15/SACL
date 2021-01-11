@@ -60,6 +60,7 @@ class HighwayEnv(gym.core.Wrapper):
                     },
                     "vehicles_count": 50,
                     "offscreen_rendering": self.use_offscreen_render,
+                    "collision_reward": -1,
         }
 
         self.env_init = load_environment(self.env_dict)
@@ -200,6 +201,7 @@ class HighwayEnv(gym.core.Wrapper):
             
             # for discrete action, drop the unneeded axis
             action = np.squeeze(action, axis=-1)
+
             all_obs, all_rewards, all_dones, infos = self.env.step(tuple(action))
             
             # obs
@@ -225,6 +227,13 @@ class HighwayEnv(gym.core.Wrapper):
             dummy_rewards = [[all_rewards[self.n_attackers + self.n_defenders + dummy_id]] \
                                     for dummy_id in range(self.n_dummies)]
             self.episode_dummy_rewards.append(dummy_rewards)
+
+            speeds=[[infos["speed"][self.train_start_idx + agent_id]] for agent_id in range(self.n_agents)]
+            self.episode_speeds.append(np.mean(speeds, axis=0))
+            infos["speed"]=np.mean(self.episode_speeds, axis=0)
+
+            crashs = [[infos["crashed"][self.train_start_idx + agent_id]] for agent_id in range(self.n_agents)]
+            infos["crashed"] = np.mean(crashs, axis=0)
 
             # ! @zhuo u need to use this one!
             # 1. train dones
@@ -263,6 +272,8 @@ class HighwayEnv(gym.core.Wrapper):
         
         if choose:
             self.episode_rewards = []
+            self.episode_speeds=[]
+            self.crashs=[]
             self.episode_dummy_rewards = []
             self.episode_other_rewards = []
             self.current_step = 0

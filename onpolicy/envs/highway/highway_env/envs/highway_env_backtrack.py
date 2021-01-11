@@ -87,7 +87,7 @@ class HighwayEnvBacktrack(AbstractEnv):
         print(f"npc_config = {npc_config}")
 
         for _ in range(self.config["controlled_vehicles"]):
-            vehicle = self.action_type.vehicle_class(self.road, train_config[_]["trained_vehicle_position"], train_config[_]["trained_vehicle_heading"], train_config[_]["trained_vehicle_speed"])
+            vehicle = self.action_type.vehicle_class(self.road, train_config[_]["trained_vehicle_position"], train_config[_]["trained_vehicle_heading"], train_config[_]["trained_vehicle_speed"], ("0","1", train_config[_]["trained_vehicle_target_lane_index"]), train_config[_]["trained_vehicle_target_speed"])
             
             self.controlled_vehicles.append(vehicle)
             self.road.vehicles.append(vehicle)
@@ -95,7 +95,7 @@ class HighwayEnvBacktrack(AbstractEnv):
         vehicles_type = utils.class_from_path(self.config["other_vehicles_type"])
         self.other_vehicles = []
         for _ in range(self.config["vehicles_count"]):
-            other_vehicle = vehicles_type(self.road, npc_config[_]["npc_vehicle_position"], npc_config[_]["npc_vehicle_heading"], npc_config[_]["npc_vehicle_speed"])
+            other_vehicle = vehicles_type(road=self.road, position=npc_config[_]["npc_vehicle_position"], heading=npc_config[_]["npc_vehicle_heading"], speed=npc_config[_]["npc_vehicle_speed"], target_lane_index=("0","1", npc_config[_]["npc_vehicle_target_lane_index"]), target_speed=npc_config[_]["npc_vehicle_target_speed"], timer= npc_config[_]["npc_vehicle_timer"])
             self.other_vehicles.append(other_vehicle)
             self.road.vehicles.append(other_vehicle)
 
@@ -293,7 +293,7 @@ class HighwayEnvBacktrack(AbstractEnv):
         temp_dict_list = []
         for _i in range(self.config["controlled_vehicles"]):
             temp_position = copy(self.controlled_vehicles[_i].position)
-            temp_dict_list.append( dict(zip( ["trained_vehicle_lane_index", "trained_vehicle_position", "trained_vehicle_heading", "trained_vehicle_speed"], [self.controlled_vehicles[_i].lane_index[2], temp_position, self.controlled_vehicles[_i].heading, self.controlled_vehicles[_i].speed] )) )
+            temp_dict_list.append( dict(zip( ["trained_vehicle_lane_index", "trained_vehicle_position", "trained_vehicle_heading", "trained_vehicle_speed", "trained_vehicle_target_lane_index", "trained_vehicle_target_speed"], [self.controlled_vehicles[_i].lane_index[2], temp_position, self.controlled_vehicles[_i].heading, self.controlled_vehicles[_i].speed, self.controlled_vehicles[_i].target_lane_index[2], self.controlled_vehicles[_i].target_speed] )) )
         
         self._inner_controlled_vechiles_backup_config.append(temp_dict_list)
 
@@ -305,7 +305,7 @@ class HighwayEnvBacktrack(AbstractEnv):
 
         for _ in range(self.config["vehicles_count"]):
             temp_npc_position = copy(self.other_vehicles[_].position)
-            temp_dict_list_other_vehicle.append( dict(zip( ["npc_vehicle_lane_index", "npc_vehicle_position", "npc_vehicle_heading", "npc_vehicle_speed"], [self.other_vehicles[_].lane_index[2], temp_npc_position, self.other_vehicles[_].heading, self.other_vehicles[_].speed] )) )
+            temp_dict_list_other_vehicle.append( dict(zip( ["npc_vehicle_lane_index", "npc_vehicle_position", "npc_vehicle_heading", "npc_vehicle_speed", "npc_vehicle_target_lane_index", "npc_vehicle_target_speed","npc_vehicle_timer"], [self.other_vehicles[_].lane_index[2], temp_npc_position, self.other_vehicles[_].heading, self.other_vehicles[_].speed, self.other_vehicles[_].target_lane_index[2] , self.other_vehicles[_].target_speed, self.other_vehicles[_].timer  ] )) )
         
         self._inner_other_vechiles_backup_config.append(temp_dict_list_other_vehicle)
 

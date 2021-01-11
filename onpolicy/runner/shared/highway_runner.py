@@ -46,7 +46,6 @@ class HighwayRunner(Runner):
 
                 if self.use_render:
                     self.envs.render(mode='human')
-
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
                 # insert data into buffer
                 self.insert(data)
@@ -137,6 +136,7 @@ class HighwayRunner(Runner):
                 for key in info.keys():
                     if key in self.env_infos.keys():
                         self.env_infos[key].append(info[key])
+
                     if key == "frames" and self.use_render_vulnerability:
                         self.render_vulnerability(info[key], suffix="train")
 

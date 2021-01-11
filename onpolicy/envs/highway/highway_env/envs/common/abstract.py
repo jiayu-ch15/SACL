@@ -96,6 +96,7 @@ class AbstractEnv(gym.Env):
                 "type": "DiscreteMetaAction"
             },
             "simulation_frequency": 1,  # [Hz]
+
             "policy_frequency": 1,  # [Hz]
             "other_vehicles_type": "onpolicy.envs.highway.highway_env.vehicle.behavior.IDMVehicle",
             "screen_width": 1000,  # [px]
@@ -189,7 +190,6 @@ class AbstractEnv(gym.Env):
             raise NotImplementedError("The road and vehicle must be initialized in the environment implementation")
 
         self.steps += 1
-
         self._simulate(action)
 
         obs = self.observation_type.observe()
@@ -199,8 +199,8 @@ class AbstractEnv(gym.Env):
         #print("reward:",reward)
         terminal = self._is_terminal()
         info = {
-            "speed": self.vehicle.speed,
-            "crashed": self.vehicle.crashed,
+            "speed": [vehicle.speed for vehicle in self.controlled_vehicles],
+            "crashed": [vehicle.crashed for vehicle in self.controlled_vehicles],
             "action": action,
         }
         try:
@@ -219,7 +219,7 @@ class AbstractEnv(gym.Env):
                     and self.time % int(self.config["simulation_frequency"] // self.config["policy_frequency"]) == 0:
                 self.action_type.act(action)
             self.road.act()
-            self.road.step(1 / self.config["simulation_frequency"])
+            self.road.step(0.1 / self.config["simulation_frequency"])
             self.time += 1
             # Automatically render intermediate simulation steps if a viewer has been launched
             # Ignored if the rendering is done offscreen

@@ -815,9 +815,9 @@ class ChooseSimpleDummyVecEnv(ShareVecEnv):
             env.close()
 
     def render(self, mode="human"):
-        if mode == "human":
-            return np.array([env.render(mode=mode) for env in self.envs])
-        elif mode == "rgb_array":
+        if mode == "rgb_array":
+            return np.array([env.render(mode=mode) for env in self.envs])[0]
+        elif mode == "human":
             for env in self.envs:
                 env.render(mode=mode)
         else:
