@@ -45,7 +45,6 @@ class HighwayRunner(Runner):
                 obs, rewards, dones, infos = self.envs.step(actions)
 
                 if self.use_render:
-                    print("i am in render")
                     self.envs.render(mode='human')
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
                 # insert data into buffer
@@ -238,7 +237,7 @@ class HighwayRunner(Runner):
             render_choose = np.ones(self.n_render_rollout_threads) == 1.0
             obs = envs.reset(render_choose)
             if self.all_args.save_gifs:
-                image = envs.render('rgb_array')
+                image = envs.render('rgb_array')[0]
                 all_frames.append(image)
 
             rnn_states = np.zeros((self.n_render_rollout_threads, self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
@@ -261,7 +260,7 @@ class HighwayRunner(Runner):
 
                 episode_rewards.append(rewards)
                 if self.all_args.save_gifs:
-                    image = envs.render('rgb_array')
+                    image = envs.render('rgb_array')[0]
                     all_frames.append(image)
                     calc_end = time.time()
                     elapsed = calc_end - calc_start

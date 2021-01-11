@@ -255,13 +255,11 @@ class SubprocVecEnv(ShareVecEnv):
                              share_observation_space, action_space)
 
     def step_async(self, actions):
-
         for remote, action in zip(self.remotes, actions):
             remote.send(('step', action))
         self.waiting = True
 
     def step_wait(self):
-
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
         obs, rews, dones, infos = zip(*results)
@@ -292,11 +290,11 @@ class SubprocVecEnv(ShareVecEnv):
         self.closed = True
 
     def render(self, mode="rgb_array"):
-        for remote, mo in zip(self.remotes, mode):
-            remote.send(('render', mo))
+        for remote in self.remotes:
+            remote.send(('render', mode))
         if mode == "rgb_array":   
             frame = [remote.recv() for remote in self.remotes]
-            return np.stack(frame)
+            return np.stack(frame) 
 
 
 def shareworker(remote, parent_remote, env_fn_wrapper):
@@ -468,8 +466,8 @@ class ChooseSimpleSubprocVecEnv(ShareVecEnv):
         return np.stack(obs)
 
     def render(self, mode="rgb_array"):
-        for remote, mo in zip(self.remotes, mode):
-            remote.send(('render', mo))
+        for remote in self.remotes:
+            remote.send(('render', mode))
         if mode == "rgb_array":   
             frame = [remote.recv() for remote in self.remotes]
             return np.stack(frame)
@@ -743,7 +741,7 @@ class ShareDummyVecEnv(ShareVecEnv):
     
     def render(self, mode="human"):
         if mode == "rgb_array":
-            return np.array([env.render(mode=mode) for env in self.envs])[0]
+            return np.array([env.render(mode=mode) for env in self.envs])
         elif mode == "human":
             for env in self.envs:
                 env.render(mode=mode)
@@ -781,7 +779,7 @@ class ChooseDummyVecEnv(ShareVecEnv):
 
     def render(self, mode="human"):
         if mode == "rgb_array":
-            return np.array([env.render(mode=mode) for env in self.envs])[0]
+            return np.array([env.render(mode=mode) for env in self.envs])
         elif mode == "human":
             for env in self.envs:
                 env.render(mode=mode)
@@ -816,7 +814,7 @@ class ChooseSimpleDummyVecEnv(ShareVecEnv):
 
     def render(self, mode="human"):
         if mode == "rgb_array":
-            return np.array([env.render(mode=mode) for env in self.envs])[0]
+            return np.array([env.render(mode=mode) for env in self.envs])
         elif mode == "human":
             for env in self.envs:
                 env.render(mode=mode)
