@@ -59,7 +59,6 @@ class HighwayEnv(AbstractEnv):
     def _create_vehicles(self) -> None:
         """Create some new random vehicles of a given type, and add them on the road."""
         self.controlled_vehicles = []
-
         for i in range(self.config["controlled_vehicles"]):
 
             vehicle = self.action_type.vehicle_class.create_random(self.road,
@@ -83,9 +82,6 @@ class HighwayEnv(AbstractEnv):
         """
 
         # -> float: now we change it to return a list!!!!!
-        n_defenders=self.config["n_defenders"]
-        n_attackers=self.config["n_attackers"]
-        n_dummies=self.config["n_dummies"]
         rewards=[]
         for vehicle in self.controlled_vehicles:
         
@@ -102,16 +98,6 @@ class HighwayEnv(AbstractEnv):
             #              [0, 1])
             #reward = 0 if not vehicle.on_road else reward
             reward = -1 if not vehicle.on_road else reward
-            '''
-            scaled_speed = utils.lmap(vehicle.speed, self.config["reward_speed_range"], [0, 1])
-            reward = \
-                + self.config["collision_reward"] * vehicle.crashed \
-                + self.HIGH_SPEED_REWARD * np.clip(scaled_speed, 0, 1)
-            #reward = utils.lmap(reward,
-            #                    [self.config["collision_reward"], self.HIGH_SPEED_REWARD ],
-            #                    [0, 1])
-            reward = -1 if not vehicle.on_road else reward
-            '''
             rewards.append(reward)
         return rewards
 
@@ -163,12 +149,8 @@ class HighwayEnv(AbstractEnv):
         attacker_done = dones[self.config["n_defenders"]:self.config["n_defenders"] + self.config["n_attackers"]]
 
         if np.all(defender_done):
-            for i in range(len(dones)):
-                dones[i]=True
             return True
         elif len(attacker_done)>0 and np.all(attacker_done):
-            for i in range(len(dones)):
-                dones[i]=True
             return True
         else:
             return False

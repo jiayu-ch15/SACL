@@ -193,9 +193,6 @@ class AbstractEnv(gym.Env):
 
         obs = self.observation_type.observe()
         reward = self._reward(action)
-        #print("position:", self.vehicle.position)
-        print("speed:", self.vehicle.speed)
-        #print("reward:",reward)
         terminal = self._is_terminal()
         info = {
             "speed": [vehicle.speed for vehicle in self.controlled_vehicles],
@@ -218,7 +215,7 @@ class AbstractEnv(gym.Env):
                     and self.time % int(self.config["simulation_frequency"] // self.config["policy_frequency"]) == 0:
                 self.action_type.act(action)
             self.road.act()
-            self.road.step(0.1 / self.config["simulation_frequency"])
+            self.road.step(self.config["dt"] / self.config["simulation_frequency"])
             self.time += 1
             # Automatically render intermediate simulation steps if a viewer has been launched
             # Ignored if the rendering is done offscreen
