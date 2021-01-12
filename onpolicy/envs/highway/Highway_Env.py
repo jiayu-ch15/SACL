@@ -15,6 +15,9 @@ class HighwayEnv(gym.core.Wrapper):
         self.use_offscreen_render = all_args.use_offscreen_render
         self.use_render_vulnerability = all_args.use_render_vulnerability
         self.task_type = all_args.task_type
+        self.simulation_frequency=all_args.simulation_frequency
+        self.collision_reward=all_args.collision_reward
+        self.dt=all_args.dt
 
         self.n_defenders = all_args.n_defenders
         self.n_attackers = all_args.n_attackers
@@ -64,8 +67,10 @@ class HighwayEnv(gym.core.Wrapper):
                     # While IDM Vehicle is the vehicle which is able to change lane and speed based on the obs of its front & rear vehicle
                     "vehicles_count": 50,
                     "offscreen_rendering": self.use_offscreen_render,
-                    "collision_reward": -1,
-        }
+                    "collision_reward": self.collision_reward,
+                    "simulation_frequency":self.simulation_frequency,
+                    "dt":self.dt,
+                    }
         
         self.env_init = load_environment(self.env_dict)
 
@@ -284,13 +289,23 @@ class HighwayEnv(gym.core.Wrapper):
                                     for dummy_id in range(self.n_dummies)]
             self.episode_dummy_rewards.append(dummy_rewards)
 
-            speeds=[[infos["speed"][self.train_start_idx + agent_id]] for agent_id in range(self.n_agents)]
-            self.episode_speeds.append(np.mean(speeds, axis=0))
-            infos["speed"]=np.mean(self.episode_speeds, axis=0)
 
-            crashs = [[infos["crashed"][self.train_start_idx + agent_id]] for agent_id in range(self.n_agents)]
-            self.crashs.append(np.mean(crashs, axis=0))
-            infos["crashed"] = np.mean(self.crashs, axis=0)
+
+            speeds=[infos["speed"][agent_id] for agent_id in range(self.n_defenders+self.n_attackers)]
+            self.episode_speeds.append(speeds)
+            for i,s in enumerate(np.mean(self.episode_speeds, axis=0)):
+                if i <self.n_defenders:
+                    infos.update({"defender_{}_speed".format(i):s})
+                else:
+                    infos.update({"attacker_{}_speed".format(i):s})
+
+            crashs = [infos["crashed"][agent_id] for agent_id in range(self.n_defenders+self.n_attackers)]
+            for i,c in enumerate(crashs):
+                if i <self.n_defenders:
+                    infos.update({"defender_{}_crash".format(i):c})
+                else:
+                    infos.update({"attacker_{}_crash".format(i):c})
+
 
             # ! @zhuo u need to use this one!
             # 1. train dones
@@ -314,6 +329,7 @@ class HighwayEnv(gym.core.Wrapper):
                 adv_rew=self.env.unwrapped.adv_rew()
             else:
                 adv_rew=0
+
             infos.update({"episode_rewards": np.sum(self.episode_rewards, axis=0),
                         "episode_other_rewards": np.sum(self.episode_other_rewards, axis=0) if self.n_other_agents > 0 else 0.0,
                         "episode_dummy_rewards": np.sum(self.episode_dummy_rewards, axis=0) if self.n_dummies > 0 else 0.0,
@@ -328,9 +344,8 @@ class HighwayEnv(gym.core.Wrapper):
     def reset(self, choose = True):
         
         if choose:
-            if self.episode_num%100==0:
-                self.episode_speeds = []
-                self.crashs = []
+
+            self.episode_speeds = []
             self.episode_num+=1
 
             self.episode_rewards = []

@@ -78,6 +78,13 @@ def parse_args(args, parser):
 
     parser.add_argument('--horizon', type=int,
                         default=40, help="the max length of one task")
+    parser.add_argument('--dt', type=float,
+                        default=1.0, help="the simulation time")
+    parser.add_argument('--simulation_frequency', type=int,
+                        default=5, help="the simulation frequency of the env")
+    parser.add_argument('--collision_reward', type=float,
+                        default=-1.0, help="the collision penalty of the car")
+
 
     parser.add_argument("--use_same_other_policy", action='store_false', default=True, help="whether to use the same model")
     parser.add_argument("--use_render_vulnerability", action='store_true', default=False, help="whether to use the same model")

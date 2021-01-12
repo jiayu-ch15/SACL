@@ -33,10 +33,18 @@ class HighwayRunner(Runner):
 
             self.env_infos = {"episode_rewards": [], 
                               "episode_dummy_rewards": [], 
-                              "episode_other_rewards": [],
-                              "speed": [], 
-                              "cost": [], 
-                              "crashed": []}
+                              "episode_other_rewards": [],}
+            n_defenders = self.all_args.n_defenders
+            n_attackers = self.all_args.n_attackers
+            for i,s in enumerate(range(n_defenders+n_attackers)):
+                if i <n_defenders:
+                    self.env_infos.update({"defender_{}_speed".format(i):[]})
+                    self.env_infos.update({"defender_{}_crash".format(i):[]})
+
+                else:
+                    self.env_infos.update({"attacker_{}_speed".format(i):[]})
+                    self.env_infos.update({"attacker_{}_crash".format(i):[]})
+
 
             for step in range(self.episode_length):
                 # Sample actions
@@ -176,9 +184,19 @@ class HighwayRunner(Runner):
         if eval_envs.action_space[0].__class__.__name__ == 'Discrete':
             action_shape = 1
 
-        eval_env_infos = {"episode_rewards": [], 
-                        "episode_dummy_rewards": [], 
-                        "episode_other_rewards": []}         
+        eval_env_infos = {"episode_rewards": [],
+                          "episode_dummy_rewards": [],
+                          "episode_other_rewards": [], }
+        n_defenders = self.all_args.n_defenders
+        n_attackers = self.all_args.n_attackers
+        for i, s in enumerate(range(n_defenders + n_attackers)):
+            if i < n_defenders:
+                eval_env_infos.update({"defender_{}_speed".format(i): []})
+                eval_env_infos.update({"defender_{}_crash".format(i): []})
+
+            else:
+                eval_env_infos.update({"attacker_{}_speed".format(i): []})
+                eval_env_infos.update({"attacker_{}_crash".format(i): []})
 
         eval_episode_rewards = 0
         eval_reset_choose = np.ones(self.n_eval_rollout_threads) == 1.0
@@ -233,6 +251,20 @@ class HighwayRunner(Runner):
         envs = self.render_envs
 
         all_frames = []
+        render_env_infos = {"episode_rewards": [],
+                            "episode_dummy_rewards": [],
+                            "episode_other_rewards": [], }
+        n_defenders = self.all_args.n_defenders
+        n_attackers = self.all_args.n_attackers
+        for i, s in enumerate(range(n_defenders + n_attackers)):
+            if i < n_defenders:
+                render_env_infos.update({"defender_{}_speed".format(i): []})
+                render_env_infos.update({"defender_{}_crash".format(i): []})
+
+            else:
+                render_env_infos.update({"attacker_{}_speed".format(i): []})
+                render_env_infos.update({"attacker_{}_crash".format(i): []})
+
         for episode in range(self.all_args.render_episodes):
             render_choose = np.ones(self.n_render_rollout_threads) == 1.0
             obs = envs.reset(render_choose)
@@ -243,8 +275,7 @@ class HighwayRunner(Runner):
             rnn_states = np.zeros((self.n_render_rollout_threads, self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
             masks = np.ones((self.n_render_rollout_threads, self.num_agents, 1), dtype=np.float32)
             
-            episode_rewards = []
-            
+
             for step in range(self.episode_length):
                 calc_start = time.time()
                 self.trainer.prep_rollout()
@@ -258,7 +289,7 @@ class HighwayRunner(Runner):
                 # Obser reward and next obs
                 obs, rewards, dones, infos = envs.step(actions)
 
-                episode_rewards.append(rewards)
+                #render_env_infos["episode_rewards"].append(rewards)
                 if self.all_args.save_gifs:
                     image = envs.render('rgb_array')[0]
                     all_frames.append(image)
@@ -268,10 +299,26 @@ class HighwayRunner(Runner):
                         time.sleep(self.all_args.ifi - elapsed)
                 
                 dones_env = np.all(dones, axis=-1)
+                if np.any(dones_env) or step ==(self.episode_length-1):
+                    for key in infos[0].keys():
+                        if key in render_env_infos.keys():
+                            render_env_infos[key].append(infos[0][key])
                 if np.any(dones_env):
                     break
 
-            print("render average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
+            print("render average episode rewards is: " + str(np.mean(np.array(render_env_infos["episode_rewards"]))))
+            for i, s in enumerate(range(n_defenders + n_attackers)):
+                if i < n_defenders:
+                    print("render average episode defender_{}_speed is: ".format(i) + str(
+                        np.mean(np.array(render_env_infos["defender_{}_speed".format(i)]))))
+                    print("render average episode defender_{}_crash is: ".format(i) + str(
+                        np.mean(np.array(render_env_infos["defender_{}_crash".format(i)]))))
+
+                else:
+                    print("render average episode attacker_{}_speed is: ".format(i) + str(
+                        np.mean(np.array(render_env_infos["attacker_{}_speed".format(i)]))))
+                    print("render average episode attacker_{}_crash is: ".format(i) + str(
+                        np.mean(np.array(render_env_infos["attacker_{}_crash".format(i)]))))
 
         if self.all_args.save_gifs:
             imageio.mimsave(str(self.run_dir) + '/full.gif', all_frames, duration=self.all_args.ifi)
