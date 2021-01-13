@@ -233,10 +233,7 @@ class HighwayEnv(gym.core.Wrapper):
                                             self.rnn_states, 
                                             self.masks, 
                                             deterministic=True)
-                    print(f"other_action before={other_actions}")
-
                     other_actions = other_actions.detach().numpy()
-                    print(f"other_action={other_actions}")
 
                 else:
                     other_actions = []
