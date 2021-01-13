@@ -141,7 +141,6 @@ class HighwayEnv(gym.core.Wrapper):
 
         elif self.dummy_agent_type == "Trained_dueling_ddqn_agent":
             agent_config ={
-                "__class__": "<class 'onpolicy.envs.highway.agents.deep_q_network.pytorch.DQNAgent'>",
                 "gamma": 0.8,
                 "device":"cpu",
                 "model": {
