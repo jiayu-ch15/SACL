@@ -306,7 +306,6 @@ class HighwayEnv(gym.core.Wrapper):
             # 3. dummy dones
             dummy_dones = [all_dones[self.n_attackers + self.n_defenders + dummy_id] for dummy_id in range(self.n_dummies)]
 
-            self.episode_len+=1
             if np.all(dones, axis=-1):
                 crashs = [infos["crashed"][agent_id] for agent_id in range(self.n_defenders+self.n_attackers)]
                 for i,c in enumerate(crashs):
@@ -314,15 +313,12 @@ class HighwayEnv(gym.core.Wrapper):
                         infos.update({"defender_{}_crash".format(i):c})
                     else:
                         infos.update({"attacker_{}_crash".format(i):c})
-                infos.update({"episode_len": self.episode_len})
+                infos.update({"episode_len": self.current_step})
 
             if self.use_render_vulnerability:
                 self.cache_frames.append(self.render('rgb_array'))
                 self.current_step += 1
-                reward_flag = 0
-                if np.all(dones):
-                    reward_flag = 1
-                if reward_flag == 1: # save gif
+                if np.all(dones): # save gif
                     self.pick_frames.append(self.render_vulnerability(self.current_step))
                     infos.update({"frames": self.pick_frames})
 
@@ -346,7 +342,6 @@ class HighwayEnv(gym.core.Wrapper):
         
         if choose:
             self.episode_speeds = []
-            self.episode_len=0
 
             self.episode_rewards = []
             self.episode_dummy_rewards = []
