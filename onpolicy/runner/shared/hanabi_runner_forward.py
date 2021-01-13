@@ -185,7 +185,7 @@ class HanabiRunner(Runner):
             # deal with all agents
             self.use_available_actions[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.available_actions.shape[3:]), dtype=np.float32)
             self.turn_masks[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, 1), dtype=np.float32)
-            self.turn_rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
+            self.turn_rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             self.turn_rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
 
             # deal with the current agent
