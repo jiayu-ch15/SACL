@@ -33,7 +33,8 @@ class HighwayRunner(Runner):
 
             self.env_infos = {"episode_rewards": [], 
                               "episode_dummy_rewards": [], 
-                              "episode_other_rewards": [],}
+                              "episode_other_rewards": [],
+                              "episode_len":[]}
             n_defenders = self.all_args.n_defenders
             n_attackers = self.all_args.n_attackers
             for i,s in enumerate(range(n_defenders+n_attackers)):
@@ -85,6 +86,7 @@ class HighwayRunner(Runner):
                 train_infos["average_step_rewards"] = np.mean(self.buffer.rewards)
                 print("average step rewards is {}".format(train_infos["average_step_rewards"]))
                 print("average episode rewards is {}".format(np.mean(self.env_infos["episode_rewards"])))
+                print("average episode crash is {}".format(np.mean(self.env_infos["defender_0_crash"])))
 
                 self.log_train(train_infos, total_num_steps)
                 self.log_env(self.env_infos, total_num_steps)
@@ -186,7 +188,8 @@ class HighwayRunner(Runner):
 
         eval_env_infos = {"episode_rewards": [],
                           "episode_dummy_rewards": [],
-                          "episode_other_rewards": [], }
+                          "episode_other_rewards": [],
+                          "episode_len":[]}
         n_defenders = self.all_args.n_defenders
         n_attackers = self.all_args.n_attackers
         for i, s in enumerate(range(n_defenders + n_attackers)):
@@ -253,7 +256,8 @@ class HighwayRunner(Runner):
         all_frames = []
         render_env_infos = {"episode_rewards": [],
                             "episode_dummy_rewards": [],
-                            "episode_other_rewards": [], }
+                            "episode_other_rewards": [],
+                            "episode_len":[]}
         n_defenders = self.all_args.n_defenders
         n_attackers = self.all_args.n_attackers
         for i, s in enumerate(range(n_defenders + n_attackers)):
