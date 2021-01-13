@@ -37,15 +37,13 @@ class HighwayRunner(Runner):
                               "episode_len":[]}
             n_defenders = self.all_args.n_defenders
             n_attackers = self.all_args.n_attackers
-            for i,s in enumerate(range(n_defenders+n_attackers)):
-                if i <n_defenders:
+            for i, s in enumerate(range(n_defenders + n_attackers)):
+                if i < n_defenders:
                     self.env_infos.update({"defender_{}_speed".format(i):[]})
                     self.env_infos.update({"defender_{}_crash".format(i):[]})
-
                 else:
                     self.env_infos.update({"attacker_{}_speed".format(i):[]})
                     self.env_infos.update({"attacker_{}_crash".format(i):[]})
-
 
             for step in range(self.episode_length):
                 # Sample actions
@@ -196,7 +194,6 @@ class HighwayRunner(Runner):
             if i < n_defenders:
                 eval_env_infos.update({"defender_{}_speed".format(i): []})
                 eval_env_infos.update({"defender_{}_crash".format(i): []})
-
             else:
                 eval_env_infos.update({"attacker_{}_speed".format(i): []})
                 eval_env_infos.update({"attacker_{}_crash".format(i): []})
@@ -264,7 +261,6 @@ class HighwayRunner(Runner):
             if i < n_defenders:
                 render_env_infos.update({"defender_{}_speed".format(i): []})
                 render_env_infos.update({"defender_{}_crash".format(i): []})
-
             else:
                 render_env_infos.update({"attacker_{}_speed".format(i): []})
                 render_env_infos.update({"attacker_{}_crash".format(i): []})

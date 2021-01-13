@@ -86,9 +86,9 @@ class HighwayEnv(gym.core.Wrapper):
             self.all_action_space.append(self.action_space[agent_id])
         
         # here we load other agents and dummies, can not change the order of the following code!!
-        if self.n_other_agents>0:
+        if self.n_other_agents > 0:
             self.load_other_agents()
-        if self.n_dummies>0:
+        if self.n_dummies > 0:
             self.dummy_agent_type = "Trained_dueling_ddqn_agent" # "ValueIteration" or "RobustValueIteration" or "MonteCarloTreeSearchDeterministic" or "Trained_dueling_ddqn_agent"
             self.load_dummies() 
         
@@ -108,7 +108,6 @@ class HighwayEnv(gym.core.Wrapper):
         self.action_space = self.new_action_space
 
         self.cache_frames = []
-        self.episode_num=0
 
     def load_dummies(self):
         self.dummies = []
@@ -289,15 +288,14 @@ class HighwayEnv(gym.core.Wrapper):
                                     for dummy_id in range(self.n_dummies)]
             self.episode_dummy_rewards.append(dummy_rewards)
 
-
-
-            speeds=[infos["speed"][agent_id] for agent_id in range(self.n_defenders+self.n_attackers)]
+            # update info
+            speeds=[infos["speed"][agent_id] for agent_id in range(self.n_defenders + self.n_attackers)]
             self.episode_speeds.append(speeds)
-            for i,s in enumerate(np.mean(self.episode_speeds, axis=0)):
+            for i, s in enumerate(np.mean(self.episode_speeds, axis=0)):
                 if i <self.n_defenders:
-                    infos.update({"defender_{}_speed".format(i):s})
+                    infos.update({"defender_{}_speed".format(i): s})
                 else:
-                    infos.update({"attacker_{}_speed".format(i):s})
+                    infos.update({"attacker_{}_speed".format(i): s})
 
 
             # ! @zhuo u need to use this one!
@@ -323,20 +321,20 @@ class HighwayEnv(gym.core.Wrapper):
                 self.current_step += 1
                 reward_flag = 0
                 if np.all(dones):
-                    reward_flag=1
+                    reward_flag = 1
                 if reward_flag == 1: # save gif
                     self.pick_frames.append(self.render_vulnerability(self.current_step))
                     infos.update({"frames": self.pick_frames})
 
             if self.task_type == "attack":
-                adv_rew=self.env.unwrapped.adv_rew()
+                adv_rew = self.env.unwrapped.adv_rew()
             else:
-                adv_rew=0
+                adv_rew = 0
 
             infos.update({"episode_rewards": np.sum(self.episode_rewards, axis=0),
                         "episode_other_rewards": np.sum(self.episode_other_rewards, axis=0) if self.n_other_agents > 0 else 0.0,
                         "episode_dummy_rewards": np.sum(self.episode_dummy_rewards, axis=0) if self.n_dummies > 0 else 0.0,
-                        "adv_rew":adv_rew})
+                        "adv_rew": adv_rew})
         else:
             obs = np.zeros((self.n_agents, self.obs_dim))
             rewards = np.zeros((self.n_agents, 1))
@@ -347,7 +345,6 @@ class HighwayEnv(gym.core.Wrapper):
     def reset(self, choose = True):
         
         if choose:
-
             self.episode_speeds = []
             self.episode_len=0
 
