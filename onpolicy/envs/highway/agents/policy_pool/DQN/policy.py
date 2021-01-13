@@ -1,5 +1,4 @@
 from onpolicy.envs.highway.agents.common.models import model_factory, trainable_parameters
-from onpolicy.envs.highway.agents.common.exploration.greedy import Greedy
 from onpolicy.envs.highway.agents.common.utils import choose_device
 from gym import spaces
 import numpy as np
@@ -9,10 +8,10 @@ from torch import nn
 class dqn_actor(nn.Module):
     def __init__(self, args=None, obs_space=None, action_space=None, hidden_size=None, use_recurrent_policy=None):
         super(dqn_actor, self).__init__()
-        # self.env = env
-        self.obs_space = obs_space # env.observation_space.spaces[0].shape
+        self.obs_space = obs_space
         self.action_space = action_space
-        hidden_size = [256, 128]
+        if not isinstance(hidden_size, list):
+            hidden_size = [256, 128]
         self.config = {
             "model": {
                 "type": "DuelingNetwork",
@@ -28,18 +27,11 @@ class dqn_actor(nn.Module):
                 "in": int(np.prod(self.obs_space.shape)),
                 "out": self.action_space.n
             },
-            "Greedy_exploration_config": {
-                "tau": 6000,
-                "temperature": 1.0,
-                "final_temperature": 0.05
-            },
             "gamma": 0.8
         }
         self.device = choose_device(self.config.get("device", "cuda:0"))
         self.value_net = model_factory(self.config["model"])
         self.value_net.to(self.config.get("device", "cuda:0"))
-
-        self.exploration_policy = Greedy(self.action_space, self.config["Greedy_exploration_config"])
 
     def forward(self, obs, rnn_states=None, masks=None, available_actions=None, deterministic=False):   
         """
@@ -58,8 +50,6 @@ class dqn_actor(nn.Module):
         :return: an action
         """
         self.previous_state = state
-        if step_exploration_time:
-            self.exploration_policy.step_time()
         # Handle multi-agent observations
         # TODO: it would be more efficient to forward a batch of states
         if isinstance(state, tuple):
@@ -67,14 +57,12 @@ class dqn_actor(nn.Module):
 
         # Single-agent setting
         values =  self.value_net(torch.tensor([state], dtype=torch.float).to(self.device)).data.cpu().numpy()[0]
-        self.exploration_policy.update(values)
-        return self.exploration_policy.sample()
+        return np.argmax(values)
 
 
     def load(self, filename):
         checkpoint = torch.load(filename, map_location=self.device)
         self.value_net.load_state_dict(checkpoint['state_dict'])
-        # self.target_net.load_state_dict(checkpoint['state_dict'])
         return filename
 
     def load_state_dict(self, policy_state_dict):
@@ -91,7 +79,7 @@ class dqn_actor(nn.Module):
 
 
     def seed(self, seed):
-        self.exploration_policy.seed(seed)
+        pass
 
 
     def reset(self):
