@@ -86,7 +86,7 @@ class AgarRunner(Runner):
                         
                         env_infos.append(env_info)
                 
-                        train_infos.append({"average_step_rewards": np.mean(self.buffer[agent_id].rewards)})
+                        train_infos[agent_id].update({"average_step_rewards": np.mean(self.buffer[agent_id].rewards)})
                 
                 self.log_train(train_infos, total_num_steps)
                 self.log_env(env_infos, total_num_steps)

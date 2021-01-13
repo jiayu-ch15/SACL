@@ -77,8 +77,7 @@ class SSDRunner(Runner):
                         env_infos[k] = [info[k] for info in infos if k in info.keys()]
                
                 for agent_id in range(self.num_agents):
-                    train_info = {'average_step_rewards': np.mean(self.buffer[agent_id].rewards)}
-                    train_infos.append(train_info)
+                    train_infos[agent_id].update({'average_step_rewards': np.mean(self.buffer[agent_id].rewards)})
                     
                 self.log_train(train_infos, total_num_steps)
                 self.log_env(env_infos, total_num_steps)
