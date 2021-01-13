@@ -131,7 +131,7 @@ class SMARTSRunner(Runner):
 
         dones_env = np.all(dones, axis=-1)
 
-        rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
+        rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
         masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
         masks[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
@@ -157,7 +157,7 @@ class SMARTSRunner(Runner):
         eval_reset_choose = np.ones(self.n_eval_rollout_threads) == 1.0
         eval_obs = eval_envs.reset(eval_reset_choose)
         
-        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
+        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
         eval_dones_env = np.zeros(self.n_eval_rollout_threads, dtype=bool)
 
@@ -188,7 +188,7 @@ class SMARTSRunner(Runner):
 
             eval_episode_rewards += eval_rewards
 
-            eval_rnn_states[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
+            eval_rnn_states[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
             eval_masks[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
@@ -212,7 +212,7 @@ class SMARTSRunner(Runner):
                 image = envs.render('rgb_array', close=False)[0]
                 all_frames.append(image)
 
-            rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
+            rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
             
             episode_rewards = []
@@ -243,7 +243,7 @@ class SMARTSRunner(Runner):
                 obs, rewards, dones, infos = envs.step(actions_env)
                 episode_rewards.append(rewards)
 
-                rnn_states[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
+                rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
                 masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 

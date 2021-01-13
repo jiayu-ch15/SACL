@@ -40,6 +40,7 @@ class Runner(object):
         self.use_wandb = self.all_args.use_wandb
         self.use_single_network = self.all_args.use_single_network
         self.use_render = self.all_args.use_render
+        self.recurrent_N = self.all_args.recurrent_N
 
         # interval
         self.save_interval = self.all_args.save_interval
