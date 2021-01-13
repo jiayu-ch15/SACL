@@ -185,10 +185,21 @@ class HighwayEnv(gym.core.Wrapper):
 
 
     def load_other_agents(self):
-        from .agents.policy_pool.policy import R_actor as Policy
+        """
+            Load trained agent which serves as the defender in the task
+            onpolicy agent.
+            if wanna use DQN policy: 
+                uncomment "from .agents.policy_pool.DQN.policy import dqn_actor as Policy"
+            if wanna use Onpolicy:
+                uncomment "from .agents.policy_pool.policy import R_actor as Policy"
+        """
+        from .agents.policy_pool.DQN.policy import dqn_actor as Policy
+        # from .agents.policy_pool.policy import R_actor as Policy
         
         if self.use_same_other_policy:
             policy_path = self.all_args.policy_path
+            print(policy_path)
+            print(self.all_args.use_recurrent_policy)
             self.other_agents = Policy(self.all_args,
                                 self.all_observation_space[self.load_start_idx],
                                 self.all_action_space[self.load_start_idx],
@@ -222,7 +233,11 @@ class HighwayEnv(gym.core.Wrapper):
                                             self.rnn_states, 
                                             self.masks, 
                                             deterministic=True)
+                    print(f"other_action before={other_actions}")
+
                     other_actions = other_actions.detach().numpy()
+                    print(f"other_action={other_actions}")
+
                 else:
                     other_actions = []
                     for agent_id in range(self.n_other_agents):
@@ -234,7 +249,6 @@ class HighwayEnv(gym.core.Wrapper):
                                                         deterministic=True)
                         other_actions.append(other_action.detach().numpy())
                         self.rnn_states[agent_id] = rnn_state.detach().numpy()
-                
                 if self.train_start_idx == 0:
                     action = np.concatenate([action, other_actions])
                 else:
