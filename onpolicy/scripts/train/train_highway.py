@@ -90,7 +90,12 @@ def parse_args(args, parser):
     parser.add_argument("--use_render_vulnerability", action='store_true', default=False, help="whether to use the same model")
     parser.add_argument("--use_offscreen_render", action='store_true', default=False, help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
     parser.add_argument('--policy_path', type=str,
-                        default='../envs/highway/agents/policy_pool/actor.pt', help="load_policy_path")
+                        default='../envs/highway/agents/policy_pool/actor.pt', help="If the path is set as '../envs/highway/agents/policy_pool/DQN/model/dueling_ddqn_obs25_act5_baseline.tar' ")
+    
+    # DQN Agent parameters
+    parser.add_argument("--other_agent_type", type=str, default="DQN_agent", help='Available type is  "DQN_agent" or "Onpolicy".')
+    parser.add_argument("--dummy_agent_type", type=str, default="Trained_dueling_ddqn_agent", help='Available type is  "ValueIteration" or "RobustValueIteration" or "MonteCarloTreeSearchDeterministic" or "Trained_dueling_ddqn_agent".')
+    parser.add_argument("--DQN_hidden_size", type=list, default=[256, 128], help='The hidden size of NN model in DQN agent')
     all_args = parser.parse_known_args(args)[0]
 
     return all_args

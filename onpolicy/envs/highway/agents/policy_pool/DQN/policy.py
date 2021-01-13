@@ -1,5 +1,4 @@
-from onpolicy.envs.highway.agents.common.models import model_factory, trainable_parameters
-from onpolicy.envs.highway.agents.common.utils import choose_device
+from onpolicy.envs.highway.agents.common.models import model_factory
 from gym import spaces
 import numpy as np
 import torch
@@ -29,9 +28,7 @@ class dqn_actor(nn.Module):
             },
             "gamma": 0.8
         }
-        self.device = choose_device(self.config.get("device", "cuda:0"))
         self.value_net = model_factory(self.config["model"])
-        self.value_net.to(self.config.get("device", "cuda:0"))
 
     def forward(self, obs, rnn_states=None, masks=None, available_actions=None, deterministic=False):   
         """
@@ -40,7 +37,7 @@ class dqn_actor(nn.Module):
         :param state: s, the initial state of the agent
         :return: [a0, a1, a2...], a sequence of actions to perform
         """
-        return torch.Tensor([[self.act(obs)]]), obs
+        return torch.Tensor([[self.act(obs)]]), None
 
     def act(self, state, step_exploration_time=True):
         """
@@ -56,35 +53,9 @@ class dqn_actor(nn.Module):
             return tuple(self.act(agent_state, step_exploration_time=False) for agent_state in state)
 
         # Single-agent setting
-        values =  self.value_net(torch.tensor([state], dtype=torch.float).to(self.device)).data.cpu().numpy()[0]
+        values =  self.value_net(torch.tensor([state], dtype=torch.float)).data.cpu().numpy()[0]
+        
         return np.argmax(values)
-
-
-    def load(self, filename):
-        checkpoint = torch.load(filename, map_location=self.device)
-        self.value_net.load_state_dict(checkpoint['state_dict'])
-        return filename
 
     def load_state_dict(self, policy_state_dict):
         self.value_net.load_state_dict(policy_state_dict['state_dict'])
-
-    def plan(self, state):
-        """
-            Plan an optimal trajectory from an initial state.
-
-        :param state: s, the initial state of the agent
-        :return: [a0, a1, a2...], a sequence of actions to perform
-        """
-        return [self.act(state)]
-
-
-    def seed(self, seed):
-        pass
-
-
-    def reset(self):
-        pass
-
-
-    def eval(self):
-        pass
