@@ -87,6 +87,7 @@ class HighwayEnv(gym.core.Wrapper):
         
         # here we load other agents and dummies, can not change the order of the following code!!
         if self.n_other_agents > 0:
+            self.other_agent_type = "DQN_agent"
             self.load_other_agents()
         if self.n_dummies > 0:
             self.dummy_agent_type = "Trained_dueling_ddqn_agent" # "ValueIteration" or "RobustValueIteration" or "MonteCarloTreeSearchDeterministic" or "Trained_dueling_ddqn_agent"
@@ -140,21 +141,8 @@ class HighwayEnv(gym.core.Wrapper):
 
         elif self.dummy_agent_type == "Trained_dueling_ddqn_agent":
             agent_config ={
-                "__class__": "<class 'onpolicy.envs.highway.agents.deep_q_network.pytorch.DQNAgent'>",
                 "gamma": 0.8,
-                "n_steps": 1,
-                "batch_size": 32,
-                "memory_capacity": 15000,
-                "target_update": 50,
-                "exploration": {
-                    "method": "EpsilonGreedy",
-                    "tau": 6000,
-                    "temperature": 1.0,
-                    "final_temperature": 0.05
-                },
                 "device":"cpu",
-                "loss_function": "l2",
-                "double": True,
                 "model": {
                     "type": "DuelingNetwork",
                     "base_module": {
@@ -168,38 +156,27 @@ class HighwayEnv(gym.core.Wrapper):
                     }
                 } 
             }
-            from .agents.deep_q_network.pytorch import DQNAgent as DummyAgent    
+            from .agents.deep_q_network.dummy_policy import DQNAgent as DummyAgent    
             for dummy_id in range(self.n_dummies):
                 self.dummies.append(DummyAgent(self.env_init, agent_config,                
                                                 vehicle_id = dummy_id + self.n_attackers + self.n_defenders))
-                model_path = (os.path.split(os.path.dirname(os.path.abspath(__file__)))[0]+"/highway/agents/deep_q_network/trained_dueling_ddqn_agent.tar")
+                model_path = (os.path.split(os.path.dirname(os.path.abspath(__file__)))[0]+"/highway/agents/policy_pool/DQN/model/dueling_ddqn_obs25_act5_baseline.tar")
                 model_path = self.dummies[dummy_id].load(filename=model_path)
                 if model_path:
-                    print("Loaded {} model from {}".format(self.dummies[dummy_id].__class__.__name__, model_path))
-
-                    # put trained agent into evaluation mode
-                    try:
-                        self.dummies[dummy_id].eval()
-                    except AttributeError:
-                        pass
+                    print("Loaded {} model from as dummy agent {}".format(self.dummies[dummy_id].__class__.__name__, model_path))
 
 
     def load_other_agents(self):
         """
-            Load trained agent which serves as the defender in the task
-            onpolicy agent.
-            if wanna use DQN policy: 
-                uncomment "from .agents.policy_pool.DQN.policy import dqn_actor as Policy"
-            if wanna use Onpolicy:
-                uncomment "from .agents.policy_pool.policy import R_actor as Policy"
+            Load trained agent which serves as the defender/attacker based on type of the task 
         """
-        from .agents.policy_pool.DQN.policy import dqn_actor as Policy
-        # from .agents.policy_pool.policy import R_actor as Policy
+        if self.other_agent_type == "DQN_agent":
+            from .agents.policy_pool.DQN.policy import dqn_actor as Policy
+        elif self.other_agent_type == "Onpolicy":
+            from .agents.policy_pool.policy import R_actor as Policy
         
         if self.use_same_other_policy:
             policy_path = self.all_args.policy_path
-            print(policy_path)
-            print(self.all_args.use_recurrent_policy)
             self.other_agents = Policy(self.all_args,
                                 self.all_observation_space[self.load_start_idx],
                                 self.all_action_space[self.load_start_idx],
@@ -317,7 +294,6 @@ class HighwayEnv(gym.core.Wrapper):
             # 3. dummy dones
             dummy_dones = [all_dones[self.n_attackers + self.n_defenders + dummy_id] for dummy_id in range(self.n_dummies)]
 
-            self.episode_len += 1
             if np.all(dones, axis=-1):
                 crashs = [infos["crashed"][agent_id] for agent_id in range(self.n_defenders+self.n_attackers)]
                 for i,c in enumerate(crashs):
@@ -325,15 +301,12 @@ class HighwayEnv(gym.core.Wrapper):
                         infos.update({"defender_{}_crash".format(i):c})
                     else:
                         infos.update({"attacker_{}_crash".format(i):c})
-                infos.update({"episode_len": self.episode_len})
+                infos.update({"episode_len": self.current_step})
 
             if self.use_render_vulnerability:
                 self.cache_frames.append(self.render('rgb_array'))
                 self.current_step += 1
-                reward_flag = 0
-                if np.all(dones):
-                    reward_flag = 1
-                if reward_flag == 1: # save gif
+                if np.all(dones): # save gif
                     self.pick_frames.append(self.render_vulnerability(self.current_step))
                     infos.update({"frames": self.pick_frames})
 
@@ -357,7 +330,6 @@ class HighwayEnv(gym.core.Wrapper):
         
         if choose:
             self.episode_speeds = []
-            self.episode_len=0
 
             self.episode_rewards = []
             self.episode_dummy_rewards = []
