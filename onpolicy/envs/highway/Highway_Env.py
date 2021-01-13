@@ -68,8 +68,8 @@ class HighwayEnv(gym.core.Wrapper):
                     "vehicles_count": 50,
                     "offscreen_rendering": self.use_offscreen_render,
                     "collision_reward": self.collision_reward,
-                    "simulation_frequency":self.simulation_frequency,
-                    "dt":self.dt,
+                    "simulation_frequency": self.simulation_frequency,
+                    "dt": self.dt,
                     }
         
         self.env_init = load_environment(self.env_dict)
@@ -317,7 +317,7 @@ class HighwayEnv(gym.core.Wrapper):
             # 3. dummy dones
             dummy_dones = [all_dones[self.n_attackers + self.n_defenders + dummy_id] for dummy_id in range(self.n_dummies)]
 
-            self.episode_len+=1
+            self.episode_len += 1
             if np.all(dones, axis=-1):
                 crashs = [infos["crashed"][agent_id] for agent_id in range(self.n_defenders+self.n_attackers)]
                 for i,c in enumerate(crashs):

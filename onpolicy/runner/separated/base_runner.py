@@ -104,6 +104,7 @@ class Runner(object):
             # algorithm
             tr = TrainAlgo(self.all_args, self.policy[agent_id], device = self.device)
             # buffer
+            share_observation_space = self.envs.share_observation_space[agent_id] if self.use_centralized_V else self.envs.observation_space[agent_id]
             bu = SeparatedReplayBuffer(self.all_args,
                                        self.envs.observation_space[agent_id],
                                        share_observation_space,
