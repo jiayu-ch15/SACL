@@ -8,6 +8,8 @@ Welcome to onpolicy's documentation!
 
 .. image:: full.gif
 
+.. include:: setup.rst
+
 .. include:: quickstart.rst
 
 .. toctree::

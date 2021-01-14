@@ -1,14 +1,15 @@
 from onpolicy.envs.highway.agents.common.models import model_factory
-from gym import spaces
 import numpy as np
 import torch
 from torch import nn
+from onpolicy.algorithms.utils.util import check
 
-class dqn_actor(nn.Module):
+class actor(nn.Module):
     def __init__(self, args=None, obs_space=None, action_space=None, hidden_size=None, use_recurrent_policy=None):
-        super(dqn_actor, self).__init__()
+        super(actor, self).__init__()
         self.obs_space = obs_space
         self.action_space = action_space
+        self.tpdv = dict(dtype=torch.float32)
         if not isinstance(hidden_size, list):
             hidden_size = [256, 128]
         self.config = {
@@ -26,7 +27,6 @@ class dqn_actor(nn.Module):
                 "in": int(np.prod(self.obs_space.shape)),
                 "out": self.action_space.n
             },
-            "gamma": 0.8
         }
         self.value_net = model_factory(self.config["model"])
 
@@ -37,25 +37,29 @@ class dqn_actor(nn.Module):
         :param state: s, the initial state of the agent
         :return: [a0, a1, a2...], a sequence of actions to perform
         """
-        return torch.Tensor([[self.act(obs)]]), None
+        obs = check(obs).to(self.tpdv)
+        values = self.value_net(obs)
+        if deterministic:
+            actions = torch.argmax(values)
+        else:
+            print("only support greedy action while evaluating!")
+            raise NotImplementedError
 
-    def act(self, state, step_exploration_time=True):
+        return actions, rnn_states
+
+    def act(self, obs):
         """
             Act according to the state-action value model and an exploration policy
         :param state: current state
         :param step_exploration_time: step the exploration schedule
         :return: an action
         """
-        self.previous_state = state
-        # Handle multi-agent observations
-        # TODO: it would be more efficient to forward a batch of states
-        if isinstance(state, tuple):
-            return tuple(self.act(agent_state, step_exploration_time=False) for agent_state in state)
-
-        # Single-agent setting
-        values =  self.value_net(torch.tensor([state], dtype=torch.float)).data.cpu().numpy()[0]
         
-        return np.argmax(values)
+        obs = check(obs).to(self.tpdv)
+        values = self.value_net(obs).detach().numpy()
+        actions = np.argmax(values)
+
+        return actions
 
     def load_state_dict(self, policy_state_dict):
         self.value_net.load_state_dict(policy_state_dict['state_dict'])

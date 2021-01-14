@@ -18,8 +18,8 @@ class AbstractTreeSearchAgent(AbstractAgent):
 
     def __init__(self,
                  env,
-                 config=None,
-                 id=None):
+                 config = None,
+                 vehicle_id = None):
         """
             A new Tree Search agent.
         :param env: The environment
@@ -27,7 +27,7 @@ class AbstractTreeSearchAgent(AbstractAgent):
         """
         super(AbstractTreeSearchAgent, self).__init__(config)
         self.env = env
-        self.id=id
+        self.id = vehicle_id
         self.planner = self.make_planner()
         self.previous_actions = []
         self.remaining_horizon = 0
