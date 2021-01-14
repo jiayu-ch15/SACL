@@ -89,8 +89,6 @@ class HighwayEnv(gym.core.Wrapper):
         if self.n_other_agents > 0:
             self.load_other_agents()
         if self.n_dummies > 0:
-            # print(self.all_args.dummy_agent_type)
-            self.all_args.dummy_agent_type = "Trained_dueling_ddqn_agent" # "ValueIteration" or "RobustValueIteration" or "MonteCarloTreeSearchDeterministic" or "Trained_dueling_ddqn_agent"
             self.load_dummies()
         
         # get new obs and action space
@@ -119,24 +117,20 @@ class HighwayEnv(gym.core.Wrapper):
                 from .agents.dynamic_programming.robust_value_iteration import RobustValueIterationAgent as DummyAgent
             
             agent_config = {
-                "env_preprocessors": [{"method":"simplify"}],
-                "budget": 50,
-                "gamma": 0.7,
+                "env_preprocessors": [{"method":"simplify"}]
             }
             for dummy_id in range(self.n_dummies):
                 self.dummies.append(DummyAgent(self.env_init, agent_config, vehicle_id=dummy_id + self.n_attackers + self.n_defenders))
         
         elif self.all_args.dummy_agent_type == "MonteCarloTreeSearchDeterministic":
-            from .agents.tree_search.mcts import MCTSAgent as DummyAgent    
+            from .agents.tree_search.mcts import MCTSAgent as DummyAgent  
             for dummy_id in range(self.n_dummies):
                 self.dummies.append(DummyAgent(self.env_init, 
                                                 id = dummy_id + self.n_attackers + self.n_defenders,
                                                 config=dict(budget=200, temperature=200, max_depth=1)))
 
-        elif self.all_args.dummy_agent_type == "Trained_dueling_ddqn_agent":
+        elif self.all_args.dummy_agent_type == "DQN_agent":
             agent_config ={
-                "gamma": 0.8,
-                "device":"cpu",
                 "model": {
                     "type": "DuelingNetwork",
                     "base_module": {
@@ -155,9 +149,7 @@ class HighwayEnv(gym.core.Wrapper):
                 self.dummies.append(DummyAgent(self.env_init, agent_config,                
                                                 vehicle_id = dummy_id + self.n_attackers + self.n_defenders))
                 model_path = (os.path.split(os.path.dirname(os.path.abspath(__file__)))[0]+"/highway/agents/policy_pool/DQN/model/dueling_ddqn_obs25_act5_baseline.tar")
-                model_path = self.dummies[dummy_id].load(filename=model_path)
-                if model_path:
-                    print("Loaded {} model from as dummy agent {}".format(self.dummies[dummy_id].__class__.__name__, model_path))
+                self.dummies[dummy_id].load(filename=model_path)
 
 
     def load_other_agents(self):
@@ -224,23 +216,11 @@ class HighwayEnv(gym.core.Wrapper):
 
             # then we need to get actions of dummies
             if self.n_dummies > 0:
-                if self.all_args.dummy_agent_type == "ValueIteration" or "RobustValueIteration":
-                    dummy_actions = []
-                    for dummy_id in range(self.n_dummies):
-                        dummy_actions.append([self.dummies[dummy_id].act(self.dummy_obs)])
-                    action = np.concatenate([action, dummy_actions])
-                elif self.all_args.dummy_agent_type == "MonteCarloTreeSearchDeterministic":
-                    dummy_actions = []
-                    for dummy in self.dummies:
-                        dummy_action = dummy.act(self.dummy_obs)
-                        dummy_actions.append([dummy_action])
-                    action = np.concatenate([action, dummy_actions])
-                elif self.all_args.dummy_agent_type == "Trained_dueling_ddqn_agent":
-                    dummy_actions = []
-                    for dummy in self.dummies:
-                        dummy_action = dummy.plan(self.dummy_obs)
-                        dummy_actions.append([dummy_action])
-                    action = np.concatenate([action, dummy_actions])
+                dummy_actions = []
+                for dummy_id in range(self.n_dummies):
+                    dummy_actions.append([self.dummies[dummy_id].act(self.dummy_obs[dummy_id])])
+                action = np.concatenate([action, dummy_actions])
+
             # for discrete action, drop the unneeded axis
             action = np.squeeze(action, axis=-1)
 

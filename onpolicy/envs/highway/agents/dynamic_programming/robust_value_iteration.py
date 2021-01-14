@@ -1,6 +1,4 @@
 import numpy as np
-import sys
-sys.path.extend("../../../")
 from onpolicy.envs.highway.agents.dynamic_programming.value_iteration import ValueIterationAgent
 
 
@@ -80,17 +78,17 @@ class RobustValueIterationAgent(ValueIterationAgent):
             raise ValueError("Unknown mode")
         return self.rewards + self.config["gamma"] * next_v
 
-    def record(self, state, action, reward, next_state, done, info):
-        pass
+    # def record(self, state, action, reward, next_state, done, info):
+    #     pass
 
-    def reset(self):
-        pass
+    # def reset(self):
+    #     pass
 
-    def seed(self, seed=None):
-        pass
+    # def seed(self, seed=None):
+    #     pass
 
-    def save(self, filename):
-        return False
+    # def save(self, filename):
+    #     return False
 
-    def load(self, filename):
-        return False
+    # def load(self, filename):
+    #     return False
