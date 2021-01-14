@@ -21,17 +21,23 @@ class HighwayEnv(gym.core.Wrapper):
         # [vi] ValueIteration
         # [rvi] RobustValueIteration
         # [mcts] MonteCarloTreeSearchDeterministic
-        # [d3qn] duel_ddqn
         self.dummy_agent_type = all_args.dummy_agent_type
+        # [d3qn] duel_ddqn
+        self.use_same_dummy_policy = all_args.use_same_dummy_policy
+        self.dummy_agent_policy_path = all_args.dummy_agent_policy_path
+        if self.dummy_agent_type in ["vi", "rvi","mcts"]:
+            assert self.use_same_dummy_policy == False, ("can not use True here!")
 
         # [d3qn] duel_ddqn
         # [ppo] onpolicy
         self.other_agent_type = all_args.other_agent_type
         self.use_same_other_policy = all_args.use_same_other_policy
+        self.other_agent_policy_path = all_args.other_agent_policy_path
 
         # task parameters
         self.scenario_name = all_args.scenario_name
         self.horizon = all_args.horizon
+        self.vehicles_count = all_args.vehicles_count
         self.use_centralized_V = all_args.use_centralized_V
         self.simulation_frequency = all_args.simulation_frequency
         self.collision_reward = all_args.collision_reward
@@ -83,7 +89,7 @@ class HighwayEnv(gym.core.Wrapper):
             # other vehicles could also set as "onpolicy.envs.highway.highway_env.vehicle.dummy.DummyVehicle" 
             # Dummy Vehicle is the vehicle keeping lane with the speed of 25 m/s.
             # While IDM Vehicle is the vehicle which is able to change lane and speed based on the obs of its front & rear vehicle
-            "vehicles_count": 50,
+            "vehicles_count": self.vehicles_count,
             "offscreen_rendering": self.use_offscreen_render,
             "collision_reward": self.collision_reward,
             "simulation_frequency": self.simulation_frequency,
@@ -128,59 +134,49 @@ class HighwayEnv(gym.core.Wrapper):
         self.cache_frames = []
 
     def load_dummies(self):
-        self.dummies = []
-
         if self.dummy_agent_type in ["vi", "rvi"]:
             if self.dummy_agent_type == "vi":
                 from .agents.dynamic_programming.value_iteration import ValueIterationAgent as DummyAgent
             else:
                 from .agents.dynamic_programming.robust_value_iteration import RobustValueIterationAgent as DummyAgent
-            
-            agent_config = {
-                "env_preprocessors": [{"method":"simplify"}],
-                "budget": 50
-            }
-
+            agent_config = {"env_preprocessors": [{"method":"simplify"}], "budget": 50}
         elif self.dummy_agent_type == "mcts":
             from .agents.tree_search.mcts import MCTSAgent as DummyAgent 
-
-            agent_config = {
-                "max_depth": 1,
-                "budget": 200,
-                "temperature": 200
-            }  
-
+            agent_config = {"max_depth": 1, "budget": 200, "temperature": 200}  
         elif self.dummy_agent_type == "d3qn":
             from .agents.policy_pool.dqn.policy import actor as DummyAgent
-            agent_config ={
-                "model": {
-                    "type": "DuelingNetwork",
-                    "base_module": {
-                        "layers": [256, 128]
-                    },
-                    "value": {
-                        "layers": [128]
-                    },
-                    "advantage": {
-                        "layers": [128]
-                    }
-                }
-            }
-
+            agent_config = {"hidden_size": [256, 128]}
         else:
             raise NotImplementedError
 
-        for dummy_id in range(self.n_dummies):
-            dummy = DummyAgent(env = self.env_init, 
+        if self.dummy_agent_type == "d3qn":
+            if self.use_same_dummy_policy:
+                self.dummies = DummyAgent(self.all_args,
+                                self.all_observation_space[self.n_attackers + self.n_defenders],
+                                self.all_action_space[self.n_attackers + self.n_defenders],
+                                hidden_size = agent_config['hidden_size']) # re-structure this!
+                policy_state_dict = torch.load(self.dummy_agent_policy_path, map_location='cpu')
+                self.dummies.load_state_dict(policy_state_dict)
+                self.dummies.eval()
+            else:
+                # TODO: need to support different models in the future. 
+                self.dummies = []
+                for dummy_id in range(self.n_dummies):
+                    dummy = DummyAgent(self.all_args,
+                                self.all_observation_space[dummy_id + self.n_attackers + self.n_defenders],
+                                self.all_action_space[dummy_id + self.n_attackers + self.n_defenders],
+                                hidden_size = agent_config['hidden_size']) # re-structure this!
+                    policy_state_dict = torch.load(self.dummy_agent_policy_path, map_location='cpu')
+                    dummy.load_state_dict(policy_state_dict)
+                    dummy.eval()
+                    self.dummies.append(dummy)
+        else:
+            self.dummies = []
+            for dummy_id in range(self.n_dummies):
+                dummy = DummyAgent(env = self.env_init, 
                                 config = agent_config,                
                                 vehicle_id = dummy_id + self.n_attackers + self.n_defenders)
-            if self.dummy_agent_type == "d3qn":
-                policy_path = self.all_args.policy_path # ! need to review this code, policy path
-                policy_state_dict = torch.load(policy_path, map_location='cpu')
-                dummy.load_state_dict(policy_state_dict)
-                dummy.eval()
-
-            self.dummies.append(dummy)
+                self.dummies.append(dummy)
 
     def load_other_agents(self):
         """
@@ -188,32 +184,32 @@ class HighwayEnv(gym.core.Wrapper):
         """
         if self.other_agent_type == "d3qn":
             from .agents.policy_pool.dqn.policy import actor as Policy
+            agent_config = {"hidden_size": [256, 128]}
         elif self.other_agent_type == "ppo":
             from .agents.policy_pool.ppo.policy import actor as Policy
+            agent_config = {"hidden_size": 64}
         else:
             raise NotImplementedError
         
         if self.use_same_other_policy:
-            policy_path = self.all_args.other_agent_policy_path
             self.other_agents = Policy(self.all_args,
                                 self.all_observation_space[self.load_start_idx],
                                 self.all_action_space[self.load_start_idx],
-                                hidden_size = self.all_args.hidden_size, # re-structure this!
+                                hidden_size = agent_config['hidden_size'], # re-structure this!
                                 use_recurrent_policy = self.all_args.use_recurrent_policy) # cpu is fine actually, keep it for now.
-            policy_state_dict = torch.jit.load(policy_path, map_location='cpu')
+            policy_state_dict = torch.load(self.other_agent_policy_path, map_location='cpu')
             self.other_agents.load_state_dict(policy_state_dict)
             self.other_agents.eval()
         else:
-            # TODO: need to support different models in the future.
-            policy_path = self.all_args.other_agent_policy_path # ! should be a list or other ways in this case
+            # TODO: need to support different models in the future. 
             self.other_agents = []           
             for agent_id in range(self.n_other_agents):
                 policy = Policy(self.all_args,
                                 self.all_observation_space[self.load_start_idx + agent_id],
                                 self.all_action_space[self.load_start_idx + agent_id],
-                                hidden_size = self.all_args.hidden_size, # re-structure this!
+                                hidden_size = agent_config['hidden_size'], # re-structure this!
                                 use_recurrent_policy = self.all_args.use_recurrent_policy) # cpu is fine actually, keep it for now.
-                policy_state_dict = torch.load(policy_path, map_location='cpu')
+                policy_state_dict = torch.load(self.other_agent_policy_path, map_location='cpu') # ! should be a list or other ways in this case
                 policy.load_state_dict(policy_state_dict)
                 policy.eval()
                 self.other_agents.append(policy)
@@ -229,7 +225,6 @@ class HighwayEnv(gym.core.Wrapper):
                                             self.masks, 
                                             deterministic=True)
                     other_actions = other_actions.detach().numpy()
-
                 else:
                     other_actions = []
                     for agent_id in range(self.n_other_agents):
@@ -248,7 +243,22 @@ class HighwayEnv(gym.core.Wrapper):
 
             # then we need to get actions of dummies
             if self.n_dummies > 0:
-                dummy_actions = [[self.dummies[dummy_id].act(self.dummy_obs[dummy_id])] for dummy_id in range(self.n_dummies)]
+                if self.use_same_dummy_policy:
+                    dummy_actions = self.dummies.act(self.dummy_obs)
+                else:
+                    dummy_actions = []
+                    for dummy_id in range(self.n_dummies):
+                        dummy_action = self.dummies[dummy_id].act(self.dummy_obs[dummy_id])
+                        if type(dummy_action) == int:
+                            dummy_action = [dummy_action]
+                        else:
+                            if len(dummy_action.shape) > 1:
+                                dummy_action = dummy_action.squeeze(-1) 
+                            elif len(dummy_action.shape) < 1:  
+                                dummy_action = [dummy_action]
+                            else:
+                                pass                    
+                        dummy_actions.append(dummy_action)
                 action = np.concatenate([action, dummy_actions])
 
             # for discrete action, drop the unneeded axis
@@ -347,7 +357,6 @@ class HighwayEnv(gym.core.Wrapper):
                     for agent_id in range(self.n_dummies)])
             # deal with other agents
             self.rnn_states = np.zeros((self.n_other_agents, self.all_args.hidden_size), dtype=np.float32)
-            # o = [np.concatenate(all_obs[i]) for i in range(len(all_obs))]
 
             self.other_obs = np.array([np.concatenate(all_obs[self.load_start_idx + agent_id]) \
                                     for agent_id in range(self.n_other_agents)])

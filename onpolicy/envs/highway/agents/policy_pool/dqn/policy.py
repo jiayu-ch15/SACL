@@ -3,15 +3,16 @@ import numpy as np
 import torch
 from torch import nn
 from onpolicy.algorithms.utils.util import check
+from onpolicy.utils.util import get_shape_from_obs_space
 
 class actor(nn.Module):
-    def __init__(self, args=None, obs_space=None, action_space=None, hidden_size=None, use_recurrent_policy=None):
+    def __init__(self, args, obs_space, action_space, hidden_size, use_recurrent_policy=False):
         super(actor, self).__init__()
         self.obs_space = obs_space
         self.action_space = action_space
+        obs_shape = get_shape_from_obs_space(obs_space)
         self.tpdv = dict(dtype=torch.float32)
-        if not isinstance(hidden_size, list):
-            hidden_size = [256, 128]
+
         self.config = {
             "model": {
                 "type": "DuelingNetwork",
@@ -24,7 +25,7 @@ class actor(nn.Module):
                 "advantage": {
                     "layers": [hidden_size[1]]
                 },
-                "in": int(np.prod(self.obs_space.shape)),
+                "in": int(np.prod(obs_shape)),
                 "out": self.action_space.n
             },
         }
@@ -37,10 +38,10 @@ class actor(nn.Module):
         :param state: s, the initial state of the agent
         :return: [a0, a1, a2...], a sequence of actions to perform
         """
-        obs = check(obs).to(self.tpdv)
+        obs = check(obs).to(**self.tpdv)
         values = self.value_net(obs)
         if deterministic:
-            actions = torch.argmax(values)
+            actions = torch.argmax(values, axis=-1, keepdim=True)
         else:
             print("only support greedy action while evaluating!")
             raise NotImplementedError
@@ -54,12 +55,13 @@ class actor(nn.Module):
         :param step_exploration_time: step the exploration schedule
         :return: an action
         """
-        
-        obs = check(obs).to(self.tpdv)
-        values = self.value_net(obs).detach().numpy()
-        actions = np.argmax(values)
+        obs = check(obs).to(**self.tpdv)
+        if len(obs.shape) < 2:
+            obs = obs.unsqueeze(0) 
+        values = self.value_net(obs)
+        actions = torch.argmax(values, axis=-1, keepdim=True)
 
-        return actions
+        return actions.detach().numpy()
 
     def load_state_dict(self, policy_state_dict):
         self.value_net.load_state_dict(policy_state_dict['state_dict'])

@@ -69,19 +69,27 @@ def parse_args(args, parser):
     parser.add_argument('--task_type', type=str,
                         default='attack', choices = ["attack","defend","all"], 
                         help="train attacker or defender")
+
     parser.add_argument("--other_agent_type", type=str, 
-                        default="d3qn", choices = ["d3qn","ppo"], 
+                        default="ppo", choices = ["d3qn","ppo"], 
                         help='Available type is "d3qn[duel_ddqn agent]" or "ppo[onpolicy agent]".')
-    parser.add_argument("--dummy_agent_type", type=str, 
-                        default="rvi", choices = ["vi","rvi","mcts"], 
-                        help='Available type is "[vi]ValueIteration" or "[rvi]RobustValueIteration" or "[mcts]MonteCarloTreeSearch" or "[d3qn]duel_ddqn".')
+    parser.add_argument('--other_agent_policy_path', type=str,
+                        default='../envs/highway/agents/policy_pool/ppo/model/actor.pt', 
+                        help="If the path is set as '../envs/highway/agents/policy_pool/dqn/model/dueling_ddqn_obs25_act5_baseline.tar' ")
     parser.add_argument("--use_same_other_policy", action='store_false', 
                         default=True, 
                         help="whether to use the same model")
-    parser.add_argument('--policy_path', type=str,
+
+    parser.add_argument("--dummy_agent_type", type=str, 
+                        default="rvi", choices = ["vi","rvi","mcts","d3qn"], 
+                        help='Available type is "[vi]ValueIteration" or "[rvi]RobustValueIteration" or "[mcts]MonteCarloTreeSearch" or "[d3qn]duel_ddqn".')
+    parser.add_argument('--dummy_agent_policy_path', type=str,
                         default='../envs/highway/agents/policy_pool/ppo/model/actor.pt', 
                         help="If the path is set as '../envs/highway/agents/policy_pool/dqn/model/dueling_ddqn_obs25_act5_baseline.tar' ")
-    
+    parser.add_argument("--use_same_dummy_policy", action='store_true', 
+                        default=False, 
+                        help="whether to use the same model")
+
     parser.add_argument('--n_defenders', type=int,
                         default=1, help="number of defensive vehicles, default:1")
     parser.add_argument('--n_attackers', type=int,
@@ -95,6 +103,8 @@ def parse_args(args, parser):
                         default=1.0, help="the simulation time")
     parser.add_argument('--simulation_frequency', type=int,
                         default=5, help="the simulation frequency of the env")
+    parser.add_argument('--vehicles_count', type=int,
+                        default=50, help="# of npc cars")
     parser.add_argument('--collision_reward', type=float,
                         default=-1.0, help="the collision penalty of the car")
 
