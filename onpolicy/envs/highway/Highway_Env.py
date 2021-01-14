@@ -266,8 +266,7 @@ class HighwayEnv(gym.core.Wrapper):
 
             all_obs, all_rewards, all_dones, infos = self.env.step(tuple(action))
 
-            self.current_step += 1
-            
+
             # obs
             # 1. train obs
             obs = np.array([np.concatenate(all_obs[self.train_start_idx + agent_id]) for agent_id in range(self.n_agents)])
