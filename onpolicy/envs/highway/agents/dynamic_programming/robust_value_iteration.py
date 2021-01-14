@@ -77,18 +77,3 @@ class RobustValueIterationAgent(ValueIterationAgent):
         else:
             raise ValueError("Unknown mode")
         return self.rewards + self.config["gamma"] * next_v
-
-    # def record(self, state, action, reward, next_state, done, info):
-    #     pass
-
-    # def reset(self):
-    #     pass
-
-    # def seed(self, seed=None):
-    #     pass
-
-    # def save(self, filename):
-    #     return False
-
-    # def load(self, filename):
-    #     return False

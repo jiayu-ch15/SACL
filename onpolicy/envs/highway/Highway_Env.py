@@ -162,7 +162,7 @@ class HighwayEnv(gym.core.Wrapper):
             from .agents.policy_pool.policy import R_actor as Policy
         
         if self.use_same_other_policy:
-            policy_path = self.all_args.policy_path
+            policy_path = self.all_args.other_agent_policy_path
             self.other_agents = Policy(self.all_args,
                                 self.all_observation_space[self.load_start_idx],
                                 self.all_action_space[self.load_start_idx],
@@ -173,7 +173,7 @@ class HighwayEnv(gym.core.Wrapper):
             self.other_agents.eval()
         else:
             # TODO: need to support different models in the future.
-            policy_path = self.all_args.policy_path # ! should be a list or other ways in this case
+            policy_path = self.all_args.other_agent_policy_path # ! should be a list or other ways in this case
             self.other_agents = []           
             for agent_id in range(self.n_other_agents):
                 policy = Policy(self.all_args,

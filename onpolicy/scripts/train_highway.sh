@@ -1,9 +1,9 @@
 #!/bin/sh
 env="Highway"
 scenario="highway-v0"
-task="defend"
+task="attack"
 n_defenders=1
-n_attackers=0
+n_attackers=1
 n_dummies=2
 algo="rmappo"
 exp="debug"
