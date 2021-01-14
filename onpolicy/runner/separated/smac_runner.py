@@ -93,7 +93,7 @@ class SMACRunner(Runner):
                     last_battles_won = battles_won
                 
                 for agent_id in range(self.num_agents):
-                    train_infos.append({"average_step_rewards": np.mean(self.buffer[agent_id].rewards)})
+                    train_infos[agent_id].update({"average_step_rewards": np.mean(self.buffer[agent_id].rewards)})
             
                 self.log_train(train_infos, total_num_steps)
 

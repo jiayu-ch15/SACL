@@ -12,9 +12,9 @@ from onpolicy.algorithms.utils.rnn import RNNLayer
 from onpolicy.algorithms.utils.act import ACTLayer
 from onpolicy.utils.util import get_shape_from_obs_space
 
-class R_actor(nn.Module):
-    def __init__(self, args, obs_space, action_space, hidden_size, use_recurrent_policy=True):
-        super(R_actor, self).__init__()
+class actor(nn.Module):
+    def __init__(self, args, obs_space, action_space, hidden_size=64, use_recurrent_policy=True):
+        super(actor, self).__init__()
         self.hidden_size = hidden_size
         self._use_recurrent_policy = use_recurrent_policy
 
