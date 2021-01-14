@@ -20,6 +20,8 @@ class HighwayRunner(Runner):
     def __init__(self, config):
         super(HighwayRunner, self).__init__(config)
         self.use_render_vulnerability = self.all_args.use_render_vulnerability
+        self.n_defenders = self.all_args.n_defenders
+        self.n_attackers = self.all_args.n_attackers
         
     def run(self):
         self.warmup()   
@@ -34,19 +36,17 @@ class HighwayRunner(Runner):
             self.env_infos = {"episode_rewards": [], 
                               "episode_dummy_rewards": [], 
                               "episode_other_rewards": [],
-                              "episode_len":[]}
-            n_defenders = self.all_args.n_defenders
-            n_attackers = self.all_args.n_attackers
-            for i, s in enumerate(range(n_defenders + n_attackers)):
-                if i < n_defenders:
+                              "episode_length":[]}
+            
+            for i, s in enumerate(range(self.n_defenders + self.n_attackers)):
+                if i < self.n_defenders:
                     self.env_infos.update({"defender_{}_speed".format(i):[]})
                     self.env_infos.update({"defender_{}_crash".format(i):[]})
-                    self.env_infos.update({"defender_{}_dis".format(i):[]})
-
+                    self.env_infos.update({"defender_{}_distance".format(i):[]})
                 else:
                     self.env_infos.update({"attacker_{}_speed".format(i):[]})
                     self.env_infos.update({"attacker_{}_crash".format(i):[]})
-                    self.env_infos.update({"attacker_{}_dis".format(i):[]})
+                    self.env_infos.update({"attacker_{}_distance".format(i):[]})
 
 
             for step in range(self.episode_length):
@@ -56,7 +56,7 @@ class HighwayRunner(Runner):
                 obs, rewards, dones, infos = self.envs.step(actions)
 
                 if self.use_render:
-                    self.envs.render(mode='human')
+                    self.envs.render(mode = 'human')
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
                 # insert data into buffer
                 self.insert(data)
@@ -151,7 +151,7 @@ class HighwayRunner(Runner):
                             self.env_infos[key].append(info[key])
 
                     if key == "frames" and self.use_render_vulnerability:
-                        self.render_vulnerability(info[key], suffix="train")
+                        self.render_vulnerability(info[key], suffix = "train")
 
 
         rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
@@ -165,7 +165,7 @@ class HighwayRunner(Runner):
 
         self.buffer.insert(share_obs, obs, rnn_states, rnn_states_critic, actions, action_log_probs, values, rewards, masks, active_masks=active_masks)
 
-    def render_vulnerability(self, frames, suffix="train"):
+    def render_vulnerability(self, frames, suffix = "train"):
         if self.all_args.save_gifs:
             save_dir = Path(str(self.run_dir) + '/vulner_' + suffix)
             if not save_dir.exists():
@@ -192,18 +192,16 @@ class HighwayRunner(Runner):
         eval_env_infos = {"episode_rewards": [],
                           "episode_dummy_rewards": [],
                           "episode_other_rewards": [],
-                          "episode_len":[]}
-        n_defenders = self.all_args.n_defenders
-        n_attackers = self.all_args.n_attackers
-        for i, s in enumerate(range(n_defenders + n_attackers)):
-            if i < n_defenders:
+                          "episode_length":[]}
+        for i in range(self.n_defenders + self.n_attackers):
+            if i < self.n_defenders:
                 eval_env_infos.update({"defender_{}_speed".format(i): []})
                 eval_env_infos.update({"defender_{}_crash".format(i): []})
-                eval_env_infos.update({"defender_{}_dis".format(i): []})
+                eval_env_infos.update({"defender_{}_distance".format(i): []})
             else:
                 eval_env_infos.update({"attacker_{}_speed".format(i): []})
                 eval_env_infos.update({"attacker_{}_crash".format(i): []})
-                eval_env_infos.update({"attacker_{}_dis".format(i): []})
+                eval_env_infos.update({"attacker_{}_distance".format(i): []})
 
         eval_episode_rewards = 0
         eval_reset_choose = np.ones(self.n_eval_rollout_threads) == 1.0
@@ -220,8 +218,7 @@ class HighwayRunner(Runner):
             with torch.no_grad():
                 eval_actions = np.ones((self.n_eval_rollout_threads, self.num_agents, action_shape)).astype(np.int) * (-1)
                 self.trainer.prep_rollout()
-                eval_action, eval_rnn_state \
-                    = self.trainer.policy.act(np.concatenate(eval_obs[eval_choose]),
+                eval_action, eval_rnn_state = self.trainer.policy.act(np.concatenate(eval_obs[eval_choose]),
                                                 np.concatenate(eval_rnn_states[eval_choose]),
                                                 np.concatenate(eval_masks[eval_choose]),
                                                 deterministic=True)
@@ -241,13 +238,13 @@ class HighwayRunner(Runner):
             eval_masks[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
             for eval_done, eval_info in zip(eval_dones, eval_infos):
-                if np.all(eval_done==True):
+                if np.all(eval_done == True):
                     for eval_info in eval_infos:
                         for key in eval_info.keys():
                             if key in eval_env_infos.keys():
                                 eval_env_infos[key].append(eval_info[key]) 
                             if key == "frames" and self.use_render_vulnerability:
-                                self.render_vulnerability(info[key], suffix="eval") 
+                                self.render_vulnerability(info[key], suffix = "eval") 
 
             print("eval average episode rewards is {}".format(np.sum(eval_episode_rewards, axis=-1)))              
 
@@ -261,19 +258,16 @@ class HighwayRunner(Runner):
         render_env_infos = {"episode_rewards": [],
                             "episode_dummy_rewards": [],
                             "episode_other_rewards": [],
-                            "episode_len":[]}
-        n_defenders = self.all_args.n_defenders
-        n_attackers = self.all_args.n_attackers
-        for i, s in enumerate(range(n_defenders + n_attackers)):
-            if i < n_defenders:
+                            "episode_length": []}
+        for i in range(self.n_defenders + self.n_attackers):
+            if i < self.n_defenders:
                 render_env_infos.update({"defender_{}_speed".format(i): []})
                 render_env_infos.update({"defender_{}_crash".format(i): []})
-                render_env_infos.update({"defender_{}_dis".format(i): []})
-
+                render_env_infos.update({"defender_{}_distance".format(i): []})
             else:
                 render_env_infos.update({"attacker_{}_speed".format(i): []})
                 render_env_infos.update({"attacker_{}_crash".format(i): []})
-                render_env_infos.update({"attacker_{}_dis".format(i): []})
+                render_env_infos.update({"attacker_{}_distance".format(i): []})
 
         for episode in range(self.all_args.render_episodes):
             render_choose = np.ones(self.n_render_rollout_threads) == 1.0
@@ -285,7 +279,6 @@ class HighwayRunner(Runner):
             rnn_states = np.zeros((self.n_render_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             masks = np.ones((self.n_render_rollout_threads, self.num_agents, 1), dtype=np.float32)
             
-
             for step in range(self.all_args.horizon):
                 calc_start = time.time()
                 self.trainer.prep_rollout()
@@ -310,7 +303,7 @@ class HighwayRunner(Runner):
                 
                 dones_env = np.all(dones, axis=-1)
 
-                if np.any(dones_env) or step ==(self.episode_length-1):
+                if np.any(dones_env) or step == (self.episode_length - 1):
                     for key in infos[0].keys():
                         if key in render_env_infos.keys():
                             render_env_infos[key].append(infos[0][key])
@@ -325,13 +318,15 @@ class HighwayRunner(Runner):
                     print("render average episode defender_{}_crash is: ".format(i) + str(
                         np.mean(np.array(render_env_infos["defender_{}_crash".format(i)]))))
                     print("render average episode defender_{}_distance is: ".format(i) + str(
-                        np.mean(np.array(render_env_infos["defender_{}_dis".format(i)]))))
+                        np.mean(np.array(render_env_infos["defender_{}_distance".format(i)]))))
 
                 else:
                     print("render average episode attacker_{}_speed is: ".format(i) + str(
                         np.mean(np.array(render_env_infos["attacker_{}_speed".format(i)]))))
                     print("render average episode attacker_{}_crash is: ".format(i) + str(
                         np.mean(np.array(render_env_infos["attacker_{}_crash".format(i)]))))
+                    print("render average episode attacker_{}_distance is: ".format(i) + str(
+                        np.mean(np.array(render_env_infos["attacker_{}_distance".format(i)]))))
 
         if self.all_args.save_gifs:
             imageio.mimsave(str(self.run_dir) + '/full.gif', all_frames, duration=self.all_args.ifi)

@@ -266,8 +266,9 @@ class HighwayEnv(gym.core.Wrapper):
 
             all_obs, all_rewards, all_dones, infos = self.env.step(tuple(action))
 
-            self.current_step += 1
-            
+            if self.current_step == 1:
+                self.init_position = [deepcopy(infos)["position"][agent_id] for agent_id in range(self.n_defenders + self.n_attackers)]
+
             # obs
             # 1. train obs
             obs = np.array([np.concatenate(all_obs[self.train_start_idx + agent_id]) for agent_id in range(self.n_agents)])
@@ -292,15 +293,6 @@ class HighwayEnv(gym.core.Wrapper):
                                     for dummy_id in range(self.n_dummies)]
             self.episode_dummy_rewards.append(dummy_rewards)
 
-            # update info
-            speeds=[infos["speed"][agent_id] for agent_id in range(self.n_defenders + self.n_attackers)]
-            self.episode_speeds.append(speeds)
-            for i, s in enumerate(np.mean(self.episode_speeds, axis=0)):
-                if i <self.n_defenders:
-                    infos.update({"defender_{}_speed".format(i): s})
-                else:
-                    infos.update({"attacker_{}_speed".format(i): s})
-
             # ! @zhuo u need to use this one!
             # 1. train dones
             dones = [all_dones[self.train_start_idx + agent_id] for agent_id in range(self.n_agents)]
@@ -309,38 +301,35 @@ class HighwayEnv(gym.core.Wrapper):
             # 3. dummy dones
             dummy_dones = [all_dones[self.n_attackers + self.n_defenders + dummy_id] for dummy_id in range(self.n_dummies)]
 
-            if self.current_step==1:
-                self.init_position = [deepcopy(infos)["position"][agent_id] for agent_id in range(self.n_defenders + self.n_attackers)]
+            # update info
+            speeds = [infos["speed"][agent_id] for agent_id in range(self.n_defenders + self.n_attackers)]
+            self.episode_speeds.append(speeds)
+            for i, s in enumerate(np.mean(self.episode_speeds, axis=0)):
+                if i < self.n_defenders:
+                    infos.update({"defender_{}_speed".format(i): s})
+                else:
+                    infos.update({"attacker_{}_speed".format(i): s})
 
             if np.all(dones):
-                crashs = [infos["crashed"][agent_id] for agent_id in range(self.n_defenders+self.n_attackers)]
-
-                for i,c in enumerate(crashs):
-                    if i <self.n_defenders:
-                        if c:
-                            infos.update({"defender_{}_crash".format(i):1})
-                        else:
-                            infos.update({"defender_{}_crash".format(i): 0})
+                crashes = [infos["crashed"][agent_id] for agent_id in range(self.n_defenders + self.n_attackers)]
+                position = [infos["position"][agent_id] for agent_id in range(self.n_defenders + self.n_attackers)]
+                
+                for i, c in enumerate(crashes):
+                    if i < self.n_defenders:
+                        infos.update({"defender_{}_crash".format(i): float(c)})
                     else:
-                        if c:
-                            infos.update({"attacker_{}_crash".format(i):1})
-                        else:
-                            infos.update({"attacker_{}_crash".format(i):0})
+                        infos.update({"attacker_{}_crash".format(i): float(c)})
 
-                pos = [infos["position"][agent_id] for agent_id in range(self.n_defenders+self.n_attackers)]
-                for i,p in enumerate(pos):
-                    if i <self.n_defenders:
-
-                        infos.update({"defender_{}_dis".format(i):np.linalg.norm(p-self.init_position[i])})
+                for i, pos in enumerate(position):
+                    dis = np.linalg.norm(pos - self.init_position[i])
+                    if i < self.n_defenders:
+                        infos.update({"defender_{}_distance".format(i): dis})
                     else:
-                        infos.update({"attacker_{}_dis".format(i): np.linalg.norm(p-self.init_position[i])})
+                        infos.update({"attacker_{}_distance".format(i): dis})
 
-
-                infos.update({"episode_len": self.current_step-1})
-
+                infos.update({"episode_length": self.current_step})
 
             self.current_step += 1
-
 
             if self.use_render_vulnerability:
                 self.cache_frames.append(self.render('rgb_array'))
@@ -352,8 +341,6 @@ class HighwayEnv(gym.core.Wrapper):
                 adv_rew = self.env.unwrapped.adv_rew()
             else:
                 adv_rew = 0
-
-
 
             infos.update({"episode_rewards": np.sum(self.episode_rewards, axis=0),
                         "episode_other_rewards": np.sum(self.episode_other_rewards, axis=0) if self.n_other_agents > 0 else 0.0,
