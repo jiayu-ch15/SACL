@@ -40,13 +40,13 @@ class HighwayRunner(Runner):
             
             for i, s in enumerate(range(self.n_defenders + self.n_attackers)):
                 if i < self.n_defenders:
-                    self.env_infos.update({"defender_{}_speed".format(i):[]})
-                    self.env_infos.update({"defender_{}_crash".format(i):[]})
-                    self.env_infos.update({"defender_{}_distance".format(i):[]})
+                    self.env_infos.update({"defender_{}_speed".format(i): []})
+                    self.env_infos.update({"defender_{}_crash".format(i): []})
+                    self.env_infos.update({"defender_{}_distance".format(i): []})
                 else:
-                    self.env_infos.update({"attacker_{}_speed".format(i):[]})
-                    self.env_infos.update({"attacker_{}_crash".format(i):[]})
-                    self.env_infos.update({"attacker_{}_distance".format(i):[]})
+                    self.env_infos.update({"attacker_{}_speed".format(i): []})
+                    self.env_infos.update({"attacker_{}_crash".format(i): []})
+                    self.env_infos.update({"attacker_{}_distance".format(i): []})
 
 
             for step in range(self.episode_length):
@@ -147,8 +147,7 @@ class HighwayRunner(Runner):
             if done_env:
                 for key in info.keys():
                     if key in self.env_infos.keys():
-                        if info[key]:
-                            self.env_infos[key].append(info[key])
+                        self.env_infos[key].append(info[key])
 
                     if key == "frames" and self.use_render_vulnerability:
                         self.render_vulnerability(info[key], suffix = "train")
