@@ -190,7 +190,6 @@ class AbstractEnv(gym.Env):
 
         self.steps += 1
         self._simulate(action)
-
         obs = self.observation_type.observe()
         reward = self._reward(action)
         terminal = self._is_terminal()
@@ -198,6 +197,7 @@ class AbstractEnv(gym.Env):
             "speed": [vehicle.speed for vehicle in self.controlled_vehicles],
             "crashed": [vehicle.crashed for vehicle in self.controlled_vehicles],
             "action": action,
+            "position":[vehicle.position for vehicle in self.controlled_vehicles],
         }
         try:
             info["cost"] = self._cost(action)

@@ -294,18 +294,40 @@ class HighwayEnv(gym.core.Wrapper):
             # 3. dummy dones
             dummy_dones = [all_dones[self.n_attackers + self.n_defenders + dummy_id] for dummy_id in range(self.n_dummies)]
 
-            if np.all(dones, axis=-1):
+            if self.current_step==1:
+                self.init_position = [deepcopy(infos)["position"][agent_id] for agent_id in range(self.n_defenders + self.n_attackers)]
+
+            if np.all(dones):
                 crashs = [infos["crashed"][agent_id] for agent_id in range(self.n_defenders+self.n_attackers)]
+
                 for i,c in enumerate(crashs):
                     if i <self.n_defenders:
-                        infos.update({"defender_{}_crash".format(i):c})
+                        if c:
+                            infos.update({"defender_{}_crash".format(i):1})
+                        else:
+                            infos.update({"defender_{}_crash".format(i): 0})
                     else:
-                        infos.update({"attacker_{}_crash".format(i):c})
-                infos.update({"episode_len": self.current_step})
+                        if c:
+                            infos.update({"attacker_{}_crash".format(i):1})
+                        else:
+                            infos.update({"attacker_{}_crash".format(i):0})
+
+                pos = [infos["position"][agent_id] for agent_id in range(self.n_defenders+self.n_attackers)]
+                for i,p in enumerate(pos):
+                    if i <self.n_defenders:
+
+                        infos.update({"defender_{}_dis".format(i):np.linalg.norm(p-self.init_position[i])})
+                    else:
+                        infos.update({"attacker_{}_dis".format(i): np.linalg.norm(p-self.init_position[i])})
+
+
+                infos.update({"episode_len": self.current_step-1})
+
+
+            self.current_step += 1
 
             if self.use_render_vulnerability:
                 self.cache_frames.append(self.render('rgb_array'))
-                self.current_step += 1
                 if np.all(dones): # save gif
                     self.pick_frames.append(self.render_vulnerability(self.current_step))
                     infos.update({"frames": self.pick_frames})
@@ -314,6 +336,8 @@ class HighwayEnv(gym.core.Wrapper):
                 adv_rew = self.env.unwrapped.adv_rew()
             else:
                 adv_rew = 0
+
+
 
             infos.update({"episode_rewards": np.sum(self.episode_rewards, axis=0),
                         "episode_other_rewards": np.sum(self.episode_other_rewards, axis=0) if self.n_other_agents > 0 else 0.0,
@@ -354,10 +378,12 @@ class HighwayEnv(gym.core.Wrapper):
 
             # deal with agents that need to train
             obs = np.array([np.concatenate(all_obs[self.train_start_idx + agent_id]) for agent_id in range(self.n_agents)])
+
+            self.current_step += 1
+
             if self.use_render_vulnerability:
                 self.cache_frames.append(self.render('rgb_array'))
-                self.current_step += 1
-                                                
+
         else:
             obs = np.zeros((self.n_agents, self.obs_dim))
         return obs
