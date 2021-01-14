@@ -41,36 +41,36 @@ class HighwayEnv(gym.core.Wrapper):
             raise NotImplementedError
 
         self.env_dict={
-                    "id": all_args.scenario_name,
-                    "import_module": "onpolicy.envs.highway.highway_env",
-                    # u must keep this order!!! can not change that!!!
-                    "controlled_vehicles": self.n_defenders + self.n_attackers + self.n_dummies,
-                    "n_defenders":self.n_defenders,
-                    "n_attackers":self.n_attackers,
-                    "n_dummies":self.n_dummies,
-                    "duration": self.all_args.horizon,
-                    "action": {
-                        "type": "MultiAgentAction",
-                        "action_config": {
-                            "type": "DiscreteMetaAction"
-                        }
-                    },
-                    "observation": {
-                        "type": "MultiAgentObservation",
-                        "observation_config": {
-                            "type": "Kinematics"
-                        }
-                    },
-                    "other_vehicles_type": "onpolicy.envs.highway.highway_env.vehicle.behavior.IDMVehicle",
-                    # other vehicles could also set as "onpolicy.envs.highway.highway_env.vehicle.dummy.DummyVehicle" 
-                    # Dummy Vehicle is the vehicle keeping lane with the speed of 25 m/s.
-                    # While IDM Vehicle is the vehicle which is able to change lane and speed based on the obs of its front & rear vehicle
-                    "vehicles_count": 50,
-                    "offscreen_rendering": self.use_offscreen_render,
-                    "collision_reward": self.collision_reward,
-                    "simulation_frequency":self.simulation_frequency,
-                    "dt":self.dt,
-                    }
+            "id": all_args.scenario_name,
+            "import_module": "onpolicy.envs.highway.highway_env",
+            # u must keep this order!!! can not change that!!!
+            "controlled_vehicles": self.n_defenders + self.n_attackers + self.n_dummies,
+            "n_defenders":self.n_defenders,
+            "n_attackers":self.n_attackers,
+            "n_dummies":self.n_dummies,
+            "duration": self.all_args.horizon,
+            "action": {
+                "type": "MultiAgentAction",
+                "action_config": {
+                    "type": "DiscreteMetaAction"
+                }
+            },
+            "observation": {
+                "type": "MultiAgentObservation",
+                "observation_config": {
+                    "type": "Kinematics"
+                }
+            },
+            "other_vehicles_type": "onpolicy.envs.highway.highway_env.vehicle.behavior.IDMVehicle",
+            # other vehicles could also set as "onpolicy.envs.highway.highway_env.vehicle.dummy.DummyVehicle" 
+            # Dummy Vehicle is the vehicle keeping lane with the speed of 25 m/s.
+            # While IDM Vehicle is the vehicle which is able to change lane and speed based on the obs of its front & rear vehicle
+            "vehicles_count": 50,
+            "offscreen_rendering": self.use_offscreen_render,
+            "collision_reward": self.collision_reward,
+            "simulation_frequency": self.simulation_frequency,
+            "dt": self.dt
+        }
         
         self.env_init = load_environment(self.env_dict)
 
@@ -78,7 +78,7 @@ class HighwayEnv(gym.core.Wrapper):
 
         # get new obs and action space
         self.all_observation_space = [] 
-        self.all_action_space = [] 
+        self.all_action_space = []
         for agent_id in range(self.n_attackers+self.n_defenders+self.n_dummies):
             obs_shape = list(self.observation_space[agent_id].shape)
             self.obs_dim = reduce(lambda x, y: x*y, obs_shape)
@@ -86,11 +86,12 @@ class HighwayEnv(gym.core.Wrapper):
             self.all_action_space.append(self.action_space[agent_id])
         
         # here we load other agents and dummies, can not change the order of the following code!!
-        if self.n_other_agents>0:
+        if self.n_other_agents > 0:
             self.load_other_agents()
-        if self.n_dummies>0:
-            self.dummy_agent_type = "Trained_dueling_ddqn_agent" # "ValueIteration" or "RobustValueIteration" or "MonteCarloTreeSearchDeterministic" or "Trained_dueling_ddqn_agent"
-            self.load_dummies() 
+        if self.n_dummies > 0:
+            # print(self.all_args.dummy_agent_type)
+            self.all_args.dummy_agent_type = "Trained_dueling_ddqn_agent" # "ValueIteration" or "RobustValueIteration" or "MonteCarloTreeSearchDeterministic" or "Trained_dueling_ddqn_agent"
+            self.load_dummies()
         
         # get new obs and action space
         self.new_observation_space = [] # just for store
@@ -108,54 +109,34 @@ class HighwayEnv(gym.core.Wrapper):
         self.action_space = self.new_action_space
 
         self.cache_frames = []
-        self.episode_num=0
 
     def load_dummies(self):
         self.dummies = []
-        if self.dummy_agent_type == "ValueIteration":
-            from .agents.dynamic_programming.value_iteration import ValueIterationAgent
+        if self.all_args.dummy_agent_type == "ValueIteration" or  self.all_args.dummy_agent_type == "RobustValueIteration":
+            if self.all_args.dummy_agent_type == "ValueIteration":
+                from .agents.dynamic_programming.value_iteration import ValueIterationAgent as DummyAgent
+            else:
+                from .agents.dynamic_programming.robust_value_iteration import RobustValueIterationAgent as DummyAgent
+            
             agent_config = {
                 "env_preprocessors": [{"method":"simplify"}],
                 "budget": 50,
                 "gamma": 0.7,
             }
             for dummy_id in range(self.n_dummies):
-                self.dummies.append(ValueIterationAgent(self.env_init, agent_config, vehicle_id=dummy_id + self.n_attackers + self.n_defenders))
-
-        elif self.dummy_agent_type == "RobustValueIteration":
-            from .agents.dynamic_programming.robust_value_iteration import RobustValueIterationAgent
-            agent_config = {
-                "env_preprocessors": [{"method":"simplify"}],
-                "budget": 50,
-                "gamma": 0.7,
-            }
-            for dummy_id in range(self.n_dummies):
-                self.dummies.append(RobustValueIterationAgent(self.env_init, agent_config,vehicle_id=dummy_id + self.n_attackers + self.n_defenders))
+                self.dummies.append(DummyAgent(self.env_init, agent_config, vehicle_id=dummy_id + self.n_attackers + self.n_defenders))
         
-        elif self.dummy_agent_type == "MonteCarloTreeSearchDeterministic":
+        elif self.all_args.dummy_agent_type == "MonteCarloTreeSearchDeterministic":
             from .agents.tree_search.mcts import MCTSAgent as DummyAgent    
             for dummy_id in range(self.n_dummies):
                 self.dummies.append(DummyAgent(self.env_init, 
                                                 id = dummy_id + self.n_attackers + self.n_defenders,
                                                 config=dict(budget=200, temperature=200, max_depth=1)))
 
-        elif self.dummy_agent_type == "Trained_dueling_ddqn_agent":
+        elif self.all_args.dummy_agent_type == "Trained_dueling_ddqn_agent":
             agent_config ={
-                "__class__": "<class 'onpolicy.envs.highway.agents.deep_q_network.pytorch.DQNAgent'>",
                 "gamma": 0.8,
-                "n_steps": 1,
-                "batch_size": 32,
-                "memory_capacity": 15000,
-                "target_update": 50,
-                "exploration": {
-                    "method": "EpsilonGreedy",
-                    "tau": 6000,
-                    "temperature": 1.0,
-                    "final_temperature": 0.05
-                },
                 "device":"cpu",
-                "loss_function": "l2",
-                "double": True,
                 "model": {
                     "type": "DuelingNetwork",
                     "base_module": {
@@ -167,26 +148,26 @@ class HighwayEnv(gym.core.Wrapper):
                     "advantage": {
                         "layers": [128]
                     }
-                } 
+                }
             }
-            from .agents.deep_q_network.pytorch import DQNAgent as DummyAgent    
+            from .agents.deep_q_network.dummy_policy import DQNAgent as DummyAgent    
             for dummy_id in range(self.n_dummies):
                 self.dummies.append(DummyAgent(self.env_init, agent_config,                
                                                 vehicle_id = dummy_id + self.n_attackers + self.n_defenders))
-                model_path = (os.path.split(os.path.dirname(os.path.abspath(__file__)))[0]+"/highway/agents/deep_q_network/trained_dueling_ddqn_agent.tar")
+                model_path = (os.path.split(os.path.dirname(os.path.abspath(__file__)))[0]+"/highway/agents/policy_pool/DQN/model/dueling_ddqn_obs25_act5_baseline.tar")
                 model_path = self.dummies[dummy_id].load(filename=model_path)
                 if model_path:
-                    print("Loaded {} model from {}".format(self.dummies[dummy_id].__class__.__name__, model_path))
-
-                    # put trained agent into evaluation mode
-                    try:
-                        self.dummies[dummy_id].eval()
-                    except AttributeError:
-                        pass
+                    print("Loaded {} model from as dummy agent {}".format(self.dummies[dummy_id].__class__.__name__, model_path))
 
 
     def load_other_agents(self):
-        from .agents.policy_pool.policy import R_actor as Policy
+        """
+            Load trained agent which serves as the defender/attacker based on type of the task 
+        """
+        if self.all_args.other_agent_type== "DQN_agent":
+            from .agents.policy_pool.DQN.policy import dqn_actor as Policy
+        elif self.all_args.other_agent_type== "Onpolicy":
+            from .agents.policy_pool.policy import R_actor as Policy
         
         if self.use_same_other_policy:
             policy_path = self.all_args.policy_path
@@ -224,6 +205,7 @@ class HighwayEnv(gym.core.Wrapper):
                                             self.masks, 
                                             deterministic=True)
                     other_actions = other_actions.detach().numpy()
+
                 else:
                     other_actions = []
                     for agent_id in range(self.n_other_agents):
@@ -235,7 +217,6 @@ class HighwayEnv(gym.core.Wrapper):
                                                         deterministic=True)
                         other_actions.append(other_action.detach().numpy())
                         self.rnn_states[agent_id] = rnn_state.detach().numpy()
-                
                 if self.train_start_idx == 0:
                     action = np.concatenate([action, other_actions])
                 else:
@@ -243,18 +224,18 @@ class HighwayEnv(gym.core.Wrapper):
 
             # then we need to get actions of dummies
             if self.n_dummies > 0:
-                if self.dummy_agent_type == "ValueIteration" or "RobustValueIteration":
+                if self.all_args.dummy_agent_type == "ValueIteration" or "RobustValueIteration":
                     dummy_actions = []
                     for dummy_id in range(self.n_dummies):
                         dummy_actions.append([self.dummies[dummy_id].act(self.dummy_obs)])
                     action = np.concatenate([action, dummy_actions])
-                elif self.dummy_agent_type == "MonteCarloTreeSearchDeterministic":
+                elif self.all_args.dummy_agent_type == "MonteCarloTreeSearchDeterministic":
                     dummy_actions = []
                     for dummy in self.dummies:
                         dummy_action = dummy.act(self.dummy_obs)
                         dummy_actions.append([dummy_action])
                     action = np.concatenate([action, dummy_actions])
-                elif self.dummy_agent_type == "Trained_dueling_ddqn_agent":
+                elif self.all_args.dummy_agent_type == "Trained_dueling_ddqn_agent":
                     dummy_actions = []
                     for dummy in self.dummies:
                         dummy_action = dummy.plan(self.dummy_obs)
@@ -289,22 +270,14 @@ class HighwayEnv(gym.core.Wrapper):
                                     for dummy_id in range(self.n_dummies)]
             self.episode_dummy_rewards.append(dummy_rewards)
 
-
-
-            speeds=[infos["speed"][agent_id] for agent_id in range(self.n_defenders+self.n_attackers)]
+            # update info
+            speeds=[infos["speed"][agent_id] for agent_id in range(self.n_defenders + self.n_attackers)]
             self.episode_speeds.append(speeds)
-            for i,s in enumerate(np.mean(self.episode_speeds, axis=0)):
+            for i, s in enumerate(np.mean(self.episode_speeds, axis=0)):
                 if i <self.n_defenders:
-                    infos.update({"defender_{}_speed".format(i):s})
+                    infos.update({"defender_{}_speed".format(i): s})
                 else:
-                    infos.update({"attacker_{}_speed".format(i):s})
-
-            crashs = [infos["crashed"][agent_id] for agent_id in range(self.n_defenders+self.n_attackers)]
-            for i,c in enumerate(crashs):
-                if i <self.n_defenders:
-                    infos.update({"defender_{}_crash".format(i):c})
-                else:
-                    infos.update({"attacker_{}_crash".format(i):c})
+                    infos.update({"attacker_{}_speed".format(i): s})
 
 
             # ! @zhuo u need to use this one!
@@ -315,25 +288,31 @@ class HighwayEnv(gym.core.Wrapper):
             # 3. dummy dones
             dummy_dones = [all_dones[self.n_attackers + self.n_defenders + dummy_id] for dummy_id in range(self.n_dummies)]
 
+            if np.all(dones, axis=-1):
+                crashs = [infos["crashed"][agent_id] for agent_id in range(self.n_defenders+self.n_attackers)]
+                for i,c in enumerate(crashs):
+                    if i <self.n_defenders:
+                        infos.update({"defender_{}_crash".format(i):c})
+                    else:
+                        infos.update({"attacker_{}_crash".format(i):c})
+                infos.update({"episode_len": self.current_step})
+
             if self.use_render_vulnerability:
                 self.cache_frames.append(self.render('rgb_array'))
                 self.current_step += 1
-                reward_flag = 0
-                if np.all(dones):
-                    reward_flag=1
-                if reward_flag == 1: # save gif
+                if np.all(dones): # save gif
                     self.pick_frames.append(self.render_vulnerability(self.current_step))
                     infos.update({"frames": self.pick_frames})
 
             if self.task_type == "attack":
-                adv_rew=self.env.unwrapped.adv_rew()
+                adv_rew = self.env.unwrapped.adv_rew()
             else:
-                adv_rew=0
+                adv_rew = 0
 
             infos.update({"episode_rewards": np.sum(self.episode_rewards, axis=0),
                         "episode_other_rewards": np.sum(self.episode_other_rewards, axis=0) if self.n_other_agents > 0 else 0.0,
                         "episode_dummy_rewards": np.sum(self.episode_dummy_rewards, axis=0) if self.n_dummies > 0 else 0.0,
-                        "adv_rew":adv_rew})
+                        "adv_rew": adv_rew})
         else:
             obs = np.zeros((self.n_agents, self.obs_dim))
             rewards = np.zeros((self.n_agents, 1))
@@ -342,11 +321,8 @@ class HighwayEnv(gym.core.Wrapper):
         return obs, rewards, dones, infos
 
     def reset(self, choose = True):
-        
         if choose:
-
             self.episode_speeds = []
-            self.episode_num+=1
 
             self.episode_rewards = []
             self.episode_dummy_rewards = []

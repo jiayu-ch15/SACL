@@ -77,8 +77,7 @@ class SSDRunner(Runner):
                         env_infos[k] = [info[k] for info in infos if k in info.keys()]
                
                 for agent_id in range(self.num_agents):
-                    train_info = {'average_step_rewards': np.mean(self.buffer[agent_id].rewards)}
-                    train_infos.append(train_info)
+                    train_infos[agent_id].update({'average_step_rewards': np.mean(self.buffer[agent_id].rewards)})
                     
                 self.log_train(train_infos, total_num_steps)
                 self.log_env(env_infos, total_num_steps)
@@ -134,7 +133,7 @@ class SSDRunner(Runner):
 
         dones_env = np.all(dones, axis=1)
 
-        rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
+        rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[2:]), dtype=np.float32)
         masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
         masks[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)

@@ -33,18 +33,17 @@ class HighwayRunner(Runner):
 
             self.env_infos = {"episode_rewards": [], 
                               "episode_dummy_rewards": [], 
-                              "episode_other_rewards": [],}
+                              "episode_other_rewards": [],
+                              "episode_len":[]}
             n_defenders = self.all_args.n_defenders
             n_attackers = self.all_args.n_attackers
-            for i,s in enumerate(range(n_defenders+n_attackers)):
-                if i <n_defenders:
+            for i, s in enumerate(range(n_defenders + n_attackers)):
+                if i < n_defenders:
                     self.env_infos.update({"defender_{}_speed".format(i):[]})
                     self.env_infos.update({"defender_{}_crash".format(i):[]})
-
                 else:
                     self.env_infos.update({"attacker_{}_speed".format(i):[]})
                     self.env_infos.update({"attacker_{}_crash".format(i):[]})
-
 
             for step in range(self.episode_length):
                 # Sample actions
@@ -85,6 +84,7 @@ class HighwayRunner(Runner):
                 train_infos["average_step_rewards"] = np.mean(self.buffer.rewards)
                 print("average step rewards is {}".format(train_infos["average_step_rewards"]))
                 print("average episode rewards is {}".format(np.mean(self.env_infos["episode_rewards"])))
+                print("average episode crash is {}".format(np.mean(self.env_infos["defender_0_crash"])))
 
                 self.log_train(train_infos, total_num_steps)
                 self.log_env(self.env_infos, total_num_steps)
@@ -149,7 +149,7 @@ class HighwayRunner(Runner):
                         self.render_vulnerability(info[key], suffix="train")
 
 
-        rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
+        rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
         masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
         masks[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
@@ -186,14 +186,14 @@ class HighwayRunner(Runner):
 
         eval_env_infos = {"episode_rewards": [],
                           "episode_dummy_rewards": [],
-                          "episode_other_rewards": [], }
+                          "episode_other_rewards": [],
+                          "episode_len":[]}
         n_defenders = self.all_args.n_defenders
         n_attackers = self.all_args.n_attackers
         for i, s in enumerate(range(n_defenders + n_attackers)):
             if i < n_defenders:
                 eval_env_infos.update({"defender_{}_speed".format(i): []})
                 eval_env_infos.update({"defender_{}_crash".format(i): []})
-
             else:
                 eval_env_infos.update({"attacker_{}_speed".format(i): []})
                 eval_env_infos.update({"attacker_{}_crash".format(i): []})
@@ -202,7 +202,7 @@ class HighwayRunner(Runner):
         eval_reset_choose = np.ones(self.n_eval_rollout_threads) == 1.0
         eval_obs = eval_envs.reset(eval_reset_choose)
 
-        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
+        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
         eval_dones_env = np.zeros(self.n_eval_rollout_threads, dtype=bool)
 
@@ -229,7 +229,7 @@ class HighwayRunner(Runner):
 
             eval_episode_rewards += eval_rewards
 
-            eval_rnn_states[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
+            eval_rnn_states[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
             eval_masks[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
@@ -253,14 +253,14 @@ class HighwayRunner(Runner):
         all_frames = []
         render_env_infos = {"episode_rewards": [],
                             "episode_dummy_rewards": [],
-                            "episode_other_rewards": [], }
+                            "episode_other_rewards": [],
+                            "episode_len":[]}
         n_defenders = self.all_args.n_defenders
         n_attackers = self.all_args.n_attackers
         for i, s in enumerate(range(n_defenders + n_attackers)):
             if i < n_defenders:
                 render_env_infos.update({"defender_{}_speed".format(i): []})
                 render_env_infos.update({"defender_{}_crash".format(i): []})
-
             else:
                 render_env_infos.update({"attacker_{}_speed".format(i): []})
                 render_env_infos.update({"attacker_{}_crash".format(i): []})
@@ -272,7 +272,7 @@ class HighwayRunner(Runner):
                 image = envs.render('rgb_array')[0]
                 all_frames.append(image)
 
-            rnn_states = np.zeros((self.n_render_rollout_threads, self.num_agents, *self.buffer.rnn_states.shape[3:]), dtype=np.float32)
+            rnn_states = np.zeros((self.n_render_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             masks = np.ones((self.n_render_rollout_threads, self.num_agents, 1), dtype=np.float32)
             
 

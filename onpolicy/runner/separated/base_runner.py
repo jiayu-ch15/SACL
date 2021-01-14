@@ -37,6 +37,7 @@ class Runner(object):
         self.use_wandb = self.all_args.use_wandb
         self.use_render = self.all_args.use_render
         self.use_single_network = self.all_args.use_single_network
+        self.recurrent_N = self.all_args.recurrent_N
 
         # interval
         self.save_interval = self.all_args.save_interval
@@ -104,6 +105,7 @@ class Runner(object):
             # algorithm
             tr = TrainAlgo(self.all_args, self.policy[agent_id], device = self.device)
             # buffer
+            share_observation_space = self.envs.share_observation_space[agent_id] if self.use_centralized_V else self.envs.observation_space[agent_id]
             bu = SeparatedReplayBuffer(self.all_args,
                                        self.envs.observation_space[agent_id],
                                        share_observation_space,
