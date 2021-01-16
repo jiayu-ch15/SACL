@@ -70,7 +70,7 @@ class HighwayEnv(AbstractEnv):
             self.road.vehicles.append(vehicle)
 
 
-        vehicles_type = utils.class_from_path(self.config["other_vehicles_type"])
+        vehicles_type = utils.class_from_path(self.config["npc_vehicles_type"])
         for _ in range(self.config["vehicles_count"]):
             self.road.vehicles.append(vehicles_type.create_random(self.road, spacing=1 / self.config["vehicles_density"]))
 

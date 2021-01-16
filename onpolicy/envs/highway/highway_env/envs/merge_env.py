@@ -107,12 +107,12 @@ class MergeEnv(AbstractEnv):
                                                      speed=30)
         road.vehicles.append(ego_vehicle)
 
-        other_vehicles_type = utils.class_from_path(self.config["other_vehicles_type"])
-        road.vehicles.append(other_vehicles_type(road, road.network.get_lane(("a", "b", 0)).position(90, 0), speed=29))
-        road.vehicles.append(other_vehicles_type(road, road.network.get_lane(("a", "b", 1)).position(70, 0), speed=31))
-        road.vehicles.append(other_vehicles_type(road, road.network.get_lane(("a", "b", 0)).position(5, 0), speed=31.5))
+        npc_vehicles_type = utils.class_from_path(self.config["npc_vehicles_type"])
+        road.vehicles.append(npc_vehicles_type(road, road.network.get_lane(("a", "b", 0)).position(90, 0), speed=29))
+        road.vehicles.append(npc_vehicles_type(road, road.network.get_lane(("a", "b", 1)).position(70, 0), speed=31))
+        road.vehicles.append(npc_vehicles_type(road, road.network.get_lane(("a", "b", 0)).position(5, 0), speed=31.5))
 
-        merging_v = other_vehicles_type(road, road.network.get_lane(("j", "k", 0)).position(110, 0), speed=20)
+        merging_v = npc_vehicles_type(road, road.network.get_lane(("j", "k", 0)).position(110, 0), speed=20)
         merging_v.target_speed = 30
         road.vehicles.append(merging_v)
         self.vehicle = ego_vehicle

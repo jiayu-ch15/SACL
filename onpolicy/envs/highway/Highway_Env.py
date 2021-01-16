@@ -41,6 +41,7 @@ class HighwayEnv(gym.core.Wrapper):
         self.use_centralized_V = all_args.use_centralized_V
         self.simulation_frequency = all_args.simulation_frequency
         self.collision_reward = all_args.collision_reward
+        self.npc_vehicles_type = all_args.npc_vehicles_type
         self.dt = all_args.dt
 
         self.n_defenders = all_args.n_defenders
@@ -85,8 +86,8 @@ class HighwayEnv(gym.core.Wrapper):
                     "type": "Kinematics"
                 }
             },
-            "other_vehicles_type": "onpolicy.envs.highway.highway_env.vehicle.behavior.IDMVehicle",
-            # other vehicles could also set as "onpolicy.envs.highway.highway_env.vehicle.dummy.DummyVehicle" 
+            "npc_vehicles_type": self.npc_vehicles_type,
+            # npc vehicles could also set as "onpolicy.envs.highway.highway_env.vehicle.dummy.DummyVehicle" 
             # Dummy Vehicle is the vehicle keeping lane with the speed of 25 m/s.
             # While IDM Vehicle is the vehicle which is able to change lane and speed based on the obs of its front & rear vehicle
             "vehicles_count": self.vehicles_count,

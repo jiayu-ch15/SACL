@@ -81,7 +81,7 @@ def parse_args(args, parser):
                         help="whether to use the same model")
 
     parser.add_argument("--dummy_agent_type", type=str, 
-                        default="rvi", choices = ["vi","rvi","mcts","d3qn"], 
+                        default="vi", choices = ["vi","rvi","mcts","d3qn"], 
                         help='Available type is "[vi]ValueIteration" or "[rvi]RobustValueIteration" or "[mcts]MonteCarloTreeSearch" or "[d3qn]duel_ddqn".')
     parser.add_argument('--dummy_agent_policy_path', type=str,
                         default='../envs/highway/agents/policy_pool/ppo/model/actor.pt', 
@@ -110,6 +110,7 @@ def parse_args(args, parser):
 
     parser.add_argument("--use_render_vulnerability", action='store_true', default=False, help="whether to use the same model")
     parser.add_argument("--use_offscreen_render", action='store_true', default=False, help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
+    parser.add_argument("--npc_vehicles_type", type=str, default="onpolicy.envs.highway.highway_env.vehicle.behavior.IDMVehicle", help="by default, choose IDM Vehicle model (a rule-based model with ability to change lane & speed). And also could be set as 'onpolicy.envs.highway.highway_env.vehicle.dummy.DummyVehicle'")
     
     all_args = parser.parse_known_args(args)[0]
 
