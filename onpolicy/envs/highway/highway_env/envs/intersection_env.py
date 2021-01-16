@@ -160,7 +160,7 @@ class IntersectionEnv(AbstractEnv):
         :return: the ego-vehicle
         """
         # Configure vehicles
-        vehicle_type = utils.class_from_path(self.config["other_vehicles_type"])
+        vehicle_type = utils.class_from_path(self.config["npc_vehicles_type"])
         vehicle_type.DISTANCE_WANTED = 7  # Low jam distance
         vehicle_type.COMFORT_ACC_MAX = 6
         vehicle_type.COMFORT_ACC_MIN = -3
@@ -209,7 +209,7 @@ class IntersectionEnv(AbstractEnv):
 
         route = self.np_random.choice(range(4), size=2, replace=False)
         route[1] = (route[0] + 2) % 4 if go_straight else route[1]
-        vehicle_type = utils.class_from_path(self.config["other_vehicles_type"])
+        vehicle_type = utils.class_from_path(self.config["npc_vehicles_type"])
         vehicle = vehicle_type.make_on_lane(self.road, ("o" + str(route[0]), "ir" + str(route[0]), 0),
                                             longitudinal=longitudinal + 5 + self.np_random.randn() * position_deviation,
                                             speed=8 + self.np_random.randn() * speed_deviation)

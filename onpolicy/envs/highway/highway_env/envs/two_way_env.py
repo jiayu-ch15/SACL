@@ -94,7 +94,7 @@ class TwoWayEnv(AbstractEnv):
         road.vehicles.append(ego_vehicle)
         self.vehicle = ego_vehicle
 
-        vehicles_type = utils.class_from_path(self.config["other_vehicles_type"])
+        vehicles_type = utils.class_from_path(self.config["npc_vehicles_type"])
         for i in range(3):
             self.road.vehicles.append(
                 vehicles_type(road,

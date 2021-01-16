@@ -27,7 +27,7 @@ class SummonEnv(ParkingEnv):
         config = super().default_config()
         config.update({
             "vehicles_count": 10,
-            "other_vehicles_type": "highway_env.vehicle.behavior.IDMVehicle",
+            "npc_vehicles_type": "highway_env.vehicle.behavior.IDMVehicle",
         })
         return config
 
@@ -85,7 +85,7 @@ class SummonEnv(ParkingEnv):
         self.goal = Landmark(self.road, goal_position, heading=0)
         self.road.objects.append(self.goal)
 
-        vehicles_type = utils.class_from_path(self.config["other_vehicles_type"])
+        vehicles_type = utils.class_from_path(self.config["npc_vehicles_type"])
         for i in range(self.config["vehicles_count"]):
             is_parked = self.np_random.rand() <= parked_probability
             if not is_parked:

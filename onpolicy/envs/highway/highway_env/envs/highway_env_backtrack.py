@@ -41,7 +41,7 @@ class HighwayEnvBacktrack(AbstractEnv):
                 "type": "DiscreteMetaAction",
             },
             "lanes_count": 4,
-            "other_vehicles_type": "highway_env.vehicle.behavior.IDMVehicle",
+            "npc_vehicles_type": "highway_env.vehicle.behavior.IDMVehicle",
             "vehicles_count": 50,
             "controlled_vehicles": 1,
             "initial_lane_id": 0,
@@ -92,7 +92,7 @@ class HighwayEnvBacktrack(AbstractEnv):
             self.controlled_vehicles.append(vehicle)
             self.road.vehicles.append(vehicle)
             
-        vehicles_type = utils.class_from_path(self.config["other_vehicles_type"])
+        vehicles_type = utils.class_from_path(self.config["npc_vehicles_type"])
         self.other_vehicles = []
         for _ in range(self.config["vehicles_count"]):
             other_vehicle = vehicles_type(road=self.road, position=npc_config[_]["npc_vehicle_position"], heading=npc_config[_]["npc_vehicle_heading"], speed=npc_config[_]["npc_vehicle_speed"], target_lane_index=("0","1", npc_config[_]["npc_vehicle_target_lane_index"]), target_speed=npc_config[_]["npc_vehicle_target_speed"], timer= npc_config[_]["npc_vehicle_timer"])
@@ -119,7 +119,7 @@ class HighwayEnvBacktrack(AbstractEnv):
             self.road.vehicles.append(vehicle)
 
 
-        vehicles_type = utils.class_from_path(self.config["other_vehicles_type"])
+        vehicles_type = utils.class_from_path(self.config["npc_vehicles_type"])
         self.other_vehicles = []
 
         for _ in range(self.config["vehicles_count"]):
