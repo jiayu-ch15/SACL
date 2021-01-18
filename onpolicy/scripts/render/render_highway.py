@@ -83,48 +83,10 @@ def parse_args(args, parser):
     return all_args
 
 def update_all_args_with_saved_config(args, saved_config):
-    if saved_config.get("npc_vehicles_type",None):
-        args.npc_vehicles_type    = saved_config.get("npc_vehicles_type",None)["value"] 
-    if saved_config.get("collision_reward",None):
-        args.collision_reward     = saved_config.get("collision_reward",None)["value"] 
-    if saved_config.get("vehicles_count",None):
-        args.vehicles_count       = saved_config.get("vehicles_count",None)["value"]
-    if saved_config.get("simulation_frequency",None):
-        args.simulation_frequency = saved_config.get("simulation_frequency",None)["value"]
-    if saved_config.get("dt",None):
-        args.dt                   = saved_config.get("dt",None)["value"]
-    if saved_config.get("horizon",None):
-        args.horizon              = saved_config.get("horizon",None)["value"]
-    if saved_config.get("n_dummies",None):
-        args.n_dummies            = saved_config.get("n_dummies",None)["value"]
-    if saved_config.get("n_attackers",None):
-        args.n_attackers          = saved_config.get("n_attackers",None)["value"]
-    if saved_config.get("n_defenders",None):
-        args.n_defenders          = saved_config.get("n_defenders",None)["value"]
-    if saved_config.get("dummy_agent_type",None):
-        args.dummy_agent_type     = saved_config.get("dummy_agent_type",None)["value"]
-    if saved_config.get("use_same_other_policy",None):
-        args.use_same_other_policy   = saved_config.get("use_same_other_policy",None)["value"]
-    if saved_config.get("dummy_agent_policy_path",None):
-        args.dummy_agent_policy_path = saved_config.get("dummy_agent_policy_path",None)["value"]
-    if saved_config.get("other_agent_policy_path",None):
-        args.other_agent_policy_path = saved_config.get("other_agent_policy_path",None)["value"]
-    if saved_config.get("other_agent_type",None):
-        args.other_agent_type        = saved_config.get("other_agent_type",None)["value"]
-    if saved_config.get("task_type",None):
-        args.task_type               = saved_config.get("task_type",None)["value"]
-    if saved_config.get("controlled_vehicles",None):
-        args.controlled_vehicles     = saved_config.get("controlled_vehicles",None)["value"]
-    if saved_config.get("n_defenders",None):
-        args.n_defenders             = saved_config.get("n_defenders",None)["value"]
-    if saved_config.get("n_attackers",None):
-        args.n_attackers             = saved_config.get("n_attackers",None)["value"]
-    if saved_config.get("n_dummies",None):
-        args.n_dummies               = saved_config.get("n_dummies",None)["value"]
-    if saved_config.get("duration",None):
-        args.duration                = saved_config.get("duration",None)["value"]
-    if saved_config.get("use_offscreen_render",None):
-        args.use_offscreen_render    = saved_config.get("use_offscreen_render",None)["value"]
+    para_lists = ["npc_vehicles_type", "collision_reward", "vehicles_count", "simulation_frequency", "dt", "horizon", "n_dummies", "n_attackers", "n_defenders", "dummy_agent_type", "use_same_other_policy"， "dummy_agent_policy_path"， "other_agent_policy_path"， "other_agent_type"， "task_type"， "controlled_vehicles"， "n_defenders"， "n_attackers"， "n_dummies"， "duration"， "use_offscreen_render"]
+    for para in para_lists:
+        if saved_config.get(para, None):
+            args.npc_vehicles_type = saved_config.get(para,None)["value"] 
 
 def main(args):
     parser = get_config()
