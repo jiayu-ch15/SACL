@@ -274,6 +274,8 @@ class HighwayRunner(Runner):
             if self.all_args.save_gifs:
                 image = envs.render('rgb_array')[0]
                 all_frames.append(image)
+            else:
+                envs.render('human')[0]
 
             rnn_states = np.zeros((self.n_render_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             masks = np.ones((self.n_render_rollout_threads, self.num_agents, 1), dtype=np.float32)

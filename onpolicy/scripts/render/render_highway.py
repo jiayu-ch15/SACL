@@ -33,7 +33,28 @@ def parse_args(args, parser):
                         default='highway-v0', help="Which scenario to run on")
 
     parser.add_argument('--task_type', type=str,
-                        default='attack', choices = ["attack","defend","all"], help="train attacker or defender")
+                        default='attack', choices = ["attack","defend","all"], 
+                        help="train attacker or defender")
+
+    parser.add_argument("--other_agent_type", type=str, 
+                        default="ppo", choices = ["d3qn","ppo"], 
+                        help='Available type is "d3qn[duel_ddqn agent]" or "ppo[onpolicy agent]".')
+    parser.add_argument('--other_agent_policy_path', type=str,
+                        default='../envs/highway/agents/policy_pool/ppo/model/actor.pt', 
+                        help="If the path is set as '../envs/highway/agents/policy_pool/dqn/model/dueling_ddqn_obs25_act5_baseline.tar' ")
+    parser.add_argument("--use_same_other_policy", action='store_false', 
+                        default=True, 
+                        help="whether to use the same model")
+
+    parser.add_argument("--dummy_agent_type", type=str, 
+                        default="vi", choices = ["vi","rvi","mcts","d3qn"], 
+                        help='Available type is "[vi]ValueIteration" or "[rvi]RobustValueIteration" or "[mcts]MonteCarloTreeSearch" or "[d3qn]duel_ddqn".')
+    parser.add_argument('--dummy_agent_policy_path', type=str,
+                        default='../envs/highway/agents/policy_pool/ppo/model/actor.pt', 
+                        help="If the path is set as '../envs/highway/agents/policy_pool/dqn/model/dueling_ddqn_obs25_act5_baseline.tar' ")
+    parser.add_argument("--use_same_dummy_policy", action='store_true', 
+                        default=False, 
+                        help="whether to use the same model")
 
     parser.add_argument('--n_defenders', type=int,
                         default=1, help="number of defensive vehicles, default:1")
@@ -48,22 +69,74 @@ def parse_args(args, parser):
                         default=1.0, help="the simulation time")
     parser.add_argument('--simulation_frequency', type=int,
                         default=5, help="the simulation frequency of the env")
+    parser.add_argument('--vehicles_count', type=int,
+                        default=50, help="# of npc cars")
     parser.add_argument('--collision_reward', type=float,
                         default=-1.0, help="the collision penalty of the car")
 
-    parser.add_argument("--use_same_other_policy", action='store_false', default=True, help="whether to use the same model")
-    parser.add_argument("--use_offscreen_render", action='store_true', default=False, help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
     parser.add_argument("--use_render_vulnerability", action='store_true', default=False, help="whether to use the same model")
-    parser.add_argument('--policy_path', type=str,
-                        default='../../envs/highway/agents/policy_pool/actor.pt', help="load_policy_path")
+    parser.add_argument("--use_offscreen_render", action='store_true', default=False, help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
+    parser.add_argument("--npc_vehicles_type", type=str, default="onpolicy.envs.highway.highway_env.vehicle.behavior.IDMVehicle", help="by default, choose IDM Vehicle model (a rule-based model with ability to change lane & speed). And also could be set as 'onpolicy.envs.highway.highway_env.vehicle.dummy.DummyVehicle'")
+    
     all_args = parser.parse_known_args(args)[0]
 
     return all_args
 
+def update_all_args_with_saved_config(args, saved_config):
+    if saved_config.get("npc_vehicles_type",None):
+        args.npc_vehicles_type    = saved_config.get("npc_vehicles_type",None)["value"] 
+    if saved_config.get("collision_reward",None):
+        args.collision_reward     = saved_config.get("collision_reward",None)["value"] 
+    if saved_config.get("vehicles_count",None):
+        args.vehicles_count       = saved_config.get("vehicles_count",None)["value"]
+    if saved_config.get("simulation_frequency",None):
+        args.simulation_frequency = saved_config.get("simulation_frequency",None)["value"]
+    if saved_config.get("dt",None):
+        args.dt                   = saved_config.get("dt",None)["value"]
+    if saved_config.get("horizon",None):
+        args.horizon              = saved_config.get("horizon",None)["value"]
+    if saved_config.get("n_dummies",None):
+        args.n_dummies            = saved_config.get("n_dummies",None)["value"]
+    if saved_config.get("n_attackers",None):
+        args.n_attackers          = saved_config.get("n_attackers",None)["value"]
+    if saved_config.get("n_defenders",None):
+        args.n_defenders          = saved_config.get("n_defenders",None)["value"]
+    if saved_config.get("dummy_agent_type",None):
+        args.dummy_agent_type     = saved_config.get("dummy_agent_type",None)["value"]
+    if saved_config.get("use_same_other_policy",None):
+        args.use_same_other_policy   = saved_config.get("use_same_other_policy",None)["value"]
+    if saved_config.get("dummy_agent_policy_path",None):
+        args.dummy_agent_policy_path = saved_config.get("dummy_agent_policy_path",None)["value"]
+    if saved_config.get("other_agent_policy_path",None):
+        args.other_agent_policy_path = saved_config.get("other_agent_policy_path",None)["value"]
+    if saved_config.get("other_agent_type",None):
+        args.other_agent_type        = saved_config.get("other_agent_type",None)["value"]
+    if saved_config.get("task_type",None):
+        args.task_type               = saved_config.get("task_type",None)["value"]
+    if saved_config.get("controlled_vehicles",None):
+        args.controlled_vehicles     = saved_config.get("controlled_vehicles",None)["value"]
+    if saved_config.get("n_defenders",None):
+        args.n_defenders             = saved_config.get("n_defenders",None)["value"]
+    if saved_config.get("n_attackers",None):
+        args.n_attackers             = saved_config.get("n_attackers",None)["value"]
+    if saved_config.get("n_dummies",None):
+        args.n_dummies               = saved_config.get("n_dummies",None)["value"]
+    if saved_config.get("duration",None):
+        args.duration                = saved_config.get("duration",None)["value"]
+    if saved_config.get("use_offscreen_render",None):
+        args.use_offscreen_render    = saved_config.get("use_offscreen_render",None)["value"]
 
 def main(args):
     parser = get_config()
     all_args = parse_args(args, parser)
+
+    if all_args.model_dir:
+        print(f"[Info] update all_args using saved config durating training")
+        f =  open(all_args.model_dir + "/config.yaml", "r", encoding="utf-8")
+        import yaml
+        saved_config = yaml.load(f, Loader=yaml.FullLoader)
+        update_all_args_with_saved_config(all_args, saved_config)
+        
 
     if all_args.algorithm_name == "rmappo" or all_args.algorithm_name == "rmappg":
         assert (
