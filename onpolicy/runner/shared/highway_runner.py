@@ -302,7 +302,7 @@ class HighwayRunner(Runner):
                 
                 dones_env = np.all(dones, axis=-1)
 
-                if np.any(dones_env) or step == (self.episode_length - 1):
+                if np.any(dones_env):
                     for key in infos[0].keys():
                         if key in render_env_infos.keys():
                             render_env_infos[key].append(infos[0][key])
@@ -310,8 +310,8 @@ class HighwayRunner(Runner):
                     break
 
             print("render average episode rewards is: " + str(np.mean(np.array(render_env_infos["episode_rewards"]))))
-            for i, s in enumerate(range(n_defenders + n_attackers)):
-                if i < n_defenders:
+            for i, s in enumerate(range(self.n_defenders + self.n_attackers)):
+                if i < self.n_defenders:
                     print("render average episode defender_{}_speed is: ".format(i) + str(
                         np.mean(np.array(render_env_infos["defender_{}_speed".format(i)]))))
                     print("render average episode defender_{}_crash is: ".format(i) + str(

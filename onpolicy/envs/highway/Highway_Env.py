@@ -140,7 +140,7 @@ class HighwayEnv(gym.core.Wrapper):
                 from .agents.dynamic_programming.value_iteration import ValueIterationAgent as DummyAgent
             else:
                 from .agents.dynamic_programming.robust_value_iteration import RobustValueIterationAgent as DummyAgent
-            agent_config = {"env_preprocessors": [{"method":"simplify"}], "budget": 50}
+            agent_config = None
         elif self.dummy_agent_type == "mcts":
             from .agents.tree_search.mcts import MCTSAgent as DummyAgent 
             agent_config = {"max_depth": 1, "budget": 200, "temperature": 200}  
@@ -267,8 +267,10 @@ class HighwayEnv(gym.core.Wrapper):
 
             all_obs, all_rewards, all_dones, infos = self.env.step(tuple(action))
 
+
             if self.current_step == 1:
                 self.init_position = [deepcopy(infos)["position"][agent_id] for agent_id in range(self.n_defenders + self.n_attackers)]
+
 
             # obs
             # 1. train obs
