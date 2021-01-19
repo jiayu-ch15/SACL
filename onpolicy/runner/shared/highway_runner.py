@@ -310,6 +310,10 @@ class HighwayRunner(Runner):
                             render_env_infos[key].append(infos[0][key])
                 if np.any(dones_env):
                     break
+            
+            print(f"save gif of the episode as {episode}.gif")
+            imageio.mimsave(str(self.run_dir) + '/' + str(episode) + '.gif', all_frames, duration=self.all_args.ifi)
+            all_frames = []
 
             print("render average episode rewards is: " + str(np.mean(np.array(render_env_infos["episode_rewards"]))))
             for i, s in enumerate(range(self.n_defenders + self.n_attackers)):

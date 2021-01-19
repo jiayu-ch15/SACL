@@ -8,6 +8,7 @@ from onpolicy.envs.highway.highway_env.envs.common.action import Action
 from onpolicy.envs.highway.highway_env.road.road import Road, RoadNetwork
 from onpolicy.envs.highway.highway_env.vehicle.controller import ControlledVehicle
 
+import random
 
 class HighwayEnv(AbstractEnv):
     """
@@ -58,14 +59,26 @@ class HighwayEnv(AbstractEnv):
 
     def _create_vehicles(self) -> None:
         """Create some new random vehicles of a given type, and add them on the road."""
+        # the number of agent with initialized postions overlapping with each other
         self.controlled_vehicles = []
+        number_overlap = 0
         for i in range(self.config["controlled_vehicles"]):
-
-            vehicle = self.action_type.vehicle_class.create_random(self.road,
-                                                                   speed=25,
-                                                                   lane_id=self.config["initial_lane_id"],
-                                                                   spacing=self.config["ego_spacing"],
-                                                                   )
+            # vehicle = self.action_type.vehicle_class.create_random(self.road,
+            #                                                        speed=25,
+            #                                                        lane_id=self.config["initial_lane_id"],
+            #                                                        spacing=self.config["ego_spacing"],
+            #                                                        )
+            default_spacing = 12.5 # 0.5 * speed
+            longitude_position = 40+5*np.random.randint(1)
+            initial_lane_idx = random.choice( [4*i for i in range(self.config["lanes_count"])] )
+            # To separate cars in different places to avoid collision
+            for vehicle_ in self.controlled_vehicles:
+                print(f"vehicle_.lane_index = {vehicle_.lane_index}, lane_id = {initial_lane_idx}, long_posi = {longitude_position}, vehicle.posi = {vehicle_.position[0]}")
+                if abs(longitude_position - vehicle_.position[0]) < 5 and initial_lane_idx == 4*vehicle_.lane_index[2]:
+                    longitude_position = longitude_position - (number_overlap+1)*default_spacing
+                    number_overlap = number_overlap + 1
+            vehicle = self.action_type.vehicle_class(road=self.road, position=[longitude_position, initial_lane_idx], heading=0, speed=25)
+            
             self.controlled_vehicles.append(vehicle)
             self.road.vehicles.append(vehicle)
 

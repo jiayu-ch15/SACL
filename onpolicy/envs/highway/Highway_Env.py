@@ -43,6 +43,7 @@ class HighwayEnv(gym.core.Wrapper):
         self.collision_reward = all_args.collision_reward
         self.npc_vehicles_type = all_args.npc_vehicles_type
         self.dt = all_args.dt
+        self.reward_highest_speed = all_args.reward_highest_speed
 
         self.n_defenders = all_args.n_defenders
         self.n_attackers = all_args.n_attackers
@@ -94,7 +95,8 @@ class HighwayEnv(gym.core.Wrapper):
             "offscreen_rendering": self.use_offscreen_render,
             "collision_reward": self.collision_reward,
             "simulation_frequency": self.simulation_frequency,
-            "dt": self.dt
+            "dt": self.dt,
+            "reward_speed_range": [20, self.reward_highest_speed]
         }
         
         self.env_init = load_environment(self.env_dict)
