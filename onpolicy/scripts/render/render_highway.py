@@ -83,10 +83,14 @@ def parse_args(args, parser):
     return all_args
 
 def update_all_args_with_saved_config(args, saved_config):
-    para_lists = ["npc_vehicles_type", "collision_reward", "vehicles_count", "simulation_frequency", "dt", "horizon", "n_dummies", "n_attackers", "n_defenders", "dummy_agent_type", "use_same_other_policy"， "dummy_agent_policy_path"， "other_agent_policy_path"， "other_agent_type"， "task_type"， "controlled_vehicles"， "n_defenders"， "n_attackers"， "n_dummies"， "duration"， "use_offscreen_render"]
+    para_lists = ["npc_vehicles_type", "collision_reward", "vehicles_count", "simulation_frequency", "dt", "horizon", "n_dummies", "n_attackers", "n_defenders", "dummy_agent_type", "use_same_other_policy", "dummy_agent_policy_path", "other_agent_policy_path", "other_agent_type", "task_type", "controlled_vehicles", "n_defenders", "n_attackers", "n_dummies", "duration", "use_offscreen_render"]
     for para in para_lists:
-        if saved_config.get(para, None):
-            args.npc_vehicles_type = saved_config.get(para,None)["value"] 
+        if saved_config.get(para, None) is not None:
+            save_config_item = saved_config.get(para, None)['value']
+            if isinstance(save_config_item, str):
+                exec(f"args.{para} = '{save_config_item}'")
+            else:
+                exec(f"args.{para} = {save_config_item}")
 
 def main(args):
     parser = get_config()
@@ -97,7 +101,8 @@ def main(args):
         f =  open(all_args.model_dir + "/config.yaml", "r", encoding="utf-8")
         import yaml
         saved_config = yaml.load(f, Loader=yaml.FullLoader)
-        update_all_args_with_saved_config(all_args, saved_config)
+        if saved_config.get("use_wandb", False):
+            update_all_args_with_saved_config(all_args, saved_config)
         
 
     if all_args.algorithm_name == "rmappo" or all_args.algorithm_name == "rmappg":
