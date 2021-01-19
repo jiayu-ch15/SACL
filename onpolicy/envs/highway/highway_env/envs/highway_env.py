@@ -73,7 +73,6 @@ class HighwayEnv(AbstractEnv):
             initial_lane_idx = random.choice( [4*i for i in range(self.config["lanes_count"])] )
             # To separate cars in different places to avoid collision
             for vehicle_ in self.controlled_vehicles:
-                print(f"vehicle_.lane_index = {vehicle_.lane_index}, lane_id = {initial_lane_idx}, long_posi = {longitude_position}, vehicle.posi = {vehicle_.position[0]}")
                 if abs(longitude_position - vehicle_.position[0]) < 5 and initial_lane_idx == 4*vehicle_.lane_index[2]:
                     longitude_position = longitude_position - (number_overlap+1)*default_spacing
                     number_overlap = number_overlap + 1
