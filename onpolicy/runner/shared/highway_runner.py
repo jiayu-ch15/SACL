@@ -254,6 +254,7 @@ class HighwayRunner(Runner):
         envs = self.render_envs
 
         all_frames = []
+        all_frames_all_episodes = []
         render_env_infos = {"episode_rewards": [],
                             "episode_dummy_rewards": [],
                             "episode_other_rewards": [],
@@ -274,6 +275,7 @@ class HighwayRunner(Runner):
             if self.all_args.save_gifs:
                 image = envs.render('rgb_array')[0]
                 all_frames.append(image)
+                all_frames_all_episodes.append(image)
             else:
                 envs.render('human')[0]
 
@@ -297,6 +299,7 @@ class HighwayRunner(Runner):
                 if self.all_args.save_gifs:
                     image = envs.render('rgb_array')[0]
                     all_frames.append(image)
+                    all_frames_all_episodes.append(image)
                     calc_end = time.time()
                     elapsed = calc_end - calc_start
                     if elapsed < self.all_args.ifi:
@@ -334,4 +337,4 @@ class HighwayRunner(Runner):
                         np.mean(np.array(render_env_infos["attacker_{}_distance".format(i)]))))
 
         if self.all_args.save_gifs:
-            imageio.mimsave(str(self.run_dir) + '/full.gif', all_frames, duration=self.all_args.ifi)
+            imageio.mimsave(str(self.run_dir) + '/full.gif', all_frames_all_episodes, duration=self.all_args.ifi)
