@@ -274,6 +274,8 @@ class HighwayRunner(Runner):
             if self.all_args.save_gifs:
                 image = envs.render('rgb_array')[0]
                 all_frames.append(image)
+            else:
+                envs.render('human')[0]
 
             rnn_states = np.zeros((self.n_render_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             masks = np.ones((self.n_render_rollout_threads, self.num_agents, 1), dtype=np.float32)
@@ -308,6 +310,10 @@ class HighwayRunner(Runner):
                             render_env_infos[key].append(infos[0][key])
                 if np.any(dones_env):
                     break
+            
+            print(f"save gif of the episode as {episode}.gif")
+            imageio.mimsave(str(self.run_dir) + '/' + str(episode) + '.gif', all_frames, duration=self.all_args.ifi)
+            all_frames = []
 
             print("render average episode rewards is: " + str(np.mean(np.array(render_env_infos["episode_rewards"]))))
             for i, s in enumerate(range(self.n_defenders + self.n_attackers)):
