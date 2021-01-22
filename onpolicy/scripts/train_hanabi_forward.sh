@@ -3,7 +3,7 @@ env="Hanabi"
 hanabi="Hanabi-Small"
 num_agents=2
 algo="mappo"
-exp="ppo15_length100_mini4_lr7e-4"
+exp="debug"
 seed_max=1
 ulimit -n 22222
 
