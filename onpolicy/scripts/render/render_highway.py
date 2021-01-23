@@ -91,7 +91,7 @@ def update_all_args_with_saved_config(args, saved_config):
         "collision_reward", "vehicles_count", "simulation_frequency", "dt", "horizon", "reward_highest_speed" \
         "n_dummies", "n_attackers", "n_defenders", \
         "use_same_other_policy", "use_same_dummy_policy", \
-        "dummy_agent_policy_path", "other_agent_policy_path", \
+        "dummy_agent_policy_path",\
         "use_offscreen_render"]
     for para in para_lists:
         if saved_config.get(para, None) is not None:
