@@ -70,6 +70,8 @@ def parse_args(args, parser):
                         default='attack', choices = ["attack","defend","all"], 
                         help="train attacker or defender")
 
+    parser.add_argument("--npc_vehicles_type", type=str, default="onpolicy.envs.highway.highway_env.vehicle.behavior.IDMVehicle", help="by default, choose IDM Vehicle model (a rule-based model with ability to change lane & speed). And also could be set as 'onpolicy.envs.highway.highway_env.vehicle.dummy.DummyVehicle'")
+    
     parser.add_argument("--other_agent_type", type=str, 
                         default="ppo", choices = ["d3qn","ppo"], 
                         help='Available type is "d3qn[duel_ddqn agent]" or "ppo[onpolicy agent]".')
@@ -107,12 +109,12 @@ def parse_args(args, parser):
                         default=50, help="# of npc cars")
     parser.add_argument('--collision_reward', type=float,
                         default=-1.0, help="the collision penalty of the car")
+    parser.add_argument("--reward_highest_speed", type=int, default=35, help="by default, the highest speed of the vehicle is set as 35. ")
+    
 
     parser.add_argument("--use_render_vulnerability", action='store_true', default=False, help="whether to use the same model")
     parser.add_argument("--use_offscreen_render", action='store_true', default=False, help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
-    parser.add_argument("--npc_vehicles_type", type=str, default="onpolicy.envs.highway.highway_env.vehicle.behavior.IDMVehicle", help="by default, choose IDM Vehicle model (a rule-based model with ability to change lane & speed). And also could be set as 'onpolicy.envs.highway.highway_env.vehicle.dummy.DummyVehicle'")
     
-    parser.add_argument("--reward_highest_speed", type=int, default=35, help="by default, the highest speed of the vehicle is set as 35. ")
     
     all_args = parser.parse_known_args(args)[0]
 

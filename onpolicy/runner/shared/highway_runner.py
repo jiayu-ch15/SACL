@@ -253,12 +253,11 @@ class HighwayRunner(Runner):
     def render(self):
         envs = self.render_envs
 
-        all_frames = []
-        all_frames_all_episodes = []
         render_env_infos = {"episode_rewards": [],
                             "episode_dummy_rewards": [],
                             "episode_other_rewards": [],
                             "episode_length": []}
+
         for i in range(self.n_defenders + self.n_attackers):
             if i < self.n_defenders:
                 render_env_infos.update({"defender_{}_speed".format(i): []})
@@ -269,19 +268,24 @@ class HighwayRunner(Runner):
                 render_env_infos.update({"attacker_{}_crash".format(i): []})
                 render_env_infos.update({"attacker_{}_distance".format(i): []})
 
+        all_frames_all_episodes = []
+        # episode
         for episode in range(self.all_args.render_episodes):
+            all_frames = []
             render_choose = np.ones(self.n_render_rollout_threads) == 1.0
             obs = envs.reset(render_choose)
+
             if self.all_args.save_gifs:
                 image = envs.render('rgb_array')[0]
                 all_frames.append(image)
                 all_frames_all_episodes.append(image)
             else:
-                envs.render('human')[0]
+                envs.render('human')
 
             rnn_states = np.zeros((self.n_render_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             masks = np.ones((self.n_render_rollout_threads, self.num_agents, 1), dtype=np.float32)
             
+            # step
             for step in range(self.all_args.horizon):
                 calc_start = time.time()
                 self.trainer.prep_rollout()
@@ -295,7 +299,6 @@ class HighwayRunner(Runner):
                 # Obser reward and next obs
                 obs, rewards, dones, infos = envs.step(actions)
 
-                #render_env_infos["episode_rewards"].append(rewards)
                 if self.all_args.save_gifs:
                     image = envs.render('rgb_array')[0]
                     all_frames.append(image)
@@ -304,6 +307,8 @@ class HighwayRunner(Runner):
                     elapsed = calc_end - calc_start
                     if elapsed < self.all_args.ifi:
                         time.sleep(self.all_args.ifi - elapsed)
+                else:
+                    envs.render('human')
                 
                 dones_env = np.all(dones, axis=-1)
 
@@ -314,10 +319,12 @@ class HighwayRunner(Runner):
                 if np.any(dones_env):
                     break
             
-            print(f"save gif of the episode as {episode}.gif")
-            imageio.mimsave(str(self.run_dir) + '/' + str(episode) + '.gif', all_frames, duration=self.all_args.ifi)
-            all_frames = []
-
+            # save one episode gif
+            if self.all_args.save_gifs:
+                print(f"save gif of the episode as {episode}.gif")
+                imageio.mimsave(str(self.run_dir) + '/' + str(episode) + '.gif', all_frames, duration=self.all_args.ifi)
+            
+            # log info
             print("render average episode rewards is: " + str(np.mean(np.array(render_env_infos["episode_rewards"]))))
             for i, s in enumerate(range(self.n_defenders + self.n_attackers)):
                 if i < self.n_defenders:

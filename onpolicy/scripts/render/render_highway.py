@@ -6,6 +6,7 @@ import socket
 import setproctitle
 import numpy as np
 from pathlib import Path
+import yaml
 
 import torch
 
@@ -35,6 +36,8 @@ def parse_args(args, parser):
     parser.add_argument('--task_type', type=str,
                         default='attack', choices = ["attack","defend","all"], 
                         help="train attacker or defender")
+    
+    parser.add_argument("--npc_vehicles_type", type=str, default="onpolicy.envs.highway.highway_env.vehicle.behavior.IDMVehicle", help="by default, choose IDM Vehicle model (a rule-based model with ability to change lane & speed). And also could be set as 'onpolicy.envs.highway.highway_env.vehicle.dummy.DummyVehicle'")
 
     parser.add_argument("--other_agent_type", type=str, 
                         default="ppo", choices = ["d3qn","ppo"], 
@@ -73,19 +76,23 @@ def parse_args(args, parser):
                         default=50, help="# of npc cars")
     parser.add_argument('--collision_reward', type=float,
                         default=-1.0, help="the collision penalty of the car")
+    parser.add_argument("--reward_highest_speed", type=int, default=35, help="by default, the highest speed of the vehicle is set as 35. ")
 
     parser.add_argument("--use_render_vulnerability", action='store_true', default=False, help="whether to use the same model")
     parser.add_argument("--use_offscreen_render", action='store_true', default=False, help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
-    parser.add_argument("--npc_vehicles_type", type=str, default="onpolicy.envs.highway.highway_env.vehicle.behavior.IDMVehicle", help="by default, choose IDM Vehicle model (a rule-based model with ability to change lane & speed). And also could be set as 'onpolicy.envs.highway.highway_env.vehicle.dummy.DummyVehicle'")
-
-    parser.add_argument("--reward_highest_speed", type=int, default=35, help="by default, the highest speed of the vehicle is set as 35. ")
-
+    parser.add_argument("--load_train_config", action='store_false', default=True, help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
+    
     all_args = parser.parse_known_args(args)[0]
 
     return all_args
 
 def update_all_args_with_saved_config(args, saved_config):
-    para_lists = ["npc_vehicles_type", "collision_reward", "vehicles_count", "simulation_frequency", "dt", "horizon", "n_dummies", "n_attackers", "n_defenders", "dummy_agent_type", "use_same_other_policy", "dummy_agent_policy_path", "other_agent_policy_path", "other_agent_type", "task_type", "controlled_vehicles", "n_defenders", "n_attackers", "n_dummies", "duration", "use_offscreen_render"]
+    para_lists = ["task_type", "npc_vehicles_type", "dummy_agent_type", "other_agent_type", \
+        "collision_reward", "vehicles_count", "simulation_frequency", "dt", "horizon", "reward_highest_speed" \
+        "n_dummies", "n_attackers", "n_defenders", \
+        "use_same_other_policy", "use_same_dummy_policy", \
+        "dummy_agent_policy_path", "other_agent_policy_path", \
+        "use_offscreen_render"]
     for para in para_lists:
         if saved_config.get(para, None) is not None:
             save_config_item = saved_config.get(para, None)['value']
@@ -98,13 +105,12 @@ def main(args):
     parser = get_config()
     all_args = parse_args(args, parser)
 
-    if all_args.model_dir:
+    if all_args.load_train_config:
         print(f"[Info] update all_args using saved config durating training")
-        f =  open(all_args.model_dir + "/config.yaml", "r", encoding="utf-8")
-        import yaml
-        saved_config = yaml.load(f, Loader=yaml.FullLoader)
-        if saved_config.get("use_wandb", False):
-            update_all_args_with_saved_config(all_args, saved_config)
+        with open(all_args.model_dir + "/config.yaml", "r", encoding="utf-8") as f:       
+            saved_config = yaml.load(f, Loader=yaml.FullLoader)
+
+        update_all_args_with_saved_config(all_args, saved_config)
         
 
     if all_args.algorithm_name == "rmappo" or all_args.algorithm_name == "rmappg":
