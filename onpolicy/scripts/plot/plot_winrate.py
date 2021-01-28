@@ -24,7 +24,7 @@ label_names = ["MAPPO", "IPPO", "MAPPO_original", "QMIX"]
 save_dir = './win_rate/'
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
-
+max_steps = []
 for exp_name, label_name in zip(exp_names, label_names):
     data_dir =  './' + map_name + '/' + map_name + '_' + exp_name + '.csv'
 
@@ -60,7 +60,7 @@ for exp_name, label_name in zip(exp_names, label_names):
         max_step = 10e6
 
     print("final step is {}".format(max_step))
-    
+    max_steps.append(max_step)
 
     df_final = df_final.loc[df_final['Step'] <= max_step] 
 
@@ -76,9 +76,9 @@ for exp_name, label_name in zip(exp_names, label_names):
         alpha=0.1)
 
 plt.tick_params(axis='both',which='major') 
-
-x_major_locator = MultipleLocator(int(max_step/5))
-x_minor_Locator = MultipleLocator(int(max_step/10)) 
+final_max_step = np.min(max_steps)
+x_major_locator = MultipleLocator(int(final_max_step/5))
+x_minor_Locator = MultipleLocator(int(final_max_step/10)) 
 y_major_locator = MultipleLocator(0.2)
 y_minor_Locator = MultipleLocator(0.1)
 ax=plt.gca()
