@@ -43,7 +43,7 @@ def parse_args(args, parser):
                         default="ppo", choices = ["d3qn","ppo"], 
                         help='Available type is "d3qn[duel_ddqn agent]" or "ppo[onpolicy agent]".')
     parser.add_argument('--other_agent_policy_path', type=str,
-                        default='../envs/highway/agents/policy_pool/ppo/model/actor.pt', 
+                        default='../envs/highway/agents/policy_pool/dqn/model/dueling_ddqn_obs25_act5_baseline.tar', 
                         help="If the path is set as '../envs/highway/agents/policy_pool/dqn/model/dueling_ddqn_obs25_act5_baseline.tar' ")
     parser.add_argument("--use_same_other_policy", action='store_false', 
                         default=True, 

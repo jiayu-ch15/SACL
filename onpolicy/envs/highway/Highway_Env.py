@@ -104,7 +104,7 @@ class HighwayEnv(gym.core.Wrapper):
         super().__init__(self.env_init)
 
         # get new obs and action space
-        self.all_observation_space = [] 
+        self.all_observation_space = []
         self.all_action_space = []
         for agent_id in range(self.n_attackers + self.n_defenders + self.n_dummies):
             obs_shape = list(self.observation_space[agent_id].shape)
@@ -200,6 +200,7 @@ class HighwayEnv(gym.core.Wrapper):
                                 self.all_action_space[self.load_start_idx],
                                 hidden_size = agent_config['hidden_size'], # re-structure this!
                                 use_recurrent_policy = self.all_args.use_recurrent_policy) # cpu is fine actually, keep it for now.
+            print(f"path = {self.other_agent_policy_path}")
             policy_state_dict = torch.load(self.other_agent_policy_path, map_location='cpu')
             self.other_agents.load_state_dict(policy_state_dict)
             self.other_agents.eval()
@@ -268,8 +269,11 @@ class HighwayEnv(gym.core.Wrapper):
             action = np.squeeze(action, axis=-1)
 
             all_obs, all_rewards, all_dones, infos = self.env.step(tuple(action))
-
-
+            ######## Jianming Jan 29 New feature -> bubble test: control handover
+            # print(f"len(all_obs){len(all_obs)}")
+            # print(f"len(env.action_space) = {len(self.env.action_space)}")
+            #####
+            
             if self.current_step == 1:
                 self.init_position = [deepcopy(infos)["position"][agent_id] for agent_id in range(self.n_defenders + self.n_attackers)]
 

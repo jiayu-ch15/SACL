@@ -51,6 +51,10 @@ class HighwayEnv(AbstractEnv):
     def _reset(self) -> None:
         self._create_road()
         self._create_vehicles()
+        ######## Jianming Jan 29 New feature -> bubble test: control handover
+        # self.ctrl_change_vehicle_num = True
+        # self.num_test = 0
+        ########
 
     def _create_road(self) -> None:
         """Create a road composed of straight adjacent lanes."""
@@ -84,7 +88,11 @@ class HighwayEnv(AbstractEnv):
 
         vehicles_type = utils.class_from_path(self.config["npc_vehicles_type"])
         for _ in range(self.config["vehicles_count"]):
-            self.road.vehicles.append(vehicles_type.create_random(self.road, spacing=1 / self.config["vehicles_density"]))
+            vehicle = vehicles_type.create_random(self.road, spacing=1 / self.config["vehicles_density"])
+            self.road.vehicles.append(vehicle)
+            self.controlled_vehicles.append(vehicle)
+            # observation size depents on the firstly controlled_vehicles in the initilization process
+            # but after defined the observation type doesn't change.
 
     def _reward(self, action: Action) :#-> float: now we return a list
         """
@@ -94,6 +102,25 @@ class HighwayEnv(AbstractEnv):
         """
 
         # -> float: now we change it to return a list!!!!!
+
+        ######## Jianming Jan 29 New feature -> bubble test: control handover
+        # change the control method between action level and continous steering-acceleration level.
+        # if self.ctrl_change_vehicle_num:
+        #     if self.num_test >= 5:
+        #         self.temp_vehicle = self.controlled_vehicles[-1]
+        #         self.controlled_vehicles.remove(self.temp_vehicle)
+        #         self.temp_vehicle.use_action_level_behavior = False
+        #         self.ctrl_change_vehicle_num = False
+        #         self.define_spaces()
+        #         self.num_test = 0
+        #     self.num_test += 1
+        # else:
+        #     self.temp_vehicle.use_action_level_behavior = True
+        #     self.controlled_vehicles.append(self.temp_vehicle)
+        #     self.ctrl_change_vehicle_num = True
+        #     self.define_spaces()
+        ########
+            
         rewards=[]
         for vehicle in self.controlled_vehicles:
         
