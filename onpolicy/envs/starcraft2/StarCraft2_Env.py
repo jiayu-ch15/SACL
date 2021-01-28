@@ -1347,6 +1347,10 @@ class StarCraft2Env(MultiAgentEnv):
            NOTE: Agents should have access only to their local observations
            during decentralised execution.
         """
+        if self.obs_instead_of_state:
+            obs_concat = np.concatenate(self.get_obs(), axis=0).astype(np.float32)
+            return obs_concat
+            
         unit = self.get_unit_by_id(agent_id)
 
         move_feats_dim = self.get_obs_move_feats_size()

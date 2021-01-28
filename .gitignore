@@ -13,3 +13,4 @@ wandb
 api
 logs
 .nfs*
+*.so
