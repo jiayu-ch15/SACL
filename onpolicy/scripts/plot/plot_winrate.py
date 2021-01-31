@@ -20,8 +20,6 @@ map_names = ['2s_vs_1sc','2s3z','3m','3s_vs_3z','3s_vs_4z','2m_vs_1z','MMM','so_
 '5m_vs_6m','3s5z','1c3s5z','8m','27m_vs_30m','25m','bane_vs_bane','3s_vs_5z','6h_vs_8z',\
 'corridor','3s5z_vs_3s6z','10m_vs_11m','8m_vs_9m','MMM2','2c_vs_64zg']
 
-map_names = ['2s_vs_1sc']
-
 for map_name in map_names:
     plt.figure()
     ###################################PPO###################################
@@ -85,6 +83,7 @@ for map_name in map_names:
         plt.fill_between(x_step,
             median_seed - std_seed,
             median_seed + std_seed,
+            color=color_name,
             alpha=0.1)
     print("########################QMIX##########################")
     exp_name = 'final_qmix'
@@ -191,6 +190,7 @@ for map_name in map_names:
     plt.fill_between(x_step,
         median_seed - std_seed,
         median_seed + std_seed,
+        color=color_name,
         alpha=0.1)
 
     plt.tick_params(axis='both',which='major') 
@@ -209,6 +209,8 @@ for map_name in map_names:
     #ax.xaxis.grid(True, which='minor')
     plt.xlim(0, final_max_step)
     plt.ylim([0, 1.1])
+    plt.xticks(fontsize=15)
+    plt.yticks(fontsize=15)
     plt.xlabel('Timesteps', fontsize=15)
     plt.ylabel('Win Rate', fontsize=15)
     plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=15)

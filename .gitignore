@@ -6,7 +6,7 @@ build
 win_rate
 *.so
 *.csv
-*.png
+RODE
 *.egg-info
 wandb
 .vscode

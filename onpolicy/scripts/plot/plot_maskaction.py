@@ -16,7 +16,7 @@ def moving_average(interval, windowsize):
 
 plt.style.use('ggplot')
 
-map_names = ['MMM2']
+map_names = ['MMM2','10m_vs_11m','27m_vs_30m','25m','so_many_baneling','corridor']
 
 for map_name in map_names:
     plt.figure()
@@ -81,6 +81,7 @@ for map_name in map_names:
         plt.fill_between(x_step,
             median_seed - std_seed,
             median_seed + std_seed,
+            color=color_name,
             alpha=0.1)
 
     plt.tick_params(axis='both',which='major') 
@@ -99,9 +100,11 @@ for map_name in map_names:
     #ax.xaxis.grid(True, which='minor')
     plt.xlim(0, final_max_step)
     plt.ylim([0, 1.1])
-    plt.xlabel('Timesteps', fontsize=15)
-    plt.ylabel('Win Rate', fontsize=15)
-    plt.title(map_name, fontsize=15)
-    plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=15)
+    plt.xticks(fontsize=20)
+    plt.yticks(fontsize=20)
+    plt.xlabel('Timesteps', fontsize=20)
+    plt.ylabel('Win Rate', fontsize=20)
+    plt.title(map_name, fontsize=20)
+    plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=20)
 
     plt.savefig(save_dir + map_name + "_maskaction.png", bbox_inches="tight")

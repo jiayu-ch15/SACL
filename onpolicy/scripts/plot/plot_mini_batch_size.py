@@ -81,6 +81,7 @@ for map_name in map_names:
         plt.fill_between(x_step,
             median_seed - std_seed,
             median_seed + std_seed,
+            color=color_name,
             alpha=0.1)
 
     plt.tick_params(axis='both',which='major') 
@@ -99,6 +100,8 @@ for map_name in map_names:
     #ax.xaxis.grid(True, which='minor')
     plt.xlim(0, final_max_step)
     plt.ylim([0, 1.1])
+    plt.xticks(fontsize=20)
+    plt.yticks(fontsize=20)
     plt.xlabel('Timesteps', fontsize=20)
     plt.ylabel('Win Rate', fontsize=20)
     plt.title(map_name, fontsize=20)
