@@ -156,6 +156,7 @@ class AbstractEnv(gym.Env):
         """
         raise NotImplementedError
 
+    '''
     def reset(self) -> Observation:
         """
         Reset the environment to it's initial configuration
@@ -169,7 +170,8 @@ class AbstractEnv(gym.Env):
         self.define_spaces()  # Second, to link the obs and actions to the vehicles once the scene is created
         self.rendered_image = []
         return self.observation_type.observe()
-
+    '''
+    
     def _reset(self) -> None:
         """
         Reset the scene: roads and vehicles.
