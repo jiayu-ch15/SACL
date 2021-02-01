@@ -51,9 +51,11 @@ class HighwayEnv(AbstractEnv):
     def _reset(self) -> None:
         self._create_road()
         self._create_vehicles()
+
         ######## Jianming Jan 29 New feature -> bubble test: control handover
-        # self.ctrl_change_vehicle_num = True
-        # self.num_test = 0
+        self.ctrl_change_vehicle_num = True
+        self.num_test = 0
+        self.change_frequency=10
         ########
 
     def _create_road(self) -> None:
@@ -66,7 +68,8 @@ class HighwayEnv(AbstractEnv):
         # the number of agent with initialized postions overlapping with each other
         self.controlled_vehicles = []
         number_overlap = 0
-        for i in range(self.config["controlled_vehicles"]):
+        #for i in range(self.config["controlled_vehicles"]):
+        for i in range(self.config["n_defenders"]):
             # vehicle = self.action_type.vehicle_class.create_random(self.road,
             #                                                        speed=25,
             #                                                        lane_id=self.config["initial_lane_id"],
@@ -90,9 +93,34 @@ class HighwayEnv(AbstractEnv):
         for _ in range(self.config["vehicles_count"]):
             vehicle = vehicles_type.create_random(self.road, spacing=1 / self.config["vehicles_density"])
             self.road.vehicles.append(vehicle)
-            self.controlled_vehicles.append(vehicle)
+            #self.controlled_vehicles.append(vehicle)
             # observation size depents on the firstly controlled_vehicles in the initilization process
             # but after defined the observation type doesn't change.
+
+        self.enter_bubble()
+
+    def enter_bubble(self):
+        if self.ctrl_change_vehicle_num:
+            if self.num_test >= self.change_frequency:
+                self.temp_vehicles = self.acquire_attacker()
+                self.controlled_vehicles.remove(self.temp_vehicle)
+                self.temp_vehicle.use_action_level_behavior = False
+                self.ctrl_change_vehicle_num = False
+                self.define_spaces()
+                self.num_test = 0
+            self.num_test += 1
+
+    def acquire_attacker(self):
+        defender_pos=self.controlled_vehicles[0]
+        dis=[]
+        for i , v in enumerate(self.road.vehicles):
+            if i <self.config["n_defenders"]:
+                continue
+            else:
+                dis.append(np.linalg.norm(v.pos-defender_pos))
+        dis=dis.sort()
+        print(dis)
+        while True:pass
 
     def _reward(self, action: Action) :#-> float: now we return a list
         """

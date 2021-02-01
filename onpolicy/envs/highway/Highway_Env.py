@@ -102,7 +102,7 @@ class HighwayEnv(gym.core.Wrapper):
         self.env_init = load_environment(self.env_dict)
 
         super().__init__(self.env_init)
-
+        
         # get new obs and action space
         self.all_observation_space = []
         self.all_action_space = []

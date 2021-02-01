@@ -122,8 +122,11 @@ class AbstractEnv(gym.Env):
         Set the types and spaces of observation and action from config.
         """
         self.observation_type = observation_factory(self, self.config["observation"])
+
         self.action_type = action_factory(self, self.config["action"])
+
         self.observation_space = self.observation_type.space()
+
         self.action_space = self.action_type.space()
 
     def _reward(self, action: Action) -> float:

@@ -89,9 +89,12 @@ def load_environment(env_config):
 
     # Configure the environment, if supported
     try:
+
         env.unwrapped.configure(env_config)
+
         # Reset the environment to ensure configuration is applied
-        env.reset()
+        #env.reset()
+
     except AttributeError as e:
         logger.info("This environment does not support configuration. {}".format(e))
     return env
