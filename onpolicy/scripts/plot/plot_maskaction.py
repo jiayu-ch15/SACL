@@ -16,7 +16,7 @@ def moving_average(interval, windowsize):
 
 plt.style.use('ggplot')
 
-map_names = ['MMM2','10m_vs_11m','27m_vs_30m','25m','so_many_baneling','corridor']
+map_names = ['MMM2','10m_vs_11m','27m_vs_30m','25m','so_many_baneling','corridor','5m_vs_6m']
 
 for map_name in map_names:
     plt.figure()

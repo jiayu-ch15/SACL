@@ -1,12 +1,9 @@
 
 import pandas
 import json
-import matplotlib.pyplot as plt
 import numpy as np
 import sys
 import os
-import matplotlib.animation as animation
-from matplotlib.pyplot import MultipleLocator
 
 def moving_average(interval, windowsize):
  
@@ -14,16 +11,14 @@ def moving_average(interval, windowsize):
     re = np.convolve(interval, window, 'same')
     return re
 
-plt.style.use('ggplot')
-
 map_names = ['2s_vs_1sc','2s3z','3m','3s_vs_3z','3s_vs_4z','2m_vs_1z','MMM','so_many_baneling',\
 '5m_vs_6m','3s5z','1c3s5z','8m','27m_vs_30m','25m','bane_vs_bane','3s_vs_5z','6h_vs_8z',\
 'corridor','3s5z_vs_3s6z','10m_vs_11m','8m_vs_9m','MMM2','2c_vs_64zg']
 
+all_final_max_step = []
 for map_name in map_names:
     print("########################MAP##########################")
     print(map_name)
-    plt.figure()
     ###################################PPO###################################
     exp_names = ['final_mappo', 'final_ippo', 'final_mappo_original'] 
     label_names = ["MAPPO", "IPPO", "MAPPO_original"]
@@ -82,12 +77,7 @@ for map_name in map_names:
 
         median_seed = np.median(y_seed, axis=1)
         std_seed = np.std(y_seed, axis=1)
-        plt.plot(x_step, median_seed, label = label_name, color=color_name)
-        plt.fill_between(x_step,
-            median_seed - std_seed,
-            median_seed + std_seed,
-            color=color_name,
-            alpha=0.1)
+
     
     exp_name = 'final_qmix'
     label_name = "QMIX"
@@ -156,7 +146,6 @@ for map_name in map_names:
             print("warning: better not to use mixed data, try to one eval_interval")
             print(map_name)
             print(eval_interval)
-            continue
             final_max_length.append(len(x[::8]))
             sample_qmix_s_step.append(x[::8])
             sample_qmix_y_seed.append(y[::8])
@@ -169,7 +158,6 @@ for map_name in map_names:
             if map_name not in ["25m","27m_vs_30m","bane_vs_bane"]:
                 print(map_name)
                 print(eval_interval)
-                continue
             final_max_length.append(len(x))
             sample_qmix_s_step.append(x)
             sample_qmix_y_seed.append(y)
@@ -190,33 +178,112 @@ for map_name in map_names:
 
     median_seed = np.median(y_seed, axis=0)
     std_seed = np.std(y_seed, axis=0)
-    plt.plot(x_step, median_seed, label=label_name, color=color_name)
-    plt.fill_between(x_step,
-        median_seed - std_seed,
-        median_seed + std_seed,
-        color=color_name,
-        alpha=0.1)
 
-    plt.tick_params(axis='both',which='major') 
     final_max_step = np.min(max_steps)
     print("final max step is {}".format(final_max_step))
-    x_major_locator = MultipleLocator(int(final_max_step/5))
-    x_minor_Locator = MultipleLocator(int(final_max_step/10)) 
-    y_major_locator = MultipleLocator(0.2)
-    y_minor_Locator = MultipleLocator(0.1)
-    ax=plt.gca()
-    ax.xaxis.set_major_locator(x_major_locator)
-    ax.yaxis.set_major_locator(y_major_locator)
-    ax.xaxis.set_minor_locator(x_minor_Locator)
-    ax.yaxis.set_minor_locator(y_minor_Locator)
-    ax.xaxis.get_major_formatter().set_powerlimits((0,1))
-    #ax.xaxis.grid(True, which='minor')
-    plt.xlim(0, final_max_step)
-    plt.ylim([0, 1.1])
-    plt.xticks(fontsize=15)
-    plt.yticks(fontsize=15)
-    plt.xlabel('Timesteps', fontsize=15)
-    plt.ylabel('Win Rate', fontsize=15)
-    plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=15)
+    all_final_max_step.append(final_max_step)
 
-    plt.savefig(save_dir + map_name + "_win_rate.png", bbox_inches="tight")
+#################################CAL#####################################
+
+median_value = []
+std_value = []
+for map_name, final_max_step in zip(map_names, all_final_max_step):
+    print("########################MAP##########################")
+    print(map_name)
+    ###################################PPO###################################
+    exp_names = ['final_mappo', 'final_ippo']
+
+    max_steps = []
+    for exp_name in exp_names:
+        print(exp_name)
+        data_dir =  './' + map_name + '/' + map_name + '_' + exp_name + '.csv'
+
+        df = pandas.read_csv(data_dir)
+        
+        key_cols = [c for c in df.columns if 'MIN' not in c and 'MAX' not in c]
+        key_step = [n for n in key_cols if n == 'Step']
+        key_win_rate = [n for n in key_cols if n != 'Step']
+
+        all_step = np.array(df[key_step])
+        all_win_rate = np.array(df[key_win_rate])
+
+        df_final = df[key_cols].dropna()
+        step = df_final[key_step]
+        win_rate = df_final[key_win_rate]
+
+        max_step = step.max()['Step']
+
+        if "ppo" in exp_name and max_step < 4.96e6:
+            print("error: broken data! double check!")
+            print("drop one run!")
+            continue
+
+        df_final = df_final.loc[df_final['Step'] <= final_max_step] 
+
+        x_step = np.array(df_final[key_step]).squeeze(-1)
+        y_seed = np.array(df_final[key_win_rate])
+
+        y_seed_last = np.array(y_seed)[-10:]
+
+        median_seed = np.median(np.median(y_seed_last, axis=0))
+        std_seed = np.std(np.median(y_seed_last, axis=0))
+        print(median_seed, std_seed)
+
+        median_value.append(median_seed)
+        std_value.append(std_seed)
+   
+    exp_name = 'final_qmix'
+    data_dir =  './' + map_name + '/' + map_name + '_' + exp_name + '.csv'
+
+    df = pandas.read_csv(data_dir)
+
+    key_cols = [c for c in df.columns if 'MIN' not in c and 'MAX' not in c]
+    key_step = [n for n in key_cols if n == 'Step']
+    key_win_rate = [n for n in key_cols if n != 'Step']
+
+    qmix_x_step = []
+    qmix_y_seed = []
+    for k in key_win_rate:
+
+        df_final = df[[k, 'Step']].dropna()
+        step = df_final[key_step]
+        win_rate = df_final[k]
+
+        max_step = step.max()['Step']
+
+        if max_step < 2e6:
+            print("error: broken data! double check!")
+            print("drop qmix run!")
+            continue
+
+        df_final = df_final.loc[df_final['Step'] <= final_max_step] 
+        qmix_x_step.append(np.array(df_final[key_step]).squeeze(-1))
+        qmix_y_seed.append(np.array(df_final[k]))
+
+    # adapt sample frequency
+    sample_qmix_y_seed = []
+    for x, y in zip(qmix_x_step, qmix_y_seed):
+        eval_interval = x[10] - x[9]
+        if eval_interval - 10000 < 5000: # eval_interval = 10000
+            print("warning: better not to use mixed data, try to one eval_interval")
+            print(map_name)
+            print(eval_interval)
+            sample_qmix_y_seed.append(y[::8][-10:])
+        elif eval_interval - 20000 < 5000: # eval_interval = 20000
+            sample_qmix_y_seed.append(y[::4][-10:])
+        elif eval_interval - 80000 < 5000: # eval_interval = 80000
+            print("warning: better not to use mixed data, try to one eval_interval")
+            if map_name not in ["25m","27m_vs_30m","bane_vs_bane"]:
+                print(map_name)
+                print(eval_interval)
+            sample_qmix_y_seed.append(y[-10:])
+        else:
+            raise NotImplementedError
+
+    median_seed = np.median(np.median(np.array(sample_qmix_y_seed), axis=0))
+    std_seed = np.std(np.median(np.array(sample_qmix_y_seed), axis=0))
+    print(median_seed, std_seed)
+    median_value.append(median_seed)
+    std_value.append(std_seed)
+
+    df = pd.DataFrame()

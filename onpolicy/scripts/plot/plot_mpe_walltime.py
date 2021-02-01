@@ -54,14 +54,14 @@ for map_name in map_names:
             print(np.array(step).shape)
             print(np.array(win_rate).shape)
 
-            max_step = step.max()['Relative Time (Process)']/60.0
+            max_step = step.max()['Relative Time (Process)']/3600.0
             print("one run max step is {}".format(max_step))
             
             one_run_max_step.append(max_step)
             print("final step is {}".format(max_step))
 
-            df_final = df_final.loc[df_final['Relative Time (Process)'] <= max_step*60.0] 
-            qmix_x_step.append(np.array(df_final[key_step]/60.0).squeeze(-1))
+            df_final = df_final.loc[df_final['Relative Time (Process)'] <= max_step*3600.0] 
+            qmix_x_step.append(np.array(df_final[key_step]/3600.0).squeeze(-1))
             qmix_y_seed.append(np.array(df_final[k]))
             print("data shape is {}".format(np.array(df_final[k]).shape))
 
@@ -112,18 +112,25 @@ for map_name in map_names:
     plt.tick_params(axis='both',which='major') 
     final_max_step = np.max(max_steps)
     print("final max step is {}".format(final_max_step))
-    x_major_locator = MultipleLocator(int(final_max_step/5))
-    x_minor_Locator = MultipleLocator(int(final_max_step/10)) 
+    # x_major_locator = MultipleLocator(int(final_max_step/4))
+    # x_minor_Locator = MultipleLocator(int(final_max_step/8)) 
     if map_name == "spread": 
-        y_major_locator = MultipleLocator(30)
-        y_minor_Locator = MultipleLocator(15)
-        plt.ylim(-210, -100)
-    elif map_name == "speaker_listener":
+        x_major_locator = MultipleLocator(int(final_max_step/4))
+        x_minor_Locator = MultipleLocator(int(final_max_step/8)) 
         y_major_locator = MultipleLocator(20)
-        y_minor_Locator = MultipleLocator(10)
-    else:
-        y_major_locator = MultipleLocator(10)
         y_minor_Locator = MultipleLocator(5)
+        plt.ylim(-180, -100)
+    elif map_name == "speaker_listener":
+        x_major_locator = MultipleLocator(int(final_max_step/4))
+        x_minor_Locator = MultipleLocator(int(final_max_step/8)) 
+        y_major_locator = MultipleLocator(20)
+        y_minor_Locator = MultipleLocator(5)
+        plt.ylim(-80, -5)
+    else:
+        x_major_locator = MultipleLocator(int(final_max_step/4))
+        x_minor_Locator = MultipleLocator(int(final_max_step/4)) 
+        y_major_locator = MultipleLocator(10)
+        y_minor_Locator = MultipleLocator(2)
         plt.ylim(-40, -5)
     ax=plt.gca()
     ax.xaxis.set_major_locator(x_major_locator)
@@ -134,9 +141,9 @@ for map_name in map_names:
     #ax.xaxis.grid(True, which='minor')
     plt.xlim(0, final_max_step)
     plt.xticks(fontsize=25)
-    plt.yticks(fontsize=25)
-    plt.xlabel('Wall Time (Minutes)', fontsize=25)
-    plt.ylabel('Episode Rewards', fontsize=25)
+    plt.yticks(fontsize=15)
+    plt.xlabel('Wall Time (Hours)', fontsize=25)
+    plt.ylabel('Episode Rewards', fontsize=20)
     plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=25)
     plt.title(map_name,fontsize=25)
     plt.savefig(save_dir + map_name + "_walltime.png", bbox_inches="tight")

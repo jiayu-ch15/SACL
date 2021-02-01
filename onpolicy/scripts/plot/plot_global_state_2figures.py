@@ -16,7 +16,7 @@ def moving_average(interval, windowsize):
 
 plt.style.use('ggplot')
 
-map_names = ['MMM2','6h_vs_8z','corridor','10m_vs_11m','3s5z_vs_3s6z','8m_vs_9m']
+map_names = ['MMM2','6h_vs_8z','corridor','10m_vs_11m','3s5z_vs_3s6z','8m_vs_9m','5m_vs_6m']
 
 #########figure1
 
@@ -114,7 +114,7 @@ for map_name in map_names:
     plt.savefig(save_dir + map_name + "_global_state_mask.png", bbox_inches="tight")
 
 ########## figure 2
-map_names = ['MMM2','6h_vs_8z','corridor','10m_vs_11m','3s5z_vs_3s6z']
+map_names = ['MMM2','6h_vs_8z','corridor','10m_vs_11m','3s5z_vs_3s6z','5m_vs_6m']
 for map_name in map_names:
     plt.figure()
     ###################################PPO###################################
