@@ -23,8 +23,9 @@ map_names = ['MMM2','6h_vs_8z','corridor','10m_vs_11m','3s5z_vs_3s6z','8m_vs_9m'
 for map_name in map_names:
     plt.figure()
     ###################################PPO###################################
-    exp_names = ['final_mappo', 'mappo_nomustalive', 'final_mappo_original', 'mappo_original_mustalive'] 
-    label_names = ["modified", "modified-mask", "original-mask", "original"]
+    #exp_names = ['final_mappo', 'mappo_nomustalive', 'final_mappo_original', 'mappo_original_mustalive'] 
+    exp_names = ['final_mappo', 'mappo_nomustalive']
+    label_names = ["with death mask", "without death mask"]
     color_names = ['red','blue','limegreen','saddlebrown']
 
     save_dir = './global_state/'
@@ -119,7 +120,7 @@ for map_name in map_names:
     plt.figure()
     ###################################PPO###################################
     exp_names = ['final_mappo', 'mappo_original_mustalive', 'mappo_catobs'] 
-    label_names = ["modified", "original", "concat"]
+    label_names = ["agent-specific", "original", "concated"]
     color_names = ['red','blue','limegreen']
 
     save_dir = './global_state/'

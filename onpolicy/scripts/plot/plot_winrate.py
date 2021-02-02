@@ -90,7 +90,7 @@ for map_name in map_names:
             alpha=0.1)
     
     exp_name = 'final_qmix'
-    label_name = "QMIX"
+    label_name = "QMix"
     color_name = 'saddlebrown'
     data_dir =  './' + map_name + '/' + map_name + '_' + exp_name + '.csv'
 
@@ -131,9 +131,6 @@ for map_name in map_names:
         else:
             max_step = 10e6
 
-        # if max_step == 2e6 and map_name in ["6h_vs_8z","MMM"]:
-        #     continue
-        
         one_run_max_step.append(max_step)
         # print("final step is {}".format(max_step))
 
@@ -154,9 +151,10 @@ for map_name in map_names:
         eval_interval = x[10] - x[9]
         if eval_interval - 10000 < 5000: # eval_interval = 10000
             print("warning: better not to use mixed data, try to one eval_interval")
-            print(map_name)
-            print(eval_interval)
-            continue
+            if map_name not in ["25m","27m_vs_30m","bane_vs_bane"]:
+                print(map_name)
+                print(eval_interval)
+                continue
             final_max_length.append(len(x[::8]))
             sample_qmix_s_step.append(x[::8])
             sample_qmix_y_seed.append(y[::8])
@@ -213,10 +211,10 @@ for map_name in map_names:
     #ax.xaxis.grid(True, which='minor')
     plt.xlim(0, final_max_step)
     plt.ylim([0, 1.1])
-    plt.xticks(fontsize=15)
-    plt.yticks(fontsize=15)
-    plt.xlabel('Timesteps', fontsize=15)
-    plt.ylabel('Win Rate', fontsize=15)
-    plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=15)
-
+    plt.xticks(fontsize=20)
+    plt.yticks(fontsize=20)
+    plt.xlabel('Timesteps', fontsize=20)
+    plt.ylabel('Win Rate', fontsize=20)
+    plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=20)
+    plt.title(map_name,fontsize=20)
     plt.savefig(save_dir + map_name + "_win_rate.png", bbox_inches="tight")

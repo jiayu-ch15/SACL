@@ -189,6 +189,12 @@ for map_name in map_names:
 
     final_max_step = np.min(max_steps)
     print("final max step is {}".format(final_max_step))
+    if map_name in ["5m_vs_6m"]:
+        final_max_step = 25e6
+    
+    if map_name == "27m_vs_30m":
+        final_max_step = 7e6
+
     all_final_max_step.append(final_max_step)
 
 #################################CAL#####################################
@@ -197,6 +203,7 @@ results = []
 for map_name, final_max_step in zip(map_names, all_final_max_step):
     print("########################MAP##########################")
     print(map_name)
+    print(final_max_step)
     ###################################PPO###################################
     exp_names = ['final_mappo', 'final_ippo']
 

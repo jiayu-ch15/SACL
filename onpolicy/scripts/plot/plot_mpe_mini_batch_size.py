@@ -22,7 +22,7 @@ for map_name in map_names:
     plt.figure()
     ###################################PPO###################################
     exp_names = ['mini1', 'mini2', 'mini4'] 
-    label_names = ["1.0 mini-batch", "0.5 mini-batch", "0.25 mini-batch"]
+    label_names = ["1 mini-batch", "2 mini-batches", "4 mini-batches"]
     color_names = ['red','blue','limegreen']
 
     save_dir = './mini_batch_size/'

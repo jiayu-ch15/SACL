@@ -86,6 +86,7 @@ class StarCraft2Env(MultiAgentEnv):
         state_terrain_height=False,
         state_last_action=True,
         state_timestep_number=False,
+        state_agent_id=True,
         reward_sparse=False,
         reward_only_positive=True,
         reward_death_value=10,
@@ -235,6 +236,7 @@ class StarCraft2Env(MultiAgentEnv):
         self.state_terrain_height = state_terrain_height
         self.state_last_action = state_last_action
         self.state_timestep_number = state_timestep_number
+        self.state_agent_id = state_agent_id
         if self.obs_all_health:
             self.obs_own_health = True
         self.n_obs_pathing = 8
@@ -1499,7 +1501,7 @@ class StarCraft2Env(MultiAgentEnv):
                                 own_feats.flatten()))
 
         # Agent id features
-        if self.obs_agent_id:
+        if self.state_agent_id:
             agent_id_feats[agent_id] = 1.
             state = np.append(state, agent_id_feats.flatten())
 

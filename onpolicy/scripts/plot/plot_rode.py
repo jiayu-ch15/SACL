@@ -246,8 +246,8 @@ if __name__ == "__main__":
         if map_name in ["3s5z"]:
             final_max_step = 5e6
 
-        if map_name in ["1c3s5z","2s3z","2s_vs_1sc"]:
-            final_max_step = 2e6
+        # if map_name in ["1c3s5z","2s3z","2s_vs_1sc"]:
+        #     final_max_step = 2e6
 
         
 
