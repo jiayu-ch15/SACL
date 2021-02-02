@@ -1668,11 +1668,11 @@ class StarCraft2Env(MultiAgentEnv):
             agent_id_feats = 0
             timestep_feats = 0
 
-            if self.obs_agent_id:
+            if self.state_agent_id:
                 agent_id_feats = self.n_agents
                 all_feats += agent_id_feats
 
-            if self.obs_timestep_number:
+            if self.state_timestep_number:
                 timestep_feats = 1
                 all_feats += timestep_feats
 
