@@ -156,7 +156,6 @@ class AbstractEnv(gym.Env):
         """
         raise NotImplementedError
 
-    '''
     def reset(self) -> Observation:
         """
         Reset the environment to it's initial configuration
@@ -164,13 +163,14 @@ class AbstractEnv(gym.Env):
         :return: the observation of the reset state
         """
         self.define_spaces()  # First, to set the controlled vehicle class depending on action space
+
         self.time = self.steps = 0
         self.done = False
         self._reset()
         self.define_spaces()  # Second, to link the obs and actions to the vehicles once the scene is created
         self.rendered_image = []
         return self.observation_type.observe()
-    '''
+
     
     def _reset(self) -> None:
         """
@@ -194,6 +194,7 @@ class AbstractEnv(gym.Env):
             raise NotImplementedError("The road and vehicle must be initialized in the environment implementation")
 
         self.steps += 1
+
         self._simulate(action)
         obs = self.observation_type.observe()
         reward = self._reward(action)
@@ -208,6 +209,7 @@ class AbstractEnv(gym.Env):
             info["cost"] = self._cost(action)
         except NotImplementedError:
             pass
+
 
         return obs, reward, terminal, info
 

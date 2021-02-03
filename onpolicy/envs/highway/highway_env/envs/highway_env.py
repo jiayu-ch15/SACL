@@ -49,14 +49,16 @@ class HighwayEnv(AbstractEnv):
         return config
 
     def _reset(self) -> None:
-        self._create_road()
-        self._create_vehicles()
 
         ######## Jianming Jan 29 New feature -> bubble test: control handover
-        self.ctrl_change_vehicle_num = True
-        self.num_test = 0
-        self.change_frequency=10
+        self.ctrl_change_vehicle = True
+        self.num_for_change = 0
+        self.change_frequency = 10
         ########
+        self._create_road()
+        self._create_vehicles()
+        self.acquire_attacker(True)
+
 
     def _create_road(self) -> None:
         """Create a road composed of straight adjacent lanes."""
@@ -68,8 +70,8 @@ class HighwayEnv(AbstractEnv):
         # the number of agent with initialized postions overlapping with each other
         self.controlled_vehicles = []
         number_overlap = 0
-        #for i in range(self.config["controlled_vehicles"]):
-        for i in range(self.config["n_defenders"]):
+        for i in range(self.config["controlled_vehicles"]):
+        #for i in range(self.config["n_defenders"]):
             # vehicle = self.action_type.vehicle_class.create_random(self.road,
             #                                                        speed=25,
             #                                                        lane_id=self.config["initial_lane_id"],
@@ -97,30 +99,47 @@ class HighwayEnv(AbstractEnv):
             # observation size depents on the firstly controlled_vehicles in the initilization process
             # but after defined the observation type doesn't change.
 
-        self.enter_bubble()
 
     def enter_bubble(self):
-        if self.ctrl_change_vehicle_num:
-            if self.num_test >= self.change_frequency:
-                self.temp_vehicles = self.acquire_attacker()
-                self.controlled_vehicles.remove(self.temp_vehicle)
-                self.temp_vehicle.use_action_level_behavior = False
-                self.ctrl_change_vehicle_num = False
-                self.define_spaces()
-                self.num_test = 0
-            self.num_test += 1
+        if self.ctrl_change_vehicle:
+            if self.steps % self.change_frequency==0:
+                self.acquire_attacker()
 
-    def acquire_attacker(self):
-        defender_pos=self.controlled_vehicles[0]
+
+    def acquire_attacker(self,reset=False):
+        if reset:
+            for i,v in enumerate(self.controlled_vehicles):
+                if i < self.config["n_defenders"]:
+                    continue
+                else:
+                    self.road.vehicles.remove(v)
+
+        #### only one defender
+        defender_pos=self.controlled_vehicles[0].position
         dis=[]
         for i , v in enumerate(self.road.vehicles):
-            if i <self.config["n_defenders"]:
+            if i < self.config["n_defenders"]:
                 continue
             else:
-                dis.append(np.linalg.norm(v.pos-defender_pos))
-        dis=dis.sort()
-        print(dis)
-        while True:pass
+                dis.append(np.linalg.norm(v.position - defender_pos))
+
+        from copy import deepcopy
+        dis_sort=deepcopy(dis)
+        dis_sort.sort()
+        ins=[]
+        for i in range(self.config["n_attackers"]):
+            ins.append(dis.index(dis_sort[i]))
+
+        for i,index in enumerate(ins):
+            if reset:
+                self.road.vehicles[self.config["n_defenders"] + index].use_action_level_behavior = True
+                self.controlled_vehicles[i+self.config["n_defenders"]]=self.road.vehicles[self.config["n_defenders"] + index]
+            else:
+                self.controlled_vehicles[i + self.config["n_defenders"]].use_action_level_behavior=False
+                self.road.vehicles[self.config["n_defenders"] + index].use_action_level_behavior = True
+                self.controlled_vehicles[i+self.config["n_defenders"]]=self.road.vehicles[self.config["n_defenders"]+index]
+
+        self.define_spaces()
 
     def _reward(self, action: Action) :#-> float: now we return a list
         """
@@ -148,7 +167,7 @@ class HighwayEnv(AbstractEnv):
         #     self.ctrl_change_vehicle_num = True
         #     self.define_spaces()
         ########
-            
+        self.enter_bubble()
         rewards=[]
         for vehicle in self.controlled_vehicles:
         
