@@ -19,8 +19,8 @@ plt.style.use('ggplot')
 map_names = ['2s_vs_1sc','2s3z','3m','3s_vs_3z','3s_vs_4z','2m_vs_1z','MMM','so_many_baneling',\
 '5m_vs_6m','3s5z','1c3s5z','8m','27m_vs_30m','25m','bane_vs_bane','3s_vs_5z','6h_vs_8z',\
 'corridor','3s5z_vs_3s6z','10m_vs_11m','8m_vs_9m','MMM2','2c_vs_64zg']
-
-for map_name in map_names:
+title_names = [name.replace("_vs_"," vs. ") for name in map_names]
+for map_name, title_name in zip(map_names,title_names):
     print("########################MAP##########################")
     print(map_name)
     plt.figure()
@@ -216,5 +216,5 @@ for map_name in map_names:
     plt.xlabel('Timesteps', fontsize=20)
     plt.ylabel('Win Rate', fontsize=20)
     plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=20)
-    plt.title(map_name,fontsize=20)
+    plt.title(title_name,fontsize=20)
     plt.savefig(save_dir + map_name + "_win_rate.png", bbox_inches="tight")

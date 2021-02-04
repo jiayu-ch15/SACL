@@ -17,9 +17,9 @@ def moving_average(interval, windowsize):
 plt.style.use('ggplot')
 
 map_names = ['spread','speaker_listener','reference']
+title_names = ['Spread','Comm','Reference']
 
-
-for map_name in map_names:
+for map_name,title_name in zip(map_names,title_names):
     plt.figure()
     ###################################PPO###################################
     exp_names = ['mappo'] 
@@ -199,5 +199,5 @@ for map_name in map_names:
     plt.xlabel('Timesteps', fontsize=25)
     plt.ylabel('Episode Rewards', fontsize=20)
     plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=25)
-    plt.title(map_name,fontsize=25)
+    plt.title(title_name,fontsize=25)
     plt.savefig(save_dir + map_name + "_step.png", bbox_inches="tight")

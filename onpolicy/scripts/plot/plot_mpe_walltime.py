@@ -18,12 +18,13 @@ plt.style.use('ggplot')
 
 map_names = ['spread','speaker_listener','reference']
 
+title_names = ['Spread','Comm','Reference']
 
-for map_name in map_names:
+for map_name,title_name in zip(map_names,title_names):
     plt.figure()
-    exp_names = ['mappo_walltime', 'maddpg_walltime'] 
-    label_names = ["MAPPO", "MADDPG"]
-    color_names = ['red','blue']
+    exp_names = ['mappo_walltime', 'maddpg_walltime','qmix_walltime'] 
+    label_names = ["MAPPO", "MADDPG","QMix"]
+    color_names = ['red','blue','saddlebrown']
 
     save_dir = './walltime/'
     if not os.path.exists(save_dir):
@@ -76,6 +77,15 @@ for map_name in map_names:
         for x, y in zip(qmix_x_step, qmix_y_seed):
             if 'ddpg' in exp_name:
                 if 'speaker_listener' in map_name:
+                    final_max_length.append(len(x[::5]))
+                    sample_qmix_s_step.append(x[::5])
+                    sample_qmix_y_seed.append(y[::5])
+                else:
+                    final_max_length.append(len(x[::16]))
+                    sample_qmix_s_step.append(x[::16])
+                    sample_qmix_y_seed.append(y[::16])
+            elif 'qmix' in exp_name:
+                if map_name in ['speaker_listener','reference']:
                     final_max_length.append(len(x[::5]))
                     sample_qmix_s_step.append(x[::5])
                     sample_qmix_y_seed.append(y[::5])
@@ -145,5 +155,5 @@ for map_name in map_names:
     plt.xlabel('Wall Time (Hours)', fontsize=25)
     plt.ylabel('Episode Rewards', fontsize=20)
     plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=25)
-    plt.title(map_name,fontsize=25)
+    plt.title(title_name,fontsize=25)
     plt.savefig(save_dir + map_name + "_walltime.png", bbox_inches="tight")

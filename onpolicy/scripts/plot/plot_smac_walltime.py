@@ -17,9 +17,9 @@ def moving_average(interval, windowsize):
 plt.style.use('ggplot')
 
 map_names = ['2c_vs_64zg','3s_vs_4z','3m','3s_vs_5z','27m_vs_30m','2s3z']
+title_names = [name.replace("_vs_"," vs. ") for name in map_names]
 
-
-for map_name in map_names:
+for map_name, title_name in zip(map_names,title_names):
     plt.figure()
     exp_names = ['mappo_walltime', 'qmix_walltime'] 
     label_names = ["MAPPO", "QMIX"]
@@ -131,5 +131,5 @@ for map_name in map_names:
     plt.ylabel('Win Rate', fontsize=20)
     plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=20)
 
-    plt.title(map_name,fontsize=20)
+    plt.title(title_name,fontsize=20)
     plt.savefig(save_dir + map_name + "_walltime.png", bbox_inches="tight")

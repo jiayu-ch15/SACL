@@ -20,7 +20,7 @@ hard_maps = ["3s_vs_5z", "2c_vs_64zg", "8m_vs_9m", "25m", "5m_vs_6m", "3s5z", "1
 super_hard_maps = ["MMM2", "3s5z_vs_3s6z", "27m_vs_30m", "6h_vs_8z", "corridor"]
 
 map_names = easy_maps + hard_maps + super_hard_maps
-difficulties = len(easy_maps) * ["Easy"] + len(hard_maps) * ["Hard"] + len(super_hard_maps) * ["Super_Hard"]
+difficulties = len(easy_maps) * ["Easy"] + len(hard_maps) * ["Hard"] + len(super_hard_maps) * ["Super Hard"]
 rode_scores = ["/", "/", "/", "100(0.0)", "/", "/", "/", "/", "/", "100(0.0)", "100(46.4)", "78.9(4.2)", "100(0.0)", "/", "/", "71.1(9.2)", "93.75(1.95)", "95.3(2.2)", "89.8(6.7)", "96.8(25.11)", "96.8(1.5)", "78.1(37.0)", "65.6(32.1)"]
 
 all_final_max_step = []
@@ -189,7 +189,7 @@ for map_name in map_names:
 
     final_max_step = np.min(max_steps)
     print("final max step is {}".format(final_max_step))
-    if map_name in ["5m_vs_6m"]:
+    if map_name in ["5m_vs_6m","3s5z_vs_3s6z"]:
         final_max_step = 25e6
     
     if map_name == "27m_vs_30m":

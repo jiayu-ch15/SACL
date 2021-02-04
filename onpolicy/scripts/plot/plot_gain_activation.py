@@ -17,8 +17,8 @@ def moving_average(interval, windowsize):
 plt.style.use('ggplot')
 
 map_names = ['MMM2', '3s5z_vs_3s6z', '3s_vs_5z','25m','8m_vs_9m']
-
-for map_name in map_names:
+title_names = [name.replace("_vs_"," vs. ") for name in map_names]
+for map_name, title_name in zip(map_names,title_names):
     plt.figure()
     ###################################PPO###################################
     exp_names = ['mappo_relu_gain0.01', 'mappo_relu_gain1', 'mappo_tanh_gain0.01', 'mappo_tanh_gain1'] 
@@ -104,7 +104,7 @@ for map_name in map_names:
     plt.yticks(fontsize=20)
     plt.xlabel('Timesteps', fontsize=20)
     plt.ylabel('Win Rate', fontsize=20)
-    plt.title(map_name, fontsize=20)
+    plt.title(title_name, fontsize=20)
     plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=20)
 
     plt.savefig(save_dir + map_name + "_gain_and_activation.png", bbox_inches="tight")
