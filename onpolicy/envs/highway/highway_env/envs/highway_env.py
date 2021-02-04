@@ -138,6 +138,10 @@ class HighwayEnv(AbstractEnv):
                 self.controlled_vehicles[i + self.config["n_defenders"]].use_action_level_behavior=False
                 self.road.vehicles[self.config["n_defenders"] + index].use_action_level_behavior = True
                 self.controlled_vehicles[i+self.config["n_defenders"]]=self.road.vehicles[self.config["n_defenders"]+index]
+            #for render, exchange the index in the list
+            self.road.vehicles[self.config["n_defenders"] + index],self.road.vehicles[self.config["n_defenders"] + i]=\
+            self.road.vehicles[self.config["n_defenders"] + i],self.road.vehicles[self.config["n_defenders"] + index]
+
 
         self.define_spaces()
 
