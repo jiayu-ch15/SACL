@@ -275,3 +275,54 @@ class HanabiRunner(Runner):
             wandb.log({'eval_average_score': eval_average_score}, step=total_num_steps)
         else:
             self.writter.add_scalars('eval_average_score', {'eval_average_score': eval_average_score}, total_num_steps)
+
+    
+    @torch.no_grad()
+    def eval_100k(self, eval_games=100000):
+        eval_envs = self.eval_envs
+        trials = int(eval_games/self.n_eval_rollout_threads)
+
+        eval_scores = []
+        for trial in range(trials):
+            print("trail is {}".format(trial))
+            eval_finish = False
+            eval_reset_choose = np.ones(self.n_eval_rollout_threads) == 1.0
+            
+            eval_obs, eval_share_obs, eval_available_actions = eval_envs.reset(eval_reset_choose)
+
+            eval_rnn_states = np.zeros((self.n_eval_rollout_threads, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
+            eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
+
+            while True:
+                if eval_finish:
+                    break
+                for agent_id in range(self.num_agents):
+                    eval_actions = np.ones((self.n_eval_rollout_threads, 1), dtype=np.float32) * (-1.0)
+                    eval_choose = np.any(eval_available_actions == 1, axis=1)
+
+                    if ~np.any(eval_choose):
+                        eval_finish = True
+                        break
+
+                    self.trainer.prep_rollout()
+                    eval_action, eval_rnn_state = self.trainer.policy.act(eval_obs[eval_choose],
+                                                                    eval_rnn_states[eval_choose, agent_id],
+                                                                    eval_masks[eval_choose, agent_id],
+                                                                    eval_available_actions[eval_choose],
+                                                                    deterministic=True)
+
+                    eval_actions[eval_choose] = _t2n(eval_action)
+                    eval_rnn_states[eval_choose, agent_id] = _t2n(eval_rnn_state)
+
+                    # Obser reward and next obs
+                    eval_obs, eval_share_obs, eval_rewards, eval_dones, eval_infos, eval_available_actions = eval_envs.step(eval_actions)
+                    
+                    eval_available_actions[eval_dones == True] = np.zeros(((eval_dones == True).sum(), *self.buffer.available_actions.shape[3:]), dtype=np.float32)
+
+                    for eval_done, eval_info in zip(eval_dones, eval_infos):
+                        if eval_done:
+                            if 'score' in eval_info.keys():
+                                eval_scores.append(eval_info['score'])
+
+        eval_average_score = np.mean(eval_scores)
+        print("eval average score is {}.".format(eval_average_score))
