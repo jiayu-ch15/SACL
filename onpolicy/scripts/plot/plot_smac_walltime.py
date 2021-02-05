@@ -16,7 +16,8 @@ def moving_average(interval, windowsize):
 
 plt.style.use('ggplot')
 
-map_names = ['2c_vs_64zg','3s_vs_4z','3m','3s_vs_5z','27m_vs_30m','2s3z']
+map_names = ['MMM2','6h_vs_8z','corridor','1c3s5z','2s3z']
+# map_names = ['6h_vs_8z']
 title_names = [name.replace("_vs_"," vs. ") for name in map_names]
 
 for map_name, title_name in zip(map_names,title_names):
@@ -54,14 +55,14 @@ for map_name, title_name in zip(map_names,title_names):
             print(np.array(step).shape)
             print(np.array(win_rate).shape)
 
-            max_step = step.max()['Relative Time (Process)']/60.0
+            max_step = step.max()['Relative Time (Process)']/3600.0
             print("one run max step is {}".format(max_step))
             
             one_run_max_step.append(max_step)
             print("final step is {}".format(max_step))
 
-            df_final = df_final.loc[df_final['Relative Time (Process)'] <= max_step*60.0] 
-            qmix_x_step.append(np.array(df_final[key_step]/60.0).squeeze(-1))
+            df_final = df_final.loc[df_final['Relative Time (Process)'] <= max_step*3600.0] 
+            qmix_x_step.append(np.array(df_final[key_step]/3600.0).squeeze(-1))
             qmix_y_seed.append(np.array(df_final[k]))
             print("data shape is {}".format(np.array(df_final[k]).shape))
 
@@ -74,15 +75,10 @@ for map_name, title_name in zip(map_names,title_names):
         sample_qmix_y_seed = []
         final_max_length = []
         for x, y in zip(qmix_x_step, qmix_y_seed):
-            if 'ddpg' in exp_name:
-                if 'speaker_listener' in map_name:
-                    final_max_length.append(len(x[::5]))
-                    sample_qmix_s_step.append(x[::5])
-                    sample_qmix_y_seed.append(y[::5])
-                else:
-                    final_max_length.append(len(x[::16]))
-                    sample_qmix_s_step.append(x[::16])
-                    sample_qmix_y_seed.append(y[::16])
+            if 'qmix' in exp_name:
+                final_max_length.append(len(x[::4]))
+                sample_qmix_s_step.append(x[::4])
+                sample_qmix_y_seed.append(y[::4])
             else:
                 final_max_length.append(len(x))
                 sample_qmix_s_step.append(x)
@@ -94,7 +90,35 @@ for map_name, title_name in zip(map_names,title_names):
         final_qmix_x_step = []
         final_qmix_y_seed = []
         for x, y in zip(sample_qmix_s_step, sample_qmix_y_seed):
-            final_qmix_x_step.append(x[:max_common_length])
+            time = x[:max_common_length]
+            if "mappo" in exp_name:
+                if map_name == "2s3z":
+                    ratio = 385/545
+                if map_name == "1c3s5z":
+                    ratio = 263/333
+                if map_name == "MMM2":
+                    ratio = 285/365
+                if map_name == "6h_vs_8z":
+                    ratio = 380/550
+                if map_name == "corridor":
+                    ratio = 270/397
+                
+
+            if "qmix" in exp_name:
+                if map_name == "2s3z":
+                    ratio = 98/174
+                if map_name == "1c3s5z":
+                    ratio = 77/120
+                if map_name == "MMM2":
+                    ratio = 68/130
+                if map_name == "6h_vs_8z":
+                    ratio = 75/109
+                if map_name == "corridor":
+                    ratio = 50/74
+                
+            time =  time * ratio 
+            print(ratio)   
+            final_qmix_x_step.append(time)
             final_qmix_y_seed.append(y[:max_common_length])
 
         x_step = np.mean(final_qmix_x_step, axis=0)
@@ -110,7 +134,8 @@ for map_name, title_name in zip(map_names,title_names):
             alpha=0.1)
     
     plt.tick_params(axis='both',which='major') 
-    final_max_step = np.max(max_steps)
+    final_max_step = np.max(max_steps)*ratio
+    print(map_name)
     print("final max step is {}".format(final_max_step))
     x_major_locator = MultipleLocator(int(final_max_step/5))
     x_minor_Locator = MultipleLocator(int(final_max_step/10)) 
@@ -123,11 +148,11 @@ for map_name, title_name in zip(map_names,title_names):
     ax.yaxis.set_minor_locator(y_minor_Locator)
     # ax.xaxis.get_major_formatter().set_powerlimits((0,1))
     #ax.xaxis.grid(True, which='minor')
-    plt.xlim(0, final_max_step)
+    #plt.xlim(0, final_max_step)
     plt.ylim([0, 1.1])
     plt.xticks(fontsize=20)
     plt.yticks(fontsize=20)
-    plt.xlabel('Wall Time (Minutes)', fontsize=20)
+    plt.xlabel('Wall Time (Hours)', fontsize=20)
     plt.ylabel('Win Rate', fontsize=20)
     plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=20)
 

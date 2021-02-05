@@ -104,7 +104,33 @@ for map_name,title_name in zip(map_names,title_names):
         final_qmix_x_step = []
         final_qmix_y_seed = []
         for x, y in zip(sample_qmix_s_step, sample_qmix_y_seed):
-            final_qmix_x_step.append(x[:max_common_length])
+            time = x[:max_common_length]
+            if "ddpg" in exp_name:
+                if map_name == "reference":
+                    ratio = 128/214
+                if map_name == "speaker_listener":
+                    ratio = 42/132
+                if map_name == "spread":
+                    ratio = 133/180
+
+            if "qmix" in exp_name:
+                if map_name == "reference":
+                    ratio = 168/500
+                if map_name == "speaker_listener":
+                    ratio = 88/270
+                if map_name == "spread":
+                    ratio = 277/460
+
+            if "ppo" in exp_name:
+                if map_name == "reference":
+                    ratio = 2290/4400
+                if map_name == "speaker_listener":
+                    ratio = 1220/2469
+                if map_name == "spread":
+                    ratio = 2810/4617
+            
+            time =  time * ratio 
+            final_qmix_x_step.append(time)
             final_qmix_y_seed.append(y[:max_common_length])
 
         x_step = np.mean(final_qmix_x_step, axis=0)
@@ -120,7 +146,7 @@ for map_name,title_name in zip(map_names,title_names):
             alpha=0.1)
     
     plt.tick_params(axis='both',which='major') 
-    final_max_step = np.max(max_steps)
+    final_max_step = np.max(max_steps) * ratio
     print("final max step is {}".format(final_max_step))
     # x_major_locator = MultipleLocator(int(final_max_step/4))
     # x_minor_Locator = MultipleLocator(int(final_max_step/8)) 
@@ -132,13 +158,13 @@ for map_name,title_name in zip(map_names,title_names):
         plt.ylim(-180, -100)
     elif map_name == "speaker_listener":
         x_major_locator = MultipleLocator(int(final_max_step/4))
-        x_minor_Locator = MultipleLocator(int(final_max_step/8)) 
+        x_minor_Locator = MultipleLocator(int(final_max_step/4)/2) 
         y_major_locator = MultipleLocator(20)
         y_minor_Locator = MultipleLocator(5)
         plt.ylim(-80, -5)
     else:
-        x_major_locator = MultipleLocator(int(final_max_step/4))
-        x_minor_Locator = MultipleLocator(int(final_max_step/4)) 
+        x_major_locator = MultipleLocator(int(final_max_step/2)/2)
+        x_minor_Locator = MultipleLocator(int(final_max_step/2)/4) 
         y_major_locator = MultipleLocator(10)
         y_minor_Locator = MultipleLocator(2)
         plt.ylim(-40, -5)

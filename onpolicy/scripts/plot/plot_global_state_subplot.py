@@ -103,6 +103,8 @@ for map_name, title_name, ax in zip(map_names, title_names, axes):
     ax.xaxis.set_minor_locator(x_minor_Locator)
     ax.yaxis.set_minor_locator(y_minor_Locator)
     ax.xaxis.get_major_formatter().set_powerlimits((0,2))
+    tx = ax.xaxis.get_offset_text() 
+    tx.set_fontsize(18) 
     #ax.xaxis.grid(True, which='minor')
     ax.set_xlim(0, final_max_step)
     ax.set_ylim([0, 1.1])
@@ -111,18 +113,29 @@ for map_name, title_name, ax in zip(map_names, title_names, axes):
     ax.set_title(title_name, fontsize=20)
     ax.tick_params(labelsize=20)
 
+# fig.legend(lines,     # The line objects
+#            labels=label_names,   # The labels for each line
+#            loc="lower center",   # Position of legend
+#            borderaxespad=0.1,    # Small spacing around legend box
+#            #title="RR",  # Title for the legend
+#            bbox_to_anchor=(0.5, -0.23),
+# 		   #bbox_transform=axes[2].transAxes,
+#            ncol=len(label_names),
+#            fontsize=20
+#            )
+
 fig.legend(lines,     # The line objects
            labels=label_names,   # The labels for each line
-           loc="lower center",   # Position of legend
+           loc="right",   # Position of legend
            borderaxespad=0.1,    # Small spacing around legend box
            #title="RR",  # Title for the legend
-           bbox_to_anchor=(0.5, -0.23),
+           bbox_to_anchor=(0.935, 0.28),
 		   #bbox_transform=axes[2].transAxes,
-           ncol=len(label_names),
+           ncol=1,
            fontsize=20
            )
 
 # Adjust the scaling factor to fit your legend text completely outside the plot
 # (smaller value results in more space being made for the legend)
 plt.subplots_adjust(right=0.85)
-plt.savefig(save_dir + "global_state_subplot.png", bbox_inches="tight")
+plt.savefig(save_dir + "global_state_subplot_rightlegend.png", bbox_inches="tight")

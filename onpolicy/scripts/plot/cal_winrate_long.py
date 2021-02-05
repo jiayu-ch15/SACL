@@ -17,7 +17,7 @@ all_final_max_step = []
 for map_name in map_names:
     print("########################MAP##########################")
     print(map_name)
-    final_max_step = 25e6
+    final_max_step = 100e6
     exp_names = ['final_mappo_long']
 
     median_value = []

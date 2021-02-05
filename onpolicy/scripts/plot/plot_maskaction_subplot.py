@@ -99,6 +99,8 @@ for map_name, title_name, ax in zip(map_names, title_names, axes):
     ax.xaxis.set_minor_locator(x_minor_Locator)
     ax.yaxis.set_minor_locator(y_minor_Locator)
     ax.xaxis.get_major_formatter().set_powerlimits((0,2))
+    tx = ax.xaxis.get_offset_text() 
+    tx.set_fontsize(18) 
     #ax.xaxis.grid(True, which='minor')
     ax.set_xlim(0, final_max_step)
     ax.set_ylim([0, 1.1])

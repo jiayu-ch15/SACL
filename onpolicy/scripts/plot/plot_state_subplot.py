@@ -19,7 +19,7 @@ plt.style.use('ggplot')
 map_names = ['6h_vs_8z','corridor','10m_vs_11m','3s5z_vs_3s6z','5m_vs_6m']
 title_names = [name.replace("_vs_"," vs. ") for name in map_names]
 exp_names = ['final_mappo', 'mappo_nomustalive', 'final_ignore', 'mappo_zeroid']
-label_names = ["with deadth mask", "without death mask", "ignore dead states", "with death mask, without agent id"]
+label_names = ["with death mask", "without death mask", "ignore dead states", "with death mask, without agent id"]
 color_names = ['red','blue','limegreen','saddlebrown']
 fig, axes = plt.subplots(1, 5, figsize=(36, 4))
 save_dir = './subplot/'
@@ -103,6 +103,8 @@ for map_name, title_name, ax in zip(map_names, title_names, axes):
     ax.xaxis.set_minor_locator(x_minor_Locator)
     ax.yaxis.set_minor_locator(y_minor_Locator)
     ax.xaxis.get_major_formatter().set_powerlimits((0,2))
+    tx = ax.xaxis.get_offset_text() 
+    tx.set_fontsize(18) 
     #ax.xaxis.grid(True, which='minor')
     ax.set_xlim(0, final_max_step)
     ax.set_ylim([0, 1.1])
