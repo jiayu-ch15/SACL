@@ -5,6 +5,7 @@ import os
 import numpy as np
 from itertools import chain
 import torch
+import imageio
 
 from onpolicy.utils.util import update_linear_schedule
 from onpolicy.runner.separated.base_runner import Runner
@@ -185,3 +186,67 @@ class AgarRunner(Runner):
                         wandb.log({agent_k: np.mean(v)}, step=total_num_steps)
                     else:
                         self.writter.add_scalars(agent_k, {agent_k: np.mean(v)}, total_num_steps)
+
+    @torch.no_grad()
+    def render(self):
+        envs = self.envs
+        self.all_args.save_gifs = True
+        self.gif_dir = self.run_dir
+        
+        all_frames = []
+        for episode in range(self.all_args.render_episodes):
+            obs = envs.reset()
+            if self.all_args.save_gifs:
+                for i in range(self.num_agents):
+                    image = np.squeeze(envs.render(mode="rgb_array", playeridx=i))
+                    all_frames.append(image)
+                    #time.sleep(self.all_args.ifi)
+
+            rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+            
+            episode_rewards = []
+            
+            for step in range(self.episode_length):
+                calc_start = time.time()
+                temp_actions_env = []
+                for agent_id in range(self.num_agents):
+                    if not self.use_centralized_V:
+                        share_obs = np.array(list(obs[:, agent_id]))
+                    self.trainer[agent_id].prep_rollout()
+                    action, rnn_state = self.trainer[agent_id].policy.act(np.array(list(obs[:, agent_id])),
+                                                                        rnn_states[:, agent_id],
+                                                                        masks[:, agent_id],
+                                                                        deterministic=True)
+
+                    action = np.squeeze(action.detach().cpu().numpy())
+                    temp_actions_env.append(action)
+                    rnn_states[:, agent_id] = _t2n(rnn_state)
+                   
+                # Obser reward and next obs
+                actions = np.array(temp_actions_env)
+                obs, rewards, dones, infos = self.envs.step(actions)
+                episode_rewards.append(rewards)
+
+                rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
+                masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+                masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
+
+                if self.all_args.save_gifs:
+                    for i in range(self.num_agents):
+                        image = np.squeeze(envs.render(mode="rgb_array", playeridx=i))
+                        all_frames.append(image)
+                        #time.sleep(self.all_args.ifi)
+
+                    calc_end = time.time()
+                    elapsed = calc_end - calc_start
+                    if elapsed < self.all_args.ifi:
+                        time.sleep(self.all_args.ifi - elapsed)
+
+            """for agent_id in range(self.num_agents):
+                average_episode_rewards = np.mean(np.sum(episode_rewards[:, :, agent_id], axis=0))
+                print("eval average episode rewards of agent%i: " % agent_id + str(average_episode_rewards))"""
+
+        if self.all_args.save_gifs:
+            for i in range(self.num_agents):
+                imageio.mimsave(str(self.gif_dir) + '/render_' + str(i) + '.gif', all_frames[i:len(all_frames):self.num_agents], 'GIF', duration=self.all_args.ifi)

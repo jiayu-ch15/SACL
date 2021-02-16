@@ -77,15 +77,18 @@ class Viewer(object):
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
     def close(self):
-        if self.his_graph is not []:
+        """if self.his_graph is not []:
             l_g = [Im.fromarray(self.his_graph[i]).resize((640, 360))
                    for i in range(len(self.his_graph))]
             l_g[0].save(self.name_str+'.gif', save_all=True,
                         append_images=l_g[1:], loop=100, duration=100)
             for i in range(len(l_g)):
                 l_g[i].close()
-            self.his_graph = []
-        self.window.close()
+            self.his_graph = []"""
+        if self.isopen and sys.meta_path:
+            # ^^^ check sys.meta_path to avoid 'ImportError: sys.meta_path is None, Python is likely shutting down'
+            self.window.close()
+            self.isopen = False
 
     def window_closed_by_user(self):
         self.isopen = False
@@ -120,7 +123,7 @@ class Viewer(object):
         if return_rgb_array:
             buffer = pyglet.image.get_buffer_manager().get_color_buffer()
             image_data = buffer.get_image_data()
-            arr = np.frombuffer(image_data.data, dtype=np.uint8)
+            arr = np.frombuffer(image_data.get_data(), dtype=np.uint8)
             # In https://github.com/openai/gym-http-api/issues/2, we
             # discovered that someone using Xmonad on Arch was having
             # a window of size 598 x 398, though a 600 x 400 window
@@ -130,6 +133,7 @@ class Viewer(object):
             arr = arr.reshape(buffer.height, buffer.width, 4)
             arr = arr[::-1, :, 0:3]
             self.his_graph.append(copy.deepcopy(arr))
+
         self.window.flip()
         self.onetime_geoms = []
         return arr if return_rgb_array else self.isopen
@@ -434,3 +438,4 @@ class SimpleImageViewer(object):
 
     def __del__(self):
         self.close()
+        pass

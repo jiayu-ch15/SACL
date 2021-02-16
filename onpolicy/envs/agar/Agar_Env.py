@@ -10,6 +10,9 @@ from onpolicy.envs.agar.players import Player, Bot
 import numpy as np
 from copy import deepcopy
 
+#modifications:
+#line 284
+#line 131
 
 def max(a, b):
     if a > b:
@@ -79,7 +82,6 @@ class AgarEnv(gym.Env):
         reward = np.zeros((self.num_agents, ))
         done = np.zeros((self.num_agents, ))
         info = [{} for i in range(self.num_agents)]
-
         first = True
         for i in range(self.action_repeat):
             if not first:
@@ -125,8 +127,8 @@ class AgarEnv(gym.Env):
         reward = reward.reshape(-1, 1)
         global_reward = np.sum(reward)
 
-        if self.share_reward:
-            reward = [[global_reward]] * self.num_agents
+        """if self.share_reward:
+            reward = [[global_reward]] * self.num_agents"""
 
         return o, reward, done, info
 
@@ -161,7 +163,7 @@ class AgarEnv(gym.Env):
         self.near = (t_dis <= 0.5)
         if self.killed[0] + self.killed[1] > 0:
             self.near = False
-        self.last_action = deepcopy(actions.reshape(-1))
+        self.last_action = deepcopy(np.array(actions).reshape(-1))
         self.sum_r += rewards
         self.sum_r_g += rewards * self.m_g
         self.sum_r_g_i += t_rewards2 * self.m_g
@@ -278,7 +280,7 @@ class AgarEnv(gym.Env):
         obs_f[-16:-13] = self.last_action[id * 3: id * 3 + 3]
         obs_f[-17] = self.bot_speed
         obs_f[-18] = (self.killed[id] != 0)
-        obs_f[-19] = (self.killed[1 - id] != 0)
+        #obs_f[-19] = (self.killed[1 - id] != 0)
         obs_f[-20] = sum([c.mass for c in player.cells]) / 50
         obs_f[-21] = sum([c.mass for c in self.agents[1 - id].cells]) / 50
 
@@ -437,7 +439,7 @@ class AgarEnv(gym.Env):
             self.geoms_to_render, key=lambda x: x.order)
         for geom in self.geoms_to_render:
             self.viewer.add_onetime(geom)
-
+            
         return self.viewer.render(return_rgb_array=mode == 'rgb_array', name=name)
 
     def render_border(self):
