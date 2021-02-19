@@ -280,7 +280,7 @@ class AgarEnv(gym.Env):
         obs_f[-16:-13] = self.last_action[id * 3: id * 3 + 3]
         obs_f[-17] = self.bot_speed
         obs_f[-18] = (self.killed[id] != 0)
-        #obs_f[-19] = (self.killed[1 - id] != 0)
+        obs_f[-19] = np.count_nonzero(self.killed) - obs_f[-18]#(self.killed[1 - id] != 0)
         obs_f[-20] = sum([c.mass for c in player.cells]) / 50
         obs_f[-21] = sum([c.mass for c in self.agents[1 - id].cells]) / 50
 

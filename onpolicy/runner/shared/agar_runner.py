@@ -166,7 +166,13 @@ class AgarRunner(Runner):
                         wandb.log({agent_k: np.mean(v)}, step=total_num_steps)
                     else:
                         self.writter.add_scalars(agent_k, {agent_k: np.mean(v)}, total_num_steps)
-                    
+    
+    def log_eval(self, env_infos, total_num_steps):
+        for k, v in env_infos.items():
+            if self.use_wandb:
+                wandb.log({k: np.mean(v)}, step=total_num_steps)
+            else:
+                self.writter.add_scalars(k, {k: np.mean(v)}, total_num_steps)          
 
     @torch.no_grad()
     def render(self):
@@ -218,9 +224,41 @@ class AgarRunner(Runner):
                     if elapsed < self.all_args.ifi:
                         time.sleep(self.all_args.ifi - elapsed)
 
-            #print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
+            print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
 
         if self.all_args.save_gifs:
             for i in range(self.num_agents):
                 imageio.mimsave(str(self.gif_dir) + '/render_' + str(i) + '.gif', all_frames[i:len(all_frames):self.num_agents], 'GIF', duration=self.all_args.ifi)
             
+    @torch.no_grad()
+    def eval(self, total_num_steps):
+        eval_episode_rewards = []
+        eval_obs = self.eval_envs.reset()
+
+        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
+        eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
+
+        for eval_step in range(self.episode_length):
+            self.trainer.prep_rollout()
+            eval_action, eval_rnn_states = self.trainer.policy.act(np.concatenate(eval_obs),
+                                                np.concatenate(eval_rnn_states),
+                                                np.concatenate(eval_masks),
+                                                deterministic=True)
+            eval_actions = np.array(np.split(_t2n(eval_action), self.n_eval_rollout_threads))
+            eval_rnn_states = np.array(np.split(_t2n(eval_rnn_states), self.n_eval_rollout_threads))
+            
+            # Obser reward and next obs
+            eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions)
+            eval_episode_rewards.append(eval_rewards)
+
+            eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
+            eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
+            eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), 1), dtype=np.float32)
+
+        eval_episode_rewards = np.array(eval_episode_rewards)
+        eval_env_infos = {}
+        eval_average_episode_rewards = np.mean(np.sum(eval_episode_rewards, axis=0))
+        eval_env_infos['eval_average_episode_rewards'] = eval_average_episode_rewards
+        print("eval average episode rewards of agent: " + str(eval_average_episode_rewards))
+
+        self.log_eval(eval_env_infos, total_num_steps)

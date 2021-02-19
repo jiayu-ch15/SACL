@@ -670,8 +670,6 @@ class DummyVecEnv(ShareVecEnv):
         self.actions = actions
 
     def step_wait(self):
-        if(len(self.actions.shape) < 3):
-            self.actions = self.actions[np.newaxis,:,:]
         results = [env.step(a) for (a, env) in zip(self.actions, self.envs)]
         obs, rews, dones, infos = map(np.array, zip(*results))
 
