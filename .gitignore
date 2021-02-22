@@ -3,7 +3,10 @@ results
 *.pyc
 /gifs/
 build
-png
+win_rate
+*.so
+*.csv
+RODE
 *.egg-info
 wandb
 .vscode

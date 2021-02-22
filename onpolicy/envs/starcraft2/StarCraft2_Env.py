@@ -86,6 +86,7 @@ class StarCraft2Env(MultiAgentEnv):
         state_terrain_height=False,
         state_last_action=True,
         state_timestep_number=False,
+        state_agent_id=True,
         reward_sparse=False,
         reward_only_positive=True,
         reward_death_value=10,
@@ -235,6 +236,7 @@ class StarCraft2Env(MultiAgentEnv):
         self.state_terrain_height = state_terrain_height
         self.state_last_action = state_last_action
         self.state_timestep_number = state_timestep_number
+        self.state_agent_id = state_agent_id
         if self.obs_all_health:
             self.obs_own_health = True
         self.n_obs_pathing = 8
@@ -1347,7 +1349,6 @@ class StarCraft2Env(MultiAgentEnv):
            NOTE: Agents should have access only to their local observations
            during decentralised execution.
         """
-
         if self.obs_instead_of_state:
             obs_concat = np.concatenate(self.get_obs(), axis=0).astype(np.float32)
             return obs_concat
@@ -1500,7 +1501,7 @@ class StarCraft2Env(MultiAgentEnv):
                                 own_feats.flatten()))
 
         # Agent id features
-        if self.obs_agent_id:
+        if self.state_agent_id:
             agent_id_feats[agent_id] = 1.
             state = np.append(state, agent_id_feats.flatten())
 
@@ -1667,11 +1668,11 @@ class StarCraft2Env(MultiAgentEnv):
             agent_id_feats = 0
             timestep_feats = 0
 
-            if self.obs_agent_id:
+            if self.state_agent_id:
                 agent_id_feats = self.n_agents
                 all_feats += agent_id_feats
 
-            if self.obs_timestep_number:
+            if self.state_timestep_number:
                 timestep_feats = 1
                 all_feats += timestep_feats
 
