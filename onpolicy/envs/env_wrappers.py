@@ -692,12 +692,18 @@ class DummyVecEnv(ShareVecEnv):
         for env in self.envs:
             env.close()
 
-    def render(self, mode="human"):
+    def render(self, mode="human", playeridx=None):
         if mode == "rgb_array":
-            return np.array([env.render(mode=mode) for env in self.envs])
+            if playeridx == None:
+                return np.array([env.render(mode=mode) for env in self.envs])
+            else:
+                return np.array([env.render(mode=mode,playeridx=playeridx) for env in self.envs])
         elif mode == "human":
             for env in self.envs:
-                env.render(mode=mode)
+                if playeridx == None:
+                    env.render(mode=mode)
+                else:
+                    env.render(mode=mode, playeridx=playeridx)
         else:
             raise NotImplementedError
 
