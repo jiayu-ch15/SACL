@@ -57,3 +57,6 @@ class Vec2:
         self.x *= scaleX
         self.y *= scaleY or scaleX
         return self
+
+    def dist2(self, vec):
+        return math.sqrt((self.x - vec.x)**2 + (self.y - vec.y)**2)

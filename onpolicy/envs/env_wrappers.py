@@ -684,8 +684,11 @@ class DummyVecEnv(ShareVecEnv):
         self.actions = None
         return obs, rews, dones, infos
 
-    def reset(self):
-        obs = [env.reset() for env in self.envs]
+    def reset(self, difficulty=None):
+        if difficulty is not None:
+            obs = [env.reset(difficulty) for env in self.envs]
+        else:
+            obs = [env.reset() for env in self.envs]
         return np.array(obs)
 
     def close(self):

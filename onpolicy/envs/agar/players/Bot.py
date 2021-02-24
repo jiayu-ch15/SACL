@@ -7,8 +7,8 @@ from copy import deepcopy
 import numpy as np
 
 class Bot(Player):
-    def __init__(self, gameServer, name='bot', id = None):
-        super().__init__(gameServer, name, id)
+    def __init__(self, gameServer, name='bot', id = None, pos = None):
+        super().__init__(gameServer, name, id, pos)
         self.actionCooldown = 0
         self.splitCooldown = 0
         self.actionstamp = np.zeros(4)

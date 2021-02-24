@@ -9,10 +9,7 @@ from onpolicy.envs.agar.GameServer import GameServer
 from onpolicy.envs.agar.players import Player, Bot
 import numpy as np
 from copy import deepcopy
-
-#modifications:
-#line 284
-#line 131
+import math
 
 def max(a, b):
     if a > b:
@@ -171,7 +168,15 @@ class AgarEnv(gym.Env):
 
         return observations, rewards
 
-    def reset(self):
+    def reset(self, difficulty = None):
+        def getPosOnCircle(pos, radius):
+            randPos = self.server.randomPos2()
+            ratio = 1 - radius/randPos.dist2(pos)
+            if ratio < 0:
+                ratio = 0
+            randPos.x = randPos.x - (randPos.x-pos.x)*ratio
+            randPos.y = randPos.y - (randPos.y-pos.y)*ratio
+            return randPos
         while True:
             self.num_players = self.num_bots + self.num_agents
             self.rewards_forced = [0 for i in range(self.num_agents)]
@@ -191,20 +196,33 @@ class AgarEnv(gym.Env):
             self.split = np.zeros(self.num_agents)
             self.hit = np.zeros((self.num_agents, 4))
             self.near = False
-            if self.curriculum_learning:
+            
+            self.server = GameServer(self)
+            self.server.start(self.gamemode)
+            self.agents = [Player(self.server) for _ in range(self.num_agents)]
+            
+            if self.curriculum_learning and difficulty is not None:
                 # script agent speed curriculum is set here.
                 up = min(
                     1.0, max(0.0, (self.total_step - self.up_step) / self.up_step))
                 low = min(
                     1.0, max(0.0, (self.total_step - self.low_step) / self.up_step))
                 self.bot_speed = rand(low, up)
-            else:
-                self.bot_speed = 1.0
+        
+                self.bots = []
+                distance = difficulty*100
+                bots_each_agent = math.floor(self.num_bots/self.num_agents)
 
-            self.server = GameServer(self)
-            self.server.start(self.gamemode)
-            self.agents = [Player(self.server) for _ in range(self.num_agents)]
-            self.bots = [Bot(self.server) for _ in range(self.num_bots)]
+                for i in range(self.num_bots):
+                    if i<bots_each_agent*self.num_agents:
+                        pos = getPosOnCircle(self.agents[math.floor(i/bots_each_agent)].centerPos, distance)
+                    else:
+                        pos = getPosOnCircle(self.agents[-1].centerPos, distance)
+                    self.bots.append(Bot(self.server, pos=pos))
+            else:
+                self.bots = [Bot(self.server) for _ in range(self.num_bots)]
+                self.bot_speed = 1.0
+            
             self.players = self.agents + self.bots
             self.server.addPlayers(self.players)
             self.viewer = []
