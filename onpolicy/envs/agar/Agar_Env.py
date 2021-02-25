@@ -168,12 +168,10 @@ class AgarEnv(gym.Env):
 
         return observations, rewards
 
-    def reset(self, difficulty = None):
+    def reset(self):
         def getPosOnCircle(pos, radius):
             randPos = self.server.randomPos2()
-            ratio = 1 - radius/randPos.dist2(pos)
-            if ratio < 0:
-                ratio = 0
+            ratio = max(0, 1 - radius/randPos.dist2(pos))
             randPos.x = randPos.x - (randPos.x-pos.x)*ratio
             randPos.y = randPos.y - (randPos.y-pos.y)*ratio
             return randPos
@@ -201,14 +199,15 @@ class AgarEnv(gym.Env):
             self.server.start(self.gamemode)
             self.agents = [Player(self.server) for _ in range(self.num_agents)]
             
-            if self.curriculum_learning and difficulty is not None:
-                # script agent speed curriculum is set here.
+            if self.curriculum_learning:
+                # script agent speed & position curriculum is set here.
                 up = min(
                     1.0, max(0.0, (self.total_step - self.up_step) / self.up_step))
                 low = min(
                     1.0, max(0.0, (self.total_step - self.low_step) / self.up_step))
                 self.bot_speed = rand(low, up)
-        
+                difficulty = 2 + rand(low, up)*30
+
                 self.bots = []
                 distance = difficulty*100
                 bots_each_agent = math.floor(self.num_bots/self.num_agents)
