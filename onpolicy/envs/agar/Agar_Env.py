@@ -9,7 +9,7 @@ from onpolicy.envs.agar.GameServer import GameServer
 from onpolicy.envs.agar.players import Player, Bot
 import numpy as np
 from copy import deepcopy
-
+import math
 
 def max(a, b):
     if a > b:
@@ -55,7 +55,7 @@ class AgarEnv(gym.Env):
                 [obs_size, [10, 15], [5, 7], [5, 5], [10, 15], [10, 15], [1, 21]])
             self.share_observation_space.append([obs_size * self.num_agents, [self.num_agents, obs_size]])
 
-        self.viewer = None
+        self.viewer = []
 
         self.last_mass = [None for i in range(self.num_agents)]
         self.sum_r = np.zeros((self.num_agents, ))  # summation or reward
@@ -79,7 +79,6 @@ class AgarEnv(gym.Env):
         reward = np.zeros((self.num_agents, ))
         done = np.zeros((self.num_agents, ))
         info = [{} for i in range(self.num_agents)]
-
         first = True
         for i in range(self.action_repeat):
             if not first:
@@ -125,8 +124,8 @@ class AgarEnv(gym.Env):
         reward = reward.reshape(-1, 1)
         global_reward = np.sum(reward)
 
-        if self.share_reward:
-            reward = [[global_reward]] * self.num_agents
+        """if self.share_reward:
+            reward = [[global_reward]] * self.num_agents"""
 
         return o, reward, done, info
 
@@ -161,7 +160,7 @@ class AgarEnv(gym.Env):
         self.near = (t_dis <= 0.5)
         if self.killed[0] + self.killed[1] > 0:
             self.near = False
-        self.last_action = deepcopy(actions.reshape(-1))
+        self.last_action = deepcopy(np.array(actions).reshape(-1))
         self.sum_r += rewards
         self.sum_r_g += rewards * self.m_g
         self.sum_r_g_i += t_rewards2 * self.m_g
@@ -170,6 +169,12 @@ class AgarEnv(gym.Env):
         return observations, rewards
 
     def reset(self):
+        def getPosOnCircle(pos, radius):
+            randPos = self.server.randomPos2()
+            ratio = max(0, 1 - radius/randPos.dist2(pos))
+            randPos.x = randPos.x - (randPos.x-pos.x)*ratio
+            randPos.y = randPos.y - (randPos.y-pos.y)*ratio
+            return randPos
         while True:
             self.num_players = self.num_bots + self.num_agents
             self.rewards_forced = [0 for i in range(self.num_agents)]
@@ -189,23 +194,37 @@ class AgarEnv(gym.Env):
             self.split = np.zeros(self.num_agents)
             self.hit = np.zeros((self.num_agents, 4))
             self.near = False
+            
+            self.server = GameServer(self)
+            self.server.start(self.gamemode)
+            self.agents = [Player(self.server) for _ in range(self.num_agents)]
+            
             if self.curriculum_learning:
-                # script agent speed curriculum is set here.
+                # script agent speed & position curriculum is set here.
                 up = min(
                     1.0, max(0.0, (self.total_step - self.up_step) / self.up_step))
                 low = min(
                     1.0, max(0.0, (self.total_step - self.low_step) / self.up_step))
                 self.bot_speed = rand(low, up)
-            else:
-                self.bot_speed = 1.0
+                difficulty = 2 + rand(low, up)*30
 
-            self.server = GameServer(self)
-            self.server.start(self.gamemode)
-            self.agents = [Player(self.server) for _ in range(self.num_agents)]
-            self.bots = [Bot(self.server) for _ in range(self.num_bots)]
+                self.bots = []
+                distance = difficulty*100
+                bots_each_agent = math.floor(self.num_bots/self.num_agents)
+
+                for i in range(self.num_bots):
+                    if i<bots_each_agent*self.num_agents:
+                        pos = getPosOnCircle(self.agents[math.floor(i/bots_each_agent)].centerPos, distance)
+                    else:
+                        pos = getPosOnCircle(self.agents[-1].centerPos, distance)
+                    self.bots.append(Bot(self.server, pos=pos))
+            else:
+                self.bots = [Bot(self.server) for _ in range(self.num_bots)]
+                self.bot_speed = 1.0
+            
             self.players = self.agents + self.bots
             self.server.addPlayers(self.players)
-            self.viewer = None
+            self.viewer = []
             self.server.Update()
             observations = [self.parse_obs(self.agents[i], i)
                             for i in range(self.num_agents)]
@@ -278,7 +297,7 @@ class AgarEnv(gym.Env):
         obs_f[-16:-13] = self.last_action[id * 3: id * 3 + 3]
         obs_f[-17] = self.bot_speed
         obs_f[-18] = (self.killed[id] != 0)
-        obs_f[-19] = (self.killed[1 - id] != 0)
+        obs_f[-19] = np.count_nonzero(self.killed) - obs_f[-18]#(self.killed[1 - id] != 0)
         obs_f[-20] = sum([c.mass for c in player.cells]) / 50
         obs_f[-21] = sum([c.mass for c in self.agents[1 - id].cells]) / 50
 
@@ -419,14 +438,16 @@ class AgarEnv(gym.Env):
 
     def render(self, playeridx, mode='human', name=""):
         from . import rendering
-        if self.viewer is None:
-            self.viewer = rendering.Viewer(
-                self.server.config.serverViewBaseX, self.server.config.serverViewBaseY)
-            self.render_border()
-            self.render_grid()
+        if len(self.viewer) < (playeridx + 1):
+            caption = "agent_" + str(playeridx)
+            temp_viewer = rendering.Viewer(
+                self.server.config.serverViewBaseX, self.server.config.serverViewBaseY, caption=caption)
+            self.viewer.append(temp_viewer)
+            self.render_border(playeridx)
+            self.render_grid(playeridx)
 
         bound = self.players[playeridx].get_view_box()
-        self.viewer.set_bounds(*bound)
+        self.viewer[playeridx].set_bounds(*bound)
 
         self.geoms_to_render = []
         self.render_dir(self.players[playeridx].centerPos)
@@ -436,11 +457,11 @@ class AgarEnv(gym.Env):
         self.geoms_to_render = sorted(
             self.geoms_to_render, key=lambda x: x.order)
         for geom in self.geoms_to_render:
-            self.viewer.add_onetime(geom)
+            self.viewer[playeridx].add_onetime(geom)
+            
+        return self.viewer[playeridx].render(return_rgb_array=mode == 'rgb_array', name=name)
 
-        return self.viewer.render(return_rgb_array=mode == 'rgb_array', name=name)
-
-    def render_border(self):
+    def render_border(self, playeridx):
         from . import rendering
         map_left = - self.server.config.borderWidth / 2
         map_right = self.server.config.borderWidth / 2
@@ -448,24 +469,24 @@ class AgarEnv(gym.Env):
         map_bottom = self.server.config.borderHeight / 2
         line_top = rendering.Line((map_left, map_top), (map_right, map_top))
         line_top.set_color(0, 0, 0)
-        self.viewer.add_geom(line_top)
+        self.viewer[playeridx].add_geom(line_top)
         line_bottom = rendering.Line(
             (map_left, map_bottom), (map_right, map_bottom))
         line_bottom.set_color(0, 0, 0)
-        self.viewer.add_geom(line_bottom)
+        self.viewer[playeridx].add_geom(line_bottom)
         line_left = rendering.Line((map_left, map_top), (map_left, map_bottom))
         line_left.set_color(0, 0, 0)
-        self.viewer.add_geom(line_left)
+        self.viewer[playeridx].add_geom(line_left)
         map_right = rendering.Line(
             (map_right, map_top), (map_right, map_bottom))
         map_right.set_color(0, 0, 0)
-        self.viewer.add_geom(map_right)
+        self.viewer[playeridx].add_geom(map_right)
         cellwall = rendering.make_circle(
             radius=self.server.config.r, res=50, filled=False)
         cellwall.set_color(0, 0, 0)
-        self.viewer.add_geom(cellwall)
+        self.viewer[playeridx].add_geom(cellwall)
 
-    def render_grid(self):
+    def render_grid(self, playeridx):
         from . import rendering
         map_left = - self.server.config.borderWidth / 2
         map_right = self.server.config.borderWidth / 2
@@ -474,18 +495,18 @@ class AgarEnv(gym.Env):
         for i in range(0, int(map_right), 100):
             line = rendering.Line((i, map_top), (i, map_bottom))
             line.set_color(0.8, 0.8, 0.8)
-            self.viewer.add_geom(line)
+            self.viewer[playeridx].add_geom(line)
             line = rendering.Line((-i, map_top), (-i, map_bottom))
             line.set_color(0.8, 0.8, 0.8)
-            self.viewer.add_geom(line)
+            self.viewer[playeridx].add_geom(line)
 
         for i in range(0, int(map_bottom), 100):
             line = rendering.Line((map_left, i), (map_right, i))
             line.set_color(0.8, 0.8, 0.8)
-            self.viewer.add_geom(line)
+            self.viewer[playeridx].add_geom(line)
             line = rendering.Line((map_left, -i), (map_right, -i))
             line.set_color(0.8, 0.8, 0.8)
-            self.viewer.add_geom(line)
+            self.viewer[playeridx].add_geom(line)
 
     def render_dir(self, center):
         from . import rendering
@@ -548,9 +569,10 @@ class AgarEnv(gym.Env):
             self.geoms_to_render.append(geom)
 
     def close(self):
-        if self.viewer is not None:
-            self.viewer.close()
-            self.viewer = None
+        if len(self.viewer) > 0:
+            for i in range(len(self.viewer)):
+                self.viewer[i].close()
+            self.viewer = []
 
     def seed(self, seed):
         if seed is None:

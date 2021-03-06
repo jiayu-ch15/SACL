@@ -24,10 +24,13 @@ class Mode():
     # Called after a player object is constructed
 
 
-    def onPlayerSpawn(self, gameServer, player):
+    def onPlayerSpawn(self, gameServer, player, pos=None):
         # Called when a player is spawned
         player.color = gameServer.getRandomColor() # Random color
-        gameServer.spawnPlayer(player, gameServer.randomPos())
+        if pos is not None:
+            gameServer.spawnPlayer(player, pos, False)
+        else:
+            gameServer.spawnPlayer(player, gameServer.randomPos())
 
 
     def onCellAdd(self, cell):
