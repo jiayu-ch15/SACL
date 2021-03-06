@@ -23,6 +23,7 @@
 - [HighWay](https://github.com/eleurent/highway-env)
 - [Habitat](https://github.com/facebookresearch/habitat-sim)
 - [Gibson](https://github.com/StanfordVL/GibsonEnv)
+- [Gibson2](https://github.com/StanfordVL/iGibson)
 
 ## TODOs:
 - [ ] multi-agent FLOW
@@ -262,7 +263,29 @@ python examples/sumo/sugiyama.py
 1. training script: `./train_highway.sh`
 1. rendering script `./render_highway.sh`
 
-## 9. Docs：
+## 9. Gibson2
+
+```
+git clone https://github.com/StanfordVL/iGibson --recursive
+cd iGibson
+pip install -e .
+```
+
+If you failed to clone pybind11, use the following command.
+
+```
+cd iGibson
+git submodule update
+```
+
+Note: we support using a custom pybullet version to speed up the physics in iGibson, if you want to have the speed up, you would need to do the following steps after installation:
+
+```
+pip uninstall pybullet
+pip install https://github.com/StanfordVL/bullet3/archive/master.zip
+```
+
+## 10. Docs：
 
 ```
 pip install sphinx sphinxcontrib-apidoc sphinx_rtd_theme recommonmark
