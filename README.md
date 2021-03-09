@@ -266,8 +266,16 @@ python examples/sumo/sugiyama.py
 ## 9. Gibson2
 
 ```
-git clone https://github.com/StanfordVL/iGibson --recursive
-cd iGibson
+cd onpolicy
+# git submodule init 
+# git submodule update
+git submodule update --init --recursive
+cd onpolicy/envs/iGibson
+git submodule update --init --recursive
+
+# if u want to use the original repo, use the following command instead of the above one.
+# git clone https://github.com/StanfordVL/iGibson --recursive
+
 pip install -e .
 ```
 
