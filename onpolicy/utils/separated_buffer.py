@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from collections import defaultdict
 
 from onpolicy.utils.util import check, get_shape_from_obs_space, get_shape_from_act_space
 

@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from onpolicy.algorithms.utils.util import init, check
 from onpolicy.algorithms.utils.cnn import CNNBase
 from onpolicy.algorithms.utils.mlp import MLPBase
+from onpolicy.algorithms.utils.mix import MIXBase
 from onpolicy.algorithms.utils.rnn import RNNLayer
 from onpolicy.algorithms.utils.act import ACTLayer
 from onpolicy.utils.util import get_shape_from_obs_space
@@ -23,28 +24,42 @@ class R_Actor(nn.Module):
         self._use_naive_recurrent_policy = args.use_naive_recurrent_policy
         self._use_recurrent_policy = args.use_recurrent_policy 
         self._use_policy_vhead = args.use_policy_vhead 
-        self._recurrent_N = args.recurrent_N  
+        self._recurrent_N = args.recurrent_N 
         self.tpdv = dict(dtype=torch.float32, device=device)
 
         obs_shape = get_shape_from_obs_space(obs_space)
-        base = CNNBase if len(obs_shape)==3 else MLPBase
-        self.base = base(args, obs_shape)
-        
-        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-            self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
 
-        self.act = ACTLayer(action_space, self.hidden_size, self._use_orthogonal, self._gain)
+        if 'Dict' in obs_shape.__class__.__name__:
+            self._mixed_obs = True
+            base = MIXBase
+        else:
+            self._mixed_obs = False
+            base = CNNBase if len(obs_shape)==3 else MLPBase
+        
+        self.base = base(args, obs_shape)
+
+        input_size = 2 * self.hidden_size if self._mixed_obs else self.hidden_size
+
+        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+            self.rnn = RNNLayer(input_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
+            input_size = self.hidden_size
+
+        self.act = ACTLayer(action_space, input_size, self._use_orthogonal, self._gain)
 
         if self._use_policy_vhead:
             init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][self._use_orthogonal]
             def init_(m): 
                 return init(m, init_method, lambda x: nn.init.constant_(x, 0))
-            self.v_out = init_(nn.Linear(self.hidden_size, 1))
+            self.v_out = init_(nn.Linear(input_size, 1))
 
         self.to(device)
 
     def forward(self, obs, rnn_states, masks, available_actions=None, deterministic=False):        
-        obs = check(obs).to(**self.tpdv)
+        if self._mixed_obs:
+            for sensor in obs.keys():
+                obs[sensor] = check(obs[sensor]).to(**self.tpdv)
+        else:
+            obs = check(obs).to(**self.tpdv)
         rnn_states = check(rnn_states).to(**self.tpdv)
         masks = check(masks).to(**self.tpdv)
         if available_actions is not None:
@@ -60,7 +75,11 @@ class R_Actor(nn.Module):
         return actions, action_log_probs, rnn_states
 
     def evaluate_actions(self, obs, rnn_states, action, masks, available_actions=None, active_masks=None):
-        obs = check(obs).to(**self.tpdv)
+        if self._mixed_obs:
+            for sensor in obs.keys():
+                obs[sensor] = check(obs[sensor]).to(**self.tpdv)
+        else:
+            obs = check(obs).to(**self.tpdv)
         rnn_states = check(rnn_states).to(**self.tpdv)
         action = check(action).to(**self.tpdv)
         masks = check(masks).to(**self.tpdv)
@@ -82,7 +101,11 @@ class R_Actor(nn.Module):
         return action_log_probs, dist_entropy, values
 
     def get_policy_values(self, obs, rnn_states, masks):        
-        obs = check(obs).to(**self.tpdv)
+        if self._mixed_obs:
+            for sensor in obs.keys():
+                obs[sensor] = check(obs[sensor]).to(**self.tpdv)
+        else:
+            obs = check(obs).to(**self.tpdv)
         rnn_states = check(rnn_states).to(**self.tpdv)
         masks = check(masks).to(**self.tpdv)
 
@@ -121,7 +144,11 @@ class R_Critic(nn.Module):
         self.to(device)
 
     def forward(self, share_obs, rnn_states, masks):
-        share_obs = check(share_obs).to(**self.tpdv)
+        if self._mixed_obs:
+            for sensor in obs.keys():
+                share_obs[sensor] = check(share_obs[sensor]).to(**self.tpdv)
+        else:
+            share_obs = check(share_obs).to(**self.tpdv)
         rnn_states = check(rnn_states).to(**self.tpdv)
         masks = check(masks).to(**self.tpdv)
 

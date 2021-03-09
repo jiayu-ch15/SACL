@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from collections import defaultdict
 
 from onpolicy.utils.util import check,get_shape_from_obs_space, get_shape_from_act_space
 
@@ -19,19 +20,35 @@ class SharedReplayBuffer(object):
         self.gae_lambda = args.gae_lambda
         self._use_gae = args.use_gae
         self._use_popart = args.use_popart
-        self._use_proper_time_limits = args.use_proper_time_limits     
+        self._use_proper_time_limits = args.use_proper_time_limits 
+
+        self._mixed_obs = False  # for mixed observation   
 
         obs_shape = get_shape_from_obs_space(obs_space)
         share_obs_shape = get_shape_from_obs_space(share_obs_space)
 
-        if type(obs_shape[-1]) == list:
-            obs_shape = obs_shape[:1]
+        # for mixed observation
+        if 'Dict' in obs_shape.__class__.__name__:
+            self._mixed_obs = True
+            
+            self.obs = {}
+            self.share_obs = {}
 
-        if type(share_obs_shape[-1]) == list:
-            share_obs_shape = share_obs_shape[:1]
+            for sensor in obs_shape:
+                self.obs[sensor] = np.zeros((self.episode_length + 1, self.n_rollout_threads, num_agents, *obs_shape[sensor].shape), dtype=np.float32)
+            for sensor in share_obs_shape:
+                self.share_obs[sensor] = np.zeros((self.episode_length + 1, self.n_rollout_threads, num_agents, *share_obs_shape[sensor].shape), dtype=np.float32)
+        
+        else: 
+            # deal with special attn format   
+            if type(obs_shape[-1]) == list:
+                obs_shape = obs_shape[:1]
 
-        self.share_obs = np.zeros((self.episode_length + 1, self.n_rollout_threads, num_agents, *share_obs_shape), dtype=np.float32)
-        self.obs = np.zeros((self.episode_length + 1, self.n_rollout_threads, num_agents, *obs_shape), dtype=np.float32)
+            if type(share_obs_shape[-1]) == list:
+                share_obs_shape = share_obs_shape[:1]
+
+            self.share_obs = np.zeros((self.episode_length + 1, self.n_rollout_threads, num_agents, *share_obs_shape), dtype=np.float32)
+            self.obs = np.zeros((self.episode_length + 1, self.n_rollout_threads, num_agents, *obs_shape), dtype=np.float32)
 
         self.rnn_states = np.zeros((self.episode_length + 1, self.n_rollout_threads, num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
         self.rnn_states_critic = np.zeros_like(self.rnn_states)
@@ -63,8 +80,15 @@ class SharedReplayBuffer(object):
     def insert(self, share_obs, obs, rnn_states, rnn_states_critic, actions, action_log_probs,
                value_preds, rewards, masks, bad_masks=None, active_masks=None, available_actions=None):
 
-        self.share_obs[self.step + 1] = share_obs.copy()
-        self.obs[self.step + 1] = obs.copy()
+        if self._mixed_obs:
+            for sensor in self.share_obs.keys():
+                self.share_obs[sensor][self.step + 1] = share_obs[sensor].copy()
+            for sensor in self.obs.keys():
+                self.obs[sensor][self.step + 1] = obs[sensor].copy()
+        else:
+            self.share_obs[self.step + 1] = share_obs.copy()
+            self.obs[self.step + 1] = obs.copy()
+
         self.rnn_states[self.step + 1] = rnn_states.copy()
         self.rnn_states_critic[self.step + 1] = rnn_states_critic.copy()
         self.actions[self.step] = actions.copy()
@@ -102,8 +126,14 @@ class SharedReplayBuffer(object):
         self.step = (self.step + 1) % self.episode_length
 
     def after_update(self):
-        self.share_obs[0] = self.share_obs[-1].copy()
-        self.obs[0] = self.obs[-1].copy()
+        if self._mixed_obs:
+            for sensor in self.share_obs.keys():
+                self.share_obs[0] = self.share_obs[-1].copy()
+            for sensor in self.obs.keys():
+                self.obs[0] = self.obs[-1].copy()
+        else:
+            self.share_obs[0] = self.share_obs[-1].copy()
+            self.obs[0] = self.obs[-1].copy()
         self.rnn_states[0] = self.rnn_states[-1].copy()
         self.rnn_states_critic[0] = self.rnn_states_critic[-1].copy()
         self.masks[0] = self.masks[-1].copy()
@@ -180,8 +210,16 @@ class SharedReplayBuffer(object):
         rand = torch.randperm(batch_size).numpy()
         sampler = [rand[i*mini_batch_size:(i+1)*mini_batch_size] for i in range(num_mini_batch)]
 
-        share_obs = self.share_obs[:-1].reshape(-1, *self.share_obs.shape[3:])
-        obs = self.obs[:-1].reshape(-1, *self.obs.shape[3:])
+        if self._mixed_obs:
+            share_obs = {}
+            obs = {}
+            for sensor in self.share_obs.keys():
+                share_obs[sensor] = self.share_obs[sensor][:-1].reshape(-1, *self.share_obs[sensor].shape[3:])
+            for sensor in self.obs.keys():
+                obs[sensor] = self.obs[sensor][:-1].reshape(-1, *self.obs[sensor].shape[3:])
+        else:
+            share_obs = self.share_obs[:-1].reshape(-1, *self.share_obs.shape[3:])
+            obs = self.obs[:-1].reshape(-1, *self.obs.shape[3:])
         rnn_states = self.rnn_states[:-1].reshape(-1, *self.rnn_states.shape[3:])
         rnn_states_critic = self.rnn_states_critic[:-1].reshape(-1, *self.rnn_states_critic.shape[3:])
         actions = self.actions.reshape(-1, self.actions.shape[-1])
@@ -196,8 +234,16 @@ class SharedReplayBuffer(object):
 
         for indices in sampler:
             # obs size [T+1 N M Dim]-->[T N M Dim]-->[T*N*M,Dim]-->[index,Dim]
-            share_obs_batch = share_obs[indices]
-            obs_batch = obs[indices]
+            if self._mixed_obs:
+                share_obs_batch = {}
+                obs_batch = {}
+                for sensor in share_obs.keys():
+                    share_obs_batch[sensor] = share_obs[sensor][indices]
+                for sensor in obs.keys():
+                    obs_batch[sensor] = obs[sensor][indices]
+            else:
+                share_obs_batch = share_obs[indices]
+                obs_batch = obs[indices]
             rnn_states_batch = rnn_states[indices]
             rnn_states_critic_batch = rnn_states_critic[indices]
             actions_batch = actions[indices]
@@ -226,9 +272,17 @@ class SharedReplayBuffer(object):
             "PPO mini batches ({}).".format(n_rollout_threads, num_agents, num_mini_batch))
         num_envs_per_batch = batch_size // num_mini_batch
         perm = torch.randperm(batch_size).numpy()
-
-        share_obs = self.share_obs.reshape(-1, batch_size, *self.share_obs.shape[3:])
-        obs = self.obs.reshape(-1, batch_size, *self.obs.shape[3:])
+        
+        if self._mixed_obs:
+            share_obs = {}
+            obs = {}
+            for sensor in self.share_obs.keys():
+                share_obs[sensor] = self.share_obs[sensor].reshape(-1, batch_size, *self.share_obs[sensor].shape[3:])
+            for sensor in self.obs.keys():
+                obs[sensor] = self.obs[sensor].reshape(-1, batch_size, *self.obs[sensor].shape[3:])
+        else:
+            share_obs = self.share_obs.reshape(-1, batch_size, *self.share_obs.shape[3:])
+            obs = self.obs.reshape(-1, batch_size, *self.obs.shape[3:])
         rnn_states = self.rnn_states.reshape(-1, batch_size, *self.rnn_states.shape[3:])
         rnn_states_critic = self.rnn_states_critic.reshape(-1, batch_size, *self.rnn_states_critic.shape[3:])
         actions = self.actions.reshape(-1, batch_size, self.actions.shape[-1])
@@ -242,8 +296,14 @@ class SharedReplayBuffer(object):
         advantages = advantages.reshape(-1, batch_size, 1)
 
         for start_ind in range(0, batch_size, num_envs_per_batch):
-            share_obs_batch = []
-            obs_batch = []
+
+            if self._mixed_obs:
+                share_obs_batch = defaultdict(list)
+                obs_batch = defaultdict(list)
+            else:
+                share_obs_batch = []
+                obs_batch = []
+
             rnn_states_batch = []
             rnn_states_critic_batch = []
             actions_batch = []
@@ -257,8 +317,14 @@ class SharedReplayBuffer(object):
 
             for offset in range(num_envs_per_batch):
                 ind = perm[start_ind + offset]
-                share_obs_batch.append(share_obs[:-1, ind])
-                obs_batch.append(obs[:-1, ind])
+                if self._mixed_obs:
+                    for sensor in share_obs.keys():
+                        share_obs_batch[sensor].append(share_obs[sensor][:-1, ind])
+                    for sensor in obs.keys():
+                        obs_batch[sensor].append(obs[sensor][:-1, ind])
+                else:
+                    share_obs_batch.append(share_obs[:-1, ind])
+                    obs_batch.append(obs[:-1, ind])
                 rnn_states_batch.append(rnn_states[0:1, ind])
                 rnn_states_critic_batch.append(rnn_states_critic[0:1, ind])
                 actions_batch.append(actions[:, ind])
@@ -274,8 +340,14 @@ class SharedReplayBuffer(object):
             # [N[T, dim]]
             T, N = self.episode_length, num_envs_per_batch
             # These are all from_numpys of size (T, N, -1)
-            share_obs_batch = np.stack(share_obs_batch, 1)
-            obs_batch = np.stack(obs_batch, 1)
+            if self._mixed_obs:
+                for sensor in share_obs_batch.keys():
+                    share_obs_batch[sensor] = np.stack(share_obs_batch[sensor], 1)
+                for sensor in obs_batch.keys():
+                    obs_batch[sensor] = np.stack(obs_batch[sensor], 1)
+            else:
+                share_obs_batch = np.stack(share_obs_batch, 1)
+                obs_batch = np.stack(obs_batch, 1)
             actions_batch = np.stack(actions_batch, 1)
             if self.available_actions is not None:
                 available_actions_batch = np.stack(available_actions_batch, 1)
@@ -291,8 +363,14 @@ class SharedReplayBuffer(object):
             rnn_states_critic_batch = np.stack(rnn_states_critic_batch).reshape(N, *self.rnn_states_critic.shape[3:])
 
             # Flatten the (T, N, ...) from_numpys to (T * N, ...)
-            share_obs_batch = _flatten(T, N, share_obs_batch)
-            obs_batch = _flatten(T, N, obs_batch)
+            if self._mixed_obs:
+                for sensor in share_obs_batch.keys():
+                    share_obs_batch[sensor] = _flatten(T, N, share_obs_batch[sensor])
+                for sensor in obs_batch.keys():
+                    obs_batch[sensor] = _flatten(T, N, obs_batch[sensor])
+            else:
+                share_obs_batch = _flatten(T, N, share_obs_batch)
+                obs_batch = _flatten(T, N, obs_batch)
             actions_batch = _flatten(T, N, actions_batch)
             if self.available_actions is not None:
                 available_actions_batch = _flatten(T, N, available_actions_batch)
@@ -316,12 +394,27 @@ class SharedReplayBuffer(object):
         rand = torch.randperm(data_chunks).numpy()
         sampler = [rand[i*mini_batch_size:(i+1)*mini_batch_size] for i in range(num_mini_batch)]
 
-        if len(self.share_obs.shape) > 4:
-            share_obs = self.share_obs[:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.share_obs.shape[3:])
-            obs = self.obs[:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.obs.shape[3:])
+        if self._mixed_obs:
+            share_obs = {}
+            obs = {}
+            for sensor in self.share_obs.keys():
+                if len(self.share_obs[sensor].shape) > 4:
+                    share_obs[sensor] = self.share_obs[sensor][:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.share_obs[sensor].shape[3:])
+                else:
+                    share_obs[sensor] = _cast(self.share_obs[sensor][:-1])
+                   
+            for sensor in self.obs.keys():
+                if len(self.share_obs[sensor].shape) > 4:
+                    obs[sensor] = self.obs[sensor][:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.obs[sensor].shape[3:])
+                else:
+                    obs[sensor] = _cast(self.obs[sensor][:-1])
         else:
-            share_obs = _cast(self.share_obs[:-1])
-            obs = _cast(self.obs[:-1])
+            if len(self.share_obs.shape) > 4:
+                share_obs = self.share_obs[:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.share_obs.shape[3:])
+                obs = self.obs[:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.obs.shape[3:])
+            else:
+                share_obs = _cast(self.share_obs[:-1])
+                obs = _cast(self.obs[:-1])
 
         actions = _cast(self.actions)
         action_log_probs = _cast(self.action_log_probs)
@@ -339,8 +432,14 @@ class SharedReplayBuffer(object):
             available_actions = _cast(self.available_actions[:-1])
 
         for indices in sampler:
-            share_obs_batch = []
-            obs_batch = []
+
+            if self._mixed_obs:
+                share_obs_batch = defaultdict(list)
+                obs_batch = defaultdict(list)
+            else:
+                share_obs_batch = []
+                obs_batch = []
+
             rnn_states_batch = []
             rnn_states_critic_batch = []
             actions_batch = []
@@ -356,8 +455,15 @@ class SharedReplayBuffer(object):
 
                 ind = index * data_chunk_length
                 # size [T+1 N M Dim]-->[T N M Dim]-->[N,M,T,Dim]-->[N*M*T,Dim]-->[L,Dim]
-                share_obs_batch.append(share_obs[ind:ind+data_chunk_length])
-                obs_batch.append(obs[ind:ind+data_chunk_length])
+                if self._mixed_obs:
+                    for sensor in share_obs.keys():
+                        share_obs_batch[sensor].append(share_obs[sensor][ind:ind+data_chunk_length])
+                    for sensor in obs.keys():
+                        obs_batch[sensor].append(obs[sensor][ind:ind+data_chunk_length])
+                else:
+                    share_obs_batch.append(share_obs[ind:ind+data_chunk_length])
+                    obs_batch.append(obs[ind:ind+data_chunk_length])
+
                 actions_batch.append(actions[ind:ind+data_chunk_length])
                 if self.available_actions is not None:
                     available_actions_batch.append(available_actions[ind:ind+data_chunk_length])
@@ -373,9 +479,15 @@ class SharedReplayBuffer(object):
             
             L, N = data_chunk_length, mini_batch_size
 
-            # These are all from_numpys of size (L, N, Dim)           
-            share_obs_batch = np.stack(share_obs_batch, axis=1)
-            obs_batch = np.stack(obs_batch, axis=1)
+            # These are all from_numpys of size (L, N, Dim) 
+            if self._mixed_obs:
+                for sensor in share_obs_batch.keys():  
+                    share_obs_batch[sensor] = np.stack(share_obs_batch[sensor], axis=1)
+                for sensor in obs_batch.keys():  
+                    obs_batch[sensor] = np.stack(obs_batch[sensor], axis=1)
+            else:        
+                share_obs_batch = np.stack(share_obs_batch, axis=1)
+                obs_batch = np.stack(obs_batch, axis=1)
 
             actions_batch = np.stack(actions_batch, axis=1)
             if self.available_actions is not None:
@@ -392,8 +504,14 @@ class SharedReplayBuffer(object):
             rnn_states_critic_batch = np.stack(rnn_states_critic_batch).reshape(N, *self.rnn_states_critic.shape[3:])
             
             # Flatten the (L, N, ...) from_numpys to (L * N, ...)
-            share_obs_batch = _flatten(L, N, share_obs_batch)
-            obs_batch = _flatten(L, N, obs_batch)
+            if self._mixed_obs:
+                for sensor in share_obs_batch.keys(): 
+                    share_obs_batch[sensor] = _flatten(L, N, share_obs_batch[sensor])
+                for sensor in obs_batch.keys(): 
+                    obs_batch[sensor] = _flatten(L, N, obs_batch[sensor])
+            else:
+                share_obs_batch = _flatten(L, N, share_obs_batch)
+                obs_batch = _flatten(L, N, obs_batch)
             actions_batch = _flatten(L, N, actions_batch)
             if self.available_actions is not None:
                 available_actions_batch = _flatten(L, N, available_actions_batch)
