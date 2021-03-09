@@ -31,13 +31,11 @@ class R_Actor(nn.Module):
 
         if 'Dict' in obs_shape.__class__.__name__:
             self._mixed_obs = True
-            base = MIXBase
+            self.base = MIXBase(args, obs_shape, cnn_layers_params=None)
         else:
             self._mixed_obs = False
-            base = CNNBase if len(obs_shape)==3 else MLPBase
+            self.base = CNNBase(args, obs_shape) if len(obs_shape)==3 else MLPBase(args, obs_shape, use_attn_internal=args.use_attn_internal, use_cat_self=True)
         
-        self.base = base(args, obs_shape)
-
         input_size = 2 * self.hidden_size if self._mixed_obs else self.hidden_size
 
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
@@ -119,7 +117,7 @@ class R_Actor(nn.Module):
         return values
 
 class R_Critic(nn.Module):
-    def __init__(self, args, share_obs_space, device=torch.device("cpu"), cat_self=True):
+    def __init__(self, args, share_obs_space, device=torch.device("cpu")):
         super(R_Critic, self).__init__()
         self.hidden_size = args.hidden_size
         self._use_orthogonal = args.use_orthogonal       
@@ -129,9 +127,14 @@ class R_Critic(nn.Module):
         self.tpdv = dict(dtype=torch.float32, device=device)
         init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][self._use_orthogonal]
 
-        share_obs_space = get_shape_from_obs_space(share_obs_space)
-        base = CNNBase if len(share_obs_space)==3 else MLPBase
-        self.base = base(args, share_obs_space, cat_self, attn_internal=True)
+        share_obs_shape = get_shape_from_obs_space(share_obs_space)
+
+        if 'Dict' in share_obs_shape.__class__.__name__:
+            self._mixed_obs = True
+            self.base = MIXBase(args, share_obs_shape, cnn_layers_params=None)
+        else:
+            self._mixed_obs = False
+            self.base = CNNBase(args, share_obs_shape) if len(share_obs_shape)==3 else MLPBase(args, share_obs_shape, use_attn_internal=True, use_cat_self=args.use_cat_self)
 
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)

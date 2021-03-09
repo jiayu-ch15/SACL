@@ -257,6 +257,7 @@ def get_config():
     parser.add_argument("--dropout", type=float, default=0.0, help="by default 0, the dropout ratio of attn layer.")
     parser.add_argument("--use_average_pool",
                         action='store_false', default=True, help="by default True, use average pooling for attn model.")
+    parser.add_argument("--use_attn_internal", action='store_false', default=True, help="by default True, whether to strengthen own characteristics")
     parser.add_argument("--use_cat_self", action='store_false', default=True, help="by default True, whether to strengthen own characteristics")
 
     # optimizer parameters

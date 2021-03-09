@@ -23,8 +23,8 @@ class MIXBase(nn.Module):
         self.n_mlp_input = 0
 
         for sensor in obs_shape:
-            sensor_obs_shape = obs_shape[sensor]
-            if sensor_obs_shape.__class__.__name__ == 'Box':
+            if obs_shape[sensor].__class__.__name__ == 'Box':
+                sensor_obs_shape = obs_shape[sensor].shape
                 if len(sensor_obs_shape) == 3:
                     self.cnn_keys.append(sensor)
                 else:

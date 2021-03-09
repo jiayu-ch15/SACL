@@ -14,7 +14,7 @@ from onpolicy.algorithms.utils.util import init, check
 from onpolicy.utils.util import get_shape_from_obs_space
 
 class R_Model(nn.Module):
-    def __init__(self, args, obs_space, share_obs_space, action_space, device=torch.device("cpu"), cat_self=True):
+    def __init__(self, args, obs_space, share_obs_space, action_space, device=torch.device("cpu")):
         super(R_Model, self).__init__()
         self._gain = args.gain
         self._use_orthogonal = args.use_orthogonal
@@ -30,13 +30,12 @@ class R_Model(nn.Module):
 
         # obs space
         obs_shape = get_shape_from_obs_space(obs_space)
-        base = CNNBase if len(obs_shape)==3 else MLPBase
-        self.obs_prep = base(args, obs_shape)
+        self.obs_prep = CNNBase(args, obs_shape) if len(obs_shape)==3 else MLPBase(args, obs_shape, use_attn_internal=args.use_attn_internal, use_cat_self=True)
                 
         # share obs space
         if self._use_centralized_V:
             share_obs_shape = get_shape_from_obs_space(share_obs_space)
-            self.share_obs_prep = base(args, share_obs_shape, cat_self)           
+            self.share_obs_prep = CNNBase(args, share_obs_shape) if len(obs_shape)==3 MLPBase(args, share_obs_shape, use_attn_internal=True, use_cat_self=args.use_cat_self)           
         else:
             self.share_obs_prep = self.obs_prep
 

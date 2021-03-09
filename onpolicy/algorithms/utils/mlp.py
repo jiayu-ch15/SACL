@@ -53,7 +53,7 @@ class CONVLayer(nn.Module):
 
 
 class MLPBase(nn.Module):
-    def __init__(self, args, obs_shape, cat_self=True, attn_internal=False):
+    def __init__(self, args, obs_shape, use_attn_internal=False, use_cat_self=True):
         super(MLPBase, self).__init__()
 
         self._use_feature_normalization = args.use_feature_normalization
@@ -61,7 +61,7 @@ class MLPBase(nn.Module):
         self._use_orthogonal = args.use_orthogonal
         self._use_ReLU = args.use_ReLU
         self._use_attn = args.use_attn
-        self._attn_internal = attn_internal
+        self._use_attn_internal = use_attn_internal
         self._use_average_pool = args.use_average_pool
         self._use_conv1d = args.use_conv1d
         self._stacked_frames = args.stacked_frames
@@ -80,10 +80,10 @@ class MLPBase(nn.Module):
         if self._use_feature_normalization:
             self.feature_norm = nn.LayerNorm(obs_dim)
 
-        if self._use_attn and attn_internal:
+        if self._use_attn and self._use_attn_internal:
         
             if self._use_average_pool:
-                if cat_self:
+                if use_cat_self:
                     inputs_dim = self._attn_size + obs_shape[-1][1]
                 else:
                     inputs_dim = self._attn_size
@@ -93,7 +93,7 @@ class MLPBase(nn.Module):
                 for i in range(len(split_shape)):
                     split_inputs_dim += split_shape[i][0]
                 inputs_dim = split_inputs_dim * self._attn_size
-            self.attn = Encoder(args, obs_shape, cat_self)
+            self.attn = Encoder(args, obs_shape, use_cat_self)
             self.attn_norm = nn.LayerNorm(inputs_dim)
         else:
             inputs_dim = obs_dim
@@ -112,7 +112,7 @@ class MLPBase(nn.Module):
         if self._use_feature_popart or self._use_feature_normalization:
             x = self.feature_norm(x)
 
-        if self._use_attn and self._attn_internal:
+        if self._use_attn and self._use_attn_internal:
             x = self.attn(x, self_idx=-1)
             x = self.attn_norm(x)
 
