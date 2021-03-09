@@ -1,0 +1,3 @@
+[submodule "onpolicy/envs/iGibson"]
+	path = onpolicy/envs/iGibson
+	url = https://github.com/zoeyuchao/iGibson.git

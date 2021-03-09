@@ -16,3 +16,6 @@ logs
 *.so
 png
 
+gibson/assets/dataset
+docker
+
