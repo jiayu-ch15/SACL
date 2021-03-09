@@ -293,6 +293,14 @@ pip uninstall pybullet
 pip install https://github.com/StanfordVL/bullet3/archive/master.zip
 ```
 
+If you have updated submodules, use the following command to synchronize the updates into onpolicy repository.
+```
+# single update
+git submodule foreach git checkout master
+# batch update
+git submodule foreach git submodule update
+```
+
 ## 10. Docs：
 
 ```
