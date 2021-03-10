@@ -57,6 +57,8 @@ def parse_args(args, parser):
                         help='which mode for simulation (default: headless)')
     parser.add_argument('--num_agents', type=int,
                         default=2, help="number of players")
+    parser.add_argument('--render_gpu_id', type=int,
+                        default=0, help="which gpu is used to render")
 
     all_args = parser.parse_known_args(args)[0]
 

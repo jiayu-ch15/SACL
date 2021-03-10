@@ -1,7 +1,7 @@
 #!/bin/sh
 env="iGibson"
-scenario="fetch_reaching"
-num_agents=1
+scenario="fetch_room_rearrangement"
+num_agents=2
 algo="rmappo"
 exp="debug"
 seed_max=1
