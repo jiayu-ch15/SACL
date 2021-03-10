@@ -8,7 +8,7 @@ from .util import init
 
 class Flatten(nn.Module):
     def forward(self, x):
-        return x.view(x.size(0), -1)
+        return x.reshape(x.size(0), -1)
 
 class MIXBase(nn.Module):
     def __init__(self, args, obs_shape, cnn_layers_params=None):
@@ -118,7 +118,7 @@ class MIXBase(nn.Module):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
 
         for key in self.mlp_keys:
-            self.n_mlp_input += obs_shape[key].shape[0]
+            self.n_mlp_input += np.prod(obs_shape[key].shape)
 
         return nn.Sequential(
             init_(nn.Linear(self.n_mlp_input, hidden_size)), active_func, nn.LayerNorm(hidden_size))
@@ -155,7 +155,7 @@ class MIXBase(nn.Module):
     def _build_mlp_input(self, obs):
         mlp_input = []
         for key in self.mlp_keys:
-            mlp_input.append(obs[key])
+            mlp_input.append(obs[key].view(obs[key].size(0),-1))
 
         mlp_input = torch.cat(mlp_input, dim=1)
         return mlp_input

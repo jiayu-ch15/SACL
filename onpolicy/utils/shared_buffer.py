@@ -34,10 +34,10 @@ class SharedReplayBuffer(object):
             self.obs = {}
             self.share_obs = {}
 
-            for sensor in obs_shape:
-                self.obs[sensor] = np.zeros((self.episode_length + 1, self.n_rollout_threads, num_agents, *obs_shape[sensor].shape), dtype=np.float32)
-            for sensor in share_obs_shape:
-                self.share_obs[sensor] = np.zeros((self.episode_length + 1, self.n_rollout_threads, num_agents, *share_obs_shape[sensor].shape), dtype=np.float32)
+            for key in obs_shape:
+                self.obs[key] = np.zeros((self.episode_length + 1, self.n_rollout_threads, num_agents, *obs_shape[key].shape), dtype=np.float32)
+            for key in share_obs_shape:
+                self.share_obs[key] = np.zeros((self.episode_length + 1, self.n_rollout_threads, num_agents, *share_obs_shape[key].shape), dtype=np.float32)
         
         else: 
             # deal with special attn format   
@@ -81,10 +81,10 @@ class SharedReplayBuffer(object):
                value_preds, rewards, masks, bad_masks=None, active_masks=None, available_actions=None):
 
         if self._mixed_obs:
-            for sensor in self.share_obs.keys():
-                self.share_obs[sensor][self.step + 1] = share_obs[sensor].copy()
-            for sensor in self.obs.keys():
-                self.obs[sensor][self.step + 1] = obs[sensor].copy()
+            for key in self.share_obs.keys():
+                self.share_obs[key][self.step + 1] = share_obs[key].copy()
+            for key in self.obs.keys():
+                self.obs[key][self.step + 1] = obs[key].copy()
         else:
             self.share_obs[self.step + 1] = share_obs.copy()
             self.obs[self.step + 1] = obs.copy()
@@ -127,10 +127,10 @@ class SharedReplayBuffer(object):
 
     def after_update(self):
         if self._mixed_obs:
-            for sensor in self.share_obs.keys():
-                self.share_obs[0] = self.share_obs[-1].copy()
-            for sensor in self.obs.keys():
-                self.obs[0] = self.obs[-1].copy()
+            for key in self.share_obs.keys():
+                self.share_obs[key][0] = self.share_obs[key][-1].copy()
+            for key in self.obs.keys():
+                self.obs[key][0] = self.obs[key][-1].copy()
         else:
             self.share_obs[0] = self.share_obs[-1].copy()
             self.obs[0] = self.obs[-1].copy()
@@ -213,10 +213,10 @@ class SharedReplayBuffer(object):
         if self._mixed_obs:
             share_obs = {}
             obs = {}
-            for sensor in self.share_obs.keys():
-                share_obs[sensor] = self.share_obs[sensor][:-1].reshape(-1, *self.share_obs[sensor].shape[3:])
-            for sensor in self.obs.keys():
-                obs[sensor] = self.obs[sensor][:-1].reshape(-1, *self.obs[sensor].shape[3:])
+            for key in self.share_obs.keys():
+                share_obs[key] = self.share_obs[key][:-1].reshape(-1, *self.share_obs[key].shape[3:])
+            for key in self.obs.keys():
+                obs[key] = self.obs[key][:-1].reshape(-1, *self.obs[key].shape[3:])
         else:
             share_obs = self.share_obs[:-1].reshape(-1, *self.share_obs.shape[3:])
             obs = self.obs[:-1].reshape(-1, *self.obs.shape[3:])
@@ -237,10 +237,10 @@ class SharedReplayBuffer(object):
             if self._mixed_obs:
                 share_obs_batch = {}
                 obs_batch = {}
-                for sensor in share_obs.keys():
-                    share_obs_batch[sensor] = share_obs[sensor][indices]
-                for sensor in obs.keys():
-                    obs_batch[sensor] = obs[sensor][indices]
+                for key in share_obs.keys():
+                    share_obs_batch[key] = share_obs[key][indices]
+                for key in obs.keys():
+                    obs_batch[key] = obs[key][indices]
             else:
                 share_obs_batch = share_obs[indices]
                 obs_batch = obs[indices]
@@ -276,10 +276,10 @@ class SharedReplayBuffer(object):
         if self._mixed_obs:
             share_obs = {}
             obs = {}
-            for sensor in self.share_obs.keys():
-                share_obs[sensor] = self.share_obs[sensor].reshape(-1, batch_size, *self.share_obs[sensor].shape[3:])
-            for sensor in self.obs.keys():
-                obs[sensor] = self.obs[sensor].reshape(-1, batch_size, *self.obs[sensor].shape[3:])
+            for key in self.share_obs.keys():
+                share_obs[key] = self.share_obs[key].reshape(-1, batch_size, *self.share_obs[key].shape[3:])
+            for key in self.obs.keys():
+                obs[key] = self.obs[key].reshape(-1, batch_size, *self.obs[key].shape[3:])
         else:
             share_obs = self.share_obs.reshape(-1, batch_size, *self.share_obs.shape[3:])
             obs = self.obs.reshape(-1, batch_size, *self.obs.shape[3:])
@@ -318,10 +318,10 @@ class SharedReplayBuffer(object):
             for offset in range(num_envs_per_batch):
                 ind = perm[start_ind + offset]
                 if self._mixed_obs:
-                    for sensor in share_obs.keys():
-                        share_obs_batch[sensor].append(share_obs[sensor][:-1, ind])
-                    for sensor in obs.keys():
-                        obs_batch[sensor].append(obs[sensor][:-1, ind])
+                    for key in share_obs.keys():
+                        share_obs_batch[key].append(share_obs[key][:-1, ind])
+                    for key in obs.keys():
+                        obs_batch[key].append(obs[key][:-1, ind])
                 else:
                     share_obs_batch.append(share_obs[:-1, ind])
                     obs_batch.append(obs[:-1, ind])
@@ -341,10 +341,10 @@ class SharedReplayBuffer(object):
             T, N = self.episode_length, num_envs_per_batch
             # These are all from_numpys of size (T, N, -1)
             if self._mixed_obs:
-                for sensor in share_obs_batch.keys():
-                    share_obs_batch[sensor] = np.stack(share_obs_batch[sensor], 1)
-                for sensor in obs_batch.keys():
-                    obs_batch[sensor] = np.stack(obs_batch[sensor], 1)
+                for key in share_obs_batch.keys():
+                    share_obs_batch[key] = np.stack(share_obs_batch[key], 1)
+                for key in obs_batch.keys():
+                    obs_batch[key] = np.stack(obs_batch[key], 1)
             else:
                 share_obs_batch = np.stack(share_obs_batch, 1)
                 obs_batch = np.stack(obs_batch, 1)
@@ -364,10 +364,10 @@ class SharedReplayBuffer(object):
 
             # Flatten the (T, N, ...) from_numpys to (T * N, ...)
             if self._mixed_obs:
-                for sensor in share_obs_batch.keys():
-                    share_obs_batch[sensor] = _flatten(T, N, share_obs_batch[sensor])
-                for sensor in obs_batch.keys():
-                    obs_batch[sensor] = _flatten(T, N, obs_batch[sensor])
+                for key in share_obs_batch.keys():
+                    share_obs_batch[key] = _flatten(T, N, share_obs_batch[key])
+                for key in obs_batch.keys():
+                    obs_batch[key] = _flatten(T, N, obs_batch[key])
             else:
                 share_obs_batch = _flatten(T, N, share_obs_batch)
                 obs_batch = _flatten(T, N, obs_batch)
@@ -397,17 +397,21 @@ class SharedReplayBuffer(object):
         if self._mixed_obs:
             share_obs = {}
             obs = {}
-            for sensor in self.share_obs.keys():
-                if len(self.share_obs[sensor].shape) > 4:
-                    share_obs[sensor] = self.share_obs[sensor][:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.share_obs[sensor].shape[3:])
+            for key in self.share_obs.keys():
+                if len(self.share_obs[key].shape) == 6:
+                    share_obs[key] = self.share_obs[key][:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.share_obs[key].shape[3:])
+                elif len(self.share_obs[key].shape) == 5:
+                    share_obs[key] = self.share_obs[key][:-1].transpose(1, 2, 0, 3, 4).reshape(-1, *self.share_obs[key].shape[3:])
                 else:
-                    share_obs[sensor] = _cast(self.share_obs[sensor][:-1])
+                    share_obs[key] = _cast(self.share_obs[key][:-1])
                    
-            for sensor in self.obs.keys():
-                if len(self.share_obs[sensor].shape) > 4:
-                    obs[sensor] = self.obs[sensor][:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.obs[sensor].shape[3:])
+            for key in self.obs.keys():
+                if len(self.obs[key].shape) == 6:
+                    obs[key] = self.obs[key][:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.obs[key].shape[3:])
+                elif len(self.obs[key].shape) == 5:
+                    obs[key] = self.obs[key][:-1].transpose(1, 2, 0, 3, 4).reshape(-1, *self.obs[key].shape[3:])
                 else:
-                    obs[sensor] = _cast(self.obs[sensor][:-1])
+                    obs[key] = _cast(self.obs[key][:-1])
         else:
             if len(self.share_obs.shape) > 4:
                 share_obs = self.share_obs[:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.share_obs.shape[3:])
@@ -456,10 +460,10 @@ class SharedReplayBuffer(object):
                 ind = index * data_chunk_length
                 # size [T+1 N M Dim]-->[T N M Dim]-->[N,M,T,Dim]-->[N*M*T,Dim]-->[L,Dim]
                 if self._mixed_obs:
-                    for sensor in share_obs.keys():
-                        share_obs_batch[sensor].append(share_obs[sensor][ind:ind+data_chunk_length])
-                    for sensor in obs.keys():
-                        obs_batch[sensor].append(obs[sensor][ind:ind+data_chunk_length])
+                    for key in share_obs.keys():
+                        share_obs_batch[key].append(share_obs[key][ind:ind+data_chunk_length])
+                    for key in obs.keys():
+                        obs_batch[key].append(obs[key][ind:ind+data_chunk_length])
                 else:
                     share_obs_batch.append(share_obs[ind:ind+data_chunk_length])
                     obs_batch.append(obs[ind:ind+data_chunk_length])
@@ -481,10 +485,10 @@ class SharedReplayBuffer(object):
 
             # These are all from_numpys of size (L, N, Dim) 
             if self._mixed_obs:
-                for sensor in share_obs_batch.keys():  
-                    share_obs_batch[sensor] = np.stack(share_obs_batch[sensor], axis=1)
-                for sensor in obs_batch.keys():  
-                    obs_batch[sensor] = np.stack(obs_batch[sensor], axis=1)
+                for key in share_obs_batch.keys():  
+                    share_obs_batch[key] = np.stack(share_obs_batch[key], axis=1)
+                for key in obs_batch.keys():  
+                    obs_batch[key] = np.stack(obs_batch[key], axis=1)
             else:        
                 share_obs_batch = np.stack(share_obs_batch, axis=1)
                 obs_batch = np.stack(obs_batch, axis=1)
@@ -505,10 +509,10 @@ class SharedReplayBuffer(object):
             
             # Flatten the (L, N, ...) from_numpys to (L * N, ...)
             if self._mixed_obs:
-                for sensor in share_obs_batch.keys(): 
-                    share_obs_batch[sensor] = _flatten(L, N, share_obs_batch[sensor])
-                for sensor in obs_batch.keys(): 
-                    obs_batch[sensor] = _flatten(L, N, obs_batch[sensor])
+                for key in share_obs_batch.keys(): 
+                    share_obs_batch[key] = _flatten(L, N, share_obs_batch[key])
+                for key in obs_batch.keys(): 
+                    obs_batch[key] = _flatten(L, N, obs_batch[key])
             else:
                 share_obs_batch = _flatten(L, N, share_obs_batch)
                 obs_batch = _flatten(L, N, obs_batch)

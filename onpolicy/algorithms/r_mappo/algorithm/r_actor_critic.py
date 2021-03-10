@@ -54,8 +54,8 @@ class R_Actor(nn.Module):
 
     def forward(self, obs, rnn_states, masks, available_actions=None, deterministic=False):        
         if self._mixed_obs:
-            for sensor in obs.keys():
-                obs[sensor] = check(obs[sensor]).to(**self.tpdv)
+            for key in obs.keys():
+                obs[key] = check(obs[key]).to(**self.tpdv)
         else:
             obs = check(obs).to(**self.tpdv)
         rnn_states = check(rnn_states).to(**self.tpdv)
@@ -74,8 +74,8 @@ class R_Actor(nn.Module):
 
     def evaluate_actions(self, obs, rnn_states, action, masks, available_actions=None, active_masks=None):
         if self._mixed_obs:
-            for sensor in obs.keys():
-                obs[sensor] = check(obs[sensor]).to(**self.tpdv)
+            for key in obs.keys():
+                obs[key] = check(obs[key]).to(**self.tpdv)
         else:
             obs = check(obs).to(**self.tpdv)
         rnn_states = check(rnn_states).to(**self.tpdv)
@@ -100,8 +100,8 @@ class R_Actor(nn.Module):
 
     def get_policy_values(self, obs, rnn_states, masks):        
         if self._mixed_obs:
-            for sensor in obs.keys():
-                obs[sensor] = check(obs[sensor]).to(**self.tpdv)
+            for key in obs.keys():
+                obs[key] = check(obs[key]).to(**self.tpdv)
         else:
             obs = check(obs).to(**self.tpdv)
         rnn_states = check(rnn_states).to(**self.tpdv)
@@ -136,26 +136,30 @@ class R_Critic(nn.Module):
             self._mixed_obs = False
             self.base = CNNBase(args, share_obs_shape) if len(share_obs_shape)==3 else MLPBase(args, share_obs_shape, use_attn_internal=True, use_cat_self=args.use_cat_self)
 
+        input_size = 2 * self.hidden_size if self._mixed_obs else self.hidden_size
+
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-            self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
+            self.rnn = RNNLayer(input_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
+            input_size = self.hidden_size
 
         def init_(m): 
             return init(m, init_method, lambda x: nn.init.constant_(x, 0))
 
-        self.v_out = init_(nn.Linear(self.hidden_size, 1))
+        self.v_out = init_(nn.Linear(input_size, 1))
 
         self.to(device)
 
     def forward(self, share_obs, rnn_states, masks):
         if self._mixed_obs:
-            for sensor in obs.keys():
-                share_obs[sensor] = check(share_obs[sensor]).to(**self.tpdv)
+            for key in share_obs.keys():
+                share_obs[key] = check(share_obs[key]).to(**self.tpdv)
         else:
             share_obs = check(share_obs).to(**self.tpdv)
         rnn_states = check(rnn_states).to(**self.tpdv)
         masks = check(masks).to(**self.tpdv)
 
         critic_features = self.base(share_obs)
+
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             critic_features, rnn_states = self.rnn(critic_features, rnn_states, masks)
         values = self.v_out(critic_features)
