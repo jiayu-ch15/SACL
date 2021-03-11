@@ -12,7 +12,6 @@ import torch
 
 from onpolicy.config import get_config
 from onpolicy.envs.habitat.exploration_env import Exploration_Env
-from onpolicy.envs.habitat.exploration_env import Exploration_Env
 from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
 
 def make_train_env(all_args, env_configs, baseline_configs, datasets):
@@ -175,9 +174,6 @@ def main(args):
         assert (all_args.use_recurrent_policy == False and all_args.use_naive_recurrent_policy == False), ("check recurrent policy!")
     else:
         raise NotImplementedError
-
-    assert (all_args.share_policy == True and all_args.scenario_name == 'simple_speaker_listener') == False, (
-        "The simple_speaker_listener scenario can not use shared policy. Please check the config.py.")
 
     # cuda
     if all_args.cuda and torch.cuda.is_available():

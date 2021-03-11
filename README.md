@@ -317,10 +317,14 @@ git submodule foreach git submodule update
 
 ```
 pip install yacs imageio-ffmpeg numpy-quaternion numba tqdm gitpython attrs==19.1.0 
-   cd habitat/habitat-sim
-   pip install -e .
-   cd habitat/habitat-api
-   pip install -e .
+```
+```
+cd onpolicy
+git submodule update --init --recursive
+cd habitat/habitat-sim
+pip install -e .
+cd habitat/habitat-api
+pip install -e .
 ```
 
 ## 11. Docs：
