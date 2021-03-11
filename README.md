@@ -286,6 +286,17 @@ cd iGibson
 git submodule update
 ```
 
+If u have installed IGibson successfully, then u can download dataset.
+```
+cd onpolicy/envs/iGibson/gibson2
+mkdir data
+cd data
+wget https://storage.googleapis.com/gibson_scenes/ig_dataset.tar.gz
+wget https://storage.googleapis.com/gibson_scenes/assets_igibson.tar.gz
+tar -zxvf ig_dataset.tar.gz
+tar -zxvf assets_igibson.tar.gz
+```
+
 Note: we support using a custom pybullet version to speed up the physics in iGibson, if you want to have the speed up, you would need to do the following steps after installation:
 
 ```
@@ -301,7 +312,22 @@ git submodule foreach git checkout master
 git submodule foreach git submodule update
 ```
 
-## 10. Docs：
+## 10. habitat
+
+
+```
+pip install yacs imageio-ffmpeg numpy-quaternion numba tqdm gitpython attrs==19.1.0 
+```
+```
+cd onpolicy
+git submodule update --init --recursive
+cd habitat/habitat-sim
+pip install -e .
+cd habitat/habitat-api
+pip install -e .
+```
+
+## 11. Docs：
 
 ```
 pip install sphinx sphinxcontrib-apidoc sphinx_rtd_theme recommonmark
@@ -310,3 +336,24 @@ sphinx-quickstart
 make html
 ```
 
+## 12. submodules
+
+here we give an example on how to add your repo as a submodule of on-policy repo
+```
+git submodule add https://github.com/zoeyuchao/habitat-api.git
+
+# add source for syncing
+git remote add dist_source https://github.com/facebookresearch/habitat-lab.git
+git remote -v
+
+```
+If u want to sync the official updates, you can use the following command.
+```
+git pull dist_source master
+# after you fix merging conflict, then you can merge into master branch 
+git push origin master
+```
+When you update your submodule, you need to update the main repo, using the following command.
+```
+git submodule foreach git submodule update
+```
