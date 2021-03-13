@@ -84,9 +84,13 @@ class MultiHabitatEnv(object):
         self.observation_space = []
         self.share_observation_space = []
 
+        global_observation_space['global_obs'] = gym.spaces.Box(low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
+        global_observation_space['global_orientation'] = gym.spaces.Box(low=-1, high=1, (1,), dtype='long')
+        global_observation_space = gym.spaces.Dict(global_observation_space)
+        
         for agent_id in range(self.num_agents):
-            self.observation_space.append(gym.spaces.Box(0, 1, (8, local_w, local_h), dtype='uint8'))
-            self.share_observation_space.append(gym.spaces.Box(0, 1, (8, local_w, local_h), dtype='uint8'))  
+            self.observation_space.append(global_observation_space)
+            self.share_observation_space.append(global_observation_space)  
             self.action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(2,), dtype=np.float32))
 
         
@@ -102,6 +106,7 @@ class MultiHabitatEnv(object):
 
     def step(self, actions):
         obs, rewards, dones, infos = self.env.step(actions_env)
+        rewards = [infos['exp_reward']]* self.num_agents
         return obs, rewards, dones, infos
 
     def close(self):

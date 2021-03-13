@@ -16,6 +16,7 @@ class MIXBase(nn.Module):
 
         self._use_orthogonal = args.use_orthogonal
         self._use_ReLU = args.use_ReLU
+        self._use_maxpool2d = args.use_maxpool2d
         self.hidden_size = args.hidden_size
         self.cnn_keys = []
         self.mlp_keys = []
@@ -68,7 +69,7 @@ class MIXBase(nn.Module):
             if key in ['rgb','depth']:
                 self.n_cnn_input += obs_shape[key].shape[2] 
                 cnn_dims = np.array(obs_shape[key].shape[:2], dtype=np.float32)
-            elif key in ['global_map','local_map']:
+            elif key in ['global_map','local_map','global_obs']:
                 self.n_cnn_input += obs_shape[key].shape[0] 
                 cnn_dims = np.array(obs_shape[key].shape[1:3], dtype=np.float32)
             else:
@@ -77,6 +78,9 @@ class MIXBase(nn.Module):
         cnn_layers = []
         prev_out_channels = None
         for i, (out_channels, kernel_size, stride, padding) in enumerate(cnn_layers_params):
+            if self._use_maxpool2d and i != len(cnn_layers_params) - 1:
+                cnn_layers.append(nn.MaxPool2d(2))
+
             if i == 0:
                 in_channels = self.n_cnn_input
             else:
@@ -118,10 +122,18 @@ class MIXBase(nn.Module):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
 
         for key in self.mlp_keys:
-            self.n_mlp_input += np.prod(obs_shape[key].shape)
+            if key == "global_orientation":
+                self.n_mlp_input = 72
+                self.embed = True
+            else:
+                self.n_mlp_input += np.prod(obs_shape[key].shape)
+                self.embed = False
 
-        return nn.Sequential(
-            init_(nn.Linear(self.n_mlp_input, hidden_size)), active_func, nn.LayerNorm(hidden_size))
+        if self.embed:
+            return nn.Embedding(self.n_mlp_input, 8)
+        else:
+            return nn.Sequential(
+                    init_(nn.Linear(self.n_mlp_input, hidden_size)), active_func, nn.LayerNorm(hidden_size))
         
     def _cnn_output_dim(self, dimension, padding, dilation, kernel_size, stride):
         """Calculates the output height and width based on the input
@@ -144,7 +156,7 @@ class MIXBase(nn.Module):
         for key in self.cnn_keys:
             if key in ['rgb','depth']:
                 cnn_input.append(obs[key].permute(0, 3, 1, 2) / 255.0)
-            elif key in ['global_map','local_map']:
+            elif key in ['global_map','local_map','global_obs']:
                 cnn_input.append(obs[key])
             else:
                 raise NotImplementedError
@@ -155,7 +167,7 @@ class MIXBase(nn.Module):
     def _build_mlp_input(self, obs):
         mlp_input = []
         for key in self.mlp_keys:
-            mlp_input.append(obs[key].view(obs[key].size(0),-1))
+            mlp_input.append(obs[key].view(obs[key].size(0), -1))
 
         mlp_input = torch.cat(mlp_input, dim=1)
         return mlp_input

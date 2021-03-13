@@ -21,7 +21,6 @@ class SharedReplayBuffer(object):
         self._use_gae = args.use_gae
         self._use_popart = args.use_popart
         self._use_proper_time_limits = args.use_proper_time_limits 
-        self._use_extras = args.use_extras
 
         self._mixed_obs = False  # for mixed observation   
 
@@ -50,9 +49,6 @@ class SharedReplayBuffer(object):
 
             self.share_obs = np.zeros((self.episode_length + 1, self.n_rollout_threads, num_agents, *share_obs_shape), dtype=np.float32)
             self.obs = np.zeros((self.episode_length + 1, self.n_rollout_threads, num_agents, *obs_shape), dtype=np.float32)
-
-        if self._use_extras:
-            self.extras = np.zeros((self.episode_length + 1, self.n_rollout_threads, num_agents, 1), dtype=long)
 
         self.rnn_states = np.zeros((self.episode_length + 1, self.n_rollout_threads, num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
         self.rnn_states_critic = np.zeros_like(self.rnn_states)

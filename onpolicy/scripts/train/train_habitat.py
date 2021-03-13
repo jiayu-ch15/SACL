@@ -123,15 +123,15 @@ def parse_args(args, parser):
     parser.add_argument('--num_local_steps', type=int, default=25,
                         help="""Number of steps the local can
                             perform between each global instruction""")
-    parser.add_argument('--hidden_size_local', type=int, default=512,
+    parser.add_argument('--local_hidden_size', type=int, default=512,
                         help='local_hidden_size')
     parser.add_argument('--short_goal_dist', type=int, default=1,
                         help="""Maximum distance between the agent
                                 and the short term goal""")
     parser.add_argument('--local_policy_update_freq', type=int, default=5)
-    parser.add_argument('--use_recurrent_policy_local', type=int, default=1,
+    parser.add_argument('--use__local_recurrent_policy', type=int, default=1,
                         help='use a recurrent local policy')
-    parser.add_argument('--use_deterministic_local', type=int, default=0,
+    parser.add_argument('--use__local_deterministic', type=int, default=0,
                         help="use classical deterministic local policy")
 
     # Neural SLAM Module
