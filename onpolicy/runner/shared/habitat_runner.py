@@ -42,9 +42,8 @@ class HabitatRunner(Runner):
     def __init__(self, config):
         super(HabitatRunner, self).__init__(config)
 
-        self.map_resolution = self.all_args.map_resolution
-        self.global_downscaling = self.all_args.global_downscaling
-    
+        # init parameters
+        self.init_hyper_parameters()
         # init variables
         self.init_map_variables()
         # map and pose
@@ -55,6 +54,15 @@ class HabitatRunner(Runner):
         self.init_local_policy()  
         # slam module
         self.init_slam()    
+    
+    def init_hyper_parameters(self):
+        self.map_resolution = self.all_args.map_resolution
+        self.global_downscaling = self.all_args.global_downscaling
+
+        self.train_local = self.all_args.train_local
+        self.train_global = self.all_args.train_global
+        self.train_slam = self.all_args.train_slam
+
 
     def init_map_variables(self):
         ### Full map consists of 4 channels containing the following:
@@ -141,7 +149,7 @@ class HabitatRunner(Runner):
             state_dict = torch.load(self.all_args.load_local, map_location='cpu')
             self.local_policy.load_state_dict(state_dict)
 
-        if not self.all_args.train_local:
+        if not self.train_local:
             self.local_policy.eval()
         else:
             self.local_optimizer = torch.optim.Adam(self.local_policy.parameters(), lr=self.all_args.lr, eps=self.all_args.opti_eps, weight_decay=self.all_args.weight_decay)
@@ -154,7 +162,7 @@ class HabitatRunner(Runner):
             state_dict = torch.load(self.all_args.load_slam, map_location='cpu')
             self.nslam_module.load_state_dict(state_dict)
         
-        if not self.all_args.train_slam:
+        if not self.train_slam:
             self.nslam_module.eval()
         else:
             self.slam_memory = FIFOMemory(self.all_args.slam_memory_size)
@@ -194,7 +202,7 @@ class HabitatRunner(Runner):
                     self.last_obs = self.obs
                 
                 # Neural SLAM Module
-                if self.all_args.train_slam:
+                if self.train_slam:
                     self.insert_slam(infos)
                 
                 self.predict_local_map_and_pose(self.last_obs, self.obs, infos, True)
@@ -214,11 +222,23 @@ class HabitatRunner(Runner):
                 # Local Policy
                 self.compute_local_policy_input()
 
-                # Training .....................#
+                # Start Training
+                torch.set_grad_enabled(True)
+                # Train Neural SLAM Module
+                if self.train_slam and len(self.slam_memory) > self.all_args.slam_batch_size:
+                    self.train_slam()
                 
-            # compute return and update network
-            self.compute()
-            train_infos = self.train()
+                # Train Local Policy
+                if self.train_local and (local_step + 1) % self.all_args.local_policy_update_freq == 0:
+                    self.train_local_policy()
+
+                # Train Global Policy
+                if self.train_global and global_step % self.all_args.num_global_steps == self.all_args.num_global_steps - 1 \
+                        and local_step == self.all_args.num_local_steps - 1:
+                    train_infos = self.train_global_policy()
+
+                # Finish Training
+                torch.set_grad_enabled(False)       
             
             # post process
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
@@ -333,7 +353,7 @@ class HabitatRunner(Runner):
     def get_local_policy_action(self):
         local_goals = self.local_output[:, :-1].to(device).long()
 
-        if self.all_args.train_local:
+        if self.train_local:
             torch.set_grad_enabled(True)
 
         action, action_prob, self.local_rnn_states = self.local_policy(
@@ -343,9 +363,9 @@ class HabitatRunner(Runner):
                                                 extras=local_goals,
                                             )
 
-        if self.all_args.train_local:
+        if self.train_local:
             action_target = self.local_output[:, -1].long().to(device)
-            policy_loss += nn.CrossEntropyLoss()(action_prob, action_target)
+            self.policy_loss += nn.CrossEntropyLoss()(action_prob, action_target)
             torch.set_grad_enabled(False)
         
         local_action = action.cpu()
@@ -472,7 +492,65 @@ class HabitatRunner(Runner):
 
         self.buffer.insert(self.share_global_input, self.global_input, rnn_states, rnn_states_critic, actions, action_log_probs, values, rewards, self.global_masks)
         self.gobal_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
-        
+
+    def train_slam(self):
+        for _ in range(self.all_args.slam_iterations):
+            inputs, outputs = self.slam_memory.sample(self.all_args.slam_batch_size)
+            b_obs_last, b_obs, b_poses = inputs
+            gt_fp_projs, gt_fp_explored, gt_pose_err = outputs
+
+            b_obs = b_obs.to(device)
+            b_obs_last = b_obs_last.to(device)
+            b_poses = b_poses.to(device)
+
+            gt_fp_projs = gt_fp_projs.to(device)
+            gt_fp_explored = gt_fp_explored.to(device)
+            gt_pose_err = gt_pose_err.to(device)
+
+            b_proj_pred, b_fp_exp_pred, _, _, b_pose_err_pred, _ = \
+                self.nslam_module(b_obs_last, b_obs, b_poses,
+                            None, None, None,
+                            build_maps=False)
+            loss = 0
+            if self.all_args.proj_loss_coeff > 0:
+                proj_loss = F.binary_cross_entropy(b_proj_pred,
+                                                gt_fp_projs)
+                costs.append(proj_loss.item())
+                loss += self.all_args.proj_loss_coeff * proj_loss
+
+            if self.all_args.exp_loss_coeff > 0:
+                exp_loss = F.binary_cross_entropy(b_fp_exp_pred,
+                                                gt_fp_explored)
+                exp_costs.append(exp_loss.item())
+                loss += self.all_args.exp_loss_coeff * exp_loss
+
+            if self.all_args.pose_loss_coeff > 0:
+                pose_loss = torch.nn.MSELoss()(b_pose_err_pred,
+                                            gt_pose_err)
+                pose_costs.append(args.pose_loss_coeff *
+                                pose_loss.item())
+                loss += self.all_args.pose_loss_coeff * pose_loss
+
+            if self.train_slam:
+                self.slam_optimizer.zero_grad()
+                loss.backward()
+                self.slam_optimizer.step()
+
+            del b_obs_last, b_obs, b_poses
+            del gt_fp_projs, gt_fp_explored, gt_pose_err
+            del b_proj_pred, b_fp_exp_pred, b_pose_err_pred
+
+    def train_local_policy(self):
+        self.local_optimizer.zero_grad()
+        self.policy_loss.backward()
+        self.local_optimizer.step()
+        self.policy_loss = 0
+
+    def train_global_policy(self):
+        self.compute()
+        train_infos = self.train()
+        return train_infos
+
     @torch.no_grad()
     def eval(self, total_num_steps):
         eval_episode_rewards = []
