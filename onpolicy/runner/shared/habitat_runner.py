@@ -55,119 +55,28 @@ class HabitatRunner(Runner):
         # slam module
         self.init_slam()    
     
-    def init_hyper_parameters(self):
-        self.map_resolution = self.all_args.map_resolution
-        self.global_downscaling = self.all_args.global_downscaling
+    def warmup(self):
+        # reset env
+        self.obs, infos = self.envs.reset()
 
-        self.train_local = self.all_args.train_local
-        self.train_global = self.all_args.train_global
-        self.train_slam = self.all_args.train_slam
+        # Predict map from frame 1:
+        self.predict_local_map_and_pose(self.obs, self.obs, infos)
 
+        # Compute Global policy input
+        self.first_compute_global_policy_input()
+        self.share_global_input = self.global_input if self.use_centralized_V else self.global_input #! wrong
 
-    def init_map_variables(self):
-        ### Full map consists of 4 channels containing the following:
-        ### 1. Obstacle Map
-        ### 2. Exploread Area
-        ### 3. Current Agent Location
-        ### 4. Past Agent Locations
+        # replay buffer
+        for key in self.global_input.keys():
+            self.buffer.obs[key][0] = self.global_input[key].copy()
 
-        # Calculating full and local map sizes
-        map_size = self.all_args.map_size_cm // self.map_resolution
-        self.full_w, self.full_h = map_size, map_size
-        self.local_w, self.local_h = int(self.full_w / self.global_downscaling), \
-                        int(self.full_h / self.global_downscaling)
+        for key in self.share_global_input.keys():
+            self.buffer.share_obs[key][0] = self.share_global_input[key].copy()
 
-        # Initializing full and local map
-        self.full_map = np.zeros(self.n_rollout_threads, 4, self.full_w, self.full_h)
-        self.local_map = np.zeros(self.n_rollout_threads, 4, self.local_w, self.local_h)
-
-        # Initial full and local pose
-        self.full_pose = np.zeros(self.n_rollout_threads, 3)
-        self.local_pose = np.zeros(self.n_rollout_threads, 3)
-
-        # Origin of local map
-        self.origins = np.zeros((self.n_rollout_threads, 3))
-
-        # Local Map Boundaries
-        self.lmb = np.zeros((self.n_rollout_threads, 4)).astype(int)
-
-        ### Planner pose inputs has 7 dimensions
-        ### 1-3 store continuous global agent location
-        ### 4-7 store local map boundaries
-        self.planner_pose_inputs = np.zeros((self.n_rollout_threads, 7))
-    
-    def init_global_policy(self):
-        self.global_input = {}
-        self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
-        self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1)).long()
-        self.gobal_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
-        
-    def init_map_and_pose(self):
-        self.full_map.fill_(0.) # TODO remove this code
-        self.full_pose.fill_(0.) # TODO remove this code
-        self.full_pose[:, :2] = self.all_args.map_size_cm / 100.0 / 2.0
-
-        locs = self.full_pose
-        self.planner_pose_inputs[:, :3] = locs
-        for e in range(self.n_rollout_threads):
-            r, c = locs[e, 1], locs[e, 0]
-            loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
-                            int(c * 100.0 / self.map_resolution)]
-
-            self.full_map[e, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = 1.0
-
-            self.lmb[e] = get_local_map_boundaries((loc_r, loc_c),
-                                                (self.local_w, self.local_h),
-                                                (self.full_w, self.full_h))
-
-            self.planner_pose_inputs[e, 3:] = self.lmb[e]
-            self.origins[e] = [self.lmb[e][2] * self.map_resolution / 100.0,
-                            self.lmb[e][0] * self.map_resolution / 100.0, 0.]
-
-        for e in range(self.n_rollout_threads):
-            self.local_map[e] = self.full_map[e, :, self.lmb[e, 0]:self.lmb[e, 1], self.lmb[e, 2]:self.lmb[e, 3]]
-            self.local_pose[e] = self.full_pose[e] - self.origins[e]
-
-    def init_local_policy(self):
-        # Local policy
-        self.local_input = []
-        self.local_masks = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
-        self.local_rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.all_args.local_hidden_size), dtype=np.float32)
-        
-        local_observation_space = gym.spaces.Box(0, 255, (3,
-                                                    self.all_args.frame_width,
-                                                    self.all_args.frame_width), dtype='uint8')
-        local_action_space = gym.spaces.Discrete(3)
-
-        self.local_policy = Local_IL_Policy(local_observation_space.shape, local_action_space.n,
-                               recurrent=self.all_args.use_local_recurrent_policy,
-                               hidden_size=self.all_args.local_hidden_size,
-                               deterministic=self.all_args.use_local_deterministic)
-        
-        if self.all_args.load_local != "0":
-            print("Loading local {}".format(self.all_args.load_local))
-            state_dict = torch.load(self.all_args.load_local, map_location='cpu')
-            self.local_policy.load_state_dict(state_dict)
-
-        if not self.train_local:
-            self.local_policy.eval()
-        else:
-            self.local_optimizer = torch.optim.Adam(self.local_policy.parameters(), lr=self.all_args.lr, eps=self.all_args.opti_eps, weight_decay=self.all_args.weight_decay)
-
-    def init_slam(self):
-        self.nslam_module = Neural_SLAM_Module(self.all_args)
-        
-        if self.all_args.load_slam != "0":
-            print("Loading slam {}".format(self.all_args.load_slam))
-            state_dict = torch.load(self.all_args.load_slam, map_location='cpu')
-            self.nslam_module.load_state_dict(state_dict)
-        
-        if not self.train_slam:
-            self.nslam_module.eval()
-        else:
-            self.slam_memory = FIFOMemory(self.all_args.slam_memory_size)
-            self.slam_optimizer = torch.optim.Adam(self.nslam_module.parameters(), lr=self.all_args.lr, eps=self.all_args.opti_eps, weight_decay=self.all_args.weight_decay)
-
+        values, actions, action_log_probs, rnn_states, rnn_states_critic = self.first_collect()
+            
+        return values, actions, action_log_probs, rnn_states, rnn_states_critic
+ 
     def run(self):
         values, actions, action_log_probs, rnn_states, rnn_states_critic = self.warmup()   
 
@@ -179,7 +88,7 @@ class HabitatRunner(Runner):
                 self.trainer.policy.lr_decay(episode, episodes)
             global_step = 0
             for step in range(self.episode_length):
-                local_step = step % self.all_args.num_local_steps
+                local_step = step % self.num_local_steps
                 
                 del self.last_obs
                 self.last_obs = self.obs
@@ -196,7 +105,7 @@ class HabitatRunner(Runner):
                 self.gobal_masks *= self.local_masks
 
                 # Reinitialize variables when episode ends
-                if step == self.all_args.episode_length - 1:
+                if step == self.episode_length - 1:
                     self.init_map_and_pose()
                     del self.last_obs
                     self.last_obs = self.obs
@@ -209,7 +118,7 @@ class HabitatRunner(Runner):
                 self.update_local_map()
 
                 # Global Policy
-                if local_step == self.all_args.num_local_steps - 1:
+                if local_step == self.num_local_steps - 1:
                     global_step += 1
                     # For every global step, update the full and local maps
                     self.update_map_and_pose()
@@ -225,16 +134,16 @@ class HabitatRunner(Runner):
                 # Start Training
                 torch.set_grad_enabled(True)
                 # Train Neural SLAM Module
-                if self.train_slam and len(self.slam_memory) > self.all_args.slam_batch_size:
-                    self.train_slam()
+                if self.train_slam and len(self.slam_memory) > self.slam_batch_size:
+                    self.train_slam_module()
                 
                 # Train Local Policy
                 if self.train_local and (local_step + 1) % self.all_args.local_policy_update_freq == 0:
                     self.train_local_policy()
 
                 # Train Global Policy
-                if self.train_global and global_step % self.all_args.num_global_steps == self.all_args.num_global_steps - 1 \
-                        and local_step == self.all_args.num_local_steps - 1:
+                if self.train_global and global_step % self.num_global_steps == self.num_global_steps - 1 \
+                        and local_step == self.num_local_steps - 1:
                     train_infos = self.train_global_policy()
 
                 # Finish Training
@@ -278,34 +187,146 @@ class HabitatRunner(Runner):
             # eval
             if episode % self.eval_interval == 0 and self.use_eval:
                 self.eval(total_num_steps)
+     
+    def init_hyper_parameters(self):
+        self.map_size_cm = self.all_args.map_size_cm
+        self.map_resolution = self.all_args.map_resolution
+        self.global_downscaling = self.all_args.global_downscaling
 
-    def warmup(self):
-        # reset env
-        self.obs, infos = self.envs.reset()
+        self.frame_width = self.all_args.frame_width
 
-        # Predict map from frame 1:
-        self.predict_local_map_and_pose(self.obs, self.obs, infos)
+        self.loal_global = self.all_args.local_global
+        self.load_local = self.all_args.load_local
+        self.load_slam = self.all_args.load_slam
 
-        # Compute Global policy input
-        self.first_compute_global_policy_input()
-        self.share_global_input = self.global_input if self.use_centralized_V else self.global_input #! wrong
+        self.train_global = self.all_args.train_global
+        self.train_local = self.all_args.train_local
+        self.train_slam = self.all_args.train_slam
+        
+        self.slam_memory_size = self.all_args.slam_memory_size
+        self.slam_batch_size = self.all_args.slam_batch_size
+        self.slam_iterations = self.all_args.slam_iterations
 
-        # replay buffer
-        for key in self.global_input.keys():
-            self.buffer.obs[key][0] = self.global_input[key].copy()
+        self.use_local_recurrent_policy = .all_args.use_local_recurrent_policy
+        self.local_hidden_size = self.all_args.local_hidden_size
 
-        for key in self.share_global_input.keys():
-            self.buffer.share_obs[key][0] = self.share_global_input[key].copy()
+        self.proj_loss_coeff = self.all_args.proj_loss_coeff
+        self.exp_loss_coeff = self.all_args.exp_loss_coeff
+        self.pose_loss_coeff = self.all_args.pose_loss_coeff
 
-        values, actions, action_log_probs, rnn_states, rnn_states_critic = self.first_collect()
-            
-        return values, actions, action_log_probs, rnn_states, rnn_states_critic
+        self.local_policy_update_freq = self.all_args.local_policy_update_freq
+        self.num_global_steps = self.all_args.num_global_steps
+        self.num_local_steps = self.all_args.num_local_steps
+
+    def init_map_variables(self):
+        ### Full map consists of 4 channels containing the following:
+        ### 1. Obstacle Map
+        ### 2. Exploread Area
+        ### 3. Current Agent Location
+        ### 4. Past Agent Locations
+
+        # Calculating full and local map sizes
+        map_size = self.map_size_cm // self.map_resolution
+        self.full_w, self.full_h = map_size, map_size
+        self.local_w, self.local_h = int(self.full_w / self.global_downscaling), \
+                        int(self.full_h / self.global_downscaling)
+
+        # Initializing full and local map
+        self.full_map = np.zeros(self.n_rollout_threads, 4, self.full_w, self.full_h)
+        self.local_map = np.zeros(self.n_rollout_threads, 4, self.local_w, self.local_h)
+
+        # Initial full and local pose
+        self.full_pose = np.zeros(self.n_rollout_threads, 3)
+        self.local_pose = np.zeros(self.n_rollout_threads, 3)
+
+        # Origin of local map
+        self.origins = np.zeros((self.n_rollout_threads, 3))
+
+        # Local Map Boundaries
+        self.lmb = np.zeros((self.n_rollout_threads, 4)).astype(int)
+
+        ### Planner pose inputs has 7 dimensions
+        ### 1-3 store continuous global agent location
+        ### 4-7 store local map boundaries
+        self.planner_pose_inputs = np.zeros((self.n_rollout_threads, 7))
+               
+    def init_map_and_pose(self):
+        self.full_map.fill_(0.) # TODO remove this code
+        self.full_pose.fill_(0.) # TODO remove this code
+        self.full_pose[:, :2] = self.map_size_cm / 100.0 / 2.0
+
+        locs = self.full_pose
+        self.planner_pose_inputs[:, :3] = locs
+        for e in range(self.n_rollout_threads):
+            r, c = locs[e, 1], locs[e, 0]
+            loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
+                            int(c * 100.0 / self.map_resolution)]
+
+            self.full_map[e, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = 1.0
+
+            self.lmb[e] = get_local_map_boundaries((loc_r, loc_c),
+                                                (self.local_w, self.local_h),
+                                                (self.full_w, self.full_h))
+
+            self.planner_pose_inputs[e, 3:] = self.lmb[e]
+            self.origins[e] = [self.lmb[e][2] * self.map_resolution / 100.0,
+                            self.lmb[e][0] * self.map_resolution / 100.0, 0.]
+
+        for e in range(self.n_rollout_threads):
+            self.local_map[e] = self.full_map[e, :, self.lmb[e, 0]:self.lmb[e, 1], self.lmb[e, 2]:self.lmb[e, 3]]
+            self.local_pose[e] = self.full_pose[e] - self.origins[e]
+
+    def init_global_policy(self):
+        self.global_input = {}
+        self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
+        self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1)).long()
+        self.gobal_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
+
+    def init_local_policy(self):
+        # Local policy
+        self.local_input = []
+        self.local_masks = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
+        self.local_rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.local_hidden_size), dtype=np.float32)
+        
+        local_observation_space = gym.spaces.Box(0, 255, (3,
+                                                    self.frame_width,
+                                                    self.frame_width), dtype='uint8')
+        local_action_space = gym.spaces.Discrete(3)
+
+        self.local_policy = Local_IL_Policy(local_observation_space.shape, local_action_space.n,
+                               recurrent=self.use_local_recurrent_policy,
+                               hidden_size=self.local_hidden_size,
+                               deterministic=self.all_args.use_local_deterministic)
+        
+        if self.load_local != "0":
+            print("Loading local {}".format(self.load_local))
+            state_dict = torch.load(self.load_local, map_location='cpu')
+            self.local_policy.load_state_dict(state_dict)
+
+        if not self.train_local:
+            self.local_policy.eval()
+        else:
+            self.local_optimizer = torch.optim.Adam(self.local_policy.parameters(), lr=self.all_args.lr, eps=self.all_args.opti_eps, weight_decay=self.all_args.weight_decay)
+
+    def init_slam(self):
+        self.nslam_module = Neural_SLAM_Module(self.all_args)
+        
+        if self.load_slam != "0":
+            print("Loading slam {}".format(self.load_slam))
+            state_dict = torch.load(self.load_slam, map_location='cpu')
+            self.nslam_module.load_state_dict(state_dict)
+        
+        if not self.train_slam:
+            self.nslam_module.eval()
+        else:
+            self.slam_memory = FIFOMemory(self.slam_memory_size)
+            self.slam_optimizer = torch.optim.Adam(self.nslam_module.parameters(), lr=self.all_args.lr, eps=self.all_args.opti_eps, weight_decay=self.all_args.weight_decay)
 
     def predict_local_map_and_pose(self, last_obs, obs, infos, build_maps=False):
         poses = np.array([infos[e]['sensor_pose'] for e in range(self.n_rollout_threads)])
 
         _, _, self.local_map[:, 0, :, :], self.local_map[:, 1, :, :], _, self.local_pose = \
-            self.nslam_module(obs, obs, poses, 
+            self.nslam_module(last_obs, obs, poses, 
                             self.local_map[:, 0, :, :],
                             self.local_map[:, 1, :, :], 
                             self.local_pose,
@@ -356,12 +377,11 @@ class HabitatRunner(Runner):
         if self.train_local:
             torch.set_grad_enabled(True)
 
-        action, action_prob, self.local_rnn_states = self.local_policy(
-                                                self.obs,
-                                                self.local_rnn_states,
-                                                self.local_masks,
-                                                extras=local_goals,
-                                            )
+        action, action_prob, self.local_rnn_states =\
+             self.local_policy(self.obs,
+                                self.local_rnn_states,
+                                self.local_masks,
+                                extras=local_goals)
 
         if self.train_local:
             action_target = self.local_output[:, -1].long().to(device)
@@ -493,9 +513,9 @@ class HabitatRunner(Runner):
         self.buffer.insert(self.share_global_input, self.global_input, rnn_states, rnn_states_critic, actions, action_log_probs, values, rewards, self.global_masks)
         self.gobal_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
 
-    def train_slam(self):
-        for _ in range(self.all_args.slam_iterations):
-            inputs, outputs = self.slam_memory.sample(self.all_args.slam_batch_size)
+    def train_slam_module(self):
+        for _ in range(self.slam_iterations):
+            inputs, outputs = self.slam_memory.sample(self.slam_batch_size)
             b_obs_last, b_obs, b_poses = inputs
             gt_fp_projs, gt_fp_explored, gt_pose_err = outputs
 
@@ -512,29 +532,28 @@ class HabitatRunner(Runner):
                             None, None, None,
                             build_maps=False)
             loss = 0
-            if self.all_args.proj_loss_coeff > 0:
+            if self.proj_loss_coeff > 0:
                 proj_loss = F.binary_cross_entropy(b_proj_pred,
                                                 gt_fp_projs)
                 costs.append(proj_loss.item())
-                loss += self.all_args.proj_loss_coeff * proj_loss
+                loss += self.proj_loss_coeff * proj_loss
 
-            if self.all_args.exp_loss_coeff > 0:
+            if self.exp_loss_coeff > 0:
                 exp_loss = F.binary_cross_entropy(b_fp_exp_pred,
                                                 gt_fp_explored)
                 exp_costs.append(exp_loss.item())
-                loss += self.all_args.exp_loss_coeff * exp_loss
+                loss += self.exp_loss_coeff * exp_loss
 
-            if self.all_args.pose_loss_coeff > 0:
+            if self.pose_loss_coeff > 0:
                 pose_loss = torch.nn.MSELoss()(b_pose_err_pred,
                                             gt_pose_err)
                 pose_costs.append(args.pose_loss_coeff *
                                 pose_loss.item())
-                loss += self.all_args.pose_loss_coeff * pose_loss
+                loss += self.pose_loss_coeff * pose_loss
 
-            if self.train_slam:
-                self.slam_optimizer.zero_grad()
-                loss.backward()
-                self.slam_optimizer.step()
+            self.slam_optimizer.zero_grad()
+            loss.backward()
+            self.slam_optimizer.step()
 
             del b_obs_last, b_obs, b_poses
             del gt_fp_projs, gt_fp_explored, gt_pose_err
