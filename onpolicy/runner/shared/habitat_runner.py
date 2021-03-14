@@ -164,7 +164,7 @@ class HabitatRunner(Runner):
             
             # save model
             if (episode % self.save_interval == 0 or episode == episodes - 1):
-                self.save_slam_()
+                self.save_slam_model()
                 self.save()
 
             # log information
@@ -539,6 +539,8 @@ class HabitatRunner(Runner):
         train_infos = self.train()
         return train_infos
 
+    def save_slam_model(self):
+        pass
     @torch.no_grad()
     def eval(self, total_num_steps):
         eval_episode_rewards = []
