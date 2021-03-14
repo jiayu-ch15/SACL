@@ -206,9 +206,13 @@ class HabitatRunner(Runner):
         self.slam_memory_size = self.all_args.slam_memory_size
         self.slam_batch_size = self.all_args.slam_batch_size
         self.slam_iterations = self.all_args.slam_iterations
+        self.slam_lr = self.all_args.slam_lr
+        self.slam_opti_eps = self.all_args.slam_opti_eps
 
         self.use_local_recurrent_policy = .all_args.use_local_recurrent_policy
         self.local_hidden_size = self.all_args.local_hidden_size
+        self.local_lr = self.all_args.local_lr
+        self.local_opti_eps = self.all_args.local_opti_eps
 
         self.proj_loss_coeff = self.all_args.proj_loss_coeff
         self.exp_loss_coeff = self.all_args.exp_loss_coeff
@@ -306,7 +310,7 @@ class HabitatRunner(Runner):
         if not self.train_local:
             self.local_policy.eval()
         else:
-            self.local_optimizer = torch.optim.Adam(self.local_policy.parameters(), lr=self.all_args.lr, eps=self.all_args.opti_eps, weight_decay=self.all_args.weight_decay)
+            self.local_optimizer = torch.optim.Adam(self.local_policy.parameters(), lr=self.local_lr, eps=self.local_opti_eps, weight_decay=self.all_args.weight_decay)
 
     def init_slam(self):
         self.nslam_module = Neural_SLAM_Module(self.all_args)
