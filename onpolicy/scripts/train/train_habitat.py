@@ -66,7 +66,6 @@ def parse_args(args, parser):
     parser.add_argument('--train_global', type=int, default=1,
                         help="""0: Do not train the Global Policy
                                 1: Train the Global Policy (default: 1)""")
-    
     parser.add_argument('--train_local', type=int, default=1,
                         help="""0: Do not train the Local Policy
                                 1: Train the Local Policy (default: 1)""")
@@ -119,7 +118,8 @@ def parse_args(args, parser):
                         help="randomize scene in a thread every k episodes")
     
     # Local Policy
-    # parser.add_argument('--local_optimizer', type=str, default='adam,lr=0.0001')
+    parser.add_argument('--local_lr', type=float, default=0.0001)
+    parser.add_argument('--local_opti_eps', type=float, default=1e-5)
     parser.add_argument('--num_local_steps', type=int, default=25,
                         help="""Number of steps the local can
                             perform between each global instruction""")
@@ -129,20 +129,21 @@ def parse_args(args, parser):
                         help="""Maximum distance between the agent
                                 and the short term goal""")
     parser.add_argument('--local_policy_update_freq', type=int, default=5)
-    parser.add_argument('--use__local_recurrent_policy', type=int, default=1,
+    parser.add_argument('--use_local_recurrent_policy', type=int, default=1,
                         help='use a recurrent local policy')
-    parser.add_argument('--use__local_deterministic', type=int, default=0,
+    parser.add_argument('--use_local_deterministic', type=int, default=0,
                         help="use classical deterministic local policy")
 
     # Neural SLAM Module
-    parser.add_argument('-pe', '--use_pose_estimation', type=int, default=2)
+    parser.add_argument('--slam_lr', type=float, default=0.0001)
+    parser.add_argument('--slam_opti_eps', type=float, default=1e-5)
+    parser.add_argument('--use_pose_estimation', type=int, default=2)
     parser.add_argument('--goals_size', type=int, default=2)
-    parser.add_argument('-pt', '--pretrained_resnet', type=int, default=1)
+    parser.add_argument('--pretrained_resnet', type=int, default=1)
 
-    # parser.add_argument('--slam_optimizer', type=str, default='adam,lr=0.0001')
-    parser.add_argument('-sbs', '--slam_batch_size', type=int, default=72)
-    parser.add_argument('-sit', '--slam_iterations', type=int, default=10)
-    parser.add_argument('-sms', '--slam_memory_size', type=int, default=500000)
+    parser.add_argument('--slam_batch_size', type=int, default=72)
+    parser.add_argument('--slam_iterations', type=int, default=10)
+    parser.add_argument('--slam_memory_size', type=int, default=500000)
     parser.add_argument('--proj_loss_coeff', type=float, default=1.0)
     parser.add_argument('--pose_loss_coeff', type=float, default=10000.0)
     parser.add_argument('--exp_loss_coeff', type=float, default=1.0)
@@ -154,9 +155,9 @@ def parse_args(args, parser):
     parser.add_argument('--map_resolution', type=int, default=5)
     parser.add_argument('--du_scale', type=int, default=2)
     parser.add_argument('--map_size_cm', type=int, default=2400)
-    parser.add_argument('-ot', '--obs_threshold', type=float, default=1)
-    parser.add_argument('-ct', '--collision_threshold', type=float, default=0.20)
-    parser.add_argument('-nl', '--noise_level', type=float, default=1.0)
+    parser.add_argument('--obs_threshold', type=float, default=1)
+    parser.add_argument('--collision_threshold', type=float, default=0.20)
+    parser.add_argument('--noise_level', type=float, default=1.0)
 
 
     all_args = parser.parse_known_args(args)[0]

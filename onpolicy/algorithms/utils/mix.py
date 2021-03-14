@@ -171,3 +171,15 @@ class MIXBase(nn.Module):
 
         mlp_input = torch.cat(mlp_input, dim=1)
         return mlp_input
+
+    @property
+    def output_size(self):
+        output_size = 0
+        if len(self.cnn_keys) > 0:
+            output_size += self.hidden_size
+        if len(self.mlp_keys) > 0:
+            if self.embed：
+                output_size += 8
+            else：
+                output_size += self.hidden_size
+        return output_size
