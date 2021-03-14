@@ -136,7 +136,7 @@ class R_Critic(nn.Module):
             self._mixed_obs = False
             self.base = CNNBase(args, share_obs_shape) if len(share_obs_shape)==3 else MLPBase(args, share_obs_shape, use_attn_internal=True, use_cat_self=args.use_cat_self)
 
-        input_size = 2 * self.hidden_size if self._mixed_obs else self.hidden_size
+        input_size = self.base.output_size
 
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             self.rnn = RNNLayer(input_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)

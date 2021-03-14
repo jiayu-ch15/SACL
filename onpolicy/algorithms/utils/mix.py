@@ -178,8 +178,8 @@ class MIXBase(nn.Module):
         if len(self.cnn_keys) > 0:
             output_size += self.hidden_size
         if len(self.mlp_keys) > 0:
-            if self.embed：
+            if self.embed:
                 output_size += 8
-            else：
+            else:
                 output_size += self.hidden_size
         return output_size

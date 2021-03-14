@@ -11,6 +11,7 @@ from onpolicy.runner.shared.base_runner import Runner
 
 from onpolicy.envs.habitat.model.model import Neural_SLAM_Module, Local_IL_Policy
 from onpolicy.envs.habitat.utils.memory import FIFOMemory
+from collections import defaultdict
 
 def _t2n(x):
     return x.detach().cpu().numpy()
@@ -163,6 +164,7 @@ class HabitatRunner(Runner):
             
             # save model
             if (episode % self.save_interval == 0 or episode == episodes - 1):
+                self.save_slam_model()
                 self.save()
 
             # log information
@@ -482,6 +484,7 @@ class HabitatRunner(Runner):
         self.gobal_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
 
     def train_slam_module(self):
+        train_infos = defaultdict(list)
         for _ in range(self.slam_iterations):
             inputs, outputs = self.slam_memory.sample(self.slam_batch_size)
             b_obs_last, b_obs, b_poses = inputs
@@ -501,22 +504,18 @@ class HabitatRunner(Runner):
                             build_maps=False)
             loss = 0
             if self.proj_loss_coeff > 0:
-                proj_loss = F.binary_cross_entropy(b_proj_pred,
-                                                gt_fp_projs)
-                costs.append(proj_loss.item())
+                proj_loss = F.binary_cross_entropy(b_proj_pred, gt_fp_projs)
+                train_infos['costs'].append(proj_loss.item())
                 loss += self.proj_loss_coeff * proj_loss
 
             if self.exp_loss_coeff > 0:
-                exp_loss = F.binary_cross_entropy(b_fp_exp_pred,
-                                                gt_fp_explored)
-                exp_costs.append(exp_loss.item())
+                exp_loss = F.binary_cross_entropy(b_fp_exp_pred, gt_fp_explored)
+                train_infos['exp_costs'].append(exp_loss.item())
                 loss += self.exp_loss_coeff * exp_loss
 
             if self.pose_loss_coeff > 0:
-                pose_loss = torch.nn.MSELoss()(b_pose_err_pred,
-                                            gt_pose_err)
-                pose_costs.append(args.pose_loss_coeff *
-                                pose_loss.item())
+                pose_loss = torch.nn.MSELoss()(b_pose_err_pred, gt_pose_err)
+                train_infos['pose_costs'].append(self.pose_loss_coeff * pose_loss.item())
                 loss += self.pose_loss_coeff * pose_loss
 
             self.slam_optimizer.zero_grad()
@@ -526,6 +525,8 @@ class HabitatRunner(Runner):
             del b_obs_last, b_obs, b_poses
             del gt_fp_projs, gt_fp_explored, gt_pose_err
             del b_proj_pred, b_fp_exp_pred, b_pose_err_pred
+
+        return train_infos
 
     def train_local_policy(self):
         self.local_optimizer.zero_grad()
@@ -538,6 +539,8 @@ class HabitatRunner(Runner):
         train_infos = self.train()
         return train_infos
 
+    def save_slam_model(self):
+        pass
     @torch.no_grad()
     def eval(self, total_num_steps):
         eval_episode_rewards = []
