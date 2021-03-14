@@ -36,13 +36,7 @@ class R_Actor(nn.Module):
             self._mixed_obs = False
             self.base = CNNBase(args, obs_shape) if len(obs_shape)==3 else MLPBase(args, obs_shape, use_attn_internal=args.use_attn_internal, use_cat_self=True)
         
-        if self._mixed_obs:
-            if args.env_name == "Habitat":
-                input_size = self.hidden_size + 8
-            else:
-                input_size = 2 * self.hidden_size  
-        else:
-            input_size = self.hidden_size
+        input_size = self.base.output_size
 
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             self.rnn = RNNLayer(input_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)

@@ -125,3 +125,7 @@ class MLPBase(nn.Module):
         x = self.mlp(x)
 
         return x
+
+    @property
+    def output_size(self):
+        return self.hidden_size
