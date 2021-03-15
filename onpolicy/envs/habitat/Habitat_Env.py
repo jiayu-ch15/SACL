@@ -1,4 +1,6 @@
 from .exploration_env import Exploration_Env
+from habitat.config.default import get_config as cfg_env
+from habitat.datasets.pointnav.pointnav_dataset import PointNavDatasetV1
 
 def construct_config(args):
     env_configs = []
@@ -6,7 +8,7 @@ def construct_config(args):
     datasets = []
 
     basic_config = cfg_env(config_paths=
-                           ["onpolicy/envs/habitat/habitat_api/configs/" + args.task_config])
+                           ["/home/yuchao/project/onpolicy/onpolicy/envs/habitat/habitat-lab/configs/" + args.task_config])
     basic_config.defrost()
     basic_config.DATASET.SPLIT = args.split
     basic_config.freeze()
@@ -70,7 +72,7 @@ def construct_config(args):
     return env_configs, baseline_configs, datasets
 
 class MultiHabitatEnv(object):
-    def __init__(self, args, rank, config_env, config_baseline, dataset)):
+    def __init__(self, args, rank, config_env, config_baseline, dataset):
         self.env = Exploration_Env(args, rank, config_env, config_baseline, dataset)
 
         self.num_agents = args.num_agents
@@ -85,7 +87,7 @@ class MultiHabitatEnv(object):
         self.share_observation_space = []
 
         global_observation_space['global_obs'] = gym.spaces.Box(low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
-        global_observation_space['global_orientation'] = gym.spaces.Box(low=-1, high=1, (1,), dtype='long')
+        global_observation_space['global_orientation'] = gym.spaces.Box(low=-1, high=1, shape=(1,), dtype='long')
         global_observation_space = gym.spaces.Dict(global_observation_space)
         
         for agent_id in range(self.num_agents):

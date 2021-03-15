@@ -11,14 +11,14 @@ from collections import deque
 import torch
 
 from onpolicy.config import get_config
-from onpolicy.envs.habitat.exploration_env import Exploration_Env
+from onpolicy.envs.habitat.Habitat_Env import construct_config, MultiHabitatEnv
 from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
 
 def make_train_env(all_args, env_configs, baseline_configs, datasets):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "Habitat":
-                env = Exploration_Env(args=all_args, 
+                env = MultiHabitatEnv(args=all_args, 
                                       rank=rank,
                                       config_env=env_configs[rank], 
                                       config_baseline=baseline_configs[rank], 
@@ -40,7 +40,7 @@ def make_eval_env(all_args, env_configs, baseline_configs, datasets):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "Habitat":
-                env = Exploration_Env(args=all_args, 
+                env = MultiHabitatEnv(args=all_args, 
                                       rank=rank,
                                       config_env=env_configs[rank], 
                                       config_baseline=baseline_configs[rank], 
@@ -191,7 +191,7 @@ def main(args):
 
     # run dir
     run_dir = Path(os.path.split(os.path.dirname(os.path.abspath(__file__)))[
-                   0] + "/results") / all_args.env_name / all_args.scenario_name / all_args.algorithm_name / all_args.experiment_name
+                   0] + "/results") / all_args.env_name / all_args.algorithm_name / all_args.experiment_name
     if not run_dir.exists():
         os.makedirs(str(run_dir))
 

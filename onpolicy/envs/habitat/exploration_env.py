@@ -27,12 +27,12 @@ from .utils.fmm_planner import FMMPlanner
 from .utils.noisy_actions import CustomActionSpaceConfiguration
 from .utils.supervision import HabitatMaps
 from .utils.grid import get_grid
-import .utils.pose as pu
-import .utils.visualizations as vu
+from .utils import pose as pu
+from .utils import visualizations as vu
 
 from habitat.config.default import get_config as cfg_env
 from habitat.datasets.pointnav.pointnav_dataset import PointNavDatasetV1
-from .habitat_api.habitat_baselines.config.default import get_config as cfg_baseline
+from habitat_baselines.config.default import get_config as cfg_baseline
 
 
 def _preprocess_depth(depth):

@@ -19,7 +19,7 @@ from argparse import Namespace
 
 import numpy as np
 
-import env.utils.rotation_utils as ru
+from . import rotation_utils as ru
 
 
 def get_camera_matrix(width, height, fov):
