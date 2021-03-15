@@ -30,10 +30,10 @@ class iGibsonRunner(Runner):
 
             for step in range(self.episode_length):
                 # Sample actions
-                values, actions, action_log_probs, rnn_states, rnn_states_critic, actions_env = self.collect(step)
+                values, actions, action_log_probs, rnn_states, rnn_states_critic = self.collect(step)
                     
                 # Obser reward and next obs
-                original_obs, original_share_obs, rewards, dones, infos, _ = self.envs.step(actions_env)
+                original_obs, original_share_obs, rewards, dones, infos, _ = self.envs.step(actions)
 
                 obs = self.convert_obs(original_obs)
                 share_obs = self.convert_obs(original_share_obs)
@@ -135,15 +135,8 @@ class iGibsonRunner(Runner):
         action_log_probs = np.array(np.split(_t2n(action_log_prob), self.n_rollout_threads))
         rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
         rnn_states_critic = np.array(np.split(_t2n(rnn_states_critic), self.n_rollout_threads))
-        # rearrange action
-        if self.envs.action_space[0].__class__.__name__ == 'Box':
-            actions_env = actions
-        elif self.envs.action_space[0].__class__.__name__ == 'Discrete':
-            actions_env = np.squeeze(np.eye(self.envs.action_space[0].n)[actions], 2)
-        else:
-            raise NotImplementedError
 
-        return values, actions, action_log_probs, rnn_states, rnn_states_critic, actions_env
+        return values, actions, action_log_probs, rnn_states, rnn_states_critic
 
     def insert(self, data):
         obs, share_obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
@@ -194,15 +187,8 @@ class iGibsonRunner(Runner):
             eval_actions = np.array(np.split(_t2n(eval_action), self.n_eval_rollout_threads))
             eval_rnn_states = np.array(np.split(_t2n(eval_rnn_states), self.n_eval_rollout_threads))
             
-            if self.eval_envs.action_space[0].__class__.__name__ == 'Box':
-                eval_actions_env = eval_actions
-            elif self.eval_envs.action_space[0].__class__.__name__ == 'Discrete':
-                eval_actions_env = np.squeeze(np.eye(self.eval_envs.action_space[0].n)[eval_actions], 2)
-            else:
-                raise NotImplementedError
-
             # Obser reward and next obs
-            original_eval_obs, original_eval_share_obs, eval_rewards, eval_dones, eval_infos, _ = self.eval_envs.step(eval_actions_env)
+            original_eval_obs, original_eval_share_obs, eval_rewards, eval_dones, eval_infos, _ = self.eval_envs.step(eval_actions)
             
             eval_obs = self.convert_obs(original_eval_obs)
             

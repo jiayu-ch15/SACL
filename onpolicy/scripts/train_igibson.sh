@@ -1,6 +1,6 @@
 #!/bin/sh
 env="iGibson"
-scenario="fetch_room_rearrangement"
+scenario="quadrotor_room_rearrangement"
 num_agents=2
 algo="rmappo"
 exp="debug"

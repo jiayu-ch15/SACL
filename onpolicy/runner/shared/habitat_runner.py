@@ -11,7 +11,7 @@ from onpolicy.runner.shared.base_runner import Runner
 
 from onpolicy.envs.habitat.model.model import Neural_SLAM_Module, Local_IL_Policy
 from onpolicy.envs.habitat.utils.memory import FIFOMemory
-from collections import defaultdict
+from collections import defaultdict, deque
 
 def _t2n(x):
     return x.detach().cpu().numpy()
@@ -145,7 +145,7 @@ class HabitatRunner(Runner):
 
                 # Train Neural SLAM Module
                 if self.train_slam and len(self.slam_memory) > self.slam_batch_size:
-                    train_slam_infos = self.train_slam_module()
+                    self.train_slam_module()
                 
                 # Train Local Policy
                 if self.train_local and (local_step + 1) % self.local_policy_update_freq == 0:
@@ -154,7 +154,7 @@ class HabitatRunner(Runner):
                 # Train Global Policy
                 if global_step % self.num_global_steps == self.num_global_steps - 1 \
                         and local_step == self.num_local_steps - 1:
-                    train_gobal_infos = self.train_global_policy()
+                    self.train_global_policy()
 
                 # Finish Training
                 torch.set_grad_enabled(False)       
@@ -164,8 +164,9 @@ class HabitatRunner(Runner):
             
             # save model
             if (episode % self.save_interval == 0 or episode == episodes - 1):
-                self.save_slam_model()
-                self.save()
+                self.save_slam_model(total_num_steps)
+                self.save_global_model(total_num_steps)
+                self.save_local_model(total_num_steps)
 
             # log information
             if episode % self.log_interval == 0:
@@ -190,10 +191,11 @@ class HabitatRunner(Runner):
                         agent_k = 'agent%i/exp_ratio' % agent_id
                         env_infos[agent_k] = exp_ratio
 
-                train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
-                print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
-                self.log_train(train_global_infos, total_num_steps)
-                self.log_train(train_slam_infos, total_num_steps)
+                self.train_global_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
+                print("average episode rewards is {}".format(self.train_global_infos["average_episode_rewards"]))
+                self.log_train(self.train_global_infos, total_num_steps)
+                self.log_train(self.train_slam_infos, total_num_steps)
+                self.log_train(self.train_local_infos, total_num_steps)
                 self.log_env(env_infos, total_num_steps)
 
             # eval
@@ -292,12 +294,20 @@ class HabitatRunner(Runner):
             self.local_pose[e] = self.full_pose[e] - self.origins[e]
 
     def init_global_policy(self):
+        self.best_gobal_reward = -np.inf
+
         self.global_input = {}
         self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
         self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1)).long()
+        
         self.gobal_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
 
     def init_local_policy(self):
+        self.best_local_loss = np.inf
+
+        self.train_local_infos = {}
+        self.train_local_infos['local_policy_loss'] = deque(maxlen=1000)
+        
         # Local policy
         self.local_masks = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
         self.local_rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.local_hidden_size), dtype=np.float32)
@@ -324,6 +334,13 @@ class HabitatRunner(Runner):
             self.local_optimizer = torch.optim.Adam(self.local_policy.parameters(), lr=self.local_lr, eps=self.local_opti_eps)
 
     def init_slam_module(self):
+        self.best_slam_cost = 10000
+        
+        self.train_slam_infos = {}
+        self.train_slam_infos['costs'] = deque(maxlen=1000)
+        self.train_slam_infos['exp_costs'] = deque(maxlen=1000)
+        self.train_slam_infos['pose_costs'] = deque(maxlen=1000)
+        
         self.nslam_module = Neural_SLAM_Module(self.all_args)
         
         if self.load_slam != "0":
@@ -484,7 +501,6 @@ class HabitatRunner(Runner):
         self.gobal_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
 
     def train_slam_module(self):
-        train_infos = defaultdict(list)
         for _ in range(self.slam_iterations):
             inputs, outputs = self.slam_memory.sample(self.slam_batch_size)
             b_obs_last, b_obs, b_poses = inputs
@@ -505,17 +521,17 @@ class HabitatRunner(Runner):
             loss = 0
             if self.proj_loss_coeff > 0:
                 proj_loss = F.binary_cross_entropy(b_proj_pred, gt_fp_projs)
-                train_infos['costs'].append(proj_loss.item())
+                self.train_slam_infos['costs'].append(proj_loss.item())
                 loss += self.proj_loss_coeff * proj_loss
 
             if self.exp_loss_coeff > 0:
                 exp_loss = F.binary_cross_entropy(b_fp_exp_pred, gt_fp_explored)
-                train_infos['exp_costs'].append(exp_loss.item())
+                self.train_slam_infos['exp_costs'].append(exp_loss.item())
                 loss += self.exp_loss_coeff * exp_loss
 
             if self.pose_loss_coeff > 0:
                 pose_loss = torch.nn.MSELoss()(b_pose_err_pred, gt_pose_err)
-                train_infos['pose_costs'].append(self.pose_loss_coeff * pose_loss.item())
+                self.train_slam_infos['pose_costs'].append(self.pose_loss_coeff * pose_loss.item())
                 loss += self.pose_loss_coeff * pose_loss
 
             self.slam_optimizer.zero_grad()
@@ -526,21 +542,37 @@ class HabitatRunner(Runner):
             del gt_fp_projs, gt_fp_explored, gt_pose_err
             del b_proj_pred, b_fp_exp_pred, b_pose_err_pred
 
-        return train_infos
-
     def train_local_policy(self):
         self.local_optimizer.zero_grad()
         self.local_policy_loss.backward()
+        self.train_local_infos['local_policy_loss'].append(self.local_policy_loss.item())
         self.local_optimizer.step()
         self.local_policy_loss = 0
 
     def train_global_policy(self):
         self.compute()
-        train_infos = self.train()
-        return train_infos
+        self.train_global_infos = self.train()
 
-    def save_slam_model(self):
-        pass
+    def save_slam_model(self, step):
+        if len(self.train_slam_infos['cost']) >= 1000 and np.mean(self.train_slam_infos['cost']) < self.best_slam_cost:
+            self.best_slam_cost = np.mean(self.train_slam_infos['cost'])
+            torch.save(self.nslam_module.state_dict(), str(self.save_dir) + "/slam_best.pt")
+        torch.save(self.nslam_module.state_dict(), str(self.save_dir) + "slam_periodic_{}.pt".format(step))
+
+    def save_local_model(self, step):
+        if len(self.train_local_infos['local_policy_loss']) >= 100 and \
+                (np.mean(self.train_local_infos['local_policy_loss']) <= self.best_local_loss):
+            self.best_local_loss = np.mean(self.train_local_infos['local_policy_loss'])
+            torch.save(self.local_policy.state_dict(), str(self.save_dir) + "/local_best.pt")
+        torch.save(self.local_policy.state_dict(), str(self.save_dir) + "local_periodic_{}.pt".format(step))
+    
+    def save_global_model(self, step):
+        if len(self.train_global_infos["average_episode_rewards"]) >= 100 and \
+            (np.mean(self.train_global_infos["average_episode_rewards"]) >= self.best_gobal_reward):
+            self.best_gobal_reward = np.mean(self.train_global_infos["average_episode_rewards"])
+            torch.save(self.trainer.policy.state_dict(), str(self.save_dir) + "/global_best.pt")
+        torch.save(self.trainer.policy.state_dict(), str(self.save_dir) + "global_periodic_{}.pt".format(step))
+        
     @torch.no_grad()
     def eval(self, total_num_steps):
         eval_episode_rewards = []

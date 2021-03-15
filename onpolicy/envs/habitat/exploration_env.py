@@ -161,8 +161,8 @@ class Exploration_Env(habitat.RLEnv):
         self.last_sim_location = self.get_sim_location()
 
         # Convert pose to cm and degrees for mapper
-        mapper_gt_pose = (self.curr_loc_gt[0]*100.0,
-                          self.curr_loc_gt[1]*100.0,
+        mapper_gt_pose = (self.curr_loc_gt[0] * 100.0,
+                          self.curr_loc_gt[1] * 100.0,
                           np.deg2rad(self.curr_loc_gt[2]))
 
         # Update ground_truth map and explored area

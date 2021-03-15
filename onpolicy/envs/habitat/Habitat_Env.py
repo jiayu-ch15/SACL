@@ -106,8 +106,13 @@ class MultiHabitatEnv(object):
 
     def step(self, actions):
         obs, rewards, dones, infos = self.env.step(actions_env)
-        rewards = [infos['exp_reward']]* self.num_agents
+        rewards = [infos['exp_reward']] * self.num_agents
         return obs, rewards, dones, infos
 
     def close(self):
         self.env.close()
+
+    def get_short_term_goal(self, inputs):
+        outputs = self.env.get_short_term_goal(inputs)
+        return outputs
+
