@@ -495,7 +495,6 @@ class InfoSubprocVecEnv(ShareVecEnv):
         self.closed = True
 
 
-
 def choosesimpleworker(remote, parent_remote, env_fn_wrapper):
     parent_remote.close()
     env = env_fn_wrapper.x()
