@@ -16,28 +16,6 @@ from collections import defaultdict, deque
 def _t2n(x):
     return x.detach().cpu().numpy()
 
-def get_local_map_boundaries(agent_loc, local_sizes, full_sizes):
-    loc_r, loc_c = agent_loc
-    local_w, local_h = local_sizes
-    full_w, full_h = full_sizes
-
-    if args.global_downscaling > 1:
-        gx1, gy1 = loc_r - local_w // 2, loc_c - local_h // 2
-        gx2, gy2 = gx1 + local_w, gy1 + local_h
-        if gx1 < 0:
-            gx1, gx2 = 0, local_w
-        if gx2 > full_w:
-            gx1, gx2 = full_w - local_w, full_w
-
-        if gy1 < 0:
-            gy1, gy2 = 0, local_h
-        if gy2 > full_h:
-            gy1, gy2 = full_h - local_h, full_h
-    else:
-        gx1.gx2, gy1, gy2 = 0, full_w, 0, full_h
-
-    return [gx1, gx2, gy1, gy2]
-
 class HabitatRunner(Runner):
     def __init__(self, config):
         super(HabitatRunner, self).__init__(config)
@@ -201,7 +179,29 @@ class HabitatRunner(Runner):
             # eval
             if episode % self.eval_interval == 0 and self.use_eval:
                 self.eval(total_num_steps)
-     
+
+    def get_local_map_boundaries(self, agent_loc, local_sizes, full_sizes):
+        loc_r, loc_c = agent_loc
+        local_w, local_h = local_sizes
+        full_w, full_h = full_sizes
+
+        if self.global_downscaling > 1:
+            gx1, gy1 = loc_r - local_w // 2, loc_c - local_h // 2
+            gx2, gy2 = gx1 + local_w, gy1 + local_h
+            if gx1 < 0:
+                gx1, gx2 = 0, local_w
+            if gx2 > full_w:
+                gx1, gx2 = full_w - local_w, full_w
+
+            if gy1 < 0:
+                gy1, gy2 = 0, local_h
+            if gy2 > full_h:
+                gy1, gy2 = full_h - local_h, full_h
+        else:
+            gx1.gx2, gy1, gy2 = 0, full_w, 0, full_h
+
+        return [gx1, gx2, gy1, gy2]
+
     def init_hyper_parameters(self):
         self.map_size_cm = self.all_args.map_size_cm
         self.map_resolution = self.all_args.map_resolution
@@ -209,10 +209,8 @@ class HabitatRunner(Runner):
 
         self.frame_width = self.all_args.frame_width
 
-        self.loal_global = self.all_args.local_global
         self.load_local = self.all_args.load_local
         self.load_slam = self.all_args.load_slam
-
         self.train_local = self.all_args.train_local
         self.train_slam = self.all_args.train_slam
         
@@ -249,49 +247,54 @@ class HabitatRunner(Runner):
                         int(self.full_h / self.global_downscaling)
 
         # Initializing full and local map
-        self.full_map = np.zeros(self.n_rollout_threads, 4, self.full_w, self.full_h)
-        self.local_map = np.zeros(self.n_rollout_threads, 4, self.local_w, self.local_h)
+        self.full_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h))
+        self.local_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.local_w, self.local_h))
 
         # Initial full and local pose
-        self.full_pose = np.zeros(self.n_rollout_threads, 3)
-        self.local_pose = np.zeros(self.n_rollout_threads, 3)
+        self.full_pose = np.zeros((self.n_rollout_threads, self.num_agents, 3))
+        self.local_pose = np.zeros((self.n_rollout_threads, self.num_agents, 3))
 
         # Origin of local map
-        self.origins = np.zeros((self.n_rollout_threads, 3))
+        self.origins = np.zeros((self.n_rollout_threads, self.num_agents, 3))
 
         # Local Map Boundaries
-        self.lmb = np.zeros((self.n_rollout_threads, 4)).astype(int)
+        self.lmb = np.zeros((self.n_rollout_threads, self.num_agents, 4)).astype(int)
 
         ### Planner pose inputs has 7 dimensions
         ### 1-3 store continuous global agent location
         ### 4-7 store local map boundaries
-        self.planner_pose_inputs = np.zeros((self.n_rollout_threads, 7))
+        self.planner_pose_inputs = np.zeros((self.n_rollout_threads, self.num_agents, 7))
                
     def init_map_and_pose(self):
-        self.full_map.fill_(0.) # TODO remove this code
-        self.full_pose.fill_(0.) # TODO remove this code
-        self.full_pose[:, :2] = self.map_size_cm / 100.0 / 2.0
+        # self.full_map.fill_(0.) # TODO remove this code
+        # self.full_pose.fill_(0.) # TODO remove this code
+        self.full_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h))
+        self.local_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.local_w, self.local_h))
+
+        self.full_pose[:, :, :2] = self.map_size_cm / 100.0 / 2.0
 
         locs = self.full_pose
-        self.planner_pose_inputs[:, :3] = locs
+        self.planner_pose_inputs[:, :, :3] = locs
         for e in range(self.n_rollout_threads):
-            r, c = locs[e, 1], locs[e, 0]
-            loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
-                            int(c * 100.0 / self.map_resolution)]
+            for a in range(self.num_agents):
+                r, c = locs[e, a, 1], locs[e, a, 0]
+                loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
+                                int(c * 100.0 / self.map_resolution)]
 
-            self.full_map[e, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = 1.0
+                self.full_map[e, a, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = 1.0
 
-            self.lmb[e] = get_local_map_boundaries((loc_r, loc_c),
-                                                (self.local_w, self.local_h),
-                                                (self.full_w, self.full_h))
+                self.lmb[e, a] = self.get_local_map_boundaries((loc_r, loc_c),
+                                                    (self.local_w, self.local_h),
+                                                    (self.full_w, self.full_h))
 
-            self.planner_pose_inputs[e, 3:] = self.lmb[e]
-            self.origins[e] = [self.lmb[e][2] * self.map_resolution / 100.0,
-                            self.lmb[e][0] * self.map_resolution / 100.0, 0.]
+                self.planner_pose_inputs[e, a, 3:] = self.lmb[e, a]
+                self.origins[e, a] = [self.lmb[e, a, 2] * self.map_resolution / 100.0,
+                                self.lmb[e, a, 0] * self.map_resolution / 100.0, 0.]
 
         for e in range(self.n_rollout_threads):
-            self.local_map[e] = self.full_map[e, :, self.lmb[e, 0]:self.lmb[e, 1], self.lmb[e, 2]:self.lmb[e, 3]]
-            self.local_pose[e] = self.full_pose[e] - self.origins[e]
+            for a in range(num_agents):
+                self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
+                self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
 
     def init_global_policy(self):
         self.best_gobal_reward = -np.inf
@@ -356,77 +359,84 @@ class HabitatRunner(Runner):
     
     def insert_slam_module(self, infos):
         # Add frames to memory
-        for env_idx in range(self.n_rollout_threads):
-            env_poses = infos[env_idx]['sensor_pose']
-            env_gt_fp_projs = infos[env_idx]['fp_proj'].unsqueeze(0)
-            env_gt_fp_explored = infos[env_idx]['fp_explored'].unsqueeze(0)
-            env_gt_pose_err = infos[env_idx]['pose_err']
-            self.slam_memory.push(
-                (self.last_obs[env_idx], self.obs[env_idx], env_poses),
-                (env_gt_fp_projs, env_gt_fp_explored, env_gt_pose_err))
+        for a in range(self.num_agents):
+            for env_idx in range(self.n_rollout_threads):
+                env_poses = infos[env_idx][a]['sensor_pose']
+                env_gt_fp_projs = infos[env_idx][a]['fp_proj'].unsqueeze(0)
+                env_gt_fp_explored = infos[env_idx][a]['fp_explored'].unsqueeze(0)
+                env_gt_pose_err = infos[env_idx][a]['pose_err']
+                self.slam_memory.push(
+                    (self.last_obs[env_idx,a], self.obs[env_idx,a], env_poses),
+                    (env_gt_fp_projs, env_gt_fp_explored, env_gt_pose_err))
 
     def run_slam_module(self, last_obs, obs, infos, build_maps=False):
-        poses = np.array([infos[e]['sensor_pose'] for e in range(self.n_rollout_threads)])
+        for a in range(self.num_agents):
+            poses = np.array([infos[e, a]['sensor_pose'] for e in range(self.n_rollout_threads)])
 
-        _, _, self.local_map[:, 0, :, :], self.local_map[:, 1, :, :], _, self.local_pose = \
-            self.nslam_module(last_obs, obs, poses, 
-                            self.local_map[:, 0, :, :],
-                            self.local_map[:, 1, :, :], 
-                            self.local_pose,
-                            build_maps=build_maps)
+            _, _, self.local_map[:, a, 0, :, :], self.local_map[:, a, 1, :, :], _, self.local_pose = \
+                self.nslam_module(last_obs[:,a,:,:,:], obs[:,a,:,:,:], poses, 
+                                self.local_map[:, a, 0, :, :],
+                                self.local_map[:, a, 1, :, :], 
+                                self.local_pose[:,a,:],
+                                build_maps=build_maps)
 
     def first_compute_global_input(self):
         locs = self.local_pose
+        for a in range(self.num_agents):
+            for e in range(self.n_rollout_threads):
+                
+                r, c = locs[e, a, 1], locs[e, a, 0]
+                loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
+                                int(c * 100.0 / self.map_resolution)]
 
-        for e in range(self.n_rollout_threads):
-            r, c = locs[e, 1], locs[e, 0]
-            loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
-                            int(c * 100.0 / self.map_resolution)]
+                self.local_map[e, a, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = 1.
+                self.global_input['global_orientation'][e, a] = int((locs[e, a, 2] + 180.0) / 5.)
 
-            self.local_map[e, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = 1.
-            self.global_input['global_orientation'][e] = int((locs[e, 2] + 180.0) / 5.)
-
-        self.global_input['global_obs'][:, 0:4, :, :] = self.local_map
-        self.global_input['global_obs'][:, 4:, :, :] = (nn.MaxPool2d(self.global_downscaling)(torch.from_numpy(self.full_map))).numpy()
+            self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:,a,:,:,:]
+            self.global_input['global_obs'][:, a, 4:, :, :] = (nn.MaxPool2d(self.global_downscaling)(torch.from_numpy(self.full_map[:,a,:,:,:]))).numpy()
 
     def compute_local_action(self):
-        local_goals = self.local_output[:, :-1].to(device).long()
+        local_action = torch.empty(self.n_rollout_threads, num_agents)
+        for a in range(self.num_agents):
+            local_goals = self.local_output[:, a, :-1].to(device).long()
 
-        if self.train_local:
-            torch.set_grad_enabled(True)
+            if self.train_local:
+                torch.set_grad_enabled(True)
 
-        action, action_prob, self.local_rnn_states =\
-             self.local_policy(self.obs,
-                                self.local_rnn_states,
-                                self.local_masks,
-                                extras=local_goals)
+            action, action_prob, self.local_rnn_states[:,a] =\
+                self.local_policy(self.obs[:,a],
+                                    self.local_rnn_states[:,a],
+                                    self.local_masks[:,a],
+                                    extras=local_goals)
 
-        if self.train_local:
-            action_target = self.local_output[:, -1].long().to(device)
-            self.local_policy_loss += nn.CrossEntropyLoss()(action_prob, action_target)
-            torch.set_grad_enabled(False)
-        
-        local_action = action.cpu()
+            if self.train_local:
+                action_target = self.local_output[:, a, -1].long().to(device)
+                self.local_policy_loss += nn.CrossEntropyLoss()(action_prob, action_target)
+                torch.set_grad_enabled(False)
+            
+            local_action[:, a] = action.cpu()
 
         return local_action
    
     def compute_local_input(self, map):
         self.local_input = []
         for e in range(self.n_rollout_threads):
-            p_input = {}
-            p_input['goal'] = [int(self.global_goal[e][0] * self.local_w), int(self.global_goal[e][1] * self.local_h)]
-            p_input['map_pred'] = map[e, 0, :, :]
-            p_input['exp_pred'] = map[e, 1, :, :]
-            p_input['pose_pred'] = self.planner_pose_inputs[e]
-            self.local_input.append(p_input)
+            p_input = defaultdict(list)
+            for a in range(self.num_agents):
+                p_input['goal'].append([int(self.global_goal[e, a][0] * self.local_w), int(self.global_goal[e, a][1] * self.local_h)])
+                p_input['map_pred'].append(map[e, a, 0, :, :])
+                p_input['exp_pred'].append(map[e, a, 1, :, :])
+                p_input['pose_pred'].append(self.planner_pose_inputs[e, a])
+                self.local_input.append(p_input)
     
     def compute_global_input(self):
         locs = self.local_pose
-        for e in range(self.n_rollout_threads):
-            self.global_input['global_orientation'][e] = int((locs[e, 2] + 180.0) / 5.)
-        self.global_input['global_obs'][:, 0:4, :, :] = self.local_map
-        self.global_input['global_obs'][:, 4:, :, :] = (nn.MaxPool2d(self.global_downscaling)(torch.from_numpy(self.full_map))).numpy()
-      
+        for a in range(self.num_agents):
+            for e in range(self.n_rollout_threads):
+                self.global_input['global_orientation'][e, a] = int((locs[e, a, 2] + 180.0) / 5.)
+            self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:,a,:,:,:]
+            self.global_input['global_obs'][:, a, 4:, :, :] = (nn.MaxPool2d(self.global_downscaling)(torch.from_numpy(self.full_map[:,a,:,:,:]))).numpy()
+        
     def compute_global_goal(self, step):
         self.trainer.prep_rollout()
 
@@ -462,32 +472,34 @@ class HabitatRunner(Runner):
         self.planner_pose_inputs[:, :3] = locs + self.origins
         self.local_map[:, 2, :, :].fill_(0.)  # Resetting current location channel
         for e in range(self.n_rollout_threads):
-            r, c = locs[e, 1], locs[e, 0]
-            loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
-                            int(c * 100.0 / self.map_resolution)]
+            for a in range(self.num_agents):
+                r, c = locs[e, a, 1], locs[e, a, 0]
+                loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
+                                int(c * 100.0 / self.map_resolution)]
 
-            self.local_map[e, 2:, loc_r - 2:loc_r + 3, loc_c - 2:loc_c + 3] = 1.
+                self.local_map[e, a, 2:, loc_r - 2:loc_r + 3, loc_c - 2:loc_c + 3] = 1.
 
     def update_map_and_pose(self):
         for e in range(self.n_rollout_threads):
-            self.full_map[e, :, self.lmb[e, 0]:self.lmb[e, 1], self.lmb[e, 2]:self.lmb[e, 3]] = self.local_map[e]
-            self.full_pose[e] = self.local_pose[e] + self.origins[e]
+            for a in range(self.num_agents):
+                self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]] = self.local_map[e, a]
+                self.full_pose[e, a] = self.local_pose[e, a] + self.origins[e, a]
 
-            locs = self.full_pose[e]
-            r, c = locs[1], locs[0]
-            loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
-                            int(c * 100.0 / self.map_resolution)]
+                locs = self.full_pose[e, a]
+                r, c = locs[1], locs[0]
+                loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
+                                int(c * 100.0 / self.map_resolution)]
 
-            self.lmb[e] = get_local_map_boundaries((loc_r, loc_c),
-                                                (self.local_w, self.local_h),
-                                                (self.full_w, self.full_h))
+                self.lmb[e, a] = self.get_local_map_boundaries((loc_r, loc_c),
+                                                    (self.local_w, self.local_h),
+                                                    (self.full_w, self.full_h))
 
-            self.planner_pose_inputs[e, 3:] = self.lmb[e]
-            self.origins[e] = [self.lmb[e][2] * self.map_resolution / 100.0,
-                            self.lmb[e][0] * self.map_resolution / 100.0, 0.]
+                self.planner_pose_inputs[e, a, 3:] = self.lmb[e, a]
+                self.origins[e, a] = [self.lmb[e, a][2] * self.map_resolution / 100.0,
+                                self.lmb[e, a][0] * self.map_resolution / 100.0, 0.]
 
-            self.local_map[e] = self.full_map[e, :, self.lmb[e, 0]:self.lmb[e, 1], self.lmb[e, 2]:self.lmb[e, 3]]
-            self.local_pose[e] = self.full_pose[e] - self.origins[e]
+                self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
+                self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
 
     def insert_global_policy(self, data):
         rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data

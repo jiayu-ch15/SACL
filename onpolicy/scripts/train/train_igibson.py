@@ -13,6 +13,7 @@ from onpolicy.config import get_config
 
 from onpolicy.envs.iGibson.iGibson_Env import iGibsonEnv
 from onpolicy.envs.env_wrappers import ShareSubprocVecEnv, ShareDummyVecEnv
+import gibson2
 
 def get_scene_files():
     scenes=[]
