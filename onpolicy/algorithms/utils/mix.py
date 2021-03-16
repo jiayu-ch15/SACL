@@ -57,6 +57,21 @@ class MIXBase(nn.Module):
             cnn_layers_params = [(32, 8, 4, 0), (64, 4, 2, 0), (64, 3, 1, 0)]
         else:
             cnn_layers_params = cnn_layers_params
+        
+        print(cnn_layers_params)
+        import pdb; pdb.set_trace()
+
+        def str2list(params):
+            output = []
+            list1 = params.split(' ')
+            for l1 in list1:
+                out = []
+                list2 = l1.split(',')
+                for l2 in list2:
+                    out.append(int(l2))
+                output.append(out)
+            
+
 
         active_func = [nn.Tanh(), nn.ReLU()][use_ReLU]
         init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][use_orthogonal]

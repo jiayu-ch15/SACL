@@ -1,4 +1,5 @@
 import numpy as np
+import gym
 from .exploration_env import Exploration_Env
 from habitat.config.default import get_config as cfg_env
 from habitat_baselines.config.default import get_config as cfg_baseline
@@ -84,13 +85,14 @@ class MultiHabitatEnv(object):
         local_w, local_h = int(full_w / args.global_downscaling), \
                         int(full_h / args.global_downscaling)
 
-        self.action_space = []
-        self.observation_space = []
-        self.share_observation_space = []
-
+        global_observation_space = {}
         global_observation_space['global_obs'] = gym.spaces.Box(low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
         global_observation_space['global_orientation'] = gym.spaces.Box(low=-1, high=1, shape=(1,), dtype='long')
         global_observation_space = gym.spaces.Dict(global_observation_space)
+        
+        self.action_space = []
+        self.observation_space = []
+        self.share_observation_space = []
         
         for agent_id in range(self.num_agents):
             self.observation_space.append(global_observation_space)

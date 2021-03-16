@@ -222,7 +222,7 @@ class HabitatRunner(Runner):
         self.slam_lr = self.all_args.slam_lr
         self.slam_opti_eps = self.all_args.slam_opti_eps
 
-        self.use_local_recurrent_policy = .all_args.use_local_recurrent_policy
+        self.use_local_recurrent_policy = self.all_args.use_local_recurrent_policy
         self.local_hidden_size = self.all_args.local_hidden_size
         self.local_lr = self.all_args.local_lr
         self.local_opti_eps = self.all_args.local_opti_eps
