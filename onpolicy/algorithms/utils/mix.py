@@ -58,12 +58,12 @@ class MIXBase(nn.Module):
             cnn_layers_params = [(32, 8, 4, 0), (64, 4, 2, 0), (64, 3, 1, 0)]
         else:
             def _convert(params):
-                output = params.split(' ')
-                for l in output:
-                    l = tuple(map(int, l.split(',')))
+                output = []
+                for l in params.split(' '):
+                    output.append(tuple(map(int, l.split(','))))
                 return output
             cnn_layers_params = _convert(cnn_layers_params)
-
+        
         active_func = [nn.Tanh(), nn.ReLU()][use_ReLU]
         init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][use_orthogonal]
         gain = nn.init.calculate_gain(['tanh', 'relu'][use_ReLU])
@@ -91,6 +91,7 @@ class MIXBase(nn.Module):
                 in_channels = self.n_cnn_input
             else:
                 in_channels = prev_out_channels
+
             cnn_layers.append(init_(nn.Conv2d(in_channels=in_channels,
                                             out_channels=out_channels,
                                             kernel_size=kernel_size,
