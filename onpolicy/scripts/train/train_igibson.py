@@ -6,7 +6,7 @@ import socket
 import setproctitle
 import numpy as np
 from pathlib import Path
-
+import gibson2
 import torch
 
 from onpolicy.config import get_config
