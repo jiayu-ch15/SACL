@@ -1,5 +1,7 @@
+import numpy as np
 from .exploration_env import Exploration_Env
 from habitat.config.default import get_config as cfg_env
+from habitat_baselines.config.default import get_config as cfg_baseline
 from habitat.datasets.pointnav.pointnav_dataset import PointNavDatasetV1
 
 def construct_config(args):
@@ -24,7 +26,7 @@ def construct_config(args):
 
     for i in range(args.n_rollout_threads):
         config_env = cfg_env(config_paths=
-                             ["habitat_api/configs/" + args.task_config])
+                             ["/home/yuchao/project/onpolicy/onpolicy/envs/habitat/habitat-lab/configs/" + args.task_config])
         config_env.defrost()
 
         if len(scenes) > 0:

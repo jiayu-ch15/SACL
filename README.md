@@ -315,8 +315,8 @@ git submodule foreach git submodule update
 ## 10. habitat
 
 
-```
-pip install yacs imageio-ffmpeg numpy-quaternion numba tqdm gitpython attrs==19.1.0 
+``` 
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple magnum scikit-image scikit-learnscikit-fmm yacs imageio-ffmpeg numpy-quaternion numba tqdm gitpython attrs==19.1.0 
 ```
 ```
 cd onpolicy

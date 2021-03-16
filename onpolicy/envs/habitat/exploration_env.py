@@ -65,11 +65,11 @@ class Exploration_Env(habitat.RLEnv):
         self.rank = rank
 
         self.sensor_noise_fwd = \
-                pickle.load(open("noise_models/sensor_noise_fwd.pkl", 'rb'))
+                pickle.load(open("/home/yuchao/project/onpolicy/onpolicy/envs/habitat/noise_models/sensor_noise_fwd.pkl", 'rb'))
         self.sensor_noise_right = \
-                pickle.load(open("noise_models/sensor_noise_right.pkl", 'rb'))
+                pickle.load(open("/home/yuchao/project/onpolicy/onpolicy/envs/habitat/noise_models/sensor_noise_right.pkl", 'rb'))
         self.sensor_noise_left = \
-                pickle.load(open("noise_models/sensor_noise_left.pkl", 'rb'))
+                pickle.load(open("/home/yuchao/project/onpolicy/onpolicy/envs/habitat/noise_models/sensor_noise_left.pkl", 'rb'))
 
         habitat.SimulatorActions.extend_action_space("NOISY_FORWARD")
         habitat.SimulatorActions.extend_action_space("NOISY_RIGHT")

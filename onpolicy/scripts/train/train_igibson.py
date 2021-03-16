@@ -14,11 +14,25 @@ from onpolicy.config import get_config
 from onpolicy.envs.iGibson.iGibson_Env import iGibsonEnv
 from onpolicy.envs.env_wrappers import ShareSubprocVecEnv, ShareDummyVecEnv
 
-def make_train_env(all_args):
+def get_scene_files():
+    scenes=[]
+    content_dir = os.path.join(gibson2.ig_dataset_path,'scenes')
+    scene_dataset_ext = '_int'
+    if not os.path.exists(content_dir):
+        return scenes
+    for filename in os.listdir(content_dir):
+        if filename.endswith(scene_dataset_ext):
+            scene = filename
+            scenes.append(scene)
+    scenes.sort()
+    return scenes
+
+def make_train_env(all_args, scene_files):
     def get_env_fn(rank):
+        scene_id = scene_files[rank % len(scene_files)] if scene_files is not None else None
         def init_env():
             if all_args.env_name == "iGibson":
-                env = iGibsonEnv(all_args)
+                env = iGibsonEnv(all_args, scene_id)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
@@ -32,11 +46,12 @@ def make_train_env(all_args):
         return ShareSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
 
-def make_eval_env(all_args):
+def make_eval_env(all_args, scene_files):
     def get_env_fn(rank):
+        scene_id = scene_files[rank % len(scene_files)] if scene_files is not None else None
         def init_env():
             if all_args.env_name == "iGibson":
-                env = iGibsonEnv(all_args)
+                env = iGibsonEnv(all_args, scene_id)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
@@ -59,6 +74,9 @@ def parse_args(args, parser):
                         default=2, help="number of players")
     parser.add_argument('--render_gpu_id', type=int,
                         default=0, help="which gpu is used to render")
+    #scene parameters
+    parser.add_argument("--use_different_scenes", action='store_true',
+                        default=False, help="identify scene_id.")
 
     all_args = parser.parse_known_args(args)[0]
 
@@ -130,8 +148,9 @@ def main(args):
     np.random.seed(all_args.seed)
 
     # env init
-    envs = make_train_env(all_args)
-    eval_envs = make_eval_env(all_args) if all_args.use_eval else None
+    scene_files = get_scene_files() if all_args.use_different_scenes else None
+    envs = make_train_env(all_args, scene_files)
+    eval_envs = make_eval_env(all_args, scene_files) if all_args.use_eval else None
     num_agents = all_args.num_agents
 
     config = {
