@@ -365,7 +365,6 @@ class Exploration_Env(habitat.RLEnv):
         mapper = MapBuilder(params)
         return mapper
 
-
     def get_sim_location(self):
         agent_state = super().habitat_env.sim.get_agent_state(0)
         x = -agent_state.position[2]
@@ -379,13 +378,11 @@ class Exploration_Env(habitat.RLEnv):
             o -= 2 * np.pi
         return x, y, o
 
-
     def get_gt_pose_change(self):
         curr_sim_pose = self.get_sim_location()
         dx, dy, do = pu.get_rel_pose_change(curr_sim_pose, self.last_sim_location)
         self.last_sim_location = curr_sim_pose
         return dx, dy, do
-
 
     def get_base_pose_change(self, action, gt_pose_change):
         dx_gt, dy_gt, do_gt = gt_pose_change
@@ -402,7 +399,6 @@ class Exploration_Env(habitat.RLEnv):
         y_err = y_err * self.args.noise_level
         o_err = o_err * self.args.noise_level
         return dx_gt + x_err, dy_gt + y_err, do_gt + np.deg2rad(o_err)
-
 
     def get_short_term_goal(self, inputs):
 
@@ -653,7 +649,6 @@ class Exploration_Env(habitat.RLEnv):
 
         return episode_map
 
-
     def _get_stg(self, grid, explored, start, goal, planning_window):
 
         [gx1, gx2, gy1, gy2] = planning_window
@@ -727,7 +722,6 @@ class Exploration_Env(habitat.RLEnv):
             stg_x, stg_y = stg_x + x1 - 1, stg_y + y1 - 1
 
         return (stg_x, stg_y)
-
 
     def _get_gt_action(self, grid, start, goal, planning_window, start_o):
 

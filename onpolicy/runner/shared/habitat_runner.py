@@ -12,6 +12,7 @@ from onpolicy.runner.shared.base_runner import Runner
 from onpolicy.envs.habitat.model.model import Neural_SLAM_Module, Local_IL_Policy
 from onpolicy.envs.habitat.utils.memory import FIFOMemory
 from collections import defaultdict, deque
+import gym
 
 def _t2n(x):
     return x.detach().cpu().numpy()
@@ -292,7 +293,7 @@ class HabitatRunner(Runner):
                                 self.lmb[e, a, 0] * self.map_resolution / 100.0, 0.]
 
         for e in range(self.n_rollout_threads):
-            for a in range(num_agents):
+            for a in range(self.num_agents):
                 self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
                 self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
 
@@ -301,7 +302,7 @@ class HabitatRunner(Runner):
 
         self.global_input = {}
         self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
-        self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1)).long()
+        self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
         
         self.gobal_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
 
@@ -396,7 +397,7 @@ class HabitatRunner(Runner):
             self.global_input['global_obs'][:, a, 4:, :, :] = (nn.MaxPool2d(self.global_downscaling)(torch.from_numpy(self.full_map[:,a,:,:,:]))).numpy()
 
     def compute_local_action(self):
-        local_action = torch.empty(self.n_rollout_threads, num_agents)
+        local_action = torch.empty(self.n_rollout_threads, self.num_agents)
         for a in range(self.num_agents):
             local_goals = self.local_output[:, a, :-1].to(device).long()
 
