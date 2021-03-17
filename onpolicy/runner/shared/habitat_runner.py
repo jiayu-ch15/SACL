@@ -362,17 +362,17 @@ class HabitatRunner(Runner):
         # Add frames to memory
         for a in range(self.num_agents):
             for env_idx in range(self.n_rollout_threads):
-                env_poses = infos[env_idx][a]['sensor_pose']
-                env_gt_fp_projs = infos[env_idx][a]['fp_proj'].unsqueeze(0)
-                env_gt_fp_explored = infos[env_idx][a]['fp_explored'].unsqueeze(0)
-                env_gt_pose_err = infos[env_idx][a]['pose_err']
+                env_poses = infos[env_idx]['sensor_pose'][a]
+                env_gt_fp_projs = infos[env_idx]['fp_proj'][a].unsqueeze(0)
+                env_gt_fp_explored = infos[env_idx]['fp_explored'][a].unsqueeze(0)
+                env_gt_pose_err = infos[env_idx]['pose_err'][a]
                 self.slam_memory.push(
                     (self.last_obs[env_idx,a], self.obs[env_idx,a], env_poses),
                     (env_gt_fp_projs, env_gt_fp_explored, env_gt_pose_err))
 
     def run_slam_module(self, last_obs, obs, infos, build_maps=False):
         for a in range(self.num_agents):
-            poses = np.array([infos[e, a]['sensor_pose'] for e in range(self.n_rollout_threads)])
+            poses = np.array([infos[e]['sensor_pose'][a] for e in range(self.n_rollout_threads)])
 
             _, _, self.local_map[:, a, 0, :, :], self.local_map[:, a, 1, :, :], _, self.local_pose = \
                 self.nslam_module(last_obs[:,a,:,:,:], obs[:,a,:,:,:], poses, 

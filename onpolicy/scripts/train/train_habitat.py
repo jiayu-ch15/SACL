@@ -162,6 +162,12 @@ def parse_args(args, parser):
     parser.add_argument('--collision_threshold', type=float, default=0.20)
     parser.add_argument('--noise_level', type=float, default=1.0)
 
+    # visual params
+    parser.add_argument("--use_merge", action='store_false', default=True, help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
+
+    # reward params
+    parser.add_argument('--reward_penalty', type=float, default=0.9)
+    parser.add_argument('--reward_decay', action='store_true', default=False)
 
     all_args = parser.parse_known_args(args)[0]
 

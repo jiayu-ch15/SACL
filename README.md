@@ -324,7 +324,19 @@ git submodule update --init --recursive
 cd habitat/habitat-sim
 pip install -e .
 cd habitat/habitat-api
-pip install -e .
+pip install -e . --headless
+# if you failed to install habitat-api, you can use `build.sh --headless` instead.
+```
+
+Remember to change the absolute path in `/home/yuchao/project/onpolicy/onpolicy/envs/habitat/habitat-lab/habitat/config/default.py` and `/home/yuchao/project/onpolicy/onpolicy/envs/habitat/habitat-lab/configs/tasks/pointnav_gibson.yaml` files.
+
+```
+cd /home/yuchao/project/onpolicy/onpolicy/envs/habitat
+mkdir data/datasets
+cd data/datasets
+wget https://dl.fbaipublicfiles.com/habitat/data/datasets/pointnav/gibson/v1/pointnav_gibson_v1.zip
+unzip pointnav_gibson_v1.zip
+ln -s /mnt/disk2/nav/habitat_data/scene_datasets
 ```
 
 ## 11. Docs：

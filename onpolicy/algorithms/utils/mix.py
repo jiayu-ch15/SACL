@@ -40,6 +40,7 @@ class MIXBase(nn.Module):
 
     def forward(self, x):
         out_x = x
+        import pdb; pdb.set_trace()
         if len(self.cnn_keys) > 0:
             cnn_input = self._build_cnn_input(x)
             cnn_x = self.cnn(cnn_input)
