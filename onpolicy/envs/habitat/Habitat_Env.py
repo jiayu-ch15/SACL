@@ -108,10 +108,16 @@ class MultiHabitatEnv(object):
 
     def reset(self):
         obs, infos = self.env.reset()
+        import pdb; pdb.set_trace()
+        obs = [obs] * self.num_agents
+        infos = [infos] * self.num_agents
         return obs, infos
 
     def step(self, actions):
         obs, rewards, dones, infos = self.env.step(actions_env)
+        obs = [obs] * self.num_agents
+        infos = [infos] * self.num_agents
+        dones = [dones] * self.num_agents
         rewards = [infos['exp_reward']] * self.num_agents
         return obs, rewards, dones, infos
 

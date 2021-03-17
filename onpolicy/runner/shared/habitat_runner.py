@@ -39,7 +39,7 @@ class HabitatRunner(Runner):
         self.obs, infos = self.envs.reset()
 
         # Predict map from frame 1:
-        self.run_slam(self.obs, self.obs, infos)
+        self.run_slam_module(self.obs, self.obs, infos)
 
         # Compute Global policy input
         self.first_compute_global_input()

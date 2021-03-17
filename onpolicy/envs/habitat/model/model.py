@@ -212,20 +212,20 @@ class Neural_SLAM_Module(nn.Module):
         if self.dropout > 0:
             self.pose_dropout1 = nn.Dropout(self.dropout)
 
-        self.st_poses_eval = torch.zeros(args.num_processes,
+        self.st_poses_eval = torch.zeros(args.n_rollout_threads,
                                          3).to(self.device)
         self.st_poses_train = torch.zeros(args.slam_batch_size,
                                           3).to(self.device)
 
         grid_size = self.vision_range * 2
-        self.grid_map_eval = torch.zeros(args.num_processes, 2,
+        self.grid_map_eval = torch.zeros(args.n_rollout_threads, 2,
                                          grid_size, grid_size
                                          ).float().to(self.device)
         self.grid_map_train = torch.zeros(args.slam_batch_size, 2,
                                           grid_size, grid_size
                                           ).float().to(self.device)
 
-        self.agent_view = torch.zeros(args.num_processes, 2,
+        self.agent_view = torch.zeros(args.n_rollout_threads, 2,
                                       self.map_size_cm // self.resolution,
                                       self.map_size_cm // self.resolution
                                       ).float().to(self.device)
