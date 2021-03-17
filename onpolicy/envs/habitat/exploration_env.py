@@ -171,10 +171,10 @@ class Exploration_Env(habitat.RLEnv):
         obs = super().reset()
         full_map_size = args.map_size_cm//args.map_resolution
         for i in range(self.num_agents):
-                mapp,n_rot,n_trans=self._get_gt_map(full_map_size, i)
-                self.explorable_map.append(mapp)
-                self.n_rot.append(n_rot)
-                self.n_trans.append(n_trans)
+            mapp,n_rot,n_trans=self._get_gt_map(full_map_size, i)
+            self.explorable_map.append(mapp)
+            self.n_rot.append(n_rot)
+            self.n_trans.append(n_trans)
                 
         self.prev_explored_area = [0. for index in range(self.num_agents)]
         self.prev_total_explored_area=0

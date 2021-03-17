@@ -108,7 +108,6 @@ class MultiHabitatEnv(object):
 
     def reset(self):
         obs, infos = self.env.reset()
-        import pdb; pdb.set_trace()
         return obs, infos
 
     def step(self, actions):
