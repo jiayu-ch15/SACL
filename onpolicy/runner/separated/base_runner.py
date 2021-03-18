@@ -92,8 +92,7 @@ class Runner(object):
                         self.envs.observation_space[agent_id],
                         share_observation_space,
                         self.envs.action_space[agent_id],
-                        device = self.device,
-                        cat_self = False if self.use_obs_instead_of_state else True)
+                        device = self.device)
             self.policy.append(po)
 
         if self.model_dir is not None:

@@ -239,7 +239,11 @@ def get_config():
                         help="Whether to use Orthogonal initialization for weights and 0 initialization for biases")
     parser.add_argument("--gain", type=float, default=0.01,
                         help="The gain # of last action layer")
-
+    parser.add_argument("--cnn_layers_params", type=str, default=None,
+                        help="The parameters of cnn layer")
+    parser.add_argument("--use_maxpool2d", action='store_true',
+                        default=False, help="Whether to apply layernorm to the inputs")
+    
     # recurrent parameters
     parser.add_argument("--use_naive_recurrent_policy", action='store_true',
                         default=False, help='Whether to use a naive recurrent policy')
@@ -248,6 +252,10 @@ def get_config():
     parser.add_argument("--recurrent_N", type=int, default=1, help="The number of recurrent layers.")
     parser.add_argument("--data_chunk_length", type=int, default=10,
                         help="Time length of chunks used to train a recurrent_policy")
+    parser.add_argument("--use_influence_policy", action='store_true',
+                        default=False, help='use a recurrent policy')
+    parser.add_argument("--influence_layer_N", type=int, default=1,
+                        help="Number of layers for actor/critic networks")                
 
     # attn parameters
     parser.add_argument("--use_attn", action='store_true', default=False, help=" by default False, use attention tactics.")
@@ -257,6 +265,7 @@ def get_config():
     parser.add_argument("--dropout", type=float, default=0.0, help="by default 0, the dropout ratio of attn layer.")
     parser.add_argument("--use_average_pool",
                         action='store_false', default=True, help="by default True, use average pooling for attn model.")
+    parser.add_argument("--use_attn_internal", action='store_false', default=True, help="by default True, whether to strengthen own characteristics")
     parser.add_argument("--use_cat_self", action='store_false', default=True, help="by default True, whether to strengthen own characteristics")
 
     # optimizer parameters

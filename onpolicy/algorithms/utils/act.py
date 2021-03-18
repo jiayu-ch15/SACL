@@ -10,20 +10,22 @@ import torch.nn.functional as F
 class ACTLayer(nn.Module):
     def __init__(self, action_space, inputs_dim, use_orthogonal, gain):
         super(ACTLayer, self).__init__()
+        self.multidiscrete_action = False
+        self.continuous_action = False
         self.mixed_action = False
-        self.multi_discrete = False
 
         if action_space.__class__.__name__ == "Discrete":
             action_dim = action_space.n
             self.action_out = Categorical(inputs_dim, action_dim, use_orthogonal, gain)
         elif action_space.__class__.__name__ == "Box":
+            self.continuous_action = True
             action_dim = action_space.shape[0]
             self.action_out = DiagGaussian(inputs_dim, action_dim, use_orthogonal, gain)
         elif action_space.__class__.__name__ == "MultiBinary":
             action_dim = action_space.shape[0]
             self.action_out = Bernoulli(inputs_dim, action_dim, use_orthogonal, gain)
         elif action_space.__class__.__name__ == "MultiDiscrete":
-            self.multi_discrete = True
+            self.multidiscrete_action = True
             action_dims = action_space.high - action_space.low + 1
             self.action_outs = []
             for action_dim in action_dims:
@@ -50,7 +52,7 @@ class ACTLayer(nn.Module):
             actions = torch.cat(actions, -1)
             action_log_probs = torch.sum(torch.cat(action_log_probs, -1), -1, keepdim=True)
 
-        elif self.multi_discrete:
+        elif self.multidiscrete_action:
             actions = []
             action_log_probs = []
             for action_out in self.action_outs:
@@ -63,6 +65,11 @@ class ACTLayer(nn.Module):
             actions = torch.cat(actions, -1)
             action_log_probs = torch.cat(action_log_probs, -1)
         
+        elif self.continuous_action:
+            action_logits = self.action_out(x)
+            actions = action_logits.mode() if deterministic else action_logits.sample() 
+            action_log_probs = action_logits.log_probs(actions)
+        
         else:
             action_logits = self.action_out(x, available_actions)
             actions = action_logits.mode() if deterministic else action_logits.sample() 
@@ -71,13 +78,16 @@ class ACTLayer(nn.Module):
         return actions, action_log_probs
 
     def get_probs(self, x, available_actions=None):
-        if self.mixed_action or self.multi_discrete:
+        if self.mixed_action or self.multidiscrete_action:
             action_probs = []
             for action_out in self.action_outs:
                 action_logit = action_out(x)
                 action_prob = action_logit.probs
                 action_probs.append(action_prob)
             action_probs = torch.cat(action_probs, -1)
+        elif self.continuous_action:
+            action_logits = self.action_out(x)
+            action_probs = action_logits.probs
         else:
             action_logits = self.action_out(x, available_actions)
             action_probs = action_logits.probs
@@ -105,7 +115,7 @@ class ACTLayer(nn.Module):
             action_log_probs = torch.sum(torch.cat(action_log_probs, -1), -1, keepdim=True)
             dist_entropy = dist_entropy[0] / 2.0 + dist_entropy[1] / 0.98 #! dosen't make sense
 
-        elif self.multi_discrete:
+        elif self.multidiscrete_action:
             action = torch.transpose(action, 0, 1)
             action_log_probs = []
             dist_entropy = []
@@ -119,7 +129,14 @@ class ACTLayer(nn.Module):
 
             action_log_probs = torch.cat(action_log_probs, -1) # ! could be wrong
             dist_entropy = torch.tensor(dist_entropy).mean()
-        
+
+        elif self.continuous_action:
+            action_logits = self.action_out(x)
+            action_log_probs = action_logits.log_probs(action)
+            if active_masks is not None:
+                dist_entropy = (action_logits.entropy()*active_masks).sum()/active_masks.sum()
+            else:
+                dist_entropy = action_logits.entropy().mean()       
         else:
             action_logits = self.action_out(x, available_actions)
             action_log_probs = action_logits.log_probs(action)

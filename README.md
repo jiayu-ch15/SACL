@@ -7,7 +7,6 @@
 | MAPPO      | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |:heavy_check_mark:        |:heavy_check_mark:        |
 | MAPPG |        :heavy_check_mark:           |       :heavy_check_mark:      |     :heavy_check_mark:        |:heavy_check_mark:        |:heavy_check_mark:        |
 | MATRPO[^1] |        :heavy_check_mark:           |       :heavy_check_mark:      |     :heavy_check_mark:        |:heavy_check_mark:        |:heavy_check_mark:        |
-|            |                   |             |             | |
 
 [^1]: see trpo branch
 
@@ -19,22 +18,21 @@
 - [MPE](https://github.com/openai/multiagent-particle-envs)
 - [Hide-and-Seek](https://github.com/openai/multi-agent-emergence-environments)
 - [social dilemmas](https://github.com/eugenevinitsky/sequential_social_dilemma_games)
-- agar.io
+- [agar.io](https://github.com/staghuntrpg/agar)
 - [SMARTS](https://github.com/huawei-noah/SMARTS)
 - [HighWay](https://github.com/eleurent/highway-env)
+- [Habitat](https://github.com/facebookresearch/habitat-sim)
+- [Gibson](https://github.com/StanfordVL/GibsonEnv)
+- [Gibson2](https://github.com/StanfordVL/iGibson)
 
 ## TODOs:
 - [ ] multi-agent FLOW
-
-
 
 ## 1. Install
 
 ### 1.1 instructions
 
-   test on CUDA == 10.1
-
-   
+   test on CUDA == 10.1   
 
 ``` Bash
    conda create -n marl
@@ -60,8 +58,6 @@
 
 ### 2.1 Install StarCraftII [4.10](http://blzdistsc2-a.akamaihd.net/Linux/SC2.4.10.zip)
 
-   
-
 ``` Bash
 unzip SC2.4.10.zip
 # password is iagreetotheeula
@@ -78,7 +74,6 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
 
   + Here is an example:
 
-  
 
 ``` Bash
   conda activate marl
@@ -87,9 +82,7 @@ echo "export SC2PATH=~/StarCraftII/" > ~/.bashrc
   ./train_smac.sh
 ```
 
-  + local results are stored in fold `scripts/results`, if you want to see training curves, login wandb first, see guide [here](https://docs.wandb.com/). Sometimes GPU memory may be leaked, you need to clear it manually.
-
-   
+  + local results are stored in fold `scripts/results`, if you want to see training curves, login wandb first, see guide [here](https://docs.wandb.com/). Sometimes GPU memory may be leaked, you need to clear it manually.   
 
 ``` Bash
    ./clean_gpu.sh
@@ -180,7 +173,6 @@ we support multi-agent boxlocking and blueprint_construction tasks in the hide-a
 
 4. Add this to your `.bashrc` and source your `.bashrc`.
 
-   
 
 ``` 
    export LD_LIBRARY_PATH=~/.mujoco/mujoco200/bin${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
@@ -195,11 +187,8 @@ we support multi-agent boxlocking and blueprint_construction tasks in the hide-a
    sudo apt-get install libgl1-mesa-dev libosmesa6-dev
    ```
 
-   
-
 2. To install mujoco-worldgen, follow these steps:
 
-   
 
 ``` Bash
     # install mujuco_worldgen
@@ -211,8 +200,6 @@ we support multi-agent boxlocking and blueprint_construction tasks in the hide-a
 ```
 
 ### 5.2 Train Tasks
-
-   
 
 ``` Bash
    conda activate marl
@@ -276,7 +263,83 @@ python examples/sumo/sugiyama.py
 1. training script: `./train_highway.sh`
 1. rendering script `./render_highway.sh`
 
-## 9. Docs：
+## 9. Gibson2
+
+```
+cd onpolicy
+# git submodule init 
+# git submodule update
+git submodule update --init --recursive
+cd onpolicy/envs/iGibson
+git submodule update --init --recursive
+
+# if u want to use the original repo, use the following command instead of the above one.
+# git clone https://github.com/StanfordVL/iGibson --recursive
+
+pip install -e .
+```
+
+If you failed to clone pybind11, use the following command.
+
+```
+cd iGibson
+git submodule update
+```
+
+If u have installed IGibson successfully, then u can download dataset.
+```
+cd onpolicy/envs/iGibson/gibson2
+mkdir data
+cd data
+wget https://storage.googleapis.com/gibson_scenes/ig_dataset.tar.gz
+wget https://storage.googleapis.com/gibson_scenes/assets_igibson.tar.gz
+tar -zxvf ig_dataset.tar.gz
+tar -zxvf assets_igibson.tar.gz
+```
+
+Note: we support using a custom pybullet version to speed up the physics in iGibson, if you want to have the speed up, you would need to do the following steps after installation:
+
+```
+pip uninstall pybullet
+pip install https://github.com/StanfordVL/bullet3/archive/master.zip
+```
+
+If you have updated submodules, use the following command to synchronize the updates into onpolicy repository.
+```
+# single update
+git submodule foreach git checkout master
+# batch update
+git submodule foreach git submodule update
+```
+
+## 10. habitat
+
+
+``` 
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple magnum scikit-image lmdb scikit-learnscikit-fmm yacs imageio-ffmpeg numpy-quaternion numba tqdm gitpython attrs==19.1.0 
+```
+```
+cd onpolicy
+git submodule update --init --recursive
+cd habitat/habitat-sim
+python setup.py install --headless
+cd habitat/habitat-lab
+pip install -e .
+# if you failed to install habitat-api, you can use `build.sh --headless` instead.
+```
+
+Remember to change the absolute path in `/home/yuchao/project/onpolicy/onpolicy/envs/habitat/habitat-lab/habitat/config/default.py` and `/home/yuchao/project/onpolicy/onpolicy/envs/habitat/habitat-lab/configs/tasks/pointnav_gibson.yaml` files.
+
+```
+cd /home/yuchao/project/onpolicy/onpolicy/envs/habitat
+mkdir data/datasets
+cd data/datasets
+wget https://dl.fbaipublicfiles.com/habitat/data/datasets/pointnav/gibson/v1/pointnav_gibson_v1.zip
+unzip pointnav_gibson_v1.zip
+ln -s /mnt/disk2/nav/habitat_data/scene_datasets
+```
+
+## 11. Docs：
 
 ```
 pip install sphinx sphinxcontrib-apidoc sphinx_rtd_theme recommonmark
@@ -285,3 +348,24 @@ sphinx-quickstart
 make html
 ```
 
+## 12. submodules
+
+here we give an example on how to add your repo as a submodule of on-policy repo
+```
+git submodule add https://github.com/zoeyuchao/habitat-api.git
+
+# add source for syncing
+git remote add dist_source https://github.com/facebookresearch/habitat-lab.git
+git remote -v
+
+```
+If u want to sync the official updates, you can use the following command.
+```
+git pull dist_source master
+# after you fix merging conflict, then you can merge into master branch 
+git push origin master
+```
+When you update your submodule, you need to update the main repo, using the following command.
+```
+git submodule foreach git submodule update
+```

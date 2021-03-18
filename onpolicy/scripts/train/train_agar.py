@@ -72,6 +72,9 @@ def main(args):
     else:
         raise NotImplementedError
 
+    if all_args.use_attn:
+        assert all_args.use_cat_self==False, ("can not use cat self in critic!")
+
     # cuda
     if all_args.cuda and torch.cuda.is_available():
         print("choose to use gpu...")

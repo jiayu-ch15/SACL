@@ -5,7 +5,7 @@ from onpolicy.utils.util import update_linear_schedule
 
 
 class R_MAPPOPolicy:
-    def __init__(self, args, obs_space, share_obs_space, action_space, device=torch.device("cpu"), cat_self=True):
+    def __init__(self, args, obs_space, share_obs_space, action_space, device=torch.device("cpu")):
 
         self.device = device
         self.lr = args.lr
@@ -17,7 +17,7 @@ class R_MAPPOPolicy:
         self.share_obs_space = share_obs_space
         self.act_space = action_space
 
-        self.model = R_Model(args, self.obs_space, self.share_obs_space, self.act_space, self.device, cat_self)
+        self.model = R_Model(args, self.obs_space, self.share_obs_space, self.act_space, self.device)
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, eps=self.opti_eps, weight_decay=self.weight_decay)
 

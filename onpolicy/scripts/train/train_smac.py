@@ -59,9 +59,9 @@ def parse_args(args, parser):
     parser.add_argument("--add_agent_id", action='store_true', default=False)
     parser.add_argument("--add_visible_state", action='store_true', default=False)
     parser.add_argument("--add_xy_state", action='store_true', default=False)
-    parser.add_argument("--use_state_agent", action='store_true', default=False)
+    parser.add_argument("--use_state_agent", action='store_false', default=True)
     parser.add_argument("--use_mustalive", action='store_false', default=True)
-    parser.add_argument("--add_center_xy", action='store_true', default=False)
+    parser.add_argument("--add_center_xy", action='store_false', default=True)
     parser.add_argument("--use_zerohidden", action='store_true', default=False)
 
     all_args = parser.parse_known_args(args)[0]
@@ -79,6 +79,9 @@ def main(args):
         assert (all_args.use_recurrent_policy == False and all_args.use_naive_recurrent_policy == False), ("check recurrent policy!")
     else:
         raise NotImplementedError
+
+    if all_args.use_attn and all_args.use_obs_instead_of_state:
+        assert all_args.use_cat_self==False, ("can not use cat self in critic!")
 
     # cuda
     if all_args.cuda and torch.cuda.is_available():

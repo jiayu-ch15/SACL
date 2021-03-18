@@ -427,7 +427,7 @@ class GameServer:
             if not self.willCollide(virus):
                 self.addNode(virus)
 
-    def spawnPlayer(self, player, pos):
+    def spawnPlayer(self, player, pos, rand=True):
         if self.disableSpawn:
             return
 
@@ -456,7 +456,11 @@ class GameServer:
         # Spawn player safely (do not check minions)
         cell = PlayerCell(self, player, pos, radius)
         if self.willCollide(cell):
-            pos = self.randomPos()  # Not safe => retry
+            if rand:
+                pos = self.randomPos()  # Not safe => retry
+            else:
+                pos.x -= 100
+                pos.y -= 100
         self.addNode(cell)
 
         # Set initial mouse coords

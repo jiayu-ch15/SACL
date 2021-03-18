@@ -14,3 +14,10 @@ api
 logs
 .nfs*
 *.so
+png
+
+gibson/assets/dataset
+docker
+dataset
+data
+

@@ -50,3 +50,7 @@ class CNNBase(nn.Module):
     def forward(self, x):
         x = self.cnn(x)
         return x
+
+    @property
+    def output_size(self):
+        return self.hidden_size

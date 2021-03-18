@@ -2,7 +2,7 @@ from onpolicy.envs.agar.modules import *
 import math
 
 class Player:
-    def __init__(self, gameServer, name = 'dummy', id = None):
+    def __init__(self, gameServer, name = 'dummy', id = None, pos = None):
         self.gameServer = gameServer
         self.name = name
         self.mouse = Vec2(0, 0)
@@ -28,7 +28,7 @@ class Player:
             else:
                 self.pID = id
             gameServer.gameMode.onPlayerInit(self)
-            self.joinGame()
+            self.joinGame(pos=pos)
             self.updateView()
 
     def step(self, action, *kargs, **kwargs):    # Hxu: action now is a N by 3 matrix
@@ -120,10 +120,10 @@ class Player:
             self.scale = math.pow(min(64 / scale, 1), 0.4) / rate
         return self.scale
 
-    def joinGame(self):
+    def joinGame(self, pos=None):
         if self.cells:
             return
-        self.gameServer.gameMode.onPlayerSpawn(self.gameServer, self)
+        self.gameServer.gameMode.onPlayerSpawn(self.gameServer, self, pos)
 
     def get_view_box(self):
         # notice y positive is upward in opanai gym!
