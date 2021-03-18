@@ -322,9 +322,9 @@ pip install -i https://pypi.tuna.tsinghua.edu.cn/simple magnum scikit-image lmdb
 cd onpolicy
 git submodule update --init --recursive
 cd habitat/habitat-sim
+python setup.py install --headless
+cd habitat/habitat-lab
 pip install -e .
-cd habitat/habitat-api
-pip install -e . --headless
 # if you failed to install habitat-api, you can use `build.sh --headless` instead.
 ```
 
