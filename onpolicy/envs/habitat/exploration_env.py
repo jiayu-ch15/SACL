@@ -12,6 +12,7 @@ import torch
 from PIL import Image
 from torch.nn import functional as F
 from torchvision import transforms
+import onpolicy
 
 if sys.platform == 'darwin':
     matplotlib.use("tkagg")
@@ -77,11 +78,11 @@ class Exploration_Env(habitat.RLEnv):
         self.rank = rank
 
         self.sensor_noise_fwd = \
-                pickle.load(open("/home/yuchao/project/onpolicy/onpolicy/envs/habitat/noise_models/sensor_noise_fwd.pkl", 'rb'))
+                pickle.load(open(onpolicy.__path__[0] + "/envs/habitat/noise_models/sensor_noise_fwd.pkl", 'rb'))
         self.sensor_noise_right = \
-                pickle.load(open("/home/yuchao/project/onpolicy/onpolicy/envs/habitat/noise_models/sensor_noise_right.pkl", 'rb'))
+                pickle.load(open(onpolicy.__path__[0] + "/envs/habitat/noise_models/sensor_noise_right.pkl", 'rb'))
         self.sensor_noise_left = \
-                pickle.load(open("/home/yuchao/project/onpolicy/onpolicy/envs/habitat/noise_models/sensor_noise_left.pkl", 'rb'))
+                pickle.load(open(onpolicy.__path__[0] + "/envs/habitat/noise_models/sensor_noise_left.pkl", 'rb'))
         
         habitat.SimulatorActions.extend_action_space("NOISY_FORWARD")
         habitat.SimulatorActions.extend_action_space("NOISY_RIGHT")
@@ -691,7 +692,7 @@ class Exploration_Env(habitat.RLEnv):
             stg = self._get_stg(grid, explored, start, np.copy(goal), planning_window, a)
 
             # Find GT action
-            if self.args.eval or not self.args.train_local:
+            if self.args.use_eval or not self.args.train_local:
                 gt_action = 0
             else:
                 gt_action = self._get_gt_action(1 - self.explorable_map[a], start,
