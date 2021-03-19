@@ -40,7 +40,6 @@ class MIXBase(nn.Module):
 
     def forward(self, x):
         out_x = x
-        import pdb; pdb.set_trace()
         if len(self.cnn_keys) > 0:
             cnn_input = self._build_cnn_input(x)
             cnn_x = self.cnn(cnn_input)
@@ -48,8 +47,8 @@ class MIXBase(nn.Module):
 
         if len(self.mlp_keys) > 0:
             mlp_input = self._build_mlp_input(x)
-            mlp_x = self.mlp(mlp_input)
-            out_x = torch.cat([out_x, mlp_x], dim=1)
+            mlp_x = self.mlp(mlp_input.long()).squeeze(1)
+            out_x = torch.cat([out_x, mlp_x], dim=1) #!wrong
 
         return out_x
 
@@ -98,11 +97,16 @@ class MIXBase(nn.Module):
                                             kernel_size=kernel_size,
                                             stride=stride,
                                             padding=padding,)))
-            if i != len(cnn_layers_params) - 1:
-                cnn_layers.append(active_func)
+            #if i != len(cnn_layers_params) - 1:
+            cnn_layers.append(active_func)
             prev_out_channels = out_channels
-        
-        for _, kernel_size, stride, padding in cnn_layers_params:
+
+        for i, (_, kernel_size, stride, padding) in enumerate(cnn_layers_params):
+            if self._use_maxpool2d and i != len(cnn_layers_params) - 1:
+                cnn_dims = self._maxpool_output_dim(dimension=cnn_dims,
+                dilation=np.array([1, 1], dtype=np.float32),
+                kernel_size=np.array([2, 2], dtype=np.float32),
+                stride=np.array([2, 2], dtype=np.float32))
             cnn_dims = self._cnn_output_dim(
                 dimension=cnn_dims,
                 padding=np.array([padding, padding], dtype=np.float32),
@@ -110,6 +114,7 @@ class MIXBase(nn.Module):
                 kernel_size=np.array([kernel_size, kernel_size], dtype=np.float32),
                 stride=np.array([stride, stride], dtype=np.float32),
             )
+            
         
         cnn_layers += [
             Flatten(),
@@ -143,6 +148,22 @@ class MIXBase(nn.Module):
             return nn.Sequential(
                     init_(nn.Linear(self.n_mlp_input, hidden_size)), active_func, nn.LayerNorm(hidden_size))
         
+    
+    def _maxpool_output_dim(self, dimension, dilation, kernel_size, stride):
+        """Calculates the output height and width based on the input
+        height and width to the convolution layer.
+        ref: https://pytorch.org/docs/master/nn.html#torch.nn.Conv2d
+        """
+        assert len(dimension) == 2
+        out_dimension = []
+        for i in range(len(dimension)):
+            out_dimension.append(
+                int(np.floor(
+                    ((dimension[i] - dilation[i] * (kernel_size[i] - 1) - 1) / stride[i]) + 1
+                ))
+            )
+        return tuple(out_dimension)
+
     def _cnn_output_dim(self, dimension, padding, dilation, kernel_size, stride):
         """Calculates the output height and width based on the input
         height and width to the convolution layer.
@@ -178,6 +199,7 @@ class MIXBase(nn.Module):
             mlp_input.append(obs[key].view(obs[key].size(0), -1))
 
         mlp_input = torch.cat(mlp_input, dim=1)
+        
         return mlp_input
 
     @property

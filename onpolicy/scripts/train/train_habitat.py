@@ -60,6 +60,9 @@ def make_eval_env(all_args, env_configs, baseline_configs, datasets):
 
 
 def parse_args(args, parser):
+    parser.add_argument('--scenario_name', type=str,
+                        default='pointnav', help="Which scenario to run on")
+
     parser.add_argument('--num_agents', type=int,
                         default=1, help="number of players")
     

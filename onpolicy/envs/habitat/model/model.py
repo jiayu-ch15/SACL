@@ -58,6 +58,7 @@ class NNBase(nn.Module):
         return self._hidden_size
 
     def _forward_gru(self, x, hxs, masks):
+        masks = masks.squeeze(-1)
         if x.size(0) == hxs.size(0):
             x = hxs = self.gru(x, hxs * masks[:, None])
         else:
@@ -234,9 +235,12 @@ class Neural_SLAM_Module(nn.Module):
         obs = check(obs).to(**self.tpdv)
         obs_last = check(obs_last).to(**self.tpdv)
         poses = check(poses).to(**self.tpdv)
-        maps = check(maps).to(**self.tpdv)
-        explored = check(explored).to(**self.tpdv)
-        current_poses = check(current_poses).to(**self.tpdv)
+        if maps is not None:
+            maps = check(maps).to(**self.tpdv)
+        if explored is not None:
+            explored = check(explored).to(**self.tpdv)
+        if current_poses is not None:
+            current_poses = check(current_poses).to(**self.tpdv)
 
         # Get egocentric map prediction for the current obs
         bs, c, h, w = obs.size()
@@ -384,19 +388,22 @@ class Neural_SLAM_Module(nn.Module):
             map_pred = None
             exp_pred = None
             current_poses = None
+        
+       
 
-        return _t2n(proj_pred), _t2n(fp_exp_pred), _t2n(map_pred), _t2n(exp_pred),\
-               _t2n(pose_pred), _t2n(current_poses)
+        return _t2n(proj_pred), _t2n(fp_exp_pred), map_pred if map_pred == None else _t2n(map_pred),\
+               exp_pred if exp_pred == None else _t2n(exp_pred),\
+               _t2n(pose_pred), current_poses if current_poses == None else _t2n(current_poses)
 
 
 # Local Policy model code
 class Local_IL_Policy(NNBase):
 
     def __init__(self, input_shape, num_actions, recurrent=False,
-                 hidden_size=512, deterministic=False):
+                 hidden_size=512, deterministic=False , device = torch.device("cpu")):
 
         super(Local_IL_Policy, self).__init__(recurrent, hidden_size, hidden_size)
-
+        self.tpdv = dict(dtype=torch.float32, device=device)
         self.deterministic = deterministic
         self.dropout = 0.5
 
@@ -430,10 +437,10 @@ class Local_IL_Policy(NNBase):
         self.train()
 
     def forward(self, rgb, rnn_hxs, masks, extras):
-        rgb = check(rgb)
-        rnn_hxs = check(rnn_hxs)
-        masks = check(masks)
-        extras = check(extras)
+        rgb = check(rgb).to(**self.tpdv)
+        rnn_hxs = check(rnn_hxs).to(**self.tpdv)
+        masks = check(masks).to(**self.tpdv)
+        extras = check(extras).to(**self.tpdv)
 
         if self.deterministic:
             x = torch.zeros(extras.size(0), 3)
@@ -453,8 +460,8 @@ class Local_IL_Policy(NNBase):
             if self.dropout > 0:
                 proj1 = self.dropout1(proj1)
 
-            angle_emb = self.embedding_angle(extras[:, 0]).view(-1, 8)
-            dist_emb = self.embedding_dist(extras[:, 1]).view(-1, 8)
+            angle_emb = self.embedding_angle(extras[:, 0].long()).view(-1, 8)
+            dist_emb = self.embedding_dist(extras[:, 1].long()).view(-1, 8)
             x = torch.cat((proj1, angle_emb, dist_emb), 1)
             x = nn.ReLU()(self.linear(x))
             if self.is_recurrent:

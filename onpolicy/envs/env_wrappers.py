@@ -898,6 +898,9 @@ class InfoDummyVecEnv(ShareVecEnv):
                 env.render(mode=mode)
         else:
             raise NotImplementedError
+    
+    def get_short_term_goal(self, data):
+        return [env.get_short_term_goal(d) for d,env in zip(data, self.envs)]
 
 class ChooseDummyVecEnv(ShareVecEnv):
     def __init__(self, env_fns):

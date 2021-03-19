@@ -26,12 +26,11 @@ class FIFOMemory(object):
             self.batch_in_sizes = {}
             self.n_inputs = len(x)
             for dim in range(len(x)):
-                self.batch_in_sizes[dim] = x[dim].size()
-
+                self.batch_in_sizes[dim] = np.array(x[dim]).shape
             self.batch_out_sizes = {}
             self.n_outputs = len(y)
             for dim in range(len(y)):
-                self.batch_out_sizes[dim] = y[dim].size()
+                self.batch_out_sizes[dim] = np.array(y[dim]).shape
 
         self.position = (self.position + 1) % self.capacity
 
@@ -41,18 +40,18 @@ class FIFOMemory(object):
         batch = {}
         inputs = []
         outputs = []
-
+        
         for dim in range(self.n_inputs):
-            inputs.append(torch.cat(batch_size *
-                                    [torch.zeros(
+            inputs.append(np.concatenate(batch_size *
+                                    [np.expand_dims(np.zeros(
                                         self.batch_in_sizes[dim]
-                                    ).unsqueeze(0)]))
+                                    ), 0)]))
 
         for dim in range(self.n_outputs):
-            outputs.append(torch.cat(batch_size *
-                                     [torch.zeros(
+            outputs.append(np.concatenate(batch_size *
+                                     [np.expand_dims(np.zeros(
                                          self.batch_out_sizes[dim]
-                                     ).unsqueeze(0)]))
+                                     ), 0)]))
 
         indices = np.random.choice(len(self.memory), batch_size, replace=False)
 
@@ -62,10 +61,10 @@ class FIFOMemory(object):
             y = self.memory[i][1]
 
             for dim in range(len(x)):
-                inputs[dim][count] = x[dim]
+                inputs[dim][count] = np.array(x[dim])
 
             for dim in range(len(y)):
-                outputs[dim][count] = y[dim]
+                outputs[dim][count] = np.array(y[dim])
 
             count += 1
 

@@ -11,7 +11,7 @@ def construct_config(args):
     datasets = []
 
     basic_config = cfg_env(config_paths=
-                           ["/home/yuchao/project/onpolicy/onpolicy/envs/habitat/habitat-lab/configs/" + args.task_config])
+                           ["/home/yuchao19/onpolicy_new/onpolicy/onpolicy/envs/habitat/habitat-lab/configs/" + args.task_config])
     basic_config.defrost()
     basic_config.DATASET.SPLIT = args.split
     basic_config.freeze()
@@ -27,7 +27,7 @@ def construct_config(args):
 
     for i in range(args.n_rollout_threads):
         config_env = cfg_env(config_paths=
-                             ["/home/yuchao/project/onpolicy/onpolicy/envs/habitat/habitat-lab/configs/" + args.task_config])
+                             ["/home/yuchao19/onpolicy_new/onpolicy/onpolicy/envs/habitat/habitat-lab/configs/" + args.task_config])
         config_env.defrost()
 
         if len(scenes) > 0:
@@ -111,7 +111,7 @@ class MultiHabitatEnv(object):
         return obs, infos
 
     def step(self, actions):
-        obs, rewards, dones, infos = self.env.step(actions_env)
+        obs, rewards, dones, infos = self.env.step(actions)
         rewards = [infos['exp_reward']] * self.num_agents
         return obs, rewards, dones, infos
 
