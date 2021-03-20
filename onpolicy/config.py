@@ -244,7 +244,6 @@ def get_config():
     parser.add_argument("--use_maxpool2d", action='store_true',
                         default=False, help="Whether to apply layernorm to the inputs")
     
-
     # recurrent parameters
     parser.add_argument("--use_naive_recurrent_policy", action='store_true',
                         default=False, help='Whether to use a naive recurrent policy')
@@ -253,6 +252,10 @@ def get_config():
     parser.add_argument("--recurrent_N", type=int, default=1, help="The number of recurrent layers.")
     parser.add_argument("--data_chunk_length", type=int, default=10,
                         help="Time length of chunks used to train a recurrent_policy")
+    parser.add_argument("--use_influence_policy", action='store_true',
+                        default=False, help='use a recurrent policy')
+    parser.add_argument("--influence_layer_N", type=int, default=1,
+                        help="Number of layers for actor/critic networks")                
 
     # attn parameters
     parser.add_argument("--use_attn", action='store_true', default=False, help=" by default False, use attention tactics.")

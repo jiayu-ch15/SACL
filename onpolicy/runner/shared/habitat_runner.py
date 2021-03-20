@@ -2,18 +2,21 @@
 import time
 import wandb
 import os
+import gym
 import numpy as np
 from itertools import chain
+
 import torch
 import torch.nn as nn
+from torch.nn import functional as F
+
 from onpolicy.utils.util import update_linear_schedule
 from onpolicy.runner.shared.base_runner import Runner
 from onpolicy.envs.habitat.model.model import Neural_SLAM_Module, Local_IL_Policy
 from onpolicy.envs.habitat.utils.memory import FIFOMemory
-from collections import defaultdict, deque
 from onpolicy.algorithms.utils.util import init, check
-from torch.nn import functional as F
-import gym
+
+from collections import defaultdict, deque
 
 
 def _t2n(x):
@@ -62,12 +65,13 @@ class HabitatRunner(Runner):
         # Output stores local goals as well as the the ground-truth action
         self.local_output = self.envs.get_short_term_goal(self.local_input)
         self.local_output = np.array(self.local_output, dtype = np.long)
+        
         self.last_obs = self.obs 
             
         return values, actions, action_log_probs, rnn_states, rnn_states_critic
  
     def run(self):
-        self.train_global_infos={}
+        self.train_global_infos = {}
         values, actions, action_log_probs, rnn_states, rnn_states_critic = self.warmup()   
 
         start = time.time()
@@ -147,7 +151,7 @@ class HabitatRunner(Runner):
             
             # post process
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
-
+            
             # log information
             if episode % self.log_interval == 0:
                 end = time.time()
@@ -173,16 +177,16 @@ class HabitatRunner(Runner):
                 
                 self.train_global_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
                 print("average episode rewards is {}".format(self.train_global_infos["average_episode_rewards"]))
-                self.log_train(self.train_global_infos, total_num_steps)
-                self.log_train(self.train_slam_infos, total_num_steps)
-                self.log_train(self.train_local_infos, total_num_steps)
-                self.log_env(env_infos, total_num_steps)
+                #self.log_train(self.train_global_infos, total_num_steps)
+                #self.log_train(self.train_slam_infos, total_num_steps)
+                #self.log_train(self.train_local_infos, total_num_steps)
+                #self.log_env(env_infos, total_num_steps)
             
             # save model
-            if (episode % self.save_interval == 0 or episode == episodes - 1):
+            '''if (episode % self.save_interval == 0 or episode == episodes - 1):
                 self.save_slam_model(total_num_steps)
                 self.save_global_model(total_num_steps)
-                self.save_local_model(total_num_steps)
+                self.save_local_model(total_num_steps)'''
 
             # eval
             if episode % self.eval_interval == 0 and self.use_eval:
@@ -241,7 +245,6 @@ class HabitatRunner(Runner):
         self.num_global_steps = self.all_args.num_global_steps
         self.num_local_steps = self.all_args.num_local_steps
         
-
     def init_map_variables(self):
         ### Full map consists of 4 channels containing the following:
         ### 1. Obstacle Map

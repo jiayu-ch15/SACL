@@ -1,5 +1,6 @@
 import numpy as np
 import gym
+import onpolicy
 from .exploration_env import Exploration_Env
 from habitat.config.default import get_config as cfg_env
 from habitat_baselines.config.default import get_config as cfg_baseline
@@ -10,8 +11,7 @@ def construct_config(args):
     baseline_configs = []
     datasets = []
 
-    basic_config = cfg_env(config_paths=
-                           ["/home/yuchao19/onpolicy_new/onpolicy/onpolicy/envs/habitat/habitat-lab/configs/" + args.task_config])
+    basic_config = cfg_env(config_paths=[onpolicy.__path__[0] + "/envs/habitat/habitat-lab/configs/" + args.task_config])
     basic_config.defrost()
     basic_config.DATASET.SPLIT = args.split
     basic_config.freeze()
@@ -27,7 +27,7 @@ def construct_config(args):
 
     for i in range(args.n_rollout_threads):
         config_env = cfg_env(config_paths=
-                             ["/home/yuchao19/onpolicy_new/onpolicy/onpolicy/envs/habitat/habitat-lab/configs/" + args.task_config])
+                             [onpolicy.__path__[0] + "/envs/habitat/habitat-lab/configs/" + args.task_config])
         config_env.defrost()
 
         if len(scenes) > 0:
