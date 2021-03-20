@@ -50,7 +50,7 @@ class R_Actor(nn.Module):
                               self._influence_layer_N, self._use_orthogonal, self._use_ReLU)
             input_size += self.hidden_size
 
-        self.act = ACTLayer(action_space, input_size, self._use_orthogonal, self._gain)
+        self.act = ACTLayer(action_space, self.hidden_size, self._use_orthogonal, self._gain)
 
         if self._use_policy_vhead:
             init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][self._use_orthogonal]
@@ -176,7 +176,7 @@ class R_Critic(nn.Module):
         def init_(m): 
             return init(m, init_method, lambda x: nn.init.constant_(x, 0))
 
-        self.v_out = init_(nn.Linear(input_size, 1))
+        self.v_out = init_(nn.Linear(self.hidden_size, 1))
 
         self.to(device)
 

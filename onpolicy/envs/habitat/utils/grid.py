@@ -36,8 +36,8 @@ def get_grid(pose, grid_size, device):
                            torch.ones(x.shape).to(device), y], 1)
     theta2 = torch.stack([theta21, theta22], 1)
 
-    rot_grid = F.affine_grid(theta1, torch.Size(grid_size))
-    trans_grid = F.affine_grid(theta2, torch.Size(grid_size))
+    rot_grid = F.affine_grid(theta1, torch.Size(grid_size),align_corners=True)
+    trans_grid = F.affine_grid(theta2, torch.Size(grid_size),align_corners=True)
 
     return rot_grid, trans_grid
 
@@ -74,8 +74,8 @@ def get_grid_full(pose, grid_size,full_size, device):
                            torch.ones(x.shape).to(device), y], 1)
     theta2 = torch.stack([theta21, theta22], 1)
 
-    rot_grid = F.affine_grid(theta1, torch.Size(grid_size))
-    trans_grid = F.affine_grid(theta2, torch.Size(grid_size))
+    rot_grid = F.affine_grid(theta1, torch.Size(grid_size),align_corners=True)
+    trans_grid = F.affine_grid(theta2, torch.Size(grid_size), align_corners=True)
 
     
     
@@ -91,7 +91,7 @@ def get_grid_full(pose, grid_size,full_size, device):
     theta42 = torch.stack([torch.zeros(x.shape).to(device),
                            torch.ones(x.shape).to(device), -y*grid_size[3]/full_size[3]], 1)
     theta4 = torch.stack([theta41, theta42], 1)
-    n_rot_grid = F.affine_grid(theta3, torch.Size(full_size))
+    n_rot_grid = F.affine_grid(theta3, torch.Size(full_size),align_corners=True)
     
-    n_trans_grid = F.affine_grid(theta4, torch.Size(full_size))
+    n_trans_grid = F.affine_grid(theta4, torch.Size(full_size),align_corners=True)
     return rot_grid, trans_grid,n_rot_grid,n_trans_grid

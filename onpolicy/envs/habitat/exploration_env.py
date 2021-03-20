@@ -272,7 +272,6 @@ class Exploration_Env(habitat.RLEnv):
         args = self.args
         self.timestep += 1
         noisy_action = []
-        #print(action)
 
         # Action remapping
         for i in range(self.num_agents):
@@ -305,7 +304,6 @@ class Exploration_Env(habitat.RLEnv):
             rew.append(rew_t)
             done.append(done_t)
             info.append(info_t)
-        #super()._update_step_stats()
 
         # Preprocess observations
         rgb = [obs[index]['rgb'].astype(np.uint8) for index in range(self.num_agents)]
@@ -336,7 +334,6 @@ class Exploration_Env(habitat.RLEnv):
             dx_base.append(dx_base_t)
             dy_base.append(dy_base_t)
             do_base.append(do_base_t)
-        #print(dx_base, dy_base, do_base)
 
         
         for i in range(self.num_agents):
@@ -418,14 +415,12 @@ class Exploration_Env(habitat.RLEnv):
             self.info['pose_err'].append([dx_gt[i] - dx_base[i],
                                     dy_gt[i] - dy_base[i],
                                     do_gt[i] - do_base[i]])
-        #print(dx_base, dy_base, do_base)
-
 
         self.info['exp_reward'] = []
         self.info['exp_ratio'] = []
         self.info['exp_total_reward'] =None
         self.info['exp_total_ratio'] =None
-        if self.timestep%args.num_local_steps==0:
+        if self.timestep % args.num_local_steps == 0:
             area, ratio,total_area,total_ratio = self.get_global_reward()
             self.info['exp_total_reward'] =total_area
             self.info['exp_total_ratio'] =total_ratio
@@ -469,15 +464,15 @@ class Exploration_Env(habitat.RLEnv):
             curr_explored.append(self.explored_map[i]*self.explorable_map[i])
             
             cur_t=torch.from_numpy(curr_explored[i])
-            n_rotated = F.grid_sample(cur_t.unsqueeze(0).unsqueeze(0), self.n_rot[i].double())
-            n_map=F.grid_sample(n_rotated, self.n_trans[i].double())
+            n_rotated = F.grid_sample(cur_t.unsqueeze(0).unsqueeze(0), self.n_rot[i].double(), align_corners=True)
+            n_map=F.grid_sample(n_rotated, self.n_trans[i].double(), align_corners=True)
             n_map=n_map[0,0,:,:]
             curr_total_explored=np.maximum(curr_total_explored,n_map.numpy())
             #curr_total_explored[n_map.numpy()>0.5]=1
 
             exp_m=torch.from_numpy(self.explorable_map[i])
-            _n_rotated = F.grid_sample(exp_m.unsqueeze(0).unsqueeze(0), self.n_rot[i])
-            _n_map=F.grid_sample(_n_rotated, self.n_trans[i])
+            _n_rotated = F.grid_sample(exp_m.unsqueeze(0).unsqueeze(0), self.n_rot[i], align_corners=True)
+            _n_map=F.grid_sample(_n_rotated, self.n_trans[i], align_corners=True)
             _n_map=_n_map[0,0,:,:]
             total_explorable_map=np.maximum(total_explorable_map,_n_map.numpy())
             #total_explorable_map[_n_map.numpy()==1]=1
@@ -545,7 +540,6 @@ class Exploration_Env(habitat.RLEnv):
 
     def get_sim_location(self, agent_id):
         agent_state = super().habitat_env.sim.get_agent_state(agent_id)
-        #print(agent_state)
         x = -agent_state.position[2]
         y = -agent_state.position[0]
         axis = quaternion.as_euler_angles(agent_state.rotation)[0]
@@ -575,7 +569,6 @@ class Exploration_Env(habitat.RLEnv):
         else: ##Stop
             x_err, y_err, o_err = 0., 0., 0.
 
-        #print("base change", x_err, y_err, o_err)
         x_err = x_err * self.args.noise_level
         y_err = y_err * self.args.noise_level
         o_err = o_err * self.args.noise_level
@@ -584,8 +577,8 @@ class Exploration_Env(habitat.RLEnv):
    
     def transform(self,inputs,a):
         inputs=torch.from_numpy(inputs)
-        n_rotated = F.grid_sample(inputs.unsqueeze(0).unsqueeze(0).float(), self.n_rot[a].float())
-        n_map=F.grid_sample(n_rotated.float(), self.n_trans[a].float())
+        n_rotated = F.grid_sample(inputs.unsqueeze(0).unsqueeze(0).float(), self.n_rot[a].float(), align_corners=True)
+        n_map=F.grid_sample(n_rotated.float(), self.n_trans[a].float(), align_corners=True)
         n_map=n_map[0,0,:,:].numpy()
         
         return n_map
@@ -593,7 +586,6 @@ class Exploration_Env(habitat.RLEnv):
     def get_short_term_goal(self, inputs):
 
         args = self.args
-
         self.extrinsic_rew = []
         self.intrinsic_rew = []
         self.relative_angle = []
@@ -667,7 +659,6 @@ class Exploration_Env(habitat.RLEnv):
             start_gt = [int(r * 100.0/args.map_resolution),
                         int(c * 100.0/args.map_resolution)]
             start_gt = pu.threshold_poses(start_gt, self.visited_gt[a].shape)
-            #self.visited_gt[start_gt[0], start_gt[1]] = 1
 
             steps = 25
             for i in range(steps):
@@ -814,10 +805,6 @@ class Exploration_Env(habitat.RLEnv):
                                 dump_dir, self.rank, self.episode_no,
                                 self.timestep, args.visualize,
                                 args.print_images, args.vis_type, a)
-            
-            
-            
-
         return output
     
         
@@ -877,8 +864,8 @@ class Exploration_Env(habitat.RLEnv):
 
         grid_map = torch.from_numpy(grid_map).float()
         grid_map = grid_map.unsqueeze(0).unsqueeze(0)
-        translated = F.grid_sample(grid_map, trans_mat)
-        rotated = F.grid_sample(translated, rot_mat)
+        translated = F.grid_sample(grid_map, trans_mat, align_corners=True)
+        rotated = F.grid_sample(translated, rot_mat, align_corners=True)
         
         episode_map = torch.zeros((full_map_size, full_map_size)).float()
         if full_map_size > grid_size:

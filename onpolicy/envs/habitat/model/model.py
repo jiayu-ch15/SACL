@@ -137,7 +137,7 @@ class Neural_SLAM_Module(nn.Module):
     """
     """
 
-    def __init__(self, args, device=torch.device("cpu")):
+    def __init__(self, args, device=torch.device("cuda:0")):
         super(Neural_SLAM_Module, self).__init__()
 
         self.device = device
@@ -391,16 +391,16 @@ class Neural_SLAM_Module(nn.Module):
         
        
 
-        return _t2n(proj_pred), _t2n(fp_exp_pred), map_pred if map_pred == None else _t2n(map_pred),\
-               exp_pred if exp_pred == None else _t2n(exp_pred),\
-               _t2n(pose_pred), current_poses if current_poses == None else _t2n(current_poses)
+        return proj_pred, fp_exp_pred, map_pred if map_pred == None else _t2n(map_pred),\
+               exp_pred if exp_pred == None else _t2n(exp_pred), pose_pred,\
+               current_poses if current_poses == None else _t2n(current_poses)
 
 
 # Local Policy model code
 class Local_IL_Policy(NNBase):
 
     def __init__(self, input_shape, num_actions, recurrent=False,
-                 hidden_size=512, deterministic=False , device = torch.device("cpu")):
+                 hidden_size=512, deterministic=False , device = torch.device("cuda:0")):
 
         super(Local_IL_Policy, self).__init__(recurrent, hidden_size, hidden_size)
         self.tpdv = dict(dtype=torch.float32, device=device)
@@ -471,7 +471,7 @@ class Local_IL_Policy(NNBase):
 
         action = torch.argmax(x, dim=1)
 
-        return _t2n(action), _t2n(x), _t2n(rnn_hxs)
+        return action, x, rnn_hxs
 
 
 # # https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail/blob/master/a2c_ppo_acktr/model.py#L15

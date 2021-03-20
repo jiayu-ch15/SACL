@@ -6,11 +6,12 @@ import numpy as np
 from itertools import chain
 import torch
 from tensorboardX import SummaryWriter
-
+from collections import deque
 from onpolicy.utils.shared_buffer import SharedReplayBuffer
 from onpolicy.utils.util import update_linear_schedule
 
 def _t2n(x):
+    
     return x.detach().cpu().numpy()
 
 class Runner(object):
@@ -154,9 +155,9 @@ class Runner(object):
     def log_train(self, train_infos, total_num_steps):
         for k, v in train_infos.items():
             if self.use_wandb:
-                wandb.log({k: v}, step=total_num_steps)
+                wandb.log({k: np.mean(_t2n(v))}, step=total_num_steps)
             else:
-                self.writter.add_scalars(k, {k: v}, total_num_steps)
+                self.writter.add_scalars(k, {k: np.mean(v) if isinstance (v, deque) else v} , total_num_steps)
 
     def log_env(self, env_infos, total_num_steps):
         for k, v in env_infos.items():

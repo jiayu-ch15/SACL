@@ -71,7 +71,6 @@ class HabitatRunner(Runner):
         return values, actions, action_log_probs, rnn_states, rnn_states_critic
  
     def run(self):
-        self.train_global_infos = {}
         values, actions, action_log_probs, rnn_states, rnn_states_critic = self.warmup()   
 
         start = time.time()
@@ -175,18 +174,18 @@ class HabitatRunner(Runner):
                         agent_k = 'agent%i/exp_ratio' % agent_id
                         env_infos[agent_k] = exp_ratio
                 
-                self.train_global_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
-                print("average episode rewards is {}".format(self.train_global_infos["average_episode_rewards"]))
-                #self.log_train(self.train_global_infos, total_num_steps)
-                #self.log_train(self.train_slam_infos, total_num_steps)
-                #self.log_train(self.train_local_infos, total_num_steps)
-                #self.log_env(env_infos, total_num_steps)
+                self.train_global_infos["average_episode_rewards"].append(np.mean(self.buffer.rewards) * self.episode_length)
+                print("average episode rewards is {}".format(np.mean(self.train_global_infos["average_episode_rewards"])))
+                self.log_train(self.train_global_infos, total_num_steps)
+                self.log_train(self.train_slam_infos, total_num_steps)
+                self.log_train(self.train_local_infos, total_num_steps)
+                self.log_env(env_infos, total_num_steps)
             
             # save model
-            '''if (episode % self.save_interval == 0 or episode == episodes - 1):
+            if (episode % self.save_interval == 0 or episode == episodes - 1):
                 self.save_slam_model(total_num_steps)
                 self.save_global_model(total_num_steps)
-                self.save_local_model(total_num_steps)'''
+                self.save_local_model(total_num_steps)
 
             # eval
             if episode % self.eval_interval == 0 and self.use_eval:
@@ -215,12 +214,13 @@ class HabitatRunner(Runner):
         return [gx1, gx2, gy1, gy2]
 
     def init_hyper_parameters(self):
+        self.device = torch.device("cuda:0")
         self.map_size_cm = self.all_args.map_size_cm
         self.map_resolution = self.all_args.map_resolution
         self.global_downscaling = self.all_args.global_downscaling
 
         self.frame_width = self.all_args.frame_width
-
+       
         self.load_local = self.all_args.load_local
         self.load_slam = self.all_args.load_slam
         self.train_local = self.all_args.train_local
@@ -310,7 +310,14 @@ class HabitatRunner(Runner):
 
     def init_global_policy(self):
         self.best_gobal_reward = -np.inf
-
+        self.train_global_infos = {}
+        self.train_global_infos['value_loss']= deque(maxlen=1000)
+        self.train_global_infos['policy_loss']= deque(maxlen=1000)
+        self.train_global_infos['dist_entropy'] = deque(maxlen=1000)
+        self.train_global_infos['actor_grad_norm'] = deque(maxlen=1000)
+        self.train_global_infos['critic_grad_norm'] = deque(maxlen=1000)
+        self.train_global_infos['ratio'] = deque(maxlen=1000)
+        self.train_global_infos['average_episode_rewards'] = deque(maxlen=1000)
         self.global_input = {}
         self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
         self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
@@ -325,7 +332,7 @@ class HabitatRunner(Runner):
         
         # Local policy
         self.local_masks = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
-        self.local_rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.local_hidden_size), dtype=np.float32)
+        self.local_rnn_states = torch.zeros((self.n_rollout_threads, self.num_agents, self.local_hidden_size)).to(self.device)
         
         local_observation_space = gym.spaces.Box(0, 255, (3,
                                                     self.frame_width,
@@ -335,11 +342,11 @@ class HabitatRunner(Runner):
         self.local_policy = Local_IL_Policy(local_observation_space.shape, local_action_space.n,
                                recurrent=self.use_local_recurrent_policy,
                                hidden_size=self.local_hidden_size,
-                               deterministic=self.all_args.use_local_deterministic)
+                               deterministic=self.all_args.use_local_deterministic).to(self.device)
         
         if self.load_local != "0":
             print("Loading local {}".format(self.load_local))
-            state_dict = torch.load(self.load_local, map_location='cpu')
+            state_dict = torch.load(self.load_local, map_location='cuda:0')
             self.local_policy.load_state_dict(state_dict)
 
         if not self.train_local:
@@ -356,11 +363,11 @@ class HabitatRunner(Runner):
         self.train_slam_infos['exp_costs'] = deque(maxlen=1000)
         self.train_slam_infos['pose_costs'] = deque(maxlen=1000)
         
-        self.nslam_module = Neural_SLAM_Module(self.all_args)
+        self.nslam_module = Neural_SLAM_Module(self.all_args).to(self.device)
         
         if self.load_slam != "0":
             print("Loading slam {}".format(self.load_slam))
-            state_dict = torch.load(self.load_slam, map_location='cpu')
+            state_dict = torch.load(self.load_slam, map_location='cuda:0')
             self.nslam_module.load_state_dict(state_dict)
         
         if not self.train_slam:
@@ -422,15 +429,11 @@ class HabitatRunner(Runner):
                                     extras=local_goals)
 
             if self.train_local:
-                action_prob = check(action_prob)
-                action_target = check(self.local_output[:, a, -1])
-                #action_target.requires_grad_(True)# !wrong
-                action_prob.requires_grad_(True)
-                #action_target=action_target.long()
+                action_target = check(self.local_output[:, a, -1]).to(self.device)
                 self.local_policy_loss += nn.CrossEntropyLoss()(action_prob, action_target)
                 torch.set_grad_enabled(False)
             
-            local_action[:, a] = check(action).cpu()
+            local_action[:, a] = action.cpu()
 
         return local_action
    
@@ -482,6 +485,24 @@ class HabitatRunner(Runner):
         self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(action)), self.n_rollout_threads))
  
         return values, actions, action_log_probs, rnn_states, rnn_states_critic
+    
+    
+    @torch.no_grad()
+    def compute(self):
+        self.trainer.prep_rollout()
+        concat_share_obs = {}
+        concat_obs = {}
+
+        for key in self.buffer.share_obs.keys():
+            concat_share_obs[key] = np.concatenate(self.buffer.share_obs[key][-1])
+        for key in self.buffer.obs.keys():
+            concat_obs[key] = np.concatenate(self.buffer.obs[key][-1])
+
+        next_values = self.trainer.policy.get_values(concat_share_obs,
+                                                np.concatenate(self.buffer.rnn_states_critic[-1]),
+                                                np.concatenate(self.buffer.masks[-1]))
+        next_values = np.array(np.split(_t2n(next_values), self.n_rollout_threads))
+        self.buffer.compute_returns(next_values, self.trainer.value_normalizer)
 
     def update_local_map(self):        
         locs = self.local_pose
@@ -538,19 +559,10 @@ class HabitatRunner(Runner):
                             None, None, None,
                             build_maps=False)
             
-            gt_fp_projs = check(gt_fp_projs)
-            #gt_fp_projs.requires_grad_(True)
-            gt_fp_explored = check(gt_fp_explored)
-            #gt_fp_explored.requires_grad_(True)
-            gt_pose_err = check(gt_pose_err)
-            #gt_pose_err.requires_grad_(True)
-
-            b_proj_pred = check(b_proj_pred)
-            b_proj_pred.requires_grad_(True)
-            b_fp_exp_pred = check(b_fp_exp_pred)
-            b_fp_exp_pred.requires_grad_(True)
-            b_pose_err_pred = check(b_pose_err_pred)
-            b_pose_err_pred.requires_grad_(True)
+            gt_fp_projs = check(gt_fp_projs).to(self.device)
+            gt_fp_explored = check(gt_fp_explored).to(self.device)
+            gt_pose_err = check(gt_pose_err).to(self.device)
+            
             loss = 0
             if self.proj_loss_coeff > 0:
                 proj_loss = F.binary_cross_entropy(b_proj_pred.double(), gt_fp_projs.double())
@@ -581,10 +593,13 @@ class HabitatRunner(Runner):
         self.train_local_infos['local_policy_loss'].append(self.local_policy_loss.item())
         self.local_optimizer.step()
         self.local_policy_loss = 0
+        self.local_rnn_states = self.local_rnn_states.detach_()
 
     def train_global_policy(self):
         self.compute()
-        self.train_global_infos = self.train()
+        train_global_infos = self.train()
+        for k, v in train_global_infos.items():
+            self.train_global_infos[k].append(v)
 
     def save_slam_model(self, step):
         if len(self.train_slam_infos['costs']) >= 1000 and np.mean(self.train_slam_infos['costs']) < self.best_slam_cost:
@@ -603,8 +618,11 @@ class HabitatRunner(Runner):
         if len(self.train_global_infos["average_episode_rewards"]) >= 100 and \
             (np.mean(self.train_global_infos["average_episode_rewards"]) >= self.best_gobal_reward):
             self.best_gobal_reward = np.mean(self.train_global_infos["average_episode_rewards"])
-            torch.save(self.trainer.policy.state_dict(), str(self.save_dir) + "/global_best.pt")
-        torch.save(self.trainer.policy.state_dict(), str(self.save_dir) + "global_periodic_{}.pt".format(step))
+            torch.save(self.trainer.policy.actor.state_dict(), str(self.save_dir) + "/global_actor_best.pt")
+            torch.save(self.trainer.policy.critic.state_dict(), str(self.save_dir) + "/global_critic_best.pt")
+        torch.save(self.trainer.policy.actor.state_dict(), str(self.save_dir) + "global_actor_periodic_{}.pt".format(step))
+        torch.save(self.trainer.policy.critic.state_dict(), str(self.save_dir) + "global_critic_periodic_{}.pt".format(step))
+
         
     @torch.no_grad()
     def eval(self, total_num_steps):
@@ -702,7 +720,7 @@ class HabitatRunner(Runner):
                     calc_end = time.time()
                     elapsed = calc_end - calc_start
                     if elapsed < self.all_args.ifi:
-                        time.sleep(ifi - elapsed)
+                        time.sleep(self.all_args.ifi - elapsed)
 
             print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
 
