@@ -60,6 +60,9 @@ def make_eval_env(all_args, env_configs, baseline_configs, datasets):
 
 
 def parse_args(args, parser):
+    parser.add_argument('--scenario_name', type=str,
+                        default='pointnav', help="Which scenario to run on")
+
     parser.add_argument('--num_agents', type=int,
                         default=1, help="number of players")
     
@@ -121,9 +124,6 @@ def parse_args(args, parser):
     parser.add_argument('--local_lr', type=float, default=0.0001)
     parser.add_argument('--local_opti_eps', type=float, default=1e-5)
     parser.add_argument('--num_local_steps', type=int, default=25,
-                        help="""Number of steps the local can
-                            perform between each global instruction""")
-    parser.add_argument('--num_global_steps', type=int, default=40,
                         help="""Number of steps the local can
                             perform between each global instruction""")
     parser.add_argument('--local_hidden_size', type=int, default=512,

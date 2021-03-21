@@ -58,6 +58,7 @@ class NNBase(nn.Module):
         return self._hidden_size
 
     def _forward_gru(self, x, hxs, masks):
+        masks = masks.squeeze(-1)
         if x.size(0) == hxs.size(0):
             x = hxs = self.gru(x, hxs * masks[:, None])
         else:
@@ -136,7 +137,7 @@ class Neural_SLAM_Module(nn.Module):
     """
     """
 
-    def __init__(self, args, device=torch.device("cpu")):
+    def __init__(self, args, device=torch.device("cuda:0")):
         super(Neural_SLAM_Module, self).__init__()
 
         self.device = device
@@ -234,9 +235,12 @@ class Neural_SLAM_Module(nn.Module):
         obs = check(obs).to(**self.tpdv)
         obs_last = check(obs_last).to(**self.tpdv)
         poses = check(poses).to(**self.tpdv)
-        maps = check(maps).to(**self.tpdv)
-        explored = check(explored).to(**self.tpdv)
-        current_poses = check(current_poses).to(**self.tpdv)
+        if maps is not None:
+            maps = check(maps).to(**self.tpdv)
+        if explored is not None:
+            explored = check(explored).to(**self.tpdv)
+        if current_poses is not None:
+            current_poses = check(current_poses).to(**self.tpdv)
 
         # Get egocentric map prediction for the current obs
         bs, c, h, w = obs.size()
@@ -293,8 +297,8 @@ class Neural_SLAM_Module(nn.Module):
 
             grid_map.fill_(0.)
             grid_map[:, :, vr:, int(vr / 2):int(vr / 2 + vr)] = pred_last
-            translated = F.grid_sample(grid_map, trans_mat)
-            rotated = F.grid_sample(translated, rot_mat)
+            translated = F.grid_sample(grid_map, trans_mat, align_corners=True)
+            rotated = F.grid_sample(translated, rot_mat, align_corners=True)
             rotated = rotated[:, :, vr:, int(vr / 2):int(vr / 2 + vr)]
 
             pred_last_st = rotated
@@ -369,8 +373,8 @@ class Neural_SLAM_Module(nn.Module):
                 rot_mat, trans_mat = get_grid(st_pose, agent_view.size(),
                                               self.device)
 
-                rotated = F.grid_sample(agent_view, rot_mat)
-                translated = F.grid_sample(rotated, trans_mat)
+                rotated = F.grid_sample(agent_view, rot_mat, align_corners=True)
+                translated = F.grid_sample(rotated, trans_mat, align_corners=True)
 
                 maps2 = torch.cat((maps.unsqueeze(1),
                                    translated[:, :1, :, :]), 1)
@@ -384,19 +388,22 @@ class Neural_SLAM_Module(nn.Module):
             map_pred = None
             exp_pred = None
             current_poses = None
+        
+       
 
-        return _t2n(proj_pred), _t2n(fp_exp_pred), _t2n(map_pred), _t2n(exp_pred),\
-               _t2n(pose_pred), _t2n(current_poses)
+        return proj_pred, fp_exp_pred, map_pred if map_pred == None else _t2n(map_pred),\
+               exp_pred if exp_pred == None else _t2n(exp_pred), pose_pred,\
+               current_poses if current_poses == None else _t2n(current_poses)
 
 
 # Local Policy model code
 class Local_IL_Policy(NNBase):
 
     def __init__(self, input_shape, num_actions, recurrent=False,
-                 hidden_size=512, deterministic=False):
+                 hidden_size=512, deterministic=False , device = torch.device("cuda:0")):
 
         super(Local_IL_Policy, self).__init__(recurrent, hidden_size, hidden_size)
-
+        self.tpdv = dict(dtype=torch.float32, device=device)
         self.deterministic = deterministic
         self.dropout = 0.5
 
@@ -430,10 +437,10 @@ class Local_IL_Policy(NNBase):
         self.train()
 
     def forward(self, rgb, rnn_hxs, masks, extras):
-        rgb = check(rgb)
-        rnn_hxs = check(rnn_hxs)
-        masks = check(masks)
-        extras = check(extras)
+        rgb = check(rgb).to(**self.tpdv)
+        rnn_hxs = check(rnn_hxs).to(**self.tpdv)
+        masks = check(masks).to(**self.tpdv)
+        extras = check(extras).to(**self.tpdv)
 
         if self.deterministic:
             x = torch.zeros(extras.size(0), 3)
@@ -453,8 +460,8 @@ class Local_IL_Policy(NNBase):
             if self.dropout > 0:
                 proj1 = self.dropout1(proj1)
 
-            angle_emb = self.embedding_angle(extras[:, 0]).view(-1, 8)
-            dist_emb = self.embedding_dist(extras[:, 1]).view(-1, 8)
+            angle_emb = self.embedding_angle(extras[:, 0].long()).view(-1, 8)
+            dist_emb = self.embedding_dist(extras[:, 1].long()).view(-1, 8)
             x = torch.cat((proj1, angle_emb, dist_emb), 1)
             x = nn.ReLU()(self.linear(x))
             if self.is_recurrent:
@@ -464,7 +471,7 @@ class Local_IL_Policy(NNBase):
 
         action = torch.argmax(x, dim=1)
 
-        return _t2n(action), _t2n(x), _t2n(rnn_hxs)
+        return action, x, rnn_hxs
 
 
 # # https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail/blob/master/a2c_ppo_acktr/model.py#L15

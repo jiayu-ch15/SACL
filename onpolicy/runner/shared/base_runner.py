@@ -6,11 +6,11 @@ import numpy as np
 from itertools import chain
 import torch
 from tensorboardX import SummaryWriter
-
 from onpolicy.utils.shared_buffer import SharedReplayBuffer
 from onpolicy.utils.util import update_linear_schedule
 
 def _t2n(x):
+    
     return x.detach().cpu().numpy()
 
 class Runner(object):
