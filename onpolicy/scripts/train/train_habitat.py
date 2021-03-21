@@ -126,9 +126,6 @@ def parse_args(args, parser):
     parser.add_argument('--num_local_steps', type=int, default=25,
                         help="""Number of steps the local can
                             perform between each global instruction""")
-    parser.add_argument('--num_global_steps', type=int, default=40,
-                        help="""Number of steps the local can
-                            perform between each global instruction""")
     parser.add_argument('--local_hidden_size', type=int, default=512,
                         help='local_hidden_size')
     parser.add_argument('--short_goal_dist', type=int, default=1,

@@ -1,4 +1,3 @@
-    
 import time
 import wandb
 import os
@@ -18,14 +17,12 @@ from onpolicy.algorithms.utils.util import init, check
 
 from collections import defaultdict, deque
 
-
 def _t2n(x):
     return x.detach().cpu().numpy()
 
 class HabitatRunner(Runner):
     def __init__(self, config):
         super(HabitatRunner, self).__init__(config)
-
         # init parameters
         self.init_hyper_parameters()
         # init variables
@@ -81,9 +78,9 @@ class HabitatRunner(Runner):
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
 
-            for step in range(self.episode_length):
+            for step in range(self.max_episode_length):
                 local_step = step % self.num_local_steps
-                global_step = (step // self.num_local_steps) % self.num_global_steps
+                global_step = (step // self.num_local_steps) % self.episode_length
 
                 del self.last_obs
                 self.last_obs = self.obs
@@ -100,7 +97,7 @@ class HabitatRunner(Runner):
                 self.gobal_masks *= self.local_masks
 
                 # Reinitialize variables when episode ends
-                if step == self.episode_length - 1:
+                if step == self.max_episode_length - 1:
                     self.init_map_and_pose()
                     del self.last_obs
                     self.last_obs = self.obs
@@ -135,19 +132,18 @@ class HabitatRunner(Runner):
                 # Train Neural SLAM Module
                 if self.train_slam and len(self.slam_memory) > self.slam_batch_size:
                     self.train_slam_module()
-                
+                    
                 # Train Local Policy
                 if self.train_local and (local_step + 1) % self.local_policy_update_freq == 0:
                     self.train_local_policy()
-
+                    
                 # Train Global Policy
-                if global_step % self.num_global_steps == self.num_global_steps - 1 \
+                if global_step % self.episode_length == self.episode_length - 1 \
                         and local_step == self.num_local_steps - 1:
                     self.train_global_policy()
-
+                    
                 # Finish Training
                 torch.set_grad_enabled(False)       
-            
             # post process
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
             
@@ -174,11 +170,11 @@ class HabitatRunner(Runner):
                         agent_k = 'agent%i/exp_ratio' % agent_id
                         env_infos[agent_k] = exp_ratio
                 
-                self.train_global_infos["average_episode_rewards"].append(np.mean(self.buffer.rewards) * self.episode_length)
+                self.train_global_infos["average_episode_rewards"].append(np.mean(self.buffer.rewards) * self.max_episode_length)
                 print("average episode rewards is {}".format(np.mean(self.train_global_infos["average_episode_rewards"])))
-                self.log_train(self.train_global_infos, total_num_steps)
                 self.log_train(self.train_slam_infos, total_num_steps)
                 self.log_train(self.train_local_infos, total_num_steps)
+                self.log_train(self.train_global_infos, total_num_steps)
                 self.log_env(env_infos, total_num_steps)
             
             # save model
@@ -214,7 +210,6 @@ class HabitatRunner(Runner):
         return [gx1, gx2, gy1, gy2]
 
     def init_hyper_parameters(self):
-        self.device = torch.device("cuda:0")
         self.map_size_cm = self.all_args.map_size_cm
         self.map_resolution = self.all_args.map_resolution
         self.global_downscaling = self.all_args.global_downscaling
@@ -242,8 +237,8 @@ class HabitatRunner(Runner):
         self.pose_loss_coeff = self.all_args.pose_loss_coeff
 
         self.local_policy_update_freq = self.all_args.local_policy_update_freq
-        self.num_global_steps = self.all_args.num_global_steps
         self.num_local_steps = self.all_args.num_local_steps
+        self.max_episode_length = self.all_args.max_episode_length
         
     def init_map_variables(self):
         ### Full map consists of 4 channels containing the following:
@@ -309,6 +304,7 @@ class HabitatRunner(Runner):
                 self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
 
     def init_global_policy(self):
+        
         self.best_gobal_reward = -np.inf
         self.train_global_infos = {}
         self.train_global_infos['value_loss']= deque(maxlen=1000)
@@ -623,7 +619,14 @@ class HabitatRunner(Runner):
         torch.save(self.trainer.policy.actor.state_dict(), str(self.save_dir) + "global_actor_periodic_{}.pt".format(step))
         torch.save(self.trainer.policy.critic.state_dict(), str(self.save_dir) + "global_critic_periodic_{}.pt".format(step))
 
-        
+    def log_train(self, train_infos, total_num_steps):
+        for k, v in train_infos.items():
+            if len(v) > 0:
+                if self.use_wandb:
+                    wandb.log({k: np.mean(_t2n(v))}, step=total_num_steps)
+                else:
+                    self.writter.add_scalars(k, {k: np.mean(v) if isinstance (v, deque) else v} , total_num_steps)
+
     @torch.no_grad()
     def eval(self, total_num_steps):
         eval_episode_rewards = []
@@ -632,7 +635,7 @@ class HabitatRunner(Runner):
         eval_rnn_states = np.zeros((self.n_eval_rollout_threads, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
 
-        for eval_step in range(self.episode_length):
+        for eval_step in range(self.max_episode_length):
             self.trainer.prep_rollout()
             eval_action, eval_rnn_states = self.trainer.policy.act(np.concatenate(eval_obs),
                                                 np.concatenate(eval_rnn_states),
@@ -683,7 +686,7 @@ class HabitatRunner(Runner):
             
             episode_rewards = []
             
-            for step in range(self.episode_length):
+            for step in range(self.max_episode_length):
                 calc_start = time.time()
 
                 self.trainer.prep_rollout()

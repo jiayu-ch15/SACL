@@ -34,9 +34,10 @@ class MIXBase(nn.Module):
                 raise NotImplementedError
 
         if len(self.cnn_keys) > 0:
-            self.cnn = self._build_cnn_model(obs_shape, cnn_layers_params, self.hidden_size, self._use_orthogonal, self._use_ReLU)
+            self.cnn, self.cnn_dim = self._build_cnn_model(obs_shape, cnn_layers_params, self.hidden_size, self._use_orthogonal, self._use_ReLU)
         if len(self.mlp_keys) > 0:
             self.mlp = self._build_mlp_model(obs_shape, self.hidden_size, self._use_orthogonal, self._use_ReLU)
+        self.extra =self._build_extra_model(self.cnn_dim, self.hidden_size, self._use_ReLU, self._use_orthogonal)
 
     def forward(self, x):
         out_x = x
@@ -44,13 +45,28 @@ class MIXBase(nn.Module):
             cnn_input = self._build_cnn_input(x)
             cnn_x = self.cnn(cnn_input)
             out_x = cnn_x
-
         if len(self.mlp_keys) > 0:
             mlp_input = self._build_mlp_input(x)
             mlp_x = self.mlp(mlp_input.long()).squeeze(1)
             out_x = torch.cat([out_x, mlp_x], dim=1) # ! wrong
-
+        out_x = self.extra(out_x)
         return out_x
+    def _build_extra_model(self, cnn_dim, hidden_size, use_ReLU, use_orthogonal):
+        print(use_ReLU)
+        active_func = [nn.Tanh(), nn.ReLU()][use_ReLU]
+        init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][use_orthogonal]
+        gain = nn.init.calculate_gain(['tanh', 'relu'][use_ReLU])
+
+        def init_(m):
+            return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
+
+        extra_layers = [
+            init_(nn.Linear(cnn_dim+8, hidden_size)),
+            active_func,
+            init_(nn.Linear(hidden_size, 256)),
+            active_func, 
+        ]
+        return nn.Sequential(*extra_layers)
 
     def _build_cnn_model(self, obs_shape, cnn_layers_params, hidden_size, use_orthogonal, use_ReLU):
         
@@ -117,12 +133,8 @@ class MIXBase(nn.Module):
             
         cnn_layers += [
             Flatten(),
-            init_(nn.Linear(cnn_layers_params[-1][0] * cnn_dims[0] * cnn_dims[1],
-                        hidden_size)),
-            active_func,
-            nn.LayerNorm(hidden_size),
         ]
-        return nn.Sequential(*cnn_layers)
+        return nn.Sequential(*cnn_layers), cnn_layers_params[-1][0] * cnn_dims[0] * cnn_dims[1]
 
     def _build_mlp_model(self, obs_shape, hidden_size, use_orthogonal, use_ReLU):
 

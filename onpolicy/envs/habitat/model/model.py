@@ -297,8 +297,8 @@ class Neural_SLAM_Module(nn.Module):
 
             grid_map.fill_(0.)
             grid_map[:, :, vr:, int(vr / 2):int(vr / 2 + vr)] = pred_last
-            translated = F.grid_sample(grid_map, trans_mat)
-            rotated = F.grid_sample(translated, rot_mat)
+            translated = F.grid_sample(grid_map, trans_mat, align_corners=True)
+            rotated = F.grid_sample(translated, rot_mat, align_corners=True)
             rotated = rotated[:, :, vr:, int(vr / 2):int(vr / 2 + vr)]
 
             pred_last_st = rotated
@@ -373,8 +373,8 @@ class Neural_SLAM_Module(nn.Module):
                 rot_mat, trans_mat = get_grid(st_pose, agent_view.size(),
                                               self.device)
 
-                rotated = F.grid_sample(agent_view, rot_mat)
-                translated = F.grid_sample(rotated, trans_mat)
+                rotated = F.grid_sample(agent_view, rot_mat, align_corners=True)
+                translated = F.grid_sample(rotated, trans_mat, align_corners=True)
 
                 maps2 = torch.cat((maps.unsqueeze(1),
                                    translated[:, :1, :, :]), 1)
