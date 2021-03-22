@@ -35,7 +35,7 @@ def construct_config(args):
                                                 i * scene_split_size: (i + 1) * scene_split_size
                                                 ]
 
-        gpu_id = 1 # TODO: strange here 
+        gpu_id = 0 # TODO: strange here 
         config_env.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = gpu_id
 
         agent_sensors = []
@@ -111,7 +111,7 @@ class MultiHabitatEnv(object):
 
     def step(self, actions):
         obs, rewards, dones, infos = self.env.step(actions)
-        rewards = [infos['exp_reward']] * self.num_agents
+        rewards = np.expand_dims(np.array(infos['exp_reward']), axis=1)
         return obs, rewards, dones, infos
 
     def close(self):

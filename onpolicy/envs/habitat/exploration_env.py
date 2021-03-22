@@ -164,9 +164,9 @@ class Exploration_Env(habitat.RLEnv):
                 self.randomize_env()
 
         # Get Ground Truth Map
-        self.explorable_map =[]
-        self.n_rot=[]
-        self.n_trans=[]
+        self.explorable_map = []
+        self.n_rot = []
+        self.n_trans = []
         
         obs = super().reset()
         full_map_size = args.map_size_cm//args.map_resolution
@@ -177,7 +177,7 @@ class Exploration_Env(habitat.RLEnv):
             self.n_trans.append(n_trans)
                 
         self.prev_explored_area = [0. for index in range(self.num_agents)]
-        self.prev_total_explored_area=0
+        self.prev_total_explored_area = 0
         
         # Preprocess observations
         rgb = [
@@ -420,7 +420,7 @@ class Exploration_Env(habitat.RLEnv):
         self.info['exp_total_reward'] = None
         self.info['exp_total_ratio'] = None
         if self.timestep % args.num_local_steps == 0:
-            area, ratio,total_area,total_ratio = self.get_global_reward()
+            area, ratio, total_area, total_ratio = self.get_global_reward()
             self.info['exp_total_reward'] =total_area
             self.info['exp_total_ratio'] =total_ratio
             for i in range(self.num_agents):
@@ -556,7 +556,6 @@ class Exploration_Env(habitat.RLEnv):
         self.last_sim_location[agent_id] = curr_sim_pose
         return dx, dy, do
 
-
     def get_base_pose_change(self, action, gt_pose_change):
         dx_gt, dy_gt, do_gt = gt_pose_change
         if action == 1: ## Forward
@@ -572,7 +571,6 @@ class Exploration_Env(habitat.RLEnv):
         y_err = y_err * self.args.noise_level
         o_err = o_err * self.args.noise_level
         return dx_gt + x_err, dy_gt + y_err, do_gt + np.deg2rad(o_err)
-   
    
     def transform(self,inputs,a):
         inputs=torch.from_numpy(inputs)
@@ -816,6 +814,7 @@ class Exploration_Env(habitat.RLEnv):
             return None
 
         agent_y = self._env.sim.get_agent_state(agent_id).position.tolist()[1]*100.
+        
         sim_map = self.map_obj.get_map(agent_y, -50., 50.0)
 
         sim_map[sim_map > 0] = 1.
@@ -954,7 +953,6 @@ class Exploration_Env(habitat.RLEnv):
             stg_x, stg_y = stg_x + x1 - 1, stg_y + y1 - 1
 
         return (stg_x, stg_y)
-
 
     def _get_gt_action(self, grid, start, goal, planning_window, start_o, agent_id):
 
