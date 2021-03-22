@@ -14,7 +14,7 @@ from onpolicy.config import get_config
 from onpolicy.envs.habitat.Habitat_Env import construct_config, MultiHabitatEnv
 from onpolicy.envs.env_wrappers import InfoSubprocVecEnv, InfoDummyVecEnv
 
-def make_train_env(all_args, env_configs, baseline_configs, datasets):
+def make_train_env(all_args, env_configs, baseline_configs, datasets, run_dir):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "Habitat":
@@ -22,7 +22,8 @@ def make_train_env(all_args, env_configs, baseline_configs, datasets):
                                       rank=rank,
                                       config_env=env_configs[rank], 
                                       config_baseline=baseline_configs[rank], 
-                                      dataset=datasets[rank]
+                                      dataset=datasets[rank],
+                                      run_dir=run_dir
                                       )
             else:
                 print("Can not support the " + all_args.env_name + "environment.")
@@ -36,7 +37,7 @@ def make_train_env(all_args, env_configs, baseline_configs, datasets):
         return InfoSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
 
-def make_eval_env(all_args, env_configs, baseline_configs, datasets):
+def make_eval_env(all_args, env_configs, baseline_configs, datasets, run_dir):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "Habitat":
@@ -44,7 +45,8 @@ def make_eval_env(all_args, env_configs, baseline_configs, datasets):
                                       rank=rank,
                                       config_env=env_configs[rank], 
                                       config_baseline=baseline_configs[rank], 
-                                      dataset=datasets[rank]
+                                      dataset=datasets[rank],
+                                      run_dir=run_dir
                                       )
             else:
                 print("Can not support the " +
@@ -65,21 +67,15 @@ def parse_args(args, parser):
 
     parser.add_argument('--num_agents', type=int,
                         default=1, help="number of players")
-    
-    parser.add_argument('--train_global', type=int, default=1,
-                        help="""0: Do not train the Global Policy
-                                1: Train the Global Policy (default: 1)""")
-    parser.add_argument('--train_local', type=int, default=1,
-                        help="""0: Do not train the Local Policy
+   
+    parser.add_argument('--train_local', action='store_true',
+                        default=False, help="""0: Do not train the Local Policy
                                 1: Train the Local Policy (default: 1)""")
-    parser.add_argument('--train_slam', type=int, default=1,
-                        help="""0: Do not train the Neural SLAM Module
+    parser.add_argument('--train_slam', action='store_true',
+                        default=False, help="""0: Do not train the Neural SLAM Module
                                 1: Train the Neural SLAM Module (default: 1)""")
 
     parser.add_argument('--load_slam', type=str, default="0",
-                        help="""model path to load,
-                                0 to not reload (default: 0)""")
-    parser.add_argument('--load_global', type=str, default="0",
                         help="""model path to load,
                                 0 to not reload (default: 0)""")
     parser.add_argument('--load_local', type=str, default="0",
@@ -166,8 +162,8 @@ def parse_args(args, parser):
     parser.add_argument("--use_merge", action='store_false', default=True, help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
 
     # reward params
-    parser.add_argument('--reward_penalty', type=float, default=0.9)
-    parser.add_argument('--reward_decay', action='store_true', default=False)
+    parser.add_argument('--reward_decay', type=float, default=0.9)
+    parser.add_argument('--use_reward_penalty', action='store_true', default=False)
 
     all_args = parser.parse_known_args(args)[0]
 
@@ -240,8 +236,8 @@ def main(args):
 
     # env init
     env_configs, baseline_configs, datasets = construct_config(all_args)
-    envs = make_train_env(all_args, env_configs, baseline_configs, datasets)
-    eval_envs = make_eval_env(all_args, env_configs, baseline_configs, datasets) if all_args.use_eval else None
+    envs = make_train_env(all_args, env_configs, baseline_configs, datasets, run_dir)
+    eval_envs = make_eval_env(all_args, env_configs, baseline_configs, datasets, run_dir) if all_args.use_eval else None
     num_agents = all_args.num_agents
 
     config = {

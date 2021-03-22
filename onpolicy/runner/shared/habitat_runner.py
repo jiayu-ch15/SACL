@@ -72,15 +72,19 @@ class HabitatRunner(Runner):
 
         start = time.time()
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
-
+        
         for episode in range(episodes):
 
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
 
+            self.env_infos = {'explored_ratio': np.zeros((self.n_rollout_threads, self.num_agents))}
+
             for step in range(self.max_episode_length):
+
                 local_step = step % self.num_local_steps
                 global_step = (step // self.num_local_steps) % self.episode_length
+                eval_global_step = step // self.num_local_steps + 1
 
                 del self.last_obs
                 self.last_obs = self.obs
@@ -94,7 +98,7 @@ class HabitatRunner(Runner):
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
-                self.gobal_masks *= self.local_masks
+                self.global_masks *= self.local_masks
 
                 # Reinitialize variables when episode ends
                 if step == self.max_episode_length - 1:
@@ -121,8 +125,8 @@ class HabitatRunner(Runner):
 
                 # Local Policy
                 self.compute_local_input(self.local_map)
-                # Output stores local goals as well as the the ground-truth action
 
+                # Output stores local goals as well as the the ground-truth action
                 self.local_output = self.envs.get_short_term_goal(self.local_input)
                 self.local_output = np.array(self.local_output, dtype = np.long)
 
@@ -143,7 +147,8 @@ class HabitatRunner(Runner):
                     self.train_global_policy()
                     
                 # Finish Training
-                torch.set_grad_enabled(False)       
+                torch.set_grad_enabled(False)
+                
             # post process
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
             
@@ -159,23 +164,15 @@ class HabitatRunner(Runner):
                                 total_num_steps,
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
-
-                if self.env_name == "Habitat":
-                    env_infos = {}
-                    for agent_id in range(self.num_agents):
-                        exp_ratio = []
-                        for info in infos:
-                            if 'exp_ratio' in info.keys():
-                                exp_ratio.append(info['exp_ratio'][agent_id])
-                        agent_k = 'agent%i/exp_ratio' % agent_id
-                        env_infos[agent_k] = exp_ratio
                 
-                self.train_global_infos["average_episode_rewards"].append(np.mean(self.buffer.rewards) * self.max_episode_length)
+                self.train_global_infos["average_episode_rewards"].append(np.mean(self.buffer.rewards) * self.episode_length * 50.0)
                 print("average episode rewards is {}".format(np.mean(self.train_global_infos["average_episode_rewards"])))
-                self.log_train(self.train_slam_infos, total_num_steps)
-                self.log_train(self.train_local_infos, total_num_steps)
-                self.log_train(self.train_global_infos, total_num_steps)
-                self.log_env(env_infos, total_num_steps)
+                
+                self.log_all(self.train_slam_infos, total_num_steps)
+                self.log_all(self.train_local_infos, total_num_steps)
+                self.log_all(self.train_global_infos, total_num_steps)
+                self.log_all(self.env_infos, total_num_steps)
+                self.log_agent(self.env_infos, total_num_steps)
             
             # save model
             if (episode % self.save_interval == 0 or episode == episodes - 1):
@@ -273,8 +270,6 @@ class HabitatRunner(Runner):
         self.planner_pose_inputs = np.zeros((self.n_rollout_threads, self.num_agents, 7))
                
     def init_map_and_pose(self):
-        # self.full_map.fill_(0.) # TODO remove this code
-        # self.full_pose.fill_(0.) # TODO remove this code
         self.full_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h))
         self.local_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.local_w, self.local_h))
 
@@ -304,21 +299,23 @@ class HabitatRunner(Runner):
                 self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
 
     def init_global_policy(self):
-        
         self.best_gobal_reward = -np.inf
         self.train_global_infos = {}
+        # ppo network log info
         self.train_global_infos['value_loss']= deque(maxlen=1000)
         self.train_global_infos['policy_loss']= deque(maxlen=1000)
         self.train_global_infos['dist_entropy'] = deque(maxlen=1000)
         self.train_global_infos['actor_grad_norm'] = deque(maxlen=1000)
         self.train_global_infos['critic_grad_norm'] = deque(maxlen=1000)
         self.train_global_infos['ratio'] = deque(maxlen=1000)
-        self.train_global_infos['average_episode_rewards'] = deque(maxlen=1000)
+        # env info
+        self.train_global_infos['average_episode_rewards'] = deque(maxlen=100)
+
         self.global_input = {}
         self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
         self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
         
-        self.gobal_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
+        self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
 
     def init_local_policy(self):
         self.best_local_loss = np.inf
@@ -536,14 +533,20 @@ class HabitatRunner(Runner):
 
     def insert_global_policy(self, data):
         rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
+        
+        for e in range(self.n_rollout_threads):
+            if 'exp_ratio' in infos[e].keys():
+                self.env_infos['explored_ratio'][e] += np.array(infos[e]['exp_ratio']) # ! check the last step data
 
         rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
         
         self.share_global_input = self.global_input # ! wrong
-        self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
-        self.buffer.insert(self.share_global_input, self.global_input, rnn_states, rnn_states_critic, actions, action_log_probs, values, rewards, self.global_masks)
 
+        self.buffer.insert(self.share_global_input, self.global_input, rnn_states, rnn_states_critic, actions, action_log_probs, values, rewards, self.global_masks)
+        
+        self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
+        
     def train_slam_module(self):
         for _ in range(self.slam_iterations):
             inputs, outputs = self.slam_memory.sample(self.slam_batch_size)
@@ -594,6 +597,7 @@ class HabitatRunner(Runner):
     def train_global_policy(self):
         self.compute()
         train_global_infos = self.train()
+        
         for k, v in train_global_infos.items():
             self.train_global_infos[k].append(v)
 
@@ -611,7 +615,7 @@ class HabitatRunner(Runner):
         torch.save(self.local_policy.state_dict(), str(self.save_dir) + "local_periodic_{}.pt".format(step))
     
     def save_global_model(self, step):
-        if len(self.train_global_infos["average_episode_rewards"]) >= 100 and \
+        if len(self.train_global_infos["average_episode_rewards"]) >= 10 and \
             (np.mean(self.train_global_infos["average_episode_rewards"]) >= self.best_gobal_reward):
             self.best_gobal_reward = np.mean(self.train_global_infos["average_episode_rewards"])
             torch.save(self.trainer.policy.actor.state_dict(), str(self.save_dir) + "/global_actor_best.pt")
@@ -619,13 +623,22 @@ class HabitatRunner(Runner):
         torch.save(self.trainer.policy.actor.state_dict(), str(self.save_dir) + "global_actor_periodic_{}.pt".format(step))
         torch.save(self.trainer.policy.critic.state_dict(), str(self.save_dir) + "global_critic_periodic_{}.pt".format(step))
 
-    def log_train(self, train_infos, total_num_steps):
+    def log_all(self, train_infos, total_num_steps):
         for k, v in train_infos.items():
             if len(v) > 0:
                 if self.use_wandb:
-                    wandb.log({k: np.mean(_t2n(v))}, step=total_num_steps)
+                    wandb.log({k: np.mean(v)}, step=total_num_steps)
                 else:
-                    self.writter.add_scalars(k, {k: np.mean(v) if isinstance (v, deque) else v} , total_num_steps)
+                    self.writter.add_scalars(k, {k: np.mean(v)}, total_num_steps)
+
+    def log_agent(self, train_infos, total_num_steps):
+        for k, v in train_infos.items():
+            for agent_id in range(self.num_agents):
+                agent_k = "agent%i_".format(agent_id) + k
+                if self.use_wandb:
+                    wandb.log({agent_k: np.mean(v[:, agent_id])}, step=total_num_steps)
+                else:
+                    self.writter.add_scalars(agent_k, {agent_k: np.mean(v[:, agent_id])}, total_num_steps)
 
     @torch.no_grad()
     def eval(self, total_num_steps):

@@ -46,24 +46,24 @@ def _preprocess_depth(depth):
 
     mask1 = depth == 0
     depth[mask1] = np.NaN
-    depth = depth*1000.
+    depth = depth * 1000.
     return depth
 
 class Exploration_Env(habitat.RLEnv):
 
-    def __init__(self, args, rank, config_env, config_baseline, dataset):
+    def __init__(self, args, rank, config_env, config_baseline, dataset, run_dir):
         
         self.num_agents = args.num_agents
 
         if args.visualize:
             plt.ion()
         if args.print_images or args.visualize:
-            if args.merge:
-                self.figure_t, self.ax_t = plt.subplots(1,1, figsize=(6*16/9, 6),
+            if args.use_merge:
+                self.figure_t, self.ax_t = plt.subplots(1, 1, figsize=(6*16/9, 6),
                                                 facecolor="whitesmoke",
                                                 num="Thread {}".format(rank))
             else:
-                self.figure, self.ax = plt.subplots(self.num_agents,2, figsize=(6*16/9, 6),
+                self.figure, self.ax = plt.subplots(self.num_agents, 2, figsize=(6*16/9, 6),
                                                 facecolor="whitesmoke",
                                                 num="Thread {}".format(rank))
 
@@ -72,7 +72,7 @@ class Exploration_Env(habitat.RLEnv):
         self.dt = 10
 
         self.reward_gamma = 1
-        self.reward_penalty = args.reward_penalty
+        self.use_reward_penalty = args.use_reward_penalty
         self.reward_decay = args.reward_decay
         
         self.rank = rank
@@ -92,7 +92,6 @@ class Exploration_Env(habitat.RLEnv):
         config_env.SIMULATOR.ACTION_SPACE_CONFIG = \
                 "CustomActionSpaceConfiguration"
         config_env.freeze()
-
 
         super().__init__(config_env, dataset)
 
@@ -154,7 +153,7 @@ class Exploration_Env(habitat.RLEnv):
 
     def reset(self):
         args = self.args
-        self.gamma = 1
+        self.reward_gamma = 1
         self.episode_no += 1
         self.timestep = 0
         self._previous_action = None
@@ -172,7 +171,7 @@ class Exploration_Env(habitat.RLEnv):
         obs = super().reset()
         full_map_size = args.map_size_cm//args.map_resolution
         for i in range(self.num_agents):
-            mapp,n_rot,n_trans=self._get_gt_map(full_map_size, i)
+            mapp, n_rot, n_trans = self._get_gt_map(full_map_size, i)
             self.explorable_map.append(mapp)
             self.n_rot.append(n_rot)
             self.n_trans.append(n_trans)
@@ -418,8 +417,8 @@ class Exploration_Env(habitat.RLEnv):
 
         self.info['exp_reward'] = []
         self.info['exp_ratio'] = []
-        self.info['exp_total_reward'] =None
-        self.info['exp_total_ratio'] =None
+        self.info['exp_total_reward'] = None
+        self.info['exp_total_ratio'] = None
         if self.timestep % args.num_local_steps == 0:
             area, ratio,total_area,total_ratio = self.get_global_reward()
             self.info['exp_total_reward'] =total_area
@@ -470,11 +469,11 @@ class Exploration_Env(habitat.RLEnv):
             curr_total_explored=np.maximum(curr_total_explored,n_map.numpy())
             #curr_total_explored[n_map.numpy()>0.5]=1
 
-            exp_m=torch.from_numpy(self.explorable_map[i])
+            exp_m = torch.from_numpy(self.explorable_map[i])
             _n_rotated = F.grid_sample(exp_m.unsqueeze(0).unsqueeze(0), self.n_rot[i], align_corners=True)
-            _n_map=F.grid_sample(_n_rotated, self.n_trans[i], align_corners=True)
-            _n_map=_n_map[0,0,:,:]
-            total_explorable_map=np.maximum(total_explorable_map,_n_map.numpy())
+            _n_map = F.grid_sample(_n_rotated, self.n_trans[i], align_corners=True)
+            _n_map = _n_map[0,0,:,:]
+            total_explorable_map = np.maximum(total_explorable_map, _n_map.numpy())
             #total_explorable_map[_n_map.numpy()==1]=1
 
             curr_explored_area = curr_explored[i].sum()
@@ -488,20 +487,20 @@ class Exploration_Env(habitat.RLEnv):
             m_reward[i] *= self.reward_gamma
         
         #curr_total_explored=curr_total_explored*total_explorable_map
-        curr_total_explored_area=curr_total_explored.sum()
-        total_reward_scale=total_explorable_map.sum()
-        total_reward=(curr_total_explored_area-self.prev_total_explored_area)*1.
-        total_ratio=total_reward/total_reward_scale
-        if total_reward==0 and self.reward_penalty:
-            total_reward=-10*self.reward_gamma
-        total_reward=total_reward * 25./10000.
-        self.prev_total_explored_area=curr_total_explored_area
+        curr_total_explored_area = curr_total_explored.sum()
+        total_reward_scale = total_explorable_map.sum()
+        total_reward = (curr_total_explored_area - self.prev_total_explored_area) * 1.0
+        total_ratio = total_reward/total_reward_scale
+        if total_reward == 0 and self.use_reward_penalty:
+            total_reward = -10*self.reward_gamma
+        total_reward = total_reward * 25./10000.
+        self.prev_total_explored_area = curr_total_explored_area
         total_reward *= 0.02
         total_reward *= self.reward_gamma
-        if self.reward_penalty:
+        if self.use_reward_penalty:
             self.reward_gamma *= self.reward_decay
 
-        return m_reward, m_ratio,total_reward,total_ratio
+        return m_reward, m_ratio, total_reward, total_ratio
 
     def get_done(self, observations, agent_id):
         # This function is not used, Habitat-RLEnv requires this function
@@ -709,13 +708,11 @@ class Exploration_Env(habitat.RLEnv):
             self.relative_angle.append(relative_angle)
 
         if args.visualize or args.print_images:
-            dump_dir = "{}/dump/{}/".format(args.dump_location,
-                                                args.exp_name)
             ep_dir = '{}/episodes/{}/{}/'.format(
-                            dump_dir, self.rank+1, self.episode_no)
+                            run_dir, self.rank+1, self.episode_no)
             if not os.path.exists(ep_dir):
                 os.makedirs(ep_dir)
-            if args.merge:
+            if args.use_merge:
                 t_map=np.zeros_like(self.explored_map[0])
                 t_collision=np.zeros_like(self.explored_map[0])
                 t_visited_gt=np.zeros_like(self.explored_map[0])
@@ -751,7 +748,7 @@ class Exploration_Env(habitat.RLEnv):
                 vis_grid = np.flipud(vis_grid)
                 
                 vu.visualize_n(self.n_rot,self.n_trans,self.figure_t, self.ax_t, self.obs[0], vis_grid[:,:,::-1],
-                                pos,pos,dump_dir, self.rank, self.episode_no,
+                                pos, pos, run_dir, self.rank, self.episode_no,
                                 self.timestep, args.visualize,
                                 args.print_images, args.vis_type)
             else:
@@ -779,7 +776,7 @@ class Exploration_Env(habitat.RLEnv):
                                 (start_x_gt - gy1*args.map_resolution/100.0,
                                 start_y_gt - gx1*args.map_resolution/100.0,
                                 start_o_gt),
-                                dump_dir, self.rank, self.episode_no,
+                                run_dir, self.rank, self.episode_no,
                                 self.timestep, args.visualize,
                                 args.print_images, args.vis_type, a)
 
@@ -802,13 +799,11 @@ class Exploration_Env(habitat.RLEnv):
                         vu.visualize(self.figure, self.ax, self.obs[a], vis_grid[:,:,::-1],
                                 (start_x_gt, start_y_gt, start_o_gt),
                                 (start_x_gt, start_y_gt, start_o_gt),
-                                dump_dir, self.rank, self.episode_no,
+                                run_dir, self.rank, self.episode_no,
                                 self.timestep, args.visualize,
                                 args.print_images, args.vis_type, a)
         return output
-    
-        
-        
+       
     def _get_gt_map(self, full_map_size, agent_id):
         self.scene_name = self.habitat_env.sim.config.SCENE
         logger.error('Computing map for %s', self.scene_name)
@@ -881,13 +876,10 @@ class Exploration_Env(habitat.RLEnv):
                               (grid_size - full_map_size)//2:
                               (grid_size - full_map_size)//2 + full_map_size]
 
-
-
         episode_map = episode_map.numpy()
         episode_map[episode_map > 0] = 1.
         
-        return episode_map,n_rot_mat,n_trans_mat
-
+        return episode_map, n_rot_mat, n_trans_mat
 
     def _get_stg(self, grid, explored, start, goal, planning_window, agent_id):
 

@@ -35,7 +35,7 @@ def construct_config(args):
                                                 i * scene_split_size: (i + 1) * scene_split_size
                                                 ]
 
-        gpu_id = 0 # ! strange here
+        gpu_id = 1 # TODO: strange here 
         config_env.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = gpu_id
 
         agent_sensors = []
@@ -75,8 +75,8 @@ def construct_config(args):
     return env_configs, baseline_configs, datasets
 
 class MultiHabitatEnv(object):
-    def __init__(self, args, rank, config_env, config_baseline, dataset):
-        self.env = Exploration_Env(args, rank, config_env, config_baseline, dataset)
+    def __init__(self, args, rank, config_env, config_baseline, dataset, run_dir):
+        self.env = Exploration_Env(args, rank, config_env, config_baseline, dataset, run_dir)
 
         self.num_agents = args.num_agents
         
@@ -98,7 +98,6 @@ class MultiHabitatEnv(object):
             self.observation_space.append(global_observation_space)
             self.share_observation_space.append(global_observation_space)  
             self.action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(2,), dtype=np.float32))
-
         
     def seed(self, seed=None):
         if seed is None:
