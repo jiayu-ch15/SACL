@@ -231,7 +231,7 @@ def main(args):
 
     # env init
     envs = make_train_env(all_args, run_dir)
-    eval_envs = make_eval_env(all_args, run_dir)
+    eval_envs = make_eval_env(all_args, run_dir) if all_args.use_eval else None
     num_agents = all_args.num_agents
 
     config = {
