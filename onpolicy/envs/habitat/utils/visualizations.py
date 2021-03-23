@@ -14,9 +14,76 @@ import skimage
 
 
 def visualize(fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep_no, t,
-              visualize, print_images, vis_style):
+              visualize, print_images, vis_style, agent_id):
     for i in range(2):
-        ax[i].clear()
+        ax[agent_id, i].clear()
+        ax[agent_id, i].set_yticks([])
+        ax[agent_id, i].set_xticks([])
+        ax[agent_id, i].set_yticklabels([])
+        ax[agent_id, i].set_xticklabels([])
+
+    #print("showimage")
+    ax[agent_id, 0].imshow(img)
+    ax[agent_id, 0].set_title("Observation of agent"+str(agent_id), family='sans-serif',
+                    fontname='DejaVu Sans',
+                    fontsize=20)
+
+    if vis_style == 1:
+        title = "Predicted Map and Pose of agent" + str(agent_id)
+    else:
+        title = "Ground-Truth Map and Pose"
+
+    ax[agent_id, 1].imshow(grid)
+    ax[agent_id, 1].set_title(title, family='sans-serif',
+                    fontname='DejaVu Sans',
+                    fontsize=20)
+
+    # Draw GT agent pose
+    agent_size = 8
+    x, y, o = gt_pos
+    x, y = x * 100.0 / 5.0, grid.shape[1] - y * 100.0 / 5.0
+
+    dx = 0
+    dy = 0
+    fc = 'Grey'
+    dx = np.cos(np.deg2rad(o))
+    dy = -np.sin(np.deg2rad(o))
+    ax[agent_id, 1].arrow(x - 1 * dx, y - 1 * dy, dx * agent_size, dy * (agent_size * 1.25),
+                head_width=agent_size, head_length=agent_size * 1.25,
+                length_includes_head=True, fc=fc, ec=fc, alpha=0.9)
+
+    # Draw predicted agent pose
+    x, y, o = pos
+    x, y = x * 100.0 / 5.0, grid.shape[1] - y * 100.0 / 5.0
+
+    dx = 0
+    dy = 0
+    fc = 'Red'
+    dx = np.cos(np.deg2rad(o))
+    dy = -np.sin(np.deg2rad(o))
+    ax[agent_id, 1].arrow(x - 1 * dx, y - 1 * dy, dx * agent_size, dy * agent_size * 1.25,
+                head_width=agent_size, head_length=agent_size * 1.25,
+                length_includes_head=True, fc=fc, ec=fc, alpha=0.6)
+
+    for _ in range(5):
+        plt.tight_layout()
+
+    if visualize:
+        plt.gcf().canvas.flush_events()
+        fig.canvas.start_event_loop(0.001)
+        plt.gcf().canvas.flush_events()
+    plt.show()
+
+    if print_images:
+        fn = '{}/episodes/{}/{}/{}-{}-Vis-{}.png'.format(
+            dump_dir, (rank + 1), ep_no, rank, ep_no, t)
+        plt.savefig(fn)
+
+def visualize_n(rotate,trans,fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep_no, t,
+              visualize, print_images, vis_style):
+    
+        for i in range(2):
+            ax[i].clear()
         ax[i].set_yticks([])
         ax[i].set_xticks([])
         ax[i].set_yticklabels([])
@@ -37,33 +104,6 @@ def visualize(fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep_no, t,
                     fontname='Helvetica',
                     fontsize=20)
 
-    # Draw GT agent pose
-    agent_size = 8
-    x, y, o = gt_pos
-    x, y = x * 100.0 / 5.0, grid.shape[1] - y * 100.0 / 5.0
-
-    dx = 0
-    dy = 0
-    fc = 'Grey'
-    dx = np.cos(np.deg2rad(o))
-    dy = -np.sin(np.deg2rad(o))
-    ax[1].arrow(x - 1 * dx, y - 1 * dy, dx * agent_size, dy * (agent_size * 1.25),
-                head_width=agent_size, head_length=agent_size * 1.25,
-                length_includes_head=True, fc=fc, ec=fc, alpha=0.9)
-
-    # Draw predicted agent pose
-    x, y, o = pos
-    x, y = x * 100.0 / 5.0, grid.shape[1] - y * 100.0 / 5.0
-
-    dx = 0
-    dy = 0
-    fc = 'Red'
-    dx = np.cos(np.deg2rad(o))
-    dy = -np.sin(np.deg2rad(o))
-    ax[1].arrow(x - 1 * dx, y - 1 * dy, dx * agent_size, dy * agent_size * 1.25,
-                head_width=agent_size, head_length=agent_size * 1.25,
-                length_includes_head=True, fc=fc, ec=fc, alpha=0.6)
-
     for _ in range(5):
         plt.tight_layout()
 
@@ -76,7 +116,6 @@ def visualize(fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep_no, t,
         fn = '{}/episodes/{}/{}/{}-{}-Vis-{}.png'.format(
             dump_dir, (rank + 1), ep_no, rank, ep_no, t)
         plt.savefig(fn)
-
 
 def insert_circle(mat, x, y, value):
     mat[x - 2: x + 3, y - 2:y + 3] = value
