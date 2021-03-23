@@ -335,7 +335,8 @@ class HabitatRunner(Runner):
         self.local_policy = Local_IL_Policy(local_observation_space.shape, local_action_space.n,
                                recurrent=self.use_local_recurrent_policy,
                                hidden_size=self.local_hidden_size,
-                               deterministic=self.all_args.use_local_deterministic).to(self.device)
+                               deterministic=self.all_args.use_local_deterministic,
+                               device=self.device)
         
         if self.load_local != "0":
             print("Loading local {}".format(self.load_local))
@@ -356,7 +357,7 @@ class HabitatRunner(Runner):
         self.train_slam_infos['exp_costs'] = deque(maxlen=1000)
         self.train_slam_infos['pose_costs'] = deque(maxlen=1000)
         
-        self.nslam_module = Neural_SLAM_Module(self.all_args).to(self.device)
+        self.nslam_module = Neural_SLAM_Module(self.all_args, device=self.device)
         
         if self.load_slam != "0":
             print("Loading slam {}".format(self.load_slam))
