@@ -246,13 +246,13 @@ class R_MAPPG():
 
                 train_info['action_loss'] += action_loss.item()
                 train_info['dist_entropy'] += dist_entropy.item()
-                train_info['actor_grad_norm'] += actor_grad_norm
-                train_info['ratio'] += ratio.mean() 
+                train_info['actor_grad_norm'] += actor_grad_norm.item()
+                train_info['ratio'] += ratio.mean().item() 
 
                 value_loss, critic_grad_norm = self.value_loss_update(sample)
 
                 train_info['value_loss'] += value_loss.item()
-                train_info['critic_grad_norm'] += critic_grad_norm 
+                train_info['critic_grad_norm'] += critic_grad_norm.item()
 
         # auxiliary phase
         action_probs = self.update_action_probs(buffer)
@@ -272,7 +272,7 @@ class R_MAPPG():
                 joint_loss, joint_grad_norm = self.auxiliary_loss_update(sample)
 
                 train_info['joint_loss'] += joint_loss.item()
-                train_info['joint_grad_norm'] += joint_grad_norm
+                train_info['joint_grad_norm'] += joint_grad_norm.item()
 
         for k in train_info.keys():
             if k in ["joint_loss","joint_grad_norm"]:

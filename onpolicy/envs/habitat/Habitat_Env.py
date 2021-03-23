@@ -6,34 +6,55 @@ from habitat.config.default import get_config as cfg_env
 from habitat_baselines.config.default import get_config as cfg_baseline
 from habitat.datasets.pointnav.pointnav_dataset import PointNavDatasetV1
 
-def construct_config(args):
-    env_configs = []
-    baseline_configs = []
-    datasets = []
+class MultiHabitatEnv(object):
+    def __init__(self, args, rank, run_dir):
+        
+        config_env, config_baseline, dataset = self.get_config(args, rank)
 
-    basic_config = cfg_env(config_paths=[onpolicy.__path__[0] + "/envs/habitat/habitat-lab/configs/" + args.task_config])
-    basic_config.defrost()
-    basic_config.DATASET.SPLIT = args.split
-    basic_config.freeze()
+        self.env = Exploration_Env(args, rank, config_env, config_baseline, dataset, run_dir)
 
-    scenes = PointNavDatasetV1.get_scenes_to_load(basic_config.DATASET)
+        self.num_agents = args.num_agents
+        
+        map_size = args.map_size_cm // args.map_resolution
+        full_w, full_h = map_size, map_size
+        local_w, local_h = int(full_w / args.global_downscaling), \
+                        int(full_h / args.global_downscaling)
 
-    if len(scenes) > 0:
-        assert len(scenes) >= args.n_rollout_threads, (
-            "reduce the number of processes as there "
-            "aren't enough number of scenes"
-        )
-        scene_split_size = int(np.floor(len(scenes) / args.n_rollout_threads))
+        global_observation_space = {}
+        global_observation_space['global_obs'] = gym.spaces.Box(low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
+        global_observation_space['global_orientation'] = gym.spaces.Box(low=-1, high=1, shape=(1,), dtype='long')
+        global_observation_space = gym.spaces.Dict(global_observation_space)
+        
+        self.action_space = []
+        self.observation_space = []
+        self.share_observation_space = []
+        
+        for agent_id in range(self.num_agents):
+            self.observation_space.append(global_observation_space)
+            self.share_observation_space.append(global_observation_space)  
+            self.action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(2,), dtype=np.float32))
 
-    for i in range(args.n_rollout_threads):
+    def get_config(self, args, rank):
+        basic_config = cfg_env(config_paths = [onpolicy.__path__[0] + "/envs/habitat/habitat-lab/configs/" + args.task_config])
+        basic_config.defrost()
+        basic_config.DATASET.SPLIT = args.split
+        basic_config.freeze()
+
+        scenes = PointNavDatasetV1.get_scenes_to_load(basic_config.DATASET)
+
+        if len(scenes) > 0:
+            assert len(scenes) >= args.n_rollout_threads, (
+                "reduce the number of processes as there "
+                "aren't enough number of scenes"
+            )
+            scene_split_size = int(np.floor(len(scenes) / args.n_rollout_threads))
+            
         config_env = cfg_env(config_paths=
-                             [onpolicy.__path__[0] + "/envs/habitat/habitat-lab/configs/" + args.task_config])
+                            [onpolicy.__path__[0] + "/envs/habitat/habitat-lab/configs/" + args.task_config])
         config_env.defrost()
 
         if len(scenes) > 0:
-            config_env.DATASET.CONTENT_SCENES = scenes[
-                                                i * scene_split_size: (i + 1) * scene_split_size
-                                                ]
+            config_env.DATASET.CONTENT_SCENES = scenes[rank * scene_split_size: (rank + 1) * scene_split_size]
 
         gpu_id = 0 # TODO: strange here 
         config_env.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = gpu_id
@@ -61,44 +82,18 @@ def construct_config(args):
         config_env.DATASET.SPLIT = args.split
 
         dataset = PointNavDatasetV1(config_env.DATASET)
-        datasets.append(dataset)
-
         config_env.defrost()
+
         config_env.SIMULATOR.SCENE = dataset.episodes[0].scene_id
+
         print("Loading {}".format(config_env.SIMULATOR.SCENE))
+
         config_env.freeze()
-        env_configs.append(config_env)
 
         config_baseline = cfg_baseline()
-        baseline_configs.append(config_baseline)
 
-    return env_configs, baseline_configs, datasets
+        return config_env, config_baseline, dataset
 
-class MultiHabitatEnv(object):
-    def __init__(self, args, rank, config_env, config_baseline, dataset, run_dir):
-        self.env = Exploration_Env(args, rank, config_env, config_baseline, dataset, run_dir)
-
-        self.num_agents = args.num_agents
-        
-        map_size = args.map_size_cm // args.map_resolution
-        full_w, full_h = map_size, map_size
-        local_w, local_h = int(full_w / args.global_downscaling), \
-                        int(full_h / args.global_downscaling)
-
-        global_observation_space = {}
-        global_observation_space['global_obs'] = gym.spaces.Box(low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
-        global_observation_space['global_orientation'] = gym.spaces.Box(low=-1, high=1, shape=(1,), dtype='long')
-        global_observation_space = gym.spaces.Dict(global_observation_space)
-        
-        self.action_space = []
-        self.observation_space = []
-        self.share_observation_space = []
-        
-        for agent_id in range(self.num_agents):
-            self.observation_space.append(global_observation_space)
-            self.share_observation_space.append(global_observation_space)  
-            self.action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(2,), dtype=np.float32))
-        
     def seed(self, seed=None):
         if seed is None:
             self.env.seed(1)

@@ -143,8 +143,8 @@ class R_MAPPO():
                 train_info['value_loss'] += value_loss.item()
                 train_info['action_loss'] += action_loss.item()
                 train_info['dist_entropy'] += dist_entropy.item()
-                train_info['grad_norm'] += grad_norm
-                train_info['ratio'] += ratio.mean() 
+                train_info['grad_norm'] += grad_norm.item()
+                train_info['ratio'] += ratio.mean().item()
 
         num_updates = self.ppo_epoch * self.num_mini_batch
 

@@ -3,6 +3,7 @@ Modified from OpenAI Baselines code to work with multi-agent envs
 """
 import numpy as np
 import torch
+import multiprocessing as mp
 from multiprocessing import Process, Pipe
 from abc import ABC, abstractmethod
 from onpolicy.utils.util import tile_images
@@ -409,7 +410,6 @@ def infoworker(remote, parent_remote, env_fn_wrapper):
             else:
                 if np.all(done):
                     ob, info = env.reset()
-
             remote.send((ob, reward, done, info))
         elif cmd == 'reset':
             ob, info = env.reset()
@@ -432,7 +432,7 @@ def infoworker(remote, parent_remote, env_fn_wrapper):
                 (env.observation_space, env.share_observation_space, env.action_space))
         elif cmd == 'get_short_term_goal':
             fr = env.get_short_term_goal(data)
-            remote.send((fr))
+            remote.send(fr)
         else:
             raise NotImplementedError
 
@@ -445,14 +445,18 @@ class InfoSubprocVecEnv(ShareVecEnv):
         self.waiting = False
         self.closed = False
         nenvs = len(env_fns)
-        self.remotes, self.work_remotes = zip(*[Pipe() for _ in range(nenvs)])
-        self.ps = [Process(target=infoworker, args=(work_remote, remote, CloudpickleWrapper(env_fn)))
+        self._mp_ctx = mp.get_context("forkserver")
+        self.remotes, self.work_remotes = zip(*[self._mp_ctx.Pipe(duplex=True) for _ in range(nenvs)])
+        
+        self.ps = [self._mp_ctx.Process(target=infoworker, args=(work_remote, remote, CloudpickleWrapper(env_fn)))
                    for (work_remote, remote, env_fn) in zip(self.work_remotes, self.remotes, env_fns)]
+        
         for p in self.ps:
             p.daemon = True  # if the main process crashes, we should not cause things to hang
             p.start()
         for remote in self.work_remotes:
             remote.close()
+
         self.remotes[0].send(('get_spaces', None))
         observation_space, share_observation_space, action_space = self.remotes[0].recv(
         )
@@ -476,6 +480,11 @@ class InfoSubprocVecEnv(ShareVecEnv):
         results = [remote.recv() for remote in self.remotes]
         obs, infos = zip(*results)
         return np.stack(obs), np.stack(infos)
+
+    def get_short_term_goal(self, data):
+        for remote, da in zip(self.remotes, data):
+            remote.send(('get_short_term_goal', da))
+        return np.stack([remote.recv() for remote in self.remotes])
 
     def reset_task(self):
         for remote in self.remotes:
@@ -900,7 +909,7 @@ class InfoDummyVecEnv(ShareVecEnv):
             raise NotImplementedError
     
     def get_short_term_goal(self, data):
-        return [env.get_short_term_goal(d) for d,env in zip(data, self.envs)]
+        return [env.get_short_term_goal(d) for d, env in zip(data, self.envs)]
 
 class ChooseDummyVecEnv(ShareVecEnv):
     def __init__(self, env_fns):

@@ -35,6 +35,7 @@ from habitat.config.default import get_config as cfg_env
 from habitat.datasets.pointnav.pointnav_dataset import PointNavDatasetV1
 from habitat_baselines.config.default import get_config as cfg_baseline
 
+import wandb
 
 def _preprocess_depth(depth):
     depth = depth[:, :, 0]*1
@@ -53,6 +54,7 @@ class Exploration_Env(habitat.RLEnv):
 
     def __init__(self, args, rank, config_env, config_baseline, dataset, run_dir):
         
+        self.run_dir = run_dir
         self.num_agents = args.num_agents
 
         if args.visualize:
@@ -98,6 +100,10 @@ class Exploration_Env(habitat.RLEnv):
         self.action_space = gym.spaces.Discrete(self.num_actions)
 
         self.observation_space = gym.spaces.Box(0, 255,
+                                                (3, args.frame_height,
+                                                    args.frame_width),
+                                                dtype='uint8')
+        self.share_observation_space = gym.spaces.Box(0, 255,
                                                 (3, args.frame_height,
                                                     args.frame_width),
                                                 dtype='uint8')
@@ -707,7 +713,7 @@ class Exploration_Env(habitat.RLEnv):
 
         if args.visualize or args.print_images:
             ep_dir = '{}/episodes/{}/{}/'.format(
-                            run_dir, self.rank+1, self.episode_no)
+                            self.run_dir, self.rank+1, self.episode_no)
             if not os.path.exists(ep_dir):
                 os.makedirs(ep_dir)
             if args.use_merge:
@@ -746,7 +752,7 @@ class Exploration_Env(habitat.RLEnv):
                 vis_grid = np.flipud(vis_grid)
                 
                 vu.visualize_n(self.n_rot,self.n_trans,self.figure_t, self.ax_t, self.obs[0], vis_grid[:,:,::-1],
-                                pos, pos, run_dir, self.rank, self.episode_no,
+                                pos, pos, self.run_dir, self.rank, self.episode_no,
                                 self.timestep, args.visualize,
                                 args.print_images, args.vis_type)
             else:
@@ -774,7 +780,7 @@ class Exploration_Env(habitat.RLEnv):
                                 (start_x_gt - gy1*args.map_resolution/100.0,
                                 start_y_gt - gx1*args.map_resolution/100.0,
                                 start_o_gt),
-                                run_dir, self.rank, self.episode_no,
+                                self.run_dir, self.rank, self.episode_no,
                                 self.timestep, args.visualize,
                                 args.print_images, args.vis_type, a)
 
@@ -797,7 +803,7 @@ class Exploration_Env(habitat.RLEnv):
                         vu.visualize(self.figure, self.ax, self.obs[a], vis_grid[:,:,::-1],
                                 (start_x_gt, start_y_gt, start_o_gt),
                                 (start_x_gt, start_y_gt, start_o_gt),
-                                run_dir, self.rank, self.episode_no,
+                                self.run_dir, self.rank, self.episode_no,
                                 self.timestep, args.visualize,
                                 args.print_images, args.vis_type, a)
         return output

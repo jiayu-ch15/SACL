@@ -11,18 +11,16 @@ from collections import deque
 import torch
 
 from onpolicy.config import get_config
-from onpolicy.envs.habitat.Habitat_Env import construct_config, MultiHabitatEnv
+from onpolicy.envs.habitat.Habitat_Env import MultiHabitatEnv
+
 from onpolicy.envs.env_wrappers import InfoSubprocVecEnv, InfoDummyVecEnv
 
-def make_train_env(all_args, env_configs, baseline_configs, datasets, run_dir):
+def make_train_env(all_args, run_dir):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "Habitat":
                 env = MultiHabitatEnv(args=all_args, 
                                       rank=rank,
-                                      config_env=env_configs[rank], 
-                                      config_baseline=baseline_configs[rank], 
-                                      dataset=datasets[rank],
                                       run_dir=run_dir
                                       )
             else:
@@ -37,15 +35,12 @@ def make_train_env(all_args, env_configs, baseline_configs, datasets, run_dir):
         return InfoSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
 
-def make_eval_env(all_args, env_configs, baseline_configs, datasets, run_dir):
+def make_eval_env(all_args, run_dir):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "Habitat":
                 env = MultiHabitatEnv(args=all_args, 
                                       rank=rank,
-                                      config_env=env_configs[rank], 
-                                      config_baseline=baseline_configs[rank], 
-                                      dataset=datasets[rank],
                                       run_dir=run_dir
                                       )
             else:
@@ -235,9 +230,8 @@ def main(args):
     np.random.seed(all_args.seed)
 
     # env init
-    env_configs, baseline_configs, datasets = construct_config(all_args)
-    envs = make_train_env(all_args, env_configs, baseline_configs, datasets, run_dir)
-    eval_envs = make_eval_env(all_args, env_configs, baseline_configs, datasets, run_dir) if all_args.use_eval else None
+    envs = make_train_env(all_args, run_dir)
+    eval_envs = make_eval_env(all_args, run_dir)
     num_agents = all_args.num_agents
 
     config = {

@@ -71,7 +71,7 @@ class HabitatRunner(Runner):
         values, actions, action_log_probs, rnn_states, rnn_states_critic = self.warmup()   
 
         start = time.time()
-        episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
+        episodes = int(self.num_env_steps) // self.max_episode_length // self.n_rollout_threads
         
         for episode in range(episodes):
 
@@ -150,7 +150,7 @@ class HabitatRunner(Runner):
                 torch.set_grad_enabled(False)
                 
             # post process
-            total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
+            total_num_steps = (episode + 1) * self.max_episode_length * self.n_rollout_threads
             
             # log information
             if episode % self.log_interval == 0:
