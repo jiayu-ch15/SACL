@@ -689,10 +689,21 @@ class HabitatRunner(Runner):
         print("eval average episode rewards of agent: " + str(eval_average_episode_rewards))
         self.log_env(eval_env_infos, total_num_steps)
 
+    def restore(self):
+        if self.use_single_network:
+            policy_model_state_dict = torch.load(str(self.model_dir) + '/global_model.pt')#, map_location='cpu')
+            self.policy.model.load_state_dict(policy_model_state_dict)
+        else:
+            policy_actor_state_dict = torch.load(str(self.model_dir) + '/global_actor_best.pt')#, map_location='cpu')
+            self.policy.actor.load_state_dict(policy_actor_state_dict)
+            if not self.all_args.use_render:
+                policy_critic_state_dict = torch.load(str(self.model_dir) + '/global_critic_best.pt')
+                self.policy.critic.load_state_dict(policy_critic_state_dict)
+ 
     @torch.no_grad()
     def render(self):
         for episode in range(self.all_args.render_episodes):
-            
+
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
 
             # init map and pose 
