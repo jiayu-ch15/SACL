@@ -82,8 +82,8 @@ def visualize(fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep_no, t,
 def visualize_n(rotate,trans,fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep_no, t,
               visualize, print_images, vis_style):
     
-        for i in range(2):
-            ax[i].clear()
+    for i in range(2):
+        ax[i].clear()
         ax[i].set_yticks([])
         ax[i].set_xticks([])
         ax[i].set_yticklabels([])

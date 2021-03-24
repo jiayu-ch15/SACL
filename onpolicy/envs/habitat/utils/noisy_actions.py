@@ -11,9 +11,9 @@ from habitat.sims.habitat_simulator.action_spaces import (
 )
 from habitat_sim.agent.controls import register_move_fn
 
-actuation_noise_fwd = pickle.load(open(onpolicy.__path__[0] + "/envs/habitat/noise_models/actuation_noise_fwd.pkl", 'rb'))
-actuation_noise_right = pickle.load(open(onpolicy.__path__[0] + "/envs/habitat/noise_models/actuation_noise_right.pkl", 'rb'))
-actuation_noise_left = pickle.load(open(onpolicy.__path__[0] + "/envs/habitat/noise_models/actuation_noise_left.pkl", 'rb'))
+actuation_noise_fwd = pickle.load(open(onpolicy.__path__[0] + "/envs/habitat/model/noise_models/actuation_noise_fwd.pkl", 'rb'))
+actuation_noise_right = pickle.load(open(onpolicy.__path__[0] + "/envs/habitat/model/noise_models/actuation_noise_right.pkl", 'rb'))
+actuation_noise_left = pickle.load(open(onpolicy.__path__[0] + "/envs/habitat/model/noise_models/actuation_noise_left.pkl", 'rb'))
 
 
 @attr.s(auto_attribs=True, slots=True)
