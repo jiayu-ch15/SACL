@@ -14,7 +14,7 @@ from onpolicy.config import get_config
 from onpolicy.envs.mpe.MPE_env import MPEEnv
 from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
 
-def make_train_env(all_args):
+def make_render_env(all_args):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "MPE":
@@ -102,7 +102,7 @@ def main(args):
     np.random.seed(all_args.seed)
 
     # env init
-    envs = make_train_env(all_args)
+    envs = make_render_env(all_args)
     eval_envs = None
     num_agents = all_args.num_agents
 
