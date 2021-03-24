@@ -165,7 +165,7 @@ class HabitatRunner(Runner):
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
                 
-                self.train_global_infos["average_episode_rewards"].append(np.mean(self.buffer.rewards) * self.episode_length * 50.0)
+                self.train_global_infos["average_episode_rewards"].append(np.mean(self.buffer.rewards) * self.episode_length)
                 print("average episode rewards is {}".format(np.mean(self.train_global_infos["average_episode_rewards"])))
                 
                 self.log_all(self.train_slam_infos, total_num_steps)
@@ -644,7 +644,7 @@ class HabitatRunner(Runner):
     @torch.no_grad()
     def eval(self, total_num_steps):
         eval_episode_rewards = []
-        eval_obs = self.eval_envs.reset()
+        eval_obs, eval_infos = self.eval_envs.reset()
 
         eval_rnn_states = np.zeros((self.n_eval_rollout_threads, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
@@ -690,7 +690,7 @@ class HabitatRunner(Runner):
         
         all_frames = []
         for episode in range(self.all_args.render_episodes):
-            obs = envs.reset()
+            obs, infos = envs.reset()
             if self.all_args.save_gifs:
                 image = envs.render('rgb_array', close=False)[0]
                 all_frames.append(image)
