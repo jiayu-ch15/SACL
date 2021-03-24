@@ -694,8 +694,7 @@ class HabitatRunner(Runner):
         for episode in range(self.all_args.render_episodes):
             
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-            
+
             # init map and pose 
             self.init_map_and_pose() 
 
@@ -708,10 +707,22 @@ class HabitatRunner(Runner):
             # Compute Global policy input
             self.first_compute_global_input()
 
-            self.share_global_input = self.global_input if self.use_centralized_V else self.global_input #! wrong
+            self.trainer.prep_rollout()
 
-            values, actions, action_log_probs, rnn_states, rnn_states_critic = self.compute_global_goal(step = 0)
+            concat_obs = {}
+            for key in self.obs.keys():
+                concat_obs[key] = np.concatenate(self.global_input[key])
 
+            actions, rnn_states = self.trainer.policy.act(concat_obs,
+                                        np.concatenate(rnn_states),
+                                        np.concatenate(self.global_masks),
+                                        deterministic=True)
+            
+            rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
+
+            # Compute planner inputs
+            self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(actions)), self.n_rollout_threads))
+            
             # compute local input
             self.compute_local_input(self.global_input['global_obs'])
 
@@ -754,16 +765,15 @@ class HabitatRunner(Runner):
                     for key in self.obs.keys():
                         concat_obs[key] = np.concatenate(self.global_input[key])
 
-                    actions, rnn_states = \
-                        self.trainer.policy.act(concat_obs,
+                    actions, rnn_states = self.trainer.policy.act(concat_obs,
                                                 np.concatenate(rnn_states),
                                                 np.concatenate(self.global_masks),
                                                 deterministic=True)
-                    actions = np.array(np.split(_t2n(eval_actions), self.n_rollout_threads))
-                    rnn_states = np.array(np.split(_t2n(eval_rnn_states), self.n_rollout_threads))
+                    
+                    rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
 
                     # Compute planner inputs
-                    self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(action)), self.n_rollout_threads))
+                    self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(actions)), self.n_rollout_threads))
                     
                     ############################################################################
                     
