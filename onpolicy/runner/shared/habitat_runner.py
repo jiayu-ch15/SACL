@@ -174,7 +174,7 @@ class HabitatRunner(Runner):
                 self.log_all(self.train_local_infos, total_num_steps)
                 self.log_all(self.train_global_infos, total_num_steps)
                 self.log_all(self.env_infos, total_num_steps)
-                self.log_agent(self.env_infos, total_num_steps)
+                # self.log_agent(self.env_infos, total_num_steps)
             
             # save model
             if (episode % self.save_interval == 0 or episode == episodes - 1):

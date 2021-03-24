@@ -56,7 +56,11 @@ class MultiHabitatEnv(object):
         if len(scenes) > 0:
             config_env.DATASET.CONTENT_SCENES = scenes[rank * scene_split_size: (rank + 1) * scene_split_size]
 
-        gpu_id = 1 if rank < (args.n_rollout_threads)/2 else 2
+        if rank > (args.n_rollout_threads)/2 and args.n_rollout_threads > 6:
+            gpu_id = 2
+        else:
+            gpu_id = 1
+            
         config_env.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = gpu_id
 
         agent_sensors = []
