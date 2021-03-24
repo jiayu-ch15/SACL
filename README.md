@@ -328,7 +328,7 @@ pip install -e .
 # if you failed to install habitat-api, you can use `build.sh --headless` instead.
 ```
 
-Remember to change the absolute path in `/home/yuchao/project/onpolicy/onpolicy/envs/habitat/habitat-lab/habitat/config/default.py` and `/home/yuchao/project/onpolicy/onpolicy/envs/habitat/habitat-lab/configs/tasks/pointnav_gibson.yaml` files.
+Remember to change the absolute path in `/home/yuchao/project/onpolicy/onpolicy/envs/habitat/habitat-lab/configs/tasks/pointnav_gibson.yaml` files.
 
 ```
 cd /home/yuchao/project/onpolicy/onpolicy/envs/habitat
