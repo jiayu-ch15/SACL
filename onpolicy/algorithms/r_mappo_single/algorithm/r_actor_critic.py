@@ -35,7 +35,7 @@ class R_Model(nn.Module):
         # share obs space
         if self._use_centralized_V:
             share_obs_shape = get_shape_from_obs_space(share_obs_space)
-            self.share_obs_prep = CNNBase(args, share_obs_shape) if len(obs_shape)==3 MLPBase(args, share_obs_shape, use_attn_internal=True, use_cat_self=args.use_cat_self)           
+            self.share_obs_prep = CNNBase(args, share_obs_shape) if len(obs_shape)==3 else MLPBase(args, share_obs_shape, use_attn_internal=True, use_cat_self=args.use_cat_self)           
         else:
             self.share_obs_prep = self.obs_prep
 
@@ -65,7 +65,7 @@ class R_Model(nn.Module):
 
         x = obs
         x = self.obs_prep(x)
-
+        
         # common
         actor_features = self.common(x)
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
@@ -104,10 +104,10 @@ class R_Model(nn.Module):
         share_x = share_obs
         share_x = self.share_obs_prep(share_x)
 
-        critic_features = self.common(share_x)
+        critic_features = self.common(share_x)   
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             critic_features, rnn_states = self.rnn(critic_features, rnn_states, masks)
-
+        
         values = self.v_out(critic_features)
 
         return values, rnn_states

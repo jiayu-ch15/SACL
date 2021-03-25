@@ -18,7 +18,7 @@ class AgarRunner(Runner):
         super(AgarRunner, self).__init__(config)
 
     def run(self):
-        self.warmup()   
+        self.warmup()
 
         start = time.time()
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
@@ -86,7 +86,7 @@ class AgarRunner(Runner):
                         
                         env_infos.append(env_info)
                 
-                train_infos["average_step_rewards"] = np.mean(self.buffer.rewards)
+                train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards)*self.episode_length
                 self.log_train(train_infos, total_num_steps)
                 self.log_env(env_infos, total_num_steps)
 
@@ -248,17 +248,15 @@ class AgarRunner(Runner):
             eval_rnn_states = np.array(np.split(_t2n(eval_rnn_states), self.n_eval_rollout_threads))
             
             # Obser reward and next obs
-            eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions)
+            eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions)  
             eval_episode_rewards.append(eval_rewards)
 
             eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
             eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
             eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), 1), dtype=np.float32)
 
-        eval_episode_rewards = np.array(eval_episode_rewards)
         eval_env_infos = {}
-        eval_average_episode_rewards = np.mean(np.sum(eval_episode_rewards, axis=0))
-        eval_env_infos['eval_average_episode_rewards'] = eval_average_episode_rewards
-        print("eval average episode rewards of agent: " + str(eval_average_episode_rewards))
+        eval_env_infos['eval_average_episode_rewards'] = np.mean(eval_episode_rewards)*self.episode_length
+        #print("eval average episode rewards of agent: " + str(eval_average_episode_rewards))
 
         self.log_eval(eval_env_infos, total_num_steps)

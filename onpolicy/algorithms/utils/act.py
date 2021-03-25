@@ -113,7 +113,7 @@ class ACTLayer(nn.Module):
                     dist_entropy.append(action_logit.entropy().mean())
                 
             action_log_probs = torch.sum(torch.cat(action_log_probs, -1), -1, keepdim=True)
-            dist_entropy = dist_entropy[0] / 2.0 + dist_entropy[1] / 0.98 #! dosen't make sense
+            dist_entropy = dist_entropy[0] * 0.0025 + dist_entropy[1] * 0.01 
 
         elif self.multidiscrete_action:
             action = torch.transpose(action, 0, 1)
