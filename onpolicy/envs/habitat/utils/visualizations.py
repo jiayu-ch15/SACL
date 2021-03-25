@@ -10,7 +10,7 @@ import seaborn as sns
 import skimage
 
 
-def visualize(fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep_no, t,
+def visualize(fig, ax, img, grid, pos, gt_pos, dump_dir, scene_name, ep_no, t,
               visualize, print_images, vis_style, agent_id):
     for i in range(2):
         ax[agent_id][i].clear()
@@ -71,11 +71,10 @@ def visualize(fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep_no, t,
     plt.show()
 
     if print_images:
-        fn = '{}/episodes/{}/{}/{}-{}-Vis-{}.png'.format(
-            dump_dir, (rank + 1), ep_no, rank, ep_no, t)
+        fn = '{}/gifs/{}/{}/{}-{}-Vis-{}.png'.format(dump_dir, scene_name, ep_no, scene_name, ep_no, t)
         plt.savefig(fn)
 
-def visualize_n(rotate,trans,fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep_no, t,
+def visualize_n(rotate,trans,fig, ax, img, grid, pos, gt_pos, dump_dir, scene_name, ep_no, t,
               visualize, print_images, vis_style):
     ax.clear()
     ax.set_yticks([])
@@ -102,8 +101,7 @@ def visualize_n(rotate,trans,fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep
         plt.gcf().canvas.flush_events()
 
     if print_images:
-        fn = '{}/episodes/{}/{}/{}-{}-Vis-{}.png'.format(
-            dump_dir, (rank + 1), ep_no, rank, ep_no, t)
+        fn = '{}/gifs/{}/{}/{}-{}-Vis-{}.png'.format(dump_dir, scene_name, ep_no, scene_name, ep_no, t)
         plt.savefig(fn)
 
 def insert_circle(mat, x, y, value):

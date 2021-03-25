@@ -182,10 +182,6 @@ class HabitatRunner(Runner):
                 self.save_global_model(total_num_steps)
                 self.save_local_model(total_num_steps)
 
-            # eval
-            if episode % self.eval_interval == 0 and self.use_eval:
-                self.eval(total_num_steps)
-
     def get_local_map_boundaries(self, agent_loc, local_sizes, full_sizes):
         loc_r, loc_c = agent_loc
         local_w, local_h = local_sizes
@@ -764,6 +760,8 @@ class HabitatRunner(Runner):
         
         print("eval average episode rewards: " + str(np.mean(explored_reward)))
         print("eval average episode ratio: "+ str(np.mean(explored_ratio)))
+
+    
 
     @torch.no_grad()
     def render(self):
