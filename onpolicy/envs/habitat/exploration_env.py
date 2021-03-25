@@ -57,9 +57,9 @@ class Exploration_Env(habitat.RLEnv):
         self.run_dir = run_dir
         self.num_agents = args.num_agents
 
-        if args.visualize:
+        if args.use_render:
             plt.ion()
-        if args.print_images or args.visualize:
+        if args.print_images or args.use_render:
             if args.use_merge:
                 self.figure_t, self.ax_t = plt.subplots(1, 1, figsize=(6*16/9, 6),
                                                 facecolor="whitesmoke",
@@ -312,7 +312,9 @@ class Exploration_Env(habitat.RLEnv):
 
         # Preprocess observations
         rgb = [obs[index]['rgb'].astype(np.uint8) for index in range(self.num_agents)]
+        
         self.obs = rgb # For visualization
+        
         if self.args.frame_width != self.args.env_frame_width:
             rgb = [np.asarray(self.res(rgb[index])) for index in range(self.num_agents)]
 
@@ -380,7 +382,7 @@ class Exploration_Env(habitat.RLEnv):
             if action[h] == 1:
                 x1, y1, t1 = self.last_loc[h]
                 x2, y2, t2 = self.curr_loc[h]
-                if abs(x1 - x2)< 0.05 and abs(y1 - y2) < 0.05:
+                if abs(x1 - x2) < 0.05 and abs(y1 - y2) < 0.05:
                     self.col_width[h] += 2
                     self.col_width[h] = min(self.col_width[h], 9)
                 else:
@@ -536,7 +538,7 @@ class Exploration_Env(habitat.RLEnv):
         params['agent_view_angle'] = 0
         params['du_scale'] = self.args.du_scale
         params['vision_range'] = self.args.vision_range
-        params['visualize'] = self.args.visualize
+        params['visualize'] = self.args.use_render
         params['obs_threshold'] = self.args.obs_threshold
         self.selem = skimage.morphology.disk(self.args.obstacle_boundary /
                                              self.args.map_resolution)
@@ -589,6 +591,7 @@ class Exploration_Env(habitat.RLEnv):
     def get_short_term_goal(self, inputs):
 
         args = self.args
+
         self.extrinsic_rew = []
         self.intrinsic_rew = []
         self.relative_angle = []
@@ -711,7 +714,7 @@ class Exploration_Env(habitat.RLEnv):
             output[a][2] = gt_action
             self.relative_angle.append(relative_angle)
 
-        if args.visualize or args.print_images:
+        if args.use_render or args.print_images:
             ep_dir = '{}/episodes/{}/{}/'.format(
                             self.run_dir, self.rank+1, self.episode_no)
             if not os.path.exists(ep_dir):
@@ -753,10 +756,10 @@ class Exploration_Env(habitat.RLEnv):
                 
                 vu.visualize_n(self.n_rot,self.n_trans,self.figure_t, self.ax_t, self.obs[0], vis_grid[:,:,::-1],
                                 pos, pos, self.run_dir, self.rank, self.episode_no,
-                                self.timestep, args.visualize,
-                                args.print_images, args.vis_type)
+                                self.timestep, args.use_render,
+                                args.print_images, args.render_type)
             else:
-                if args.vis_type == 1: # Visualize predicted map and pose
+                if args.render_type == 1: # Visualize predicted map and pose
                     for a in range(self.num_agents):
                         goal = inputs['goal'][a]
                         goal = pu.threshold_poses(goal, grid.shape)
@@ -781,8 +784,8 @@ class Exploration_Env(habitat.RLEnv):
                                 start_y_gt - gx1*args.map_resolution/100.0,
                                 start_o_gt),
                                 self.run_dir, self.rank, self.episode_no,
-                                self.timestep, args.visualize,
-                                args.print_images, args.vis_type, a)
+                                self.timestep, args.use_render,
+                                args.print_images, args.render_type, a)
 
                 else: # Visualize ground-truth map and pose
                     for a in range(self.num_agents):
@@ -804,8 +807,9 @@ class Exploration_Env(habitat.RLEnv):
                                 (start_x_gt, start_y_gt, start_o_gt),
                                 (start_x_gt, start_y_gt, start_o_gt),
                                 self.run_dir, self.rank, self.episode_no,
-                                self.timestep, args.visualize,
-                                args.print_images, args.vis_type, a)
+                                self.timestep, args.use_render,
+                                args.print_images, args.render_type, a)
+        
         return output
        
     def _get_gt_map(self, full_map_size, agent_id):

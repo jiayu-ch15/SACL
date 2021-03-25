@@ -77,9 +77,7 @@ def parse_args(args, parser):
                         help="""model path to load,
                                 0 to not reload (default: 0)""")
     
-    parser.add_argument('-v', '--visualize', type=int, default=0,
-                        help='1:Render the frame (default: 0)')
-    parser.add_argument('--vis_type', type=int, default=1,
+    parser.add_argument('--render_type', type=int, default=1,
                         help='1: Show predicted map, 2: Show GT map')
     parser.add_argument('--print_images', type=int, default=0,
                         help='1: save visualization as images')
