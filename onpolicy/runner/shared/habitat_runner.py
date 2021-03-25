@@ -761,8 +761,9 @@ class HabitatRunner(Runner):
         print("eval average episode rewards: " + str(np.mean(explored_reward)))
         print("eval average episode ratio: "+ str(np.mean(explored_ratio)))
 
-    
-
+        if self.all_args.save_gifs:
+            pass
+            
     @torch.no_grad()
     def render(self):
         explored_ratios = []

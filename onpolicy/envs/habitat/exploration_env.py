@@ -12,16 +12,12 @@ import torch
 from PIL import Image
 from torch.nn import functional as F
 from torchvision import transforms
-import onpolicy
 
 if sys.platform == 'darwin':
     matplotlib.use("tkagg")
 else:
     matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-
-import habitat
-from habitat import logger
 
 from .utils.map_builder import MapBuilder
 from .utils.fmm_planner import FMMPlanner
@@ -31,12 +27,13 @@ from .utils.grid import get_grid, get_grid_full
 from .utils import pose as pu
 from .utils import visualizations as vu
 
+import habitat
+from habitat import logger
 from habitat.config.default import get_config as cfg_env
 from habitat.datasets.pointnav.pointnav_dataset import PointNavDatasetV1
 from habitat_baselines.config.default import get_config as cfg_baseline
 
-import wandb
-
+import onpolicy
 
 def _preprocess_depth(depth):
     depth = depth[:, :, 0]*1
@@ -54,43 +51,30 @@ def _preprocess_depth(depth):
 
 class Exploration_Env(habitat.RLEnv):
 
-    def __init__(self, args, rank, config_env, config_baseline, dataset, run_dir):
-
-        self.run_dir = run_dir
-        self.num_agents = args.num_agents
-
-        if args.use_render:
-            plt.ion()
-
-        if args.print_images or args.use_render:
-            if args.use_merge:
-                self.figure_t, self.ax_t = plt.subplots(1, 1, figsize=(6*16/9, 6),
-                                                        facecolor="whitesmoke",
-                                                        num="Thread {}".format(rank))
-            else:
-                self.figure, self.ax = plt.subplots(self.num_agents, 2, figsize=(6*16/9, 6),
-                                                    facecolor="whitesmoke",
-                                                    num="Thread {}".format(rank))
+    def __init__(self, args, config_env, config_baseline, dataset, run_dir):
 
         self.args = args
-        self.num_actions = 3
-        self.dt = 10
+        self.run_dir = run_dir
 
-        self.reward_gamma = 1
+        self.num_agents = args.num_agents
         self.use_reward_penalty = args.use_reward_penalty
         self.reward_decay = args.reward_decay
+        self.use_render = args.use_render
+        self.render_type = args.render_type
+        self.save_gifs = args.save_gifs
+        self.map_resolution = args.map_resolution
+        self.map_size_cm = args.map_size_cm
 
-        self.rank = rank
+        self.num_actions = 3
+        self.dt = 10
+        self.reward_gamma = 1
 
         self.sensor_noise_fwd = \
-            pickle.load(open(onpolicy.__path__[
-                        0] + "/envs/habitat/model/noise_models/sensor_noise_fwd.pkl", 'rb'))
+            pickle.load(open(onpolicy.__path__[0] + "/envs/habitat/model/noise_models/sensor_noise_fwd.pkl", 'rb'))
         self.sensor_noise_right = \
-            pickle.load(open(onpolicy.__path__[
-                        0] + "/envs/habitat/model/noise_models/sensor_noise_right.pkl", 'rb'))
+            pickle.load(open(onpolicy.__path__[0] + "/envs/habitat/model/noise_models/sensor_noise_right.pkl", 'rb'))
         self.sensor_noise_left = \
-            pickle.load(open(onpolicy.__path__[
-                        0] + "/envs/habitat/model/noise_models/sensor_noise_left.pkl", 'rb'))
+            pickle.load(open(onpolicy.__path__[0] + "/envs/habitat/model/noise_models/sensor_noise_left.pkl", 'rb'))
 
         habitat.SimulatorActions.extend_action_space("NOISY_FORWARD")
         habitat.SimulatorActions.extend_action_space("NOISY_RIGHT")
@@ -102,8 +86,9 @@ class Exploration_Env(habitat.RLEnv):
 
         super().__init__(config_env, dataset)
 
-        self.action_space = gym.spaces.Discrete(self.num_actions)
+        self.scene_name = self.habitat_env.sim.config.SCENE
 
+        self.action_space = gym.spaces.Discrete(self.num_actions)
         self.observation_space = gym.spaces.Box(0, 255,
                                                 (3, args.frame_height,
                                                     args.frame_width),
@@ -129,11 +114,23 @@ class Exploration_Env(habitat.RLEnv):
         self.res = transforms.Compose([transforms.ToPILImage(),
                                        transforms.Resize((args.frame_height, args.frame_width),
                                                          interpolation=Image.NEAREST)])
-        self.scene_name = None
+        
         self.maps_dict = []
-
         for i in range(self.num_agents):
             self.maps_dict.append({})
+
+        if self.use_render:
+            plt.ion()
+
+        if self.save_gifs or self.use_render:
+            if args.use_merge:
+                self.figure_t, self.ax_t = plt.subplots(1, 1, figsize=(6*16/9, 6),
+                                                        facecolor="whitesmoke",
+                                                        num="Scene {}".format(self.scene_name))
+            else:
+                self.figure, self.ax = plt.subplots(self.num_agents, 3, figsize=(6*16/9, 6),
+                                                    facecolor="whitesmoke",
+                                                    num="Scene {}".format(self.scene_name))
 
     def randomize_env(self):
         self._env._episode_iterator._shuffle_iterator()
@@ -180,7 +177,7 @@ class Exploration_Env(habitat.RLEnv):
         self.n_trans = []
 
         obs = super().reset()
-        full_map_size = args.map_size_cm//args.map_resolution
+        full_map_size = self.map_size_cm//self.map_resolution
         for i in range(self.num_agents):
             mapp, n_rot, n_trans = self._get_gt_map(full_map_size, i)
             self.explorable_map.append(mapp)
@@ -191,10 +188,7 @@ class Exploration_Env(habitat.RLEnv):
         self.prev_total_explored_area = 0
 
         # Preprocess observations
-        rgb = [
-            obs[i]['rgb'].astype(np.uint8)
-            for i in range(self.num_agents)
-        ]
+        rgb = [obs[i]['rgb'].astype(np.uint8) for i in range(self.num_agents)]
         self.obs = rgb  # For visualization
         if self.args.frame_width != self.args.env_frame_width:
             rgb = [
@@ -211,7 +205,6 @@ class Exploration_Env(habitat.RLEnv):
         ]
 
         # Initialize map and pose
-        self.map_size_cm = args.map_size_cm
         self.curr_loc = []
         self.curr_loc_gt = []
         self.last_loc_gt = []
@@ -412,8 +405,8 @@ class Exploration_Env(habitat.RLEnv):
                             wy = y1 + 0.05*((i+buf) * np.sin(np.deg2rad(t1)) -
                                             (j-width//2) * np.cos(np.deg2rad(t1)))
                             r, c = wy, wx
-                            r, c = int(r*100/args.map_resolution), \
-                                int(c*100/args.map_resolution)
+                            r, c = int(r*100/self.map_resolution), \
+                                int(c*100/self.map_resolution)
                             [r, c] = pu.threshold_poses([r, c],
                                                         self.collison_map[h].shape)
                             self.collison_map[h][r, c] = 1
@@ -551,18 +544,18 @@ class Exploration_Env(habitat.RLEnv):
         params['frame_width'] = self.args.env_frame_width
         params['frame_height'] = self.args.env_frame_height
         params['fov'] = self.args.hfov
-        params['resolution'] = self.args.map_resolution
-        params['map_size_cm'] = self.args.map_size_cm
+        params['resolution'] = self.map_resolution
+        params['map_size_cm'] = self.map_size_cm
         params['agent_min_z'] = 25
         params['agent_max_z'] = 150
         params['agent_height'] = self.args.camera_height * 100
         params['agent_view_angle'] = 0
         params['du_scale'] = self.args.du_scale
         params['vision_range'] = self.args.vision_range
-        params['visualize'] = self.args.use_render
+        params['visualize'] = self.use_render
         params['obs_threshold'] = self.args.obs_threshold
         self.selem = skimage.morphology.disk(self.args.obstacle_boundary /
-                                             self.args.map_resolution)
+                                             self.map_resolution)
         mapper = MapBuilder(params)
         return mapper
 
@@ -656,22 +649,22 @@ class Exploration_Env(habitat.RLEnv):
             # Get last loc
             last_start_x, last_start_y = self.last_loc[a][0], self.last_loc[a][1]
             r, c = last_start_y, last_start_x
-            last_start = [int(r * 100.0/args.map_resolution - gx1),
-                          int(c * 100.0/args.map_resolution - gy1)]
+            last_start = [int(r * 100.0/self.map_resolution - gx1),
+                          int(c * 100.0/self.map_resolution - gy1)]
             last_start = pu.threshold_poses(last_start, grid.shape)
 
             # Get curr loc
             self.curr_loc[a] = [start_x, start_y, start_o]
             r, c = start_y, start_x
-            start = [int(r * 100.0/args.map_resolution - gx1),
-                     int(c * 100.0/args.map_resolution - gy1)]
+            start = [int(r * 100.0/self.map_resolution - gx1),
+                     int(c * 100.0/self.map_resolution - gy1)]
             start = pu.threshold_poses(start, grid.shape)
             # TODO: try reducing this
 
             self.visited[a][gx1:gx2, gy1:gy2][start[0]-2:start[0]+3,
                                               start[1]-2:start[1]+3] = 1
 
-            steps = 25
+            steps = 25 # ! wrong
             for i in range(steps):
                 x = int(last_start[0] + (start[0] -
                                          last_start[0]) * (i+1) / steps)
@@ -682,19 +675,19 @@ class Exploration_Env(habitat.RLEnv):
             # Get last loc ground truth pose
             last_start_x, last_start_y = self.last_loc_gt[a][0], self.last_loc_gt[a][1]
             r, c = last_start_y, last_start_x
-            last_start = [int(r * 100.0/args.map_resolution),
-                          int(c * 100.0/args.map_resolution)]
+            last_start = [int(r * 100.0/self.map_resolution),
+                          int(c * 100.0/self.map_resolution)]
             last_start = pu.threshold_poses(
                 last_start, self.visited_gt[a].shape)
 
             # Get ground truth pose
             start_x_gt, start_y_gt, start_o_gt = self.curr_loc_gt[a]
             r, c = start_y_gt, start_x_gt
-            start_gt = [int(r * 100.0/args.map_resolution),
-                        int(c * 100.0/args.map_resolution)]
+            start_gt = [int(r * 100.0/self.map_resolution),
+                        int(c * 100.0/self.map_resolution)]
             start_gt = pu.threshold_poses(start_gt, self.visited_gt[a].shape)
 
-            steps = 25
+            steps = 25 # ! wrong
             for i in range(steps):
                 x = int(last_start[0] + (start_gt[0] -
                                          last_start[0]) * (i+1) / steps)
@@ -710,16 +703,14 @@ class Exploration_Env(habitat.RLEnv):
             # Negative reward for exploring explored areas i.e.
             # for choosing explored cell as long-term goal
 
-            self.extrinsic_rew.append(-pu.get_l2_distance(10,
-                                                          goal[0], 10, goal[1]))
+            self.extrinsic_rew.append(-pu.get_l2_distance(10, goal[0], 10, goal[1]))
             self.intrinsic_rew.append(-exp_pred[a][goal[0], goal[1]])
 
             # Get short-term goal
-            stg = self._get_stg(grid, explored, start,
-                                np.copy(goal), planning_window, a)
+            stg = self._get_stg(grid, explored, start, np.copy(goal), planning_window, a)
 
             # Find GT action
-            if self.args.use_eval or not self.args.train_local:
+            if self.args.use_eval or self.args.use_render or not self.args.train_local:
                 gt_action = 0
             else:
                 gt_action = self._get_gt_action(1 - self.explorable_map[a], start,
@@ -727,8 +718,7 @@ class Exploration_Env(habitat.RLEnv):
                                                 planning_window, start_o, a)
 
             (stg_x, stg_y) = stg
-            relative_dist = pu.get_l2_distance(
-                stg_x, start[0], stg_y, start[1])
+            relative_dist = pu.get_l2_distance(stg_x, start[0], stg_y, start[1])
             relative_dist = relative_dist*5./100.
             angle_st_goal = math.degrees(math.atan2(stg_x - start[0],
                                                     stg_y - start[1]))
@@ -745,7 +735,7 @@ class Exploration_Env(habitat.RLEnv):
             output[a][2] = gt_action
             self.relative_angle.append(relative_angle)
 
-        if args.use_render or args.print_images:
+        if self.use_render or self.save_gifs:
             ep_dir = '{}/gifs/{}/{}/'.format(self.run_dir, self.scene_name, self.episode_no)
             if not os.path.exists(ep_dir):
                 os.makedirs(ep_dir)
@@ -790,67 +780,11 @@ class Exploration_Env(habitat.RLEnv):
                 vis_grid = np.flipud(vis_grid)
 
                 vu.visualize_n(self.n_rot, self.n_trans, self.figure_t, self.ax_t, self.obs[0], vis_grid[:, :, ::-1],
-                               pos, pos, self.run_dir, self.rank, self.episode_no,
-                               self.timestep, args.use_render,
-                               args.print_images, args.render_type)
+                               pos, pos, self.run_dir, self.scene_name, self.episode_no,
+                               self.timestep, self.use_render,
+                               self.save_gifs, self.render_type)
             else:
-                if args.render_type == 1:  # Visualize predicted map and pose
-                    for a in range(self.num_agents):
-                        goal = inputs['goal'][a]
-                        goal = pu.threshold_poses(goal, grid.shape)
-                        start_x, start_y, start_o, gx1, gx2, gy1, gy2 = inputs['pose_pred'][a]
-                        gx1, gx2, gy1, gy2 = int(gx1), int(gx2), int(gy1), int(gy2)
-                        start_x_gt, start_y_gt, start_o_gt = self.curr_loc_gt[a]
-                        vis_grid = vu.get_colored_map(np.rint(map_pred[a]),
-                                                      self.collison_map[a][gx1:gx2,
-                                                                           gy1:gy2],
-                                                      self.visited_vis[a][gx1:gx2,
-                                                                          gy1:gy2],
-                                                      self.visited_gt[a][gx1:gx2,
-                                                                         gy1:gy2],
-                                                      goal,
-                                                      self.explored_map[a][gx1:gx2,
-                                                                           gy1:gy2],
-                                                      self.explorable_map[a][gx1:gx2,
-                                                                             gy1:gy2],
-                                                      self.map[a][gx1:gx2, gy1:gy2] *
-                                                      self.explored_map[a][gx1:gx2, gy1:gy2])
-                        vis_grid = np.flipud(vis_grid)
-                        vu.visualize(self.figure, self.ax, self.obs[a], vis_grid[:, :, ::-1],
-                                     (start_x - gy1*args.map_resolution/100.0,
-                                      start_y - gx1*args.map_resolution/100.0,
-                                      start_o),
-                                     (start_x_gt - gy1*args.map_resolution/100.0,
-                                      start_y_gt - gx1*args.map_resolution/100.0,
-                                      start_o_gt),
-                                     self.run_dir, self.rank, self.episode_no,
-                                     self.timestep, args.use_render,
-                                     args.print_images, args.render_type, a)
-
-                else:  # Visualize ground-truth map and pose
-                    for a in range(self.num_agents):
-                        start_x, start_y, start_o, gx1, gx2, gy1, gy2 = inputs['pose_pred'][a]
-                        gx1, gx2, gy1, gy2 = int(gx1), int(
-                            gx2), int(gy1), int(gy2)
-                        goal = inputs['goal'][a]
-                        goal = pu.threshold_poses(goal, grid.shape)
-                        start_x_gt, start_y_gt, start_o_gt = self.curr_loc_gt[a]
-                        vis_grid = vu.get_colored_map(self.map[a],
-                                                      self.collison_map[a],
-                                                      self.visited_gt[a],
-                                                      self.visited_gt[a],
-                                                      (goal[0]+gx1,
-                                                       goal[1]+gy1),
-                                                      self.explored_map[a],
-                                                      self.explorable_map[a],
-                                                      self.map[a]*self.explored_map[a])
-                        vis_grid = np.flipud(vis_grid)
-                        vu.visualize(self.figure, self.ax, self.obs[a], vis_grid[:, :, ::-1],
-                                     (start_x_gt, start_y_gt, start_o_gt),
-                                     (start_x_gt, start_y_gt, start_o_gt),
-                                     self.run_dir, self.rank, self.episode_no,
-                                     self.timestep, args.use_render,
-                                     args.print_images, args.render_type, a)
+                self.render(inputs, grid)
 
         return output
 
@@ -1074,3 +1008,53 @@ class Exploration_Env(habitat.RLEnv):
             gt_action = 2
 
         return gt_action
+    
+    def render(self, inputs, grid):
+        for a in range(self.num_agents):
+            
+            goal = inputs['goal'][a]
+            goal = pu.threshold_poses(goal, grid.shape)
+            start_x, start_y, start_o, gx1, gx2, gy1, gy2 = inputs['pose_pred'][a]
+            gx1, gx2, gy1, gy2 = int(gx1), int(gx2), int(gy1), int(gy2)
+            start_x_gt, start_y_gt, start_o_gt = self.curr_loc_gt[a]
+
+            # predicted map and pose
+            vis_grid_local = vu.get_colored_map(np.rint(map_pred[a]),
+                                            self.collison_map[a][gx1:gx2, gy1:gy2],
+                                            self.visited_vis[a][gx1:gx2, gy1:gy2],
+                                            self.visited_gt[a][gx1:gx2, gy1:gy2],
+                                            goal,
+                                            self.explored_map[a][gx1:gx2, gy1:gy2],
+                                            self.explorable_map[a][gx1:gx2, gy1:gy2],
+                                            self.map[a][gx1:gx2, gy1:gy2] *
+                                            self.explored_map[a][gx1:gx2, gy1:gy2])
+            vis_grid_local = np.flipud(vis_grid_local)
+            pos_local = (start_x - gy1 * self.map_resolution/100.0,
+                            start_y - gx1 * self.map_resolution/100.0,
+                            start_o)
+            pos_gt_local = (start_x_gt - gy1 * self.map_resolution/100.0,
+                            start_y_gt - gx1 * self.map_resolution/100.0,
+                            start_o_gt)
+
+
+            # ground truth map and pose
+            vis_grid_gt = vu.get_colored_map(self.map[a],
+                                            self.collison_map[a],
+                                            self.visited_gt[a],
+                                            self.visited_gt[a],
+                                            (goal[0]+gx1,
+                                            goal[1]+gy1),
+                                            self.explored_map[a],
+                                            self.explorable_map[a],
+                                            self.map[a]*self.explored_map[a])
+            vis_grid_gt = np.flipud(vis_grid_gt)
+            pos_gt = (start_x_gt, start_y_gt, start_o_gt)
+
+            ax = self.ax[a] if self.num_agents > 1 else self.ax
+            vu.visualize(a, self.figure, ax, self.obs[a], vis_grid_local[:, :, ::-1], 
+                            vis_grid_gt[:, :, ::-1],
+                            pos_local,
+                            pos_gt_local,
+                            pos_gt,
+                            self.run_dir, self.scene_name, self.episode_no, self.timestep, 
+                            self.use_render, self.save_gifs)
