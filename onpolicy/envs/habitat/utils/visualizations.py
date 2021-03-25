@@ -2,11 +2,8 @@ import sys
 
 import matplotlib
 import numpy as np
-
-if sys.platform == 'darwin':
-    matplotlib.use("tkagg")
-else:
-    matplotlib.use('Agg')
+    
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 import seaborn as sns
@@ -16,15 +13,14 @@ import skimage
 def visualize(fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep_no, t,
               visualize, print_images, vis_style, agent_id):
     for i in range(2):
-        ax[agent_id, i].clear()
-        ax[agent_id, i].set_yticks([])
-        ax[agent_id, i].set_xticks([])
-        ax[agent_id, i].set_yticklabels([])
-        ax[agent_id, i].set_xticklabels([])
+        ax[agent_id][i].clear()
+        ax[agent_id][i].set_yticks([])
+        ax[agent_id][i].set_xticks([])
+        ax[agent_id][i].set_yticklabels([])
+        ax[agent_id][i].set_xticklabels([])
 
-    #print("showimage")
-    ax[agent_id, 0].imshow(img)
-    ax[agent_id, 0].set_title("Observation of agent"+str(agent_id), family='sans-serif',
+    ax[agent_id][0].imshow(img)
+    ax[agent_id][0].set_title("Observation of agent"+str(agent_id), family='sans-serif',
                     fontname='DejaVu Sans',
                     fontsize=20)
 
@@ -33,8 +29,8 @@ def visualize(fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep_no, t,
     else:
         title = "Ground-Truth Map and Pose"
 
-    ax[agent_id, 1].imshow(grid)
-    ax[agent_id, 1].set_title(title, family='sans-serif',
+    ax[agent_id][1].imshow(grid)
+    ax[agent_id][1].set_title(title, family='sans-serif',
                     fontname='DejaVu Sans',
                     fontsize=20)
 
@@ -48,7 +44,7 @@ def visualize(fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep_no, t,
     fc = 'Grey'
     dx = np.cos(np.deg2rad(o))
     dy = -np.sin(np.deg2rad(o))
-    ax[agent_id, 1].arrow(x - 1 * dx, y - 1 * dy, dx * agent_size, dy * (agent_size * 1.25),
+    ax[agent_id][1].arrow(x - 1 * dx, y - 1 * dy, dx * agent_size, dy * (agent_size * 1.25),
                 head_width=agent_size, head_length=agent_size * 1.25,
                 length_includes_head=True, fc=fc, ec=fc, alpha=0.9)
 
@@ -61,7 +57,7 @@ def visualize(fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep_no, t,
     fc = 'Red'
     dx = np.cos(np.deg2rad(o))
     dy = -np.sin(np.deg2rad(o))
-    ax[agent_id, 1].arrow(x - 1 * dx, y - 1 * dy, dx * agent_size, dy * agent_size * 1.25,
+    ax[agent_id][1].arrow(x - 1 * dx, y - 1 * dy, dx * agent_size, dy * agent_size * 1.25,
                 head_width=agent_size, head_length=agent_size * 1.25,
                 length_includes_head=True, fc=fc, ec=fc, alpha=0.6)
 
@@ -81,26 +77,19 @@ def visualize(fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep_no, t,
 
 def visualize_n(rotate,trans,fig, ax, img, grid, pos, gt_pos, dump_dir, rank, ep_no, t,
               visualize, print_images, vis_style):
-    
-    for i in range(2):
-        ax[i].clear()
-        ax[i].set_yticks([])
-        ax[i].set_xticks([])
-        ax[i].set_yticklabels([])
-        ax[i].set_xticklabels([])
-
-    ax[0].imshow(img)
-    ax[0].set_title("Observation", family='sans-serif',
-                    fontname='Helvetica',
-                    fontsize=20)
+    ax.clear()
+    ax.set_yticks([])
+    ax.set_xticks([])
+    ax.set_yticklabels([])
+    ax.set_xticklabels([])
 
     if vis_style == 1:
         title = "Predicted Map and Pose"
     else:
         title = "Ground-Truth Map and Pose"
 
-    ax[1].imshow(grid)
-    ax[1].set_title(title, family='sans-serif',
+    ax.imshow(grid)
+    ax.set_title(title, family='sans-serif',
                     fontname='Helvetica',
                     fontsize=20)
 

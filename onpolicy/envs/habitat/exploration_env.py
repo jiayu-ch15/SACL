@@ -741,7 +741,7 @@ class Exploration_Env(habitat.RLEnv):
                     
                 t_gt_explored[t_gt_explored>=1]=1
                 t_explored_map[t_explored_map>=1]=1
-                vis_grid = vu.get_colored_map_t(t_map,
+                vis_grid = vu.get_colored_map(t_map,
                                     t_collision,
                                     t_visited_gt,
                                     t_visited_gt,

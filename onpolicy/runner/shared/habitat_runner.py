@@ -303,6 +303,7 @@ class HabitatRunner(Runner):
     def init_global_policy(self):
         self.best_gobal_reward = -np.inf
         self.train_global_infos = {}
+        self.render_global_infos = {}
         # ppo network log info
         self.train_global_infos['value_loss']= deque(maxlen=1000)
         self.train_global_infos['policy_loss']= deque(maxlen=1000)
@@ -312,6 +313,7 @@ class HabitatRunner(Runner):
         self.train_global_infos['ratio'] = deque(maxlen=1000)
         # env info
         self.train_global_infos['average_episode_rewards'] = deque(maxlen=100)
+        self.render_global_infos['average_episode_rewards'] = deque(maxlen=100)
 
         self.env_infos = {'explored_ratio': deque(maxlen=100)}
 
@@ -686,7 +688,7 @@ class HabitatRunner(Runner):
         eval_episode_rewards = np.array(eval_episode_rewards)
         eval_env_infos = {}
         eval_env_infos['eval_average_episode_rewards'] = np.sum(np.array(eval_episode_rewards), axis=0)
-        print("eval average episode rewards of agent: " + str(eval_average_episode_rewards))
+        print("eval average episode rewards of agent: " + str(eval_env_infos['eval_average_episode_rewards']))
         self.log_env(eval_env_infos, total_num_steps)
 
     def restore(self):
@@ -703,7 +705,10 @@ class HabitatRunner(Runner):
     @torch.no_grad()
     def render(self):
         for episode in range(self.all_args.render_episodes):
-
+            #store each episode ratio or reward
+            self.explored_ratio = np.zeros((self.n_rollout_threads, self.num_agents))
+            self.explored_reward = np.zeros((self.n_rollout_threads, self.num_agents))
+            
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
 
             # init map and pose 
@@ -721,7 +726,7 @@ class HabitatRunner(Runner):
             self.trainer.prep_rollout()
 
             concat_obs = {}
-            for key in self.obs.keys():
+            for key in self.global_input.keys():
                 concat_obs[key] = np.concatenate(self.global_input[key])
 
             actions, rnn_states = self.trainer.policy.act(concat_obs,
@@ -768,14 +773,21 @@ class HabitatRunner(Runner):
                     # For every global step, update the full and local maps
                     self.update_map_and_pose()
                     self.compute_global_input()
-
+                    self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+                    
+                    for e in range(self.n_rollout_threads):
+                        if 'exp_ratio' in infos[e].keys():
+                            self.explored_ratio[e] += np.array(infos[e]['exp_ratio'])
+                        if 'exp_reward' in infos[e].keys():
+                            self.explored_reward[e] += np.array(infos[e]['exp_reward'])
+                    
                     ############################################################################
                     self.trainer.prep_rollout()
 
                     concat_obs = {}
-                    for key in self.obs.keys():
+                    for key in self.global_input.keys():
                         concat_obs[key] = np.concatenate(self.global_input[key])
-
+                    
                     actions, rnn_states = self.trainer.policy.act(concat_obs,
                                                 np.concatenate(rnn_states),
                                                 np.concatenate(self.global_masks),
@@ -794,3 +806,12 @@ class HabitatRunner(Runner):
                 # Output stores local goals as well as the the ground-truth action
                 self.local_output = self.envs.get_short_term_goal(self.local_input)
                 self.local_output = np.array(self.local_output, dtype = np.long)
+            
+            self.env_infos['explored_ratio'].append(self.explored_ratio)
+            self.render_global_infos['average_episode_rewards'].append(self.explored_reward)
+            
+            print("render: episode {} rewards: ".format(episode) + str(np.mean(self.explored_reward)))
+            print("render: episode {} ratio: ".format(episode) + str(np.mean(self.explored_ratio)))
+
+            print("render: average episode rewards: " + str(np.mean(self.render_global_infos['average_episode_rewards'])))
+            print("render: average episode ratio: " + str(np.mean(self.env_infos['explored_ratio'])))
