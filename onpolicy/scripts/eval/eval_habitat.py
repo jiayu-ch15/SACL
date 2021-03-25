@@ -172,10 +172,8 @@ def main(args):
     else:
         raise NotImplementedError
 
-    assert all_args.use_render, ("u need to set use_render be True")
+    assert all_args.use_eval, ("u need to set use_eval be True")
     assert not (all_args.model_dir == None or all_args.model_dir == ""), ("set model_dir first")
-    assert all_args.n_rollout_threads == 1, ("only support to use 1 env to render.")
-    
 
     # cuda
     if all_args.cuda and torch.cuda.is_available():
