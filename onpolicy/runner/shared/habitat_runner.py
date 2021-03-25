@@ -648,49 +648,6 @@ class HabitatRunner(Runner):
                 else:
                     self.writter.add_scalars(agent_k, {agent_k: np.mean(v[:, agent_id])}, total_num_steps)
 
-    @torch.no_grad()
-    def eval(self, total_num_steps):
-        eval_episode_rewards = []
-        eval_obs, eval_infos = self.eval_envs.reset()
-
-        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
-        eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
-
-        for eval_step in range(self.max_episode_length):
-            self.trainer.prep_rollout()
-            eval_action, eval_rnn_states = self.trainer.policy.act(np.concatenate(eval_obs),
-                                                np.concatenate(eval_rnn_states),
-                                                np.concatenate(eval_masks),
-                                                deterministic=True)
-            eval_actions = np.array(np.split(_t2n(eval_action), self.n_eval_rollout_threads))
-            eval_rnn_states = np.array(np.split(_t2n(eval_rnn_states), self.n_eval_rollout_threads))
-            
-            if self.eval_envs.action_space[0].__class__.__name__ == 'MultiDiscrete':
-                for i in range(self.eval_envs.action_space[0].shape):
-                    eval_uc_actions_env = np.eye(self.eval_envs.action_space[0].high[i]+1)[eval_actions[:, :, i]]
-                    if i == 0:
-                        eval_actions_env = eval_uc_actions_env
-                    else:
-                        eval_actions_env = np.concatenate((eval_actions_env, eval_uc_actions_env), axis=2)
-            elif self.eval_envs.action_space[0].__class__.__name__ == 'Discrete':
-                eval_actions_env = np.squeeze(np.eye(self.eval_envs.action_space[0].n)[eval_actions], 2)
-            else:
-                raise NotImplementedError
-
-            # Obser reward and next obs
-            eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions_env)
-            eval_episode_rewards.append(eval_rewards)
-
-            eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
-            eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
-            eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), 1), dtype=np.float32)
-
-        eval_episode_rewards = np.array(eval_episode_rewards)
-        eval_env_infos = {}
-        eval_env_infos['eval_average_episode_rewards'] = np.sum(np.array(eval_episode_rewards), axis=0)
-        print("eval average episode rewards of agent: " + str(eval_env_infos['eval_average_episode_rewards']))
-        self.log_env(eval_env_infos, total_num_steps)
-
     def restore(self):
         if self.use_single_network:
             policy_model_state_dict = torch.load(str(self.model_dir) + '/global_model.pt')#, map_location='cpu')
@@ -698,17 +655,125 @@ class HabitatRunner(Runner):
         else:
             policy_actor_state_dict = torch.load(str(self.model_dir) + '/global_actor_best.pt')#, map_location='cpu')
             self.policy.actor.load_state_dict(policy_actor_state_dict)
-            if not self.all_args.use_render:
+            if not self.all_args.use_render and not self.all_args.use_eval:
                 policy_critic_state_dict = torch.load(str(self.model_dir) + '/global_critic_best.pt')
                 self.policy.critic.load_state_dict(policy_critic_state_dict)
  
     @torch.no_grad()
+    def eval(self):
+        # store each episode ratio or reward
+        explored_ratio = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
+        explored_reward = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
+        rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+
+        # init map and pose 
+        self.init_map_and_pose() 
+
+        # reset env
+        self.obs, infos = self.envs.reset()
+
+        # Predict map from frame 1:
+        self.run_slam_module(self.obs, self.obs, infos)
+
+        # Compute Global policy input
+        self.first_compute_global_input()
+
+        self.trainer.prep_rollout()
+
+        concat_obs = {}
+        for key in self.global_input.keys():
+            concat_obs[key] = np.concatenate(self.global_input[key])
+
+        actions, rnn_states = self.trainer.policy.act(concat_obs,
+                                    np.concatenate(rnn_states),
+                                    np.concatenate(self.global_masks),
+                                    deterministic=True)
+        
+        rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
+
+        # Compute planner inputs
+        self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(actions)), self.n_rollout_threads))
+        
+        # compute local input
+        self.compute_local_input(self.global_input['global_obs'])
+
+        # Output stores local goals as well as the the ground-truth action
+        self.local_output = self.envs.get_short_term_goal(self.local_input)
+        self.local_output = np.array(self.local_output, dtype = np.long)
+        
+        for step in range(self.max_episode_length):
+
+            local_step = step % self.num_local_steps
+            global_step = (step // self.num_local_steps) % self.episode_length
+            eval_global_step = step // self.num_local_steps + 1
+
+            self.last_obs = self.obs.copy()
+
+            # Sample actions
+            actions_env = self.compute_local_action()
+
+            # Obser reward and next obs
+            self.obs, rewards, dones, infos = self.envs.step(actions_env)
+                            
+            self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+            self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
+
+            self.global_masks *= self.local_masks
+
+            self.run_slam_module(self.last_obs, self.obs, infos)
+            self.update_local_map()
+
+            # Global Policy
+            if local_step == self.num_local_steps - 1:
+                # For every global step, update the full and local maps
+                self.update_map_and_pose()
+                self.compute_global_input()
+                self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+                
+                for e in range(self.n_rollout_threads):
+                    if 'exp_ratio' in infos[e].keys():
+                        explored_ratio[e] += np.array(infos[e]['exp_ratio'])
+                    if 'exp_reward' in infos[e].keys():
+                        explored_reward[e] += np.array(infos[e]['exp_reward'])
+                
+                ############################################################################
+                self.trainer.prep_rollout()
+
+                concat_obs = {}
+                for key in self.global_input.keys():
+                    concat_obs[key] = np.concatenate(self.global_input[key])
+                
+                actions, rnn_states = self.trainer.policy.act(concat_obs,
+                                            np.concatenate(rnn_states),
+                                            np.concatenate(self.global_masks),
+                                            deterministic=True)
+                
+                rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
+
+                # Compute planner inputs
+                self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(actions)), self.n_rollout_threads))
+                
+                ############################################################################
+                
+            # Local Policy
+            self.compute_local_input(self.local_map)
+
+            # Output stores local goals as well as the the ground-truth action
+            self.local_output = self.envs.get_short_term_goal(self.local_input)
+            self.local_output = np.array(self.local_output, dtype = np.long)
+        
+        print("eval average episode rewards: " + str(np.mean(explored_reward)))
+        print("eval average episode ratio: "+ str(np.mean(explored_ratio)))
+
+    @torch.no_grad()
     def render(self):
+        explored_ratios = []
+        explored_rewards = []
+
         for episode in range(self.all_args.render_episodes):
             #store each episode ratio or reward
-            self.explored_ratio = np.zeros((self.n_rollout_threads, self.num_agents))
-            self.explored_reward = np.zeros((self.n_rollout_threads, self.num_agents))
-            
+            explored_ratio = np.zeros((self.n_rollout_threads, self.num_agents))
+            explored_reward = np.zeros((self.n_rollout_threads, self.num_agents))
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
 
             # init map and pose 
@@ -777,9 +842,9 @@ class HabitatRunner(Runner):
                     
                     for e in range(self.n_rollout_threads):
                         if 'exp_ratio' in infos[e].keys():
-                            self.explored_ratio[e] += np.array(infos[e]['exp_ratio'])
+                            explored_ratio[e] += np.array(infos[e]['exp_ratio'])
                         if 'exp_reward' in infos[e].keys():
-                            self.explored_reward[e] += np.array(infos[e]['exp_reward'])
+                            explored_reward[e] += np.array(infos[e]['exp_reward'])
                     
                     ############################################################################
                     self.trainer.prep_rollout()
@@ -807,11 +872,11 @@ class HabitatRunner(Runner):
                 self.local_output = self.envs.get_short_term_goal(self.local_input)
                 self.local_output = np.array(self.local_output, dtype = np.long)
             
-            self.env_infos['explored_ratio'].append(self.explored_ratio)
-            self.render_global_infos['average_episode_rewards'].append(self.explored_reward)
-            
-            print("render: episode {} rewards: ".format(episode) + str(np.mean(self.explored_reward)))
-            print("render: episode {} ratio: ".format(episode) + str(np.mean(self.explored_ratio)))
+            print("render episode {} rewards: ".format(episode) + str(np.mean(explored_reward)))
+            print("render episode {} ratio: ".format(episode) + str(np.mean(explored_ratio)))
 
-            print("render: average episode rewards: " + str(np.mean(self.render_global_infos['average_episode_rewards'])))
-            print("render: average episode ratio: " + str(np.mean(self.env_infos['explored_ratio'])))
+            explored_ratios.append(explored_ratio)
+            explored_rewards.append(explored_reward)
+        
+        print("average render episode rewards: " + str(np.mean(explored_ratios)))
+        print("average render episode ratio: " + str(np.mean(explored_rewards)))

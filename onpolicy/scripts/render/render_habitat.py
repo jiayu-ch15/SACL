@@ -13,7 +13,7 @@ import torch
 from onpolicy.config import get_config
 from onpolicy.envs.habitat.Habitat_Env import MultiHabitatEnv
 
-from onpolicy.envs.env_wrappers import InfoSubprocVecEnv, InfoDummyVecEnv
+from onpolicy.envs.env_wrappers import ChooseInfoSubprocVecEnv, ChooseInfoDummyVecEnv
 
 def make_render_env(all_args, run_dir):
     def get_env_fn(rank):
@@ -30,9 +30,9 @@ def make_render_env(all_args, run_dir):
             return env
         return init_env
     if all_args.n_rollout_threads == 1:
-        return InfoDummyVecEnv([get_env_fn(0)])
+        return ChooseInfoDummyVecEnv([get_env_fn(0)])
     else:
-        return InfoSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
+        return ChooseInfoSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
 def parse_args(args, parser):
     parser.add_argument('--scenario_name', type=str,
@@ -237,8 +237,6 @@ def main(args):
     
     # post process
     envs.close()
-    if all_args.use_eval and eval_envs is not envs:
-        eval_envs.close()
 
     if all_args.use_wandb:
         run.finish()

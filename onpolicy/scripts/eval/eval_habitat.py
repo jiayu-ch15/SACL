@@ -13,25 +13,7 @@ import torch
 from onpolicy.config import get_config
 from onpolicy.envs.habitat.Habitat_Env import MultiHabitatEnv
 
-from onpolicy.envs.env_wrappers import InfoSubprocVecEnv, InfoDummyVecEnv
-def make_train_env(all_args, run_dir):
-    def get_env_fn(rank):
-        def init_env():
-            if all_args.env_name == "Habitat":
-                env = MultiHabitatEnv(args=all_args, 
-                                      rank=rank,
-                                      run_dir=run_dir)
-            else:
-                print("Can not support the " +
-                      all_args.env_name + "environment.")
-                raise NotImplementedError
-            env.seed(all_args.seed + rank * 5000)
-            return env
-        return init_env
-    if all_args.n_rollout_threads == 1:
-        return InfoDummyVecEnv([get_env_fn(0)])
-    else:
-        return InfoSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
+from onpolicy.envs.env_wrappers import ChooseInfoSubprocVecEnv, ChooseInfoDummyVecEnv
     
 def make_eval_env(all_args, run_dir):
     def get_env_fn(rank):
@@ -48,9 +30,9 @@ def make_eval_env(all_args, run_dir):
             return env
         return init_env
     if all_args.n_rollout_threads == 1:
-        return InfoDummyVecEnv([get_env_fn(0)])
+        return ChooseInfoDummyVecEnv([get_env_fn(0)])
     else:
-        return InfoSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
+        return ChooseInfoSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
 def parse_args(args, parser):
     parser.add_argument('--scenario_name', type=str,
@@ -230,7 +212,7 @@ def main(args):
 
     # env init
     envs = make_eval_env(all_args, run_dir)
-    eval_envs = envs
+    eval_envs = None
     num_agents = all_args.num_agents
 
     config = {
@@ -253,8 +235,6 @@ def main(args):
     
     # post process
     envs.close()
-    if all_args.use_eval and eval_envs is not envs:
-        eval_envs.close()
 
     if all_args.use_wandb:
         run.finish()
