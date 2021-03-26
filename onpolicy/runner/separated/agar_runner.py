@@ -41,7 +41,7 @@ class AgarRunner(Runner):
                 
                 # insert data into buffer
                 self.insert(data)
-
+                    
             # compute return and update network
             self.compute()
             train_infos = self.train()
@@ -86,8 +86,8 @@ class AgarRunner(Runner):
                                 env_info['cooperate'].append(info[agent_id]['behavior'][3]) 
                         
                         env_infos.append(env_info)
-                
-                        train_infos[agent_id].update({"average_step_rewards": np.mean(self.buffer[agent_id].rewards)})
+
+                        train_infos[agent_id].update({"average_episode_rewards": np.mean(self.buffer[agent_id].rewards)*self.episode_length})
                 
                 self.log_train(train_infos, total_num_steps)
                 self.log_env(env_infos, total_num_steps)
@@ -187,6 +187,15 @@ class AgarRunner(Runner):
                     else:
                         self.writter.add_scalars(agent_k, {agent_k: np.mean(v)}, total_num_steps)
 
+    def log_eval(self, eval_infos, total_num_steps):
+        for agent_id in range(self.num_agents):
+            for k, v in eval_infos[agent_id].items():
+                agent_k = "agent%i/" % agent_id + k
+                if self.use_wandb:
+                    wandb.log({agent_k: v}, step=total_num_steps)
+                else:
+                    self.writter.add_scalars(agent_k, {agent_k: v}, total_num_steps)     
+
     @torch.no_grad()
     def render(self):
         envs = self.envs
@@ -254,6 +263,8 @@ class AgarRunner(Runner):
     @torch.no_grad()
     def eval(self, total_num_steps):
         eval_episode_rewards = []
+        for i in range(self.num_agents):
+            eval_episode_rewards.append([])
         eval_obs = self.eval_envs.reset()
 
         eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
@@ -283,17 +294,23 @@ class AgarRunner(Runner):
 
             # Obser reward and next obs
             eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions_env)
-            eval_episode_rewards.append(eval_rewards)
-
+            
+            for i in range(self.num_agents):
+                temp = eval_rewards[:, i, :]
+                eval_episode_rewards[i].append(np.mean(temp))           
+            
             eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
             eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
             eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), 1), dtype=np.float32)
 
-        eval_episode_rewards = np.array(eval_episode_rewards) 
+        #eval_episode_rewards = np.array(eval_episode_rewards) 
         eval_train_infos = []
-        for agent_id in range(self.num_agents):
-            eval_average_episode_rewards = np.mean(np.sum(eval_episode_rewards[:, :, agent_id], axis=0))
-            eval_train_infos.append({'eval_average_episode_rewards': eval_average_episode_rewards})
-            print("eval average episode rewards of agent%i: " % agent_id + str(eval_average_episode_rewards))
+        for i in range(self.num_agents):
+            eval_train_infos.append({})
 
-        self.log_train(eval_train_infos, total_num_steps)  
+        for agent_id in range(self.num_agents):
+            eval_train_infos[agent_id]['eval_average_episode_rewards'] = np.mean(eval_episode_rewards[agent_id])*self.episode_length
+            #print("eval average episode rewards of agent%i: " % agent_id + str(eval_average_episode_rewards))
+
+
+        self.log_eval(eval_train_infos, total_num_steps)  

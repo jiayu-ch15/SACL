@@ -28,7 +28,7 @@ def onehot(d, ndim):
 
 
 class AgarEnv(gym.Env):
-    def __init__(self, args, obs_size=531, gamemode=0, kill_reward_eps=0, coop_eps=1, reward_settings="std"):
+    def __init__(self, args, obs_size=578, gamemode=0, kill_reward_eps=0, coop_eps=1, reward_settings="std", eval=False):
         super(AgarEnv, self).__init__()
         self.args = args
         self.action_repeat = args.action_repeat
@@ -39,7 +39,7 @@ class AgarEnv(gym.Env):
         # total_step > up_step,up = [0,1] total_step = 10e6, up = 1
         # total_step > low_step, low = [0,1] total_step = 15e6, low=1
         self.up_step = 5e6
-        self.low_step = 15e6
+        self.low_step = 10e6
         self.curriculum_learning = args.use_curriculum_learning
         self.num_agents = args.num_agents
         self.num_bots = 5
@@ -70,7 +70,7 @@ class AgarEnv(gym.Env):
         self.kill_reward_eps = np.ones(
             self.num_agents) * 0.33 * kill_reward_eps
         self.coop_eps = np.ones(self.num_agents) * coop_eps
-        
+        self.eval = eval
         # if self.share_reward:
         #self.coop_eps = np.zeros(self.num_agents)
 
@@ -158,7 +158,7 @@ class AgarEnv(gym.Env):
             self.agents[1].centerPos).sqDist() / self.server.config.r
         self.sum_dis += t_dis
         self.near = (t_dis <= 0.5)
-        if self.killed[0] + self.killed[1] > 0:
+        if self.killed[0] + self.killed[1] > 0.1: 
             self.near = False
         self.last_action = deepcopy(np.array(actions).reshape(-1))
         self.sum_r += rewards
@@ -194,7 +194,7 @@ class AgarEnv(gym.Env):
             self.split = np.zeros(self.num_agents)
             self.hit = np.zeros((self.num_agents, 4))
             self.near = False
-            
+
             self.server = GameServer(self)
             self.server.start(self.gamemode)
             self.agents = [Player(self.server) for _ in range(self.num_agents)]
@@ -206,7 +206,8 @@ class AgarEnv(gym.Env):
                 low = min(
                     1.0, max(0.0, (self.total_step - self.low_step) / self.up_step))
                 self.bot_speed = rand(low, up)
-                difficulty = 2 + rand(low, up)*30
+                self.bots = [Bot(self.server) for _ in range(self.num_bots)]
+                """difficulty = 2 + rand(low, up)*30
 
                 self.bots = []
                 distance = difficulty*100
@@ -217,11 +218,12 @@ class AgarEnv(gym.Env):
                         pos = getPosOnCircle(self.agents[math.floor(i/bots_each_agent)].centerPos, distance)
                     else:
                         pos = getPosOnCircle(self.agents[-1].centerPos, distance)
-                    self.bots.append(Bot(self.server, pos=pos))
+                    self.bots.append(Bot(self.server, pos=pos))"""
             else:
                 self.bots = [Bot(self.server) for _ in range(self.num_bots)]
                 self.bot_speed = 1.0
-            
+            if self.eval:
+                self.bot_speed = 1.0
             self.players = self.agents + self.bots
             self.server.addPlayers(self.players)
             self.viewer = []
@@ -246,60 +248,68 @@ class AgarEnv(gym.Env):
         obs_id is a 578D array, first 560D is information of all entities around agent_id, last 28D is global information
 
         '''
-        n = [10, 5, 5, 10, 10]  # , 10, 5, 5, 10, 10] # the agent can observe at most 10 self-cells, 5 foods, 5 virus, 10 other script agent cells, 10 other outside agent cells
-        s_glo = 21  # global information size
-        # , 1, 1, 1, 1, 1] # information size of self-cell, food, virus, script agent cell and other outside agent cells.
-        s_size_i = [15, 7, 5, 15, 15]
-        s_size = np.sum(np.array(n) * np.array(s_size_i)) + s_glo
-        if len(player.cells) == 0:
-            return np.zeros(s_size)
+        n = [10, 5, 5, 10, 10, 10, 5, 5, 10, 10]
+        s_glo = 28
+        s_size_i = [15, 7, 5, 15, 15, 1, 1, 1, 1, 1]
+        #for i in range(len(s_size_i)):
+        #    s_size_i[i] += self.num_agents
+        s_size = np.sum(np.array(n) * np.array(s_size_i)) + s_glo # 564
+        if len(player.cells) == 0:return np.zeros(s_size)
         obs = [[], [], [], [], []]
         for cell in player.viewNodes:
             t, feature = self.cell_obs(cell, player, id)
             obs[t].append(feature)
-
+            
         for i in range(len(obs)):
-            obs[i].sort(key=lambda x: x[0] ** 2 + x[1] ** 2)
+            obs[i].sort(key = lambda x:x[0] ** 2 + x[1] ** 2)
         obs_f = np.zeros(s_size)
         bound = self.players[id].get_view_box()
         b_x = (bound[1] - bound[0]) / self.server.config.serverViewBaseX
         b_y = (bound[3] - bound[2]) / self.server.config.serverViewBaseY
+        obs_f[-7] = player.centerPos.sqDist() / self.server.config.r
+        obs_f[-8] = b_x
+        obs_f[-9] = b_y
+        obs_f[-10] = len(obs[0])
+        obs_f[-11] = len(obs[1])
+        obs_f[-12] = len(obs[2])
+        obs_f[-13] = len(obs[3])
+        obs_f[-14] = len(obs[4])
+        obs_f[-15] = player.maxcell().radius / 400
+        obs_f[-16] = player.mincell().radius / 400
+        obs_f[-19:-16] = self.last_action[id * 3 : id * 3 + 3]
+        obs_f[-20] = self.bot_speed
+        obs_f[-21] = (self.killed[id] != 0)
+        obs_f[-22] = (self.killed[1 - id] != 0)
+        obs_f[-23] = sum([c.mass for c in player.cells]) / 50
+        obs_f[-24] = sum([c.mass for c in self.agents[1 - id].cells]) / 50
+        obs_f[-25] = 0#self.coop_eps[id]
+        obs_f[-26] = 0#self.coop_eps[1 - id]
+        obs_f[-27] = 0#self.kill_reward_eps[id]
+        obs_f[-28] = 0#self.kill_reward_eps[1 - id]
         base = 0
-        for j in range(5):
+        for j in range(10):
             lim = min(len(obs[j % 5]), n[j % 5])
             if j >= 5:
                 for i in range(lim):
-                    # reserved function, it can be used for different visibility of policy or value, but I didn't use it.
                     obs_f[base + i] = 1.
             else:
                 for i in range(lim):
-                    obs_f[base + i * s_size_i[j]:base +
-                          (i + 1) * s_size_i[j]] = obs[j][i]
+                    obs_f[base + i * s_size_i[j]:base + (i + 1)* s_size_i[j]] = obs[j][i] 
             base += s_size_i[j] * n[j]
 
-        position_x = (player.centerPos.x) / \
-            self.server.config.borderWidth * 2  # [-1, 1]
-        position_y = (player.centerPos.y) / \
-            self.server.config.borderHeight * 2  # [-1, 1]
-        # obs_f[-21:] are global information
-        obs_f[-1] = position_x
-        obs_f[-2] = position_y
-        obs_f[-3] = player.centerPos.sqDist() / self.server.config.r
-        obs_f[-4] = b_x
-        obs_f[-5] = b_y
-        obs_f[-6] = len(obs[0])
-        obs_f[-7] = len(obs[1])
-        obs_f[-8] = len(obs[2])
-        obs_f[-9] = len(obs[3])
-        obs_f[-10] = len(obs[4])
-        obs_f[-11] = player.maxcell().radius / 400
-        obs_f[-12] = player.mincell().radius / 400
-        obs_f[-16:-13] = self.last_action[id * 3: id * 3 + 3]
-        obs_f[-17] = self.bot_speed
-        obs_f[-18] = (self.killed[id] != 0)
-        obs_f[-19] = np.count_nonzero(self.killed) - obs_f[-18]#(self.killed[1 - id] != 0)
-        obs_f[-20] = sum([c.mass for c in player.cells]) / 50
-        obs_f[-21] = sum([c.mass for c in self.agents[1 - id].cells]) / 50
+        position_x = (player.centerPos.x) / self.server.config.borderWidth * 2 # [-1, 1]
+        position_y = (player.centerPos.y) / self.server.config.borderHeight * 2 # [-1, 1]
+        '''t_reward = min(1 - np.abs(position_x), 1 - np.abs(position_y))
+        if t_reward <= 0.1:self.rewards_forced[id] = - 2 / 1000
+        else:self.rewards_forced[id] = 0.'''
+        obs_f[-4] = position_x
+        obs_f[-3] = position_y
+        if obs_f[-4] <= -0.99:obs_f[-2] = -1
+        if obs_f[-3] <= -0.99:obs_f[-1] = -1
+        if obs_f[-4] >=  0.99:obs_f[-2] =  1
+        if obs_f[-3] >=  0.99:obs_f[-1] =  1
+        obs_f[-5] = obs[0][0][-3]
+        obs_f[-6] = obs[0][0][-2]
 
         return deepcopy(obs_f)
 
