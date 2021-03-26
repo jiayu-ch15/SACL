@@ -13,10 +13,7 @@ from PIL import Image
 from torch.nn import functional as F
 from torchvision import transforms
 
-if sys.platform == 'darwin':
-    matplotlib.use("tkagg")
-else:
-    matplotlib.use('Agg')
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 from .utils.map_builder import MapBuilder
@@ -249,7 +246,9 @@ class Exploration_Env(habitat.RLEnv):
             'fp_explored': [],
             'sensor_pose': [],
             'pose_err': [],
+            'scene_name': str
         }
+        self.info['scene_name']=self.scene_name
         for i in range(self.num_agents):
             self.info['time'].append(self.timestep)
             self.info['fp_proj'].append(fp_proj[i])
@@ -259,7 +258,7 @@ class Exploration_Env(habitat.RLEnv):
 
         self.save_position()
 
-        return state, self.info
+        return state, self.info 
 
     def step(self, action):
 
@@ -728,6 +727,9 @@ class Exploration_Env(habitat.RLEnv):
 
             self.render(inputs, grid, map_pred, gif_dir)
             if self.render_merge:
+                gif_dir = '{}/gifs/{}/episode_{}/merge/'.format(self.run_dir, self.scene_id, self.episode_no)
+                if not os.path.exists(gif_dir):
+                    os.makedirs(gif_dir)
                 self.render_merged_map(inputs, grid, gif_dir)
         return output
 
@@ -1042,7 +1044,7 @@ class Exploration_Env(habitat.RLEnv):
         vis_grid = np.flipud(vis_grid)
 
         vu.visualize_map(self.figure_m, self.ax_m, vis_grid[:, :, ::-1],
-                        pos, pos, gif_dir + "merge/",
+                        pos, pos, gif_dir,
                         self.timestep, 
                         self.use_render,
                         self.save_gifs)
