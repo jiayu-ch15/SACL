@@ -75,8 +75,6 @@ def visualize_all(agent_id, fig, ax, img, grid_local, grid_gt, pos_local, pos_gt
         plt.gcf().canvas.flush_events()
     plt.show()
 
-    print(dump_dir)
-    print(save_gifs)
     if save_gifs:
         fn = '{}/step-{}.png'.format(dump_dir, t)
         plt.savefig(fn)
