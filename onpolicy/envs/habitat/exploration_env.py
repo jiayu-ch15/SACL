@@ -246,9 +246,7 @@ class Exploration_Env(habitat.RLEnv):
             'fp_explored': [],
             'sensor_pose': [],
             'pose_err': [],
-            'scene_name': str
         }
-        self.info['scene_name']=self.scene_name
         for i in range(self.num_agents):
             self.info['time'].append(self.timestep)
             self.info['fp_proj'].append(fp_proj[i])
@@ -726,11 +724,13 @@ class Exploration_Env(habitat.RLEnv):
                 os.makedirs(gif_dir)
 
             self.render(inputs, grid, map_pred, gif_dir)
+
             if self.render_merge:
                 gif_dir = '{}/gifs/{}/episode_{}/merge/'.format(self.run_dir, self.scene_id, self.episode_no)
                 if not os.path.exists(gif_dir):
                     os.makedirs(gif_dir)
                 self.render_merged_map(inputs, grid, gif_dir)
+        
         return output
 
     def _get_gt_map(self, full_map_size, agent_id):

@@ -3,6 +3,8 @@ import wandb
 import os
 import gym
 import numpy as np
+import imageio
+from collections import defaultdict, deque
 from itertools import chain
 
 import torch
@@ -15,12 +17,22 @@ from onpolicy.envs.habitat.model.model import Neural_SLAM_Module, Local_IL_Polic
 from onpolicy.envs.habitat.utils.memory import FIFOMemory
 from onpolicy.algorithms.utils.util import init, check
 
-from collections import defaultdict, deque
 
-import imageio
 
 def _t2n(x):
     return x.detach().cpu().numpy()
+
+def get_folders(cwd):
+    folders = []
+    get_dir = os.listdir(gif_dir)
+    for i in get_dir:          
+        sub_dir = os.path.join(gif_dir, i)
+        if os.path.isdir(sub_dir):  
+            get_folders(sub_dir)
+        else:
+            folder = os.path.basename(sub_dir)
+            folders.append(folder)
+    return folders
 
 class HabitatRunner(Runner):
     def __init__(self, config):
@@ -768,14 +780,19 @@ class HabitatRunner(Runner):
         print("eval average episode ratio: "+ str(np.mean(explored_ratio)))
 
         if self.all_args.save_gifs:
-            for i in range(len(self.scene_name)):
-                image_dir = '{}/gifs/{}/episode_1/'.format(self.run_dir, self.scene_name[i])
-                gif_dir = = '{}/gifs/{}/episode_1/'.format(self.run_dir, self.scene_name[i])
-                self.save_gif(image_dir, gif_dir, duration=0.01)
-                if self.render_merge:
-                    image_dir = '{}/gifs/{}/episode_1/merge/'.format(self.run_dir, self.scene_name[i])
-                    gif_dir = = '{}/gifs/{}/episode_1/merge/'.format(self.run_dir, self.scene_name[i])
-                    self.save_gif(image_dir, gif_dir, duration=0.01)
+            gif_dir = str(self.run_dir / 'gifs')
+
+            folders = get_folders(gif_dir)
+            for folder in folders:
+                image_names = os.listdir(folder)
+
+                frames = []
+                for image_name in image_names:
+                    image_path = os.path.join(folder, image_name)
+                    frame = imageio.imread(image_path)
+                    frames.append(frame)
+
+               imageio.mimsave(str(folder) + '/render.gif', frames, duration=self.all_args.ifi)
             
     @torch.no_grad()
     def render(self):
@@ -892,12 +909,3 @@ class HabitatRunner(Runner):
         
         print("average render episode rewards: " + str(np.mean(explored_ratios)))
         print("average render episode ratio: " + str(np.mean(explored_rewards)))
-
-        
-        def save_gif(self, image_dir, gif_dir, duration=0.01):
-            frames = []
-            for step in range(self.max_episode_length):
-                img = os.path.join(gif_dir, "step-{}.png".format(step))
-                frames.append(imageio.imread(img))
-
-            imageio.mimsave(gif_path, frames, 'GIF', duration=duration)
