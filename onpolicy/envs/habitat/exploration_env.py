@@ -87,6 +87,7 @@ class Exploration_Env(habitat.RLEnv):
         super().__init__(config_env, dataset)
 
         self.scene_name = self.habitat_env.sim.config.SCENE
+        self.scene_id = self.scene_name.split("/")[-1].split(".")[0]
 
         self.action_space = gym.spaces.Discrete(self.num_actions)
         self.observation_space = gym.spaces.Box(0, 255,
@@ -126,11 +127,11 @@ class Exploration_Env(habitat.RLEnv):
             if args.use_merge:
                 self.figure_t, self.ax_t = plt.subplots(1, 1, figsize=(6*16/9, 6),
                                                         facecolor="whitesmoke",
-                                                        num="Scene {}".format(self.scene_name))
+                                                        num="Scene {} Merge Map".format(self.scene_id))
             else:
                 self.figure, self.ax = plt.subplots(self.num_agents, 3, figsize=(6*16/9, 6),
                                                     facecolor="whitesmoke",
-                                                    num="Scene {}".format(self.scene_name))
+                                                    num="Scene {} Map".format(self.scene_id))
 
     def randomize_env(self):
         self._env._episode_iterator._shuffle_iterator()
@@ -736,7 +737,7 @@ class Exploration_Env(habitat.RLEnv):
             self.relative_angle.append(relative_angle)
 
         if self.use_render or self.save_gifs:
-            ep_dir = '{}/gifs/{}/{}/'.format(self.run_dir, self.scene_name, self.episode_no)
+            ep_dir = '{}/gifs/{}/{}/'.format(self.run_dir, self.scene_id, self.episode_no)
             if not os.path.exists(ep_dir):
                 os.makedirs(ep_dir)
 
@@ -780,7 +781,7 @@ class Exploration_Env(habitat.RLEnv):
                 vis_grid = np.flipud(vis_grid)
 
                 vu.visualize_n(self.n_rot, self.n_trans, self.figure_t, self.ax_t, self.obs[0], vis_grid[:, :, ::-1],
-                               pos, pos, self.run_dir, self.scene_name, self.episode_no,
+                               pos, pos, self.run_dir, self.scene_id, self.episode_no,
                                self.timestep, self.use_render,
                                self.save_gifs, self.render_type)
             else:
@@ -1056,5 +1057,5 @@ class Exploration_Env(habitat.RLEnv):
                             pos_local,
                             pos_gt_local,
                             pos_gt,
-                            self.run_dir, self.scene_name, self.episode_no, self.timestep, 
+                            self.run_dir, self.scene_id, self.episode_no, self.timestep, 
                             self.use_render, self.save_gifs)

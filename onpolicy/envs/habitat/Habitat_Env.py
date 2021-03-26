@@ -13,7 +13,7 @@ class MultiHabitatEnv(object):
         config_env, config_baseline, dataset = self.get_config(args, rank)
 
         self.env = Exploration_Env(
-            args, rank, config_env, config_baseline, dataset, run_dir)
+            args, config_env, config_baseline, dataset, run_dir)
 
         self.num_agents = args.num_agents
 
