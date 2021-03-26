@@ -60,7 +60,7 @@ class Exploration_Env(habitat.RLEnv):
         self.use_reward_penalty = args.use_reward_penalty
         self.reward_decay = args.reward_decay
         self.use_render = args.use_render
-        self.render_type = args.render_type
+        self.render_merge = args.render_merge
         self.save_gifs = args.save_gifs
         self.map_resolution = args.map_resolution
         self.map_size_cm = args.map_size_cm
@@ -722,12 +722,12 @@ class Exploration_Env(habitat.RLEnv):
             self.relative_angle.append(relative_angle)
 
         if self.use_render:
-            gif_dir = '{}/gifs/{}/{}/'.format(self.run_dir, self.scene_id, self.episode_no)
+            gif_dir = '{}/gifs/{}/episode_{}/'.format(self.run_dir, self.scene_id, self.episode_no)
             if not os.path.exists(gif_dir):
                 os.makedirs(gif_dir)
 
             self.render(inputs, grid, map_pred, gif_dir)
-            if args.render_merge:
+            if self.render_merge:
                 self.render_merged_map(inputs, grid, gif_dir)
         return output
 

@@ -58,8 +58,7 @@ def parse_args(args, parser):
     # visual params
     parser.add_argument("--render_merge", action='store_false', default=True,
                         help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
-    parser.add_argument('--save_trajectory_data',
-                        action='store_true', default=False)
+    parser.add_argument('--save_trajectory_data', action='store_true', default=False)
 
     # reward params
     parser.add_argument('--reward_decay', type=float, default=0.9)
