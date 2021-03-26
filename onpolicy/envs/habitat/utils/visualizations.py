@@ -34,12 +34,12 @@ def visualize_all(agent_id, fig, ax, img, grid_local, grid_gt, pos_local, pos_gt
 
     #########################obs###########################
     ax[0].imshow(img)
-    ax[0].set_title("Observation" + str(agent_id), family='sans-serif',
+    ax[0].set_title("Agent {} Obs.".format(agent_id), family='sans-serif',
                     fontname='DejaVu Sans',
                     fontsize=20)
 
     ##########################predicted map###########################
-    title = "Predicted Map" + str(agent_id)
+    title = "Agent {} Pred. Map".format(agent_id)
 
     ax[1].imshow(grid_local)
     ax[1].set_title(title, family='sans-serif',
@@ -53,7 +53,7 @@ def visualize_all(agent_id, fig, ax, img, grid_local, grid_gt, pos_local, pos_gt
     draw_pose(ax[1], pos_local, grid_local, color="Red", agent_size=8, alpha=0.6)
     
     ##########################ground-truth map###########################
-    title = "Ground-Truth Map" + str(agent_id)
+    title = "Agent {} GT Map".format(agent_id)
 
     ax[2].imshow(grid_gt)
     ax[2].set_title(title, family='sans-serif',
@@ -73,6 +73,7 @@ def visualize_all(agent_id, fig, ax, img, grid_local, grid_gt, pos_local, pos_gt
         plt.gcf().canvas.flush_events()
         fig.canvas.start_event_loop(0.001)
         plt.gcf().canvas.flush_events()
+    
     plt.show()
 
     if save_gifs:

@@ -17,22 +17,16 @@ from onpolicy.envs.habitat.model.model import Neural_SLAM_Module, Local_IL_Polic
 from onpolicy.envs.habitat.utils.memory import FIFOMemory
 from onpolicy.algorithms.utils.util import init, check
 
-
-
 def _t2n(x):
     return x.detach().cpu().numpy()
 
-def get_folders(cwd):
-    folders = []
-    get_dir = os.listdir(gif_dir)
+def get_folders(dir, folders):
+    get_dir = os.listdir(dir)
     for i in get_dir:          
-        sub_dir = os.path.join(gif_dir, i)
-        if os.path.isdir(sub_dir):  
-            get_folders(sub_dir)
-        else:
-            folder = os.path.basename(sub_dir)
-            folders.append(folder)
-    return folders
+        sub_dir = os.path.join(dir, i)
+        if os.path.isdir(sub_dir): 
+            folders.append(sub_dir) 
+            get_folders(sub_dir, folders)
 
 class HabitatRunner(Runner):
     def __init__(self, config):
@@ -497,6 +491,26 @@ class HabitatRunner(Runner):
  
         return values, actions, action_log_probs, rnn_states, rnn_states_critic
     
+    def eval_compute_global_goal(self, rnn_states):
+        
+        self.trainer.prep_rollout()
+
+        concat_obs = {}
+        for key in self.global_input.keys():
+            concat_obs[key] = np.concatenate(self.global_input[key])
+        
+        actions, rnn_states = self.trainer.policy.act(concat_obs,
+                                    np.concatenate(rnn_states),
+                                    np.concatenate(self.global_masks),
+                                    deterministic=False)
+        
+        rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
+
+        # Compute planner inputs
+        self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(actions)), self.n_rollout_threads))
+        
+        return rnn_states
+
     @torch.no_grad()
     def compute(self):
         self.trainer.prep_rollout()
@@ -672,137 +686,13 @@ class HabitatRunner(Runner):
  
     @torch.no_grad()
     def eval(self):
-        # store each episode ratio or reward
-        explored_ratio = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
-        explored_reward = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
-        rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
-
-        self.scene_name=[]
-        # init map and pose 
-        self.init_map_and_pose() 
-
-        # reset env
-        self.obs, infos = self.envs.reset()
-        for i in range(self.n_rollout_threads):
-            self.scene_name.append(infos[i]['scene_name'])
-
-        # Predict map from frame 1:
-        self.run_slam_module(self.obs, self.obs, infos)
-
-        # Compute Global policy input
-        self.first_compute_global_input()
-
-        self.trainer.prep_rollout()
-
-        concat_obs = {}
-        for key in self.global_input.keys():
-            concat_obs[key] = np.concatenate(self.global_input[key])
-
-        actions, rnn_states = self.trainer.policy.act(concat_obs,
-                                    np.concatenate(rnn_states),
-                                    np.concatenate(self.global_masks),
-                                    deterministic=True)
-        
-        rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
-
-        # Compute planner inputs
-        self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(actions)), self.n_rollout_threads))
-        
-        # compute local input
-        self.compute_local_input(self.global_input['global_obs'])
-
-        # Output stores local goals as well as the the ground-truth action
-        self.local_output = self.envs.get_short_term_goal(self.local_input)
-        self.local_output = np.array(self.local_output, dtype = np.long)
-        
-        for step in range(self.max_episode_length):
-            print("step {}".format(step))
-            local_step = step % self.num_local_steps
-            global_step = (step // self.num_local_steps) % self.episode_length
-            eval_global_step = step // self.num_local_steps + 1
-
-            self.last_obs = self.obs.copy()
-
-            # Sample actions
-            actions_env = self.compute_local_action()
-
-            # Obser reward and next obs
-            self.obs, rewards, dones, infos = self.envs.step(actions_env)
-                            
-            self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-            self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
-
-            self.global_masks *= self.local_masks
-
-            self.run_slam_module(self.last_obs, self.obs, infos)
-            self.update_local_map()
-
-            # Global Policy
-            if local_step == self.num_local_steps - 1:
-                # For every global step, update the full and local maps
-                self.update_map_and_pose()
-                self.compute_global_input()
-                self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-                
-                for e in range(self.n_rollout_threads):
-                    if 'exp_ratio' in infos[e].keys():
-                        explored_ratio[e] += np.array(infos[e]['exp_ratio'])
-                    if 'exp_reward' in infos[e].keys():
-                        explored_reward[e] += np.array(infos[e]['exp_reward'])
-                
-                ############################################################################
-                self.trainer.prep_rollout()
-
-                concat_obs = {}
-                for key in self.global_input.keys():
-                    concat_obs[key] = np.concatenate(self.global_input[key])
-                
-                actions, rnn_states = self.trainer.policy.act(concat_obs,
-                                            np.concatenate(rnn_states),
-                                            np.concatenate(self.global_masks),
-                                            deterministic=True)
-                
-                rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
-
-                # Compute planner inputs
-                self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(actions)), self.n_rollout_threads))
-                
-                ############################################################################
-                
-            # Local Policy
-            self.compute_local_input(self.local_map)
-
-            # Output stores local goals as well as the the ground-truth action
-            self.local_output = self.envs.get_short_term_goal(self.local_input)
-            self.local_output = np.array(self.local_output, dtype = np.long)
-        
-        print("eval average episode rewards: " + str(np.mean(explored_reward)))
-        print("eval average episode ratio: "+ str(np.mean(explored_ratio)))
-
-        if self.all_args.save_gifs:
-            gif_dir = str(self.run_dir / 'gifs')
-
-            folders = get_folders(gif_dir)
-            for folder in folders:
-                image_names = os.listdir(folder)
-
-                frames = []
-                for image_name in image_names:
-                    image_path = os.path.join(folder, image_name)
-                    frame = imageio.imread(image_path)
-                    frames.append(frame)
-
-               imageio.mimsave(str(folder) + '/render.gif', frames, duration=self.all_args.ifi)
-            
-    @torch.no_grad()
-    def render(self):
         explored_ratios = []
         explored_rewards = []
 
-        for episode in range(self.all_args.render_episodes):
-            #store each episode ratio or reward
-            explored_ratio = np.zeros((self.n_rollout_threads, self.num_agents))
-            explored_reward = np.zeros((self.n_rollout_threads, self.num_agents))
+        for episode in range(self.all_args.eval_episodes):
+            # store each episode ratio or reward
+            explored_ratio = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
+            explored_reward = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
 
             # init map and pose 
@@ -817,22 +707,9 @@ class HabitatRunner(Runner):
             # Compute Global policy input
             self.first_compute_global_input()
 
-            self.trainer.prep_rollout()
+            # Compute Global goal
+            rnn_states = self.eval_compute_global_goal(rnn_states)
 
-            concat_obs = {}
-            for key in self.global_input.keys():
-                concat_obs[key] = np.concatenate(self.global_input[key])
-
-            actions, rnn_states = self.trainer.policy.act(concat_obs,
-                                        np.concatenate(rnn_states),
-                                        np.concatenate(self.global_masks),
-                                        deterministic=True)
-            
-            rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
-
-            # Compute planner inputs
-            self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(actions)), self.n_rollout_threads))
-            
             # compute local input
             self.compute_local_input(self.global_input['global_obs'])
 
@@ -841,7 +718,7 @@ class HabitatRunner(Runner):
             self.local_output = np.array(self.local_output, dtype = np.long)
             
             for step in range(self.max_episode_length):
-
+                print("step {}".format(step))
                 local_step = step % self.num_local_steps
                 global_step = (step // self.num_local_steps) % self.episode_length
                 eval_global_step = step // self.num_local_steps + 1
@@ -853,7 +730,7 @@ class HabitatRunner(Runner):
 
                 # Obser reward and next obs
                 self.obs, rewards, dones, infos = self.envs.step(actions_env)
-                              
+                                
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
@@ -875,24 +752,8 @@ class HabitatRunner(Runner):
                         if 'exp_reward' in infos[e].keys():
                             explored_reward[e] += np.array(infos[e]['exp_reward'])
                     
-                    ############################################################################
-                    self.trainer.prep_rollout()
-
-                    concat_obs = {}
-                    for key in self.global_input.keys():
-                        concat_obs[key] = np.concatenate(self.global_input[key])
-                    
-                    actions, rnn_states = self.trainer.policy.act(concat_obs,
-                                                np.concatenate(rnn_states),
-                                                np.concatenate(self.global_masks),
-                                                deterministic=True)
-                    
-                    rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
-
-                    # Compute planner inputs
-                    self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(actions)), self.n_rollout_threads))
-                    
-                    ############################################################################
+                    # Compute Global goal
+                    rnn_states = self.eval_compute_global_goal(rnn_states)
                     
                 # Local Policy
                 self.compute_local_input(self.local_map)
@@ -901,11 +762,28 @@ class HabitatRunner(Runner):
                 self.local_output = self.envs.get_short_term_goal(self.local_input)
                 self.local_output = np.array(self.local_output, dtype = np.long)
             
-            print("render episode {} rewards: ".format(episode) + str(np.mean(explored_reward)))
-            print("render episode {} ratio: ".format(episode) + str(np.mean(explored_ratio)))
-
-            explored_ratios.append(explored_ratio)
             explored_rewards.append(explored_reward)
+            explored_ratios.append(explored_ratio)
         
-        print("average render episode rewards: " + str(np.mean(explored_ratios)))
-        print("average render episode ratio: " + str(np.mean(explored_rewards)))
+        print("eval average episode rewards: " + str(np.mean(explored_reward)))
+        print("eval average episode ratio: "+ str(np.mean(explored_ratio)))
+
+        if self.all_args.save_gifs:
+            print("generating gifs....")
+            gif_dir = str(self.run_dir / 'gifs')
+
+            folders = []
+            get_folders(gif_dir, folders)
+            filer_folders = [folder for folder in folders if "all" in folder or "merge" in folder]
+
+            for folder in filer_folders:
+                image_names = os.listdir(folder)
+
+                frames = []
+                for image_name in image_names:
+                    image_path = os.path.join(folder, image_name)
+                    frame = imageio.imread(image_path)
+                    frames.append(frame)
+
+                imageio.mimsave(str(folder) + '/render.gif', frames, duration=self.all_args.ifi)
+            print("done!")

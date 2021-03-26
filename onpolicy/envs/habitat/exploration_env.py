@@ -2,18 +2,19 @@ import math
 import os
 import pickle
 import sys
-
 import gym
-import matplotlib
 import numpy as np
 import quaternion
-import skimage.morphology
+
 import torch
-from PIL import Image
 from torch.nn import functional as F
 from torchvision import transforms
 
-matplotlib.use('TkAgg')
+import skimage.morphology
+from PIL import Image
+import matplotlib
+if matplotlib.get_backend() == "agg":
+    matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 from .utils.map_builder import MapBuilder
@@ -719,7 +720,7 @@ class Exploration_Env(habitat.RLEnv):
             self.relative_angle.append(relative_angle)
 
         if self.use_render:
-            gif_dir = '{}/gifs/{}/episode_{}/'.format(self.run_dir, self.scene_id, self.episode_no)
+            gif_dir = '{}/gifs/{}/episode_{}/all/'.format(self.run_dir, self.scene_id, self.episode_no)
             if not os.path.exists(gif_dir):
                 os.makedirs(gif_dir)
 
