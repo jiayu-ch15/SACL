@@ -109,7 +109,7 @@ def visualize_map(fig, ax, grid, pos, pos_gt, dump_dir, t, visualize, save_gifs)
         fig.canvas.start_event_loop(0.001)
         plt.gcf().canvas.flush_events()
 
-    if print_images:
+    if save_gifs:
         fn = '{}/step-{}.png'.format(dump_dir, t)
         plt.savefig(fn)
 
