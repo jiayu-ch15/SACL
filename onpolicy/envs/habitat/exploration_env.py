@@ -1042,7 +1042,7 @@ class Exploration_Env(habitat.RLEnv):
         vis_grid = np.flipud(vis_grid)
 
         vu.visualize_map(self.figure_m, self.ax_m, vis_grid[:, :, ::-1],
-                        pos, pos, self.gif_dir + "merge/",
+                        pos, pos, gif_dir + "merge/",
                         self.timestep, 
                         self.use_render,
                         self.save_gifs)
