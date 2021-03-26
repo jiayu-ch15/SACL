@@ -96,10 +96,10 @@ def visualize_map(fig, ax, grid, pos, pos_gt, dump_dir, t, visualize, save_gifs)
 
     for p_gt, p in zip(pos_gt,pos):
         # Draw GT agent pose
-        draw_pose(ax[1], p_gt, grid, color="Grey", agent_size=8, alpha=0.9)
+        draw_pose(ax, p_gt, grid, color="Grey", agent_size=8, alpha=0.9)
 
         # Draw predicted agent pose
-        draw_pose(ax[1], p, grid, color="Red", agent_size=8, alpha=0.6)
+        draw_pose(ax, p, grid, color="Red", agent_size=8, alpha=0.6)
 
     for _ in range(5):
         plt.tight_layout()
