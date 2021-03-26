@@ -777,10 +777,12 @@ class HabitatRunner(Runner):
             filer_folders = [folder for folder in folders if "all" in folder or "merge" in folder]
 
             for folder in filer_folders:
-                image_names = os.listdir(folder)
+                image_names = sorted(os.listdir(folder))
 
                 frames = []
                 for image_name in image_names:
+                    if image_name.split('.')[-1] == "gif":
+                        continue
                     image_path = os.path.join(folder, image_name)
                     frame = imageio.imread(image_path)
                     frames.append(frame)

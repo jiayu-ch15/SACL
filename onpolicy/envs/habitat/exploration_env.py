@@ -21,7 +21,7 @@ from .utils.map_builder import MapBuilder
 from .utils.fmm_planner import FMMPlanner
 from .utils.noisy_actions import CustomActionSpaceConfiguration
 from .utils.supervision import HabitatMaps
-from .utils.grid import get_grid, get_grid_full
+from .utils.grid import get_grid, get_grid_full, get_RT
 from .utils import pose as pu
 from .utils import visualizations as vu
 
@@ -783,6 +783,7 @@ class Exploration_Env(habitat.RLEnv):
                 180.0 + np.rad2deg(o)
             ]])
 
+        self.R, self.T = get_RT(st, grid_size, full_map_size)
         rot_mat, trans_mat, n_rot_mat, n_trans_mat = get_grid_full(st, (1, 1,
                                                                         grid_size, grid_size), (1, 1,
                                                                                                 full_map_size, full_map_size), torch.device("cpu"))
@@ -993,6 +994,7 @@ class Exploration_Env(habitat.RLEnv):
                                             self.explorable_map[a],
                                             self.map[a]*self.explored_map[a])
             vis_grid_gt = np.flipud(vis_grid_gt)
+            pos = (start_x, start_y, start_o)
             pos_gt = (start_x_gt, start_y_gt, start_o_gt)
 
             ax = self.ax[a] if self.num_agents > 1 else self.ax
@@ -1002,6 +1004,7 @@ class Exploration_Env(habitat.RLEnv):
                             vis_grid_gt[:, :, ::-1],
                             pos_local,
                             pos_gt_local,
+                            pos,
                             pos_gt,
                             gif_dir, 
                             self.timestep, 
@@ -1015,29 +1018,51 @@ class Exploration_Env(habitat.RLEnv):
         t_explorable_map = np.zeros_like(self.explored_map[0])
         t_gt_explored = np.zeros_like(self.explored_map[0])
 
-        pos = []
+        all_pos = []
+        all_pos_gt = []
         for a in range(self.num_agents):
+
             start_x, start_y, start_o, gx1, gx2, gy1, gy2 = inputs['pose_pred'][a]
             gx1, gx2, gy1, gy2 = int(gx1), int(gx2), int(gy1), int(gy2)
             goal = inputs['goal'][a]
             goal = pu.threshold_poses(goal, grid.shape)
             start_x_gt, start_y_gt, start_o_gt = self.curr_loc_gt[a]
-            pos.append((start_x_gt, start_y_gt, start_o_gt))
+
+            a_pos = np.zeros_like(self.explored_map[0])
+            a_pos_gt = np.zeros_like(self.explored_map[0])
+            a_pos[start_x, start_y] = 1
+            a_pos_gt[start_x_gt, start_y_gt] = 1
+            
+            import pdb; pdb.set_trace()
+
+            pos = (start_x, start_y, start_o)
+            pos_gt = (start_x_gt, start_y_gt, start_o_gt)
+
+            pos_c = np.array([[start_x, start_y, 1]])
+            pos_gt_c = np.array([[start_x_gt, start_y_gt, 1]])
+            
+            pos_c = np.dot(pos_c, R)
+            pos_c = np.dot(pos_c, T)
+            
+            pos_gt_c = np.dot(pos_gt_c, R)
+            pos_gt_c = np.dot(pos_gt_c, T)
+            
+            all_pos.append(pos_c)
+            all_pos_gt.append(pos_gt_c)
 
             t_map[self.transform(self.map[a], a) == 1] = 1
             t_collision[self.transform(self.collison_map[a], a) == 1] = 1
             t_visited_gt[self.transform(self.visited_gt[a], a) == 1] = 1
-            t_explored_map += self.transform(self.explored_map[a], a)
             t_explorable_map[self.transform(self.explorable_map[a], a) == 1] = 1
-            t_gt_explored += self.transform(self.map[a] * self.explored_map[a], a)
 
-        t_gt_explored[t_gt_explored >= 1] = 1
-        t_explored_map[t_explored_map >= 1] = 1
+            t_explored_map = np.maximum(t_explored_map, self.transform(self.explored_map[a], a))
+            t_gt_explored = np.maximum(t_gt_explored, self.transform(self.map[a] * self.explored_map[a], a))
+
         vis_grid = vu.get_colored_map(t_map,
                                     t_collision,
                                     t_visited_gt,
                                     t_visited_gt,
-                                    (goal[0] + gx1, goal[1] + gy1),
+                                    (goal[0] + gx1, goal[1] + gy1), # ! wrong here
                                     t_explored_map,
                                     t_explorable_map,
                                     t_gt_explored)
@@ -1045,7 +1070,7 @@ class Exploration_Env(habitat.RLEnv):
         vis_grid = np.flipud(vis_grid)
 
         vu.visualize_map(self.figure_m, self.ax_m, vis_grid[:, :, ::-1],
-                        pos, pos, gif_dir,
+                        all_pos, all_pos_gt, gif_dir,
                         self.timestep, 
                         self.use_render,
                         self.save_gifs)

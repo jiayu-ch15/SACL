@@ -22,7 +22,7 @@ def draw_pose(ax, pos, grid, color="Grey", agent_size=8, alpha=0.9):
                 head_width=agent_size, head_length=agent_size * 1.25,
                 length_includes_head=True, fc=fc, ec=fc, alpha=alpha)
 
-def visualize_all(agent_id, fig, ax, img, grid_local, grid_gt, pos_local, pos_gt_local, pos_gt, dump_dir, t,
+def visualize_all(agent_id, fig, ax, img, grid_local, grid_gt, pos_local, pos_gt_local, pos, pos_gt, dump_dir, t,
               visualize, save_gifs):
     
     for i in range(3):
@@ -64,7 +64,7 @@ def visualize_all(agent_id, fig, ax, img, grid_local, grid_gt, pos_local, pos_gt
     draw_pose(ax[2], pos_gt, grid_gt, color="Grey", agent_size=8, alpha=0.9)
 
     # Draw predicted agent pose
-    draw_pose(ax[2], pos_gt, grid_gt, color="Red", agent_size=8, alpha=0.6)
+    draw_pose(ax[2], pos, grid_gt, color="Red", agent_size=8, alpha=0.6)
 
     for _ in range(5):
         fig.tight_layout()
@@ -77,7 +77,7 @@ def visualize_all(agent_id, fig, ax, img, grid_local, grid_gt, pos_local, pos_gt
     plt.show()
 
     if save_gifs:
-        fn = '{}/step-{}.png'.format(dump_dir, t)
+        fn = '{}/step-{:0>4d}.png'.format(dump_dir, t)
         fig.savefig(fn)
 
 def visualize_map(fig, ax, grid, pos, pos_gt, dump_dir, t, visualize, save_gifs):
@@ -111,7 +111,7 @@ def visualize_map(fig, ax, grid, pos, pos_gt, dump_dir, t, visualize, save_gifs)
         plt.gcf().canvas.flush_events()
 
     if save_gifs:
-        fn = '{}/step-{}.png'.format(dump_dir, t)
+        fn = '{}/step-{:0>4d}.png'.format(dump_dir, t)
         fig.savefig(fn)
 
 def insert_circle(mat, x, y, value):
