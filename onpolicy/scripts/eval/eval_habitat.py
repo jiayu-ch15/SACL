@@ -40,7 +40,7 @@ def parse_args(args, parser):
 
     parser.add_argument('--num_agents', type=int,
                         default=1, help="number of players")
-   
+
     parser.add_argument('--train_local', action='store_true',
                         default=False, help="""0: Do not train the Local Policy
                                 1: Train the Local Policy (default: 1)""")
@@ -54,12 +54,17 @@ def parse_args(args, parser):
     parser.add_argument('--load_local', type=str, default="0",
                         help="""model path to load,
                                 0 to not reload (default: 0)""")
-    
-    parser.add_argument('--render_type', type=int, default=1,
-                        help='1: Show predicted map, 2: Show GT map')
-    parser.add_argument('--print_images', type=int, default=0,
-                        help='1: save visualization as images')
-    parser.add_argument('--save_trajectory_data', type=str, default="0")
+
+    # visual params
+    parser.add_argument("--render_merge", action='store_false', default=True,
+                        help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
+    parser.add_argument('--save_trajectory_data',
+                        action='store_true', default=False)
+
+    # reward params
+    parser.add_argument('--reward_decay', type=float, default=0.9)
+    parser.add_argument('--use_reward_penalty',
+                        action='store_true', default=False)
 
     # Environment, dataset and episode specifications
     parser.add_argument('-efw', '--env_frame_width', type=int, default=256,
@@ -86,7 +91,7 @@ def parse_args(args, parser):
                         help="horizontal field of view in degrees")
     parser.add_argument('--randomize_env_every', type=int, default=1000,
                         help="randomize scene in a thread every k episodes")
-    
+
     # Local Policy
     parser.add_argument('--local_lr', type=float, default=0.0001)
     parser.add_argument('--local_opti_eps', type=float, default=1e-5)
@@ -129,13 +134,6 @@ def parse_args(args, parser):
     parser.add_argument('--collision_threshold', type=float, default=0.20)
     parser.add_argument('--noise_level', type=float, default=1.0)
 
-    # visual params
-    parser.add_argument("--use_merge", action='store_false', default=True, help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
-
-    # reward params
-    parser.add_argument('--reward_decay', type=float, default=0.9)
-    parser.add_argument('--use_reward_penalty', action='store_true', default=False)
-
     all_args = parser.parse_known_args(args)[0]
 
     return all_args
@@ -152,7 +150,7 @@ def main(args):
     else:
         raise NotImplementedError
 
-    assert all_args.use_eval, ("u need to set use_eval be True")
+    assert all_args.use_eval or all_args.use_render, ("u need to set use_eval or use_render be True")
     assert not (all_args.model_dir == None or all_args.model_dir == ""), ("set model_dir first")
 
     # cuda

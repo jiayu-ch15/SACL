@@ -624,8 +624,8 @@ class HabitatRunner(Runner):
             self.best_gobal_reward = np.mean(self.train_global_infos["average_episode_rewards"])
             torch.save(self.trainer.policy.actor.state_dict(), str(self.save_dir) + "/global_actor_best.pt")
             torch.save(self.trainer.policy.critic.state_dict(), str(self.save_dir) + "/global_critic_best.pt")
-        torch.save(self.trainer.policy.actor.state_dict(), str(self.save_dir) + "global_actor_periodic_{}.pt".format(step))
-        torch.save(self.trainer.policy.critic.state_dict(), str(self.save_dir) + "global_critic_periodic_{}.pt".format(step))
+        torch.save(self.trainer.policy.actor.state_dict(), str(self.save_dir) + "/global_actor_periodic_{}.pt".format(step))
+        torch.save(self.trainer.policy.critic.state_dict(), str(self.save_dir) + "/global_critic_periodic_{}.pt".format(step))
 
     def log_all(self, train_infos, total_num_steps):
         for k, v in train_infos.items():
@@ -698,7 +698,7 @@ class HabitatRunner(Runner):
         self.local_output = np.array(self.local_output, dtype = np.long)
         
         for step in range(self.max_episode_length):
-
+            print("step {}".format(step))
             local_step = step % self.num_local_steps
             global_step = (step // self.num_local_steps) % self.episode_length
             eval_global_step = step // self.num_local_steps + 1

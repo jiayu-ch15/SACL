@@ -15,16 +15,18 @@ from onpolicy.envs.habitat.Habitat_Env import MultiHabitatEnv
 
 from onpolicy.envs.env_wrappers import InfoSubprocVecEnv, InfoDummyVecEnv
 
+
 def make_train_env(all_args, run_dir):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "Habitat":
-                env = MultiHabitatEnv(args=all_args, 
+                env = MultiHabitatEnv(args=all_args,
                                       rank=rank,
                                       run_dir=run_dir
                                       )
             else:
-                print("Can not support the " + all_args.env_name + "environment.")
+                print("Can not support the " +
+                      all_args.env_name + "environment.")
                 raise NotImplementedError
             env.seed(all_args.seed + rank * 1000)
             return env
@@ -39,7 +41,7 @@ def make_eval_env(all_args, run_dir):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "Habitat":
-                env = MultiHabitatEnv(args=all_args, 
+                env = MultiHabitatEnv(args=all_args,
                                       rank=rank,
                                       run_dir=run_dir
                                       )
@@ -62,7 +64,7 @@ def parse_args(args, parser):
 
     parser.add_argument('--num_agents', type=int,
                         default=1, help="number of players")
-   
+
     parser.add_argument('--train_local', action='store_true',
                         default=False, help="""0: Do not train the Local Policy
                                 1: Train the Local Policy (default: 1)""")
@@ -76,12 +78,17 @@ def parse_args(args, parser):
     parser.add_argument('--load_local', type=str, default="0",
                         help="""model path to load,
                                 0 to not reload (default: 0)""")
-    
-    parser.add_argument('--render_type', type=int, default=1,
-                        help='1: Show predicted map, 2: Show GT map')
-    parser.add_argument('--print_images', type=int, default=0,
-                        help='1: save visualization as images')
-    parser.add_argument('--save_trajectory_data', type=str, default="0")
+
+    # visual params
+    parser.add_argument("--render_merge", action='store_false', default=True,
+                        help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
+    parser.add_argument('--save_trajectory_data',
+                        action='store_true', default=False)
+
+    # reward params
+    parser.add_argument('--reward_decay', type=float, default=0.9)
+    parser.add_argument('--use_reward_penalty',
+                        action='store_true', default=False)
 
     # Environment, dataset and episode specifications
     parser.add_argument('-efw', '--env_frame_width', type=int, default=256,
@@ -108,7 +115,7 @@ def parse_args(args, parser):
                         help="horizontal field of view in degrees")
     parser.add_argument('--randomize_env_every', type=int, default=1000,
                         help="randomize scene in a thread every k episodes")
-    
+
     # Local Policy
     parser.add_argument('--local_lr', type=float, default=0.0001)
     parser.add_argument('--local_opti_eps', type=float, default=1e-5)
@@ -151,13 +158,6 @@ def parse_args(args, parser):
     parser.add_argument('--collision_threshold', type=float, default=0.20)
     parser.add_argument('--noise_level', type=float, default=1.0)
 
-    # visual params
-    parser.add_argument("--use_merge", action='store_false', default=True, help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
-
-    # reward params
-    parser.add_argument('--reward_decay', type=float, default=0.9)
-    parser.add_argument('--use_reward_penalty', action='store_true', default=False)
-
     all_args = parser.parse_known_args(args)[0]
 
     return all_args
@@ -168,9 +168,11 @@ def main(args):
     all_args = parse_args(args, parser)
 
     if all_args.algorithm_name == "rmappo" or all_args.algorithm_name == "rmappg":
-        assert (all_args.use_recurrent_policy or all_args.use_naive_recurrent_policy), ("check recurrent policy!")
+        assert (all_args.use_recurrent_policy or all_args.use_naive_recurrent_policy), (
+            "check recurrent policy!")
     elif all_args.algorithm_name == "mappo" or all_args.algorithm_name == "mappg":
-        assert (all_args.use_recurrent_policy == False and all_args.use_naive_recurrent_policy == False), ("check recurrent policy!")
+        assert (all_args.use_recurrent_policy ==
+                False and all_args.use_naive_recurrent_policy == False), ("check recurrent policy!")
     else:
         raise NotImplementedError
 
@@ -210,7 +212,8 @@ def main(args):
         if not run_dir.exists():
             curr_run = 'run1'
         else:
-            exst_run_nums = [int(str(folder.name).split('run')[1]) for folder in run_dir.iterdir() if str(folder.name).startswith('run')]
+            exst_run_nums = [int(str(folder.name).split('run')[
+                                 1]) for folder in run_dir.iterdir() if str(folder.name).startswith('run')]
             if len(exst_run_nums) == 0:
                 curr_run = 'run1'
             else:
@@ -219,8 +222,8 @@ def main(args):
         if not run_dir.exists():
             os.makedirs(str(run_dir))
 
-    setproctitle.setproctitle(str(all_args.algorithm_name) + "-" + \
-        str(all_args.env_name) + "-" + str(all_args.experiment_name) + "@" + str(all_args.user_name))
+    setproctitle.setproctitle(str(all_args.algorithm_name) + "-" +
+                              str(all_args.env_name) + "-" + str(all_args.experiment_name) + "@" + str(all_args.user_name))
 
     # seed
     torch.manual_seed(all_args.seed)
@@ -249,7 +252,7 @@ def main(args):
 
     runner = Runner(config)
     runner.run()
-    
+
     # post process
     envs.close()
     if all_args.use_eval and eval_envs is not envs:
@@ -258,7 +261,8 @@ def main(args):
     if all_args.use_wandb:
         run.finish()
     else:
-        runner.writter.export_scalars_to_json(str(runner.log_dir + '/summary.json'))
+        runner.writter.export_scalars_to_json(
+            str(runner.log_dir + '/summary.json'))
         runner.writter.close()
 
 

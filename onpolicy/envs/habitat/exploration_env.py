@@ -87,7 +87,10 @@ class Exploration_Env(habitat.RLEnv):
         super().__init__(config_env, dataset)
 
         self.scene_name = self.habitat_env.sim.config.SCENE
-        self.scene_id = self.scene_name.split("/")[-1].split(".")[0]
+        if "replica" in self.scene_name:
+            self.scene_id = self.scene_name.split("/")[-3]
+        else:
+            self.scene_id = self.scene_name.split("/")[-1].split(".")[0]
 
         self.action_space = gym.spaces.Discrete(self.num_actions)
         self.observation_space = gym.spaces.Box(0, 255,
@@ -122,33 +125,26 @@ class Exploration_Env(habitat.RLEnv):
 
         if self.use_render:
             plt.ion()
-
-        if self.save_gifs or self.use_render:
-            if args.use_merge:
-                self.figure_t, self.ax_t = plt.subplots(1, 1, figsize=(6*16/9, 6),
-                                                        facecolor="whitesmoke",
-                                                        num="Scene {} Merge Map".format(self.scene_id))
-            else:
-                self.figure, self.ax = plt.subplots(self.num_agents, 3, figsize=(6*16/9, 6),
+            self.figure, self.ax = plt.subplots(self.num_agents, 3, figsize=(6*16/9, 6),
+                                                facecolor="whitesmoke",
+                                                num="Scene {} Map".format(self.scene_id))
+            if args.render_merge:
+                self.figure_m, self.ax_m = plt.subplots(1, 1, figsize=(6*16/9, 6),
                                                     facecolor="whitesmoke",
-                                                    num="Scene {} Map".format(self.scene_id))
+                                                    num="Scene {} Merge Map".format(self.scene_id))
 
     def randomize_env(self):
         self._env._episode_iterator._shuffle_iterator()
 
     def save_trajectory_data(self):
-        if "replica" in self.scene_name:
-            folder = self.args.save_trajectory_data + "/" + \
-                self.scene_name.split("/")[-3]+"/"
-        else:
-            folder = self.args.save_trajectory_data + "/" + \
-                self.scene_name.split("/")[-1].split(".")[0]+"/"
-        if not os.path.exists(folder):
-            os.makedirs(folder)
+        traj_dir = '{}/trajectory/{}/'.format(self.run_dir, self.scene_id)
+        if not os.path.exists(traj_dir):
+            os.makedirs(traj_dir)
+
         for i in range(self.num_agents):
-            filepath = folder+str(self.episode_no)+'agnet'+str(i)+".txt"
+            filepath = traj_dir + 'episode' + str(self.episode_no) +'_agent' + str(i) + ".txt"
             with open(filepath, "w+") as f:
-                f.write(self.scene_name+"\n")
+                f.write(self.scene_name + "\n")
                 for state in self.trajectory_states[i]:
                     f.write(str(state)+"\n")
                     f.flush()
@@ -161,15 +157,14 @@ class Exploration_Env(habitat.RLEnv):
                                               self.agent_state[i].rotation])
 
     def reset(self):
-        args = self.args
         self.reward_gamma = 1
         self.episode_no += 1
         self.timestep = 0
         self._previous_action = None
         self.trajectory_states = [[] for index in range(self.num_agents)]
 
-        if args.randomize_env_every > 0:
-            if np.mod(self.episode_no, args.randomize_env_every) == 0:
+        if self.args.randomize_env_every > 0:
+            if np.mod(self.episode_no, self.args.randomize_env_every) == 0:
                 self.randomize_env()
 
         # Get Ground Truth Map
@@ -192,18 +187,9 @@ class Exploration_Env(habitat.RLEnv):
         rgb = [obs[i]['rgb'].astype(np.uint8) for i in range(self.num_agents)]
         self.obs = rgb  # For visualization
         if self.args.frame_width != self.args.env_frame_width:
-            rgb = [
-                np.asarray(self.res(rgb[i]))
-                for i in range(self.num_agents)
-            ]
-        state = [
-            rgb[i].transpose(2, 0, 1)
-            for i in range(self.num_agents)
-        ]
-        depth = [
-            _preprocess_depth(obs[i]['depth'])
-            for i in range(self.num_agents)
-        ]
+            rgb = [np.asarray(self.res(rgb[i])) for i in range(self.num_agents)]
+        state = [rgb[i].transpose(2, 0, 1) for i in range(self.num_agents)]
+        depth = [_preprocess_depth(obs[i]['depth']) for i in range(self.num_agents)]
 
         # Initialize map and pose
         self.curr_loc = []
@@ -277,7 +263,6 @@ class Exploration_Env(habitat.RLEnv):
 
     def step(self, action):
 
-        args = self.args
         self.timestep += 1
         noisy_action = []
 
@@ -304,7 +289,7 @@ class Exploration_Env(habitat.RLEnv):
         done = []
         info = []
         for i in range(self.num_agents):
-            if args.noisy_actions:
+            if self.args.noisy_actions:
                 obs_t, rew_t, done_t, info_t = super().step(noisy_action[i], i)
             else:
                 obs_t, rew_t, done_t, info_t = super().step(action[i], i)
@@ -357,7 +342,7 @@ class Exploration_Env(habitat.RLEnv):
             self.curr_loc_gt[i] = pu.get_new_pose(self.curr_loc_gt[i],
                                                   (dx_gt[i], dy_gt[i], do_gt[i]))
 
-        if not args.noisy_odometry:
+        if not self.args.noisy_odometry:
             self.curr_loc = self.curr_loc_gt
             dx_base, dy_base, do_base = dx_gt, dy_gt, do_gt
 
@@ -395,7 +380,7 @@ class Exploration_Env(habitat.RLEnv):
                     self.col_width[h] = 1
 
                 dist = pu.get_l2_distance(x1, x2, y1, y2)
-                if dist < args.collision_threshold:  # Collision
+                if dist < self.args.collision_threshold:  # Collision
                     length = 2
                     width = self.col_width[h]
                     buf = 3
@@ -434,7 +419,7 @@ class Exploration_Env(habitat.RLEnv):
         self.info['exp_ratio'] = []
         self.info['exp_total_reward'] = None
         self.info['exp_total_ratio'] = None
-        if self.timestep % args.num_local_steps == 0:
+        if self.timestep % self.args.num_local_steps == 0:
             area, ratio, total_area, total_ratio = self.get_global_reward()
             self.info['exp_total_reward'] = total_area
             self.info['exp_total_ratio'] = total_ratio
@@ -449,9 +434,9 @@ class Exploration_Env(habitat.RLEnv):
 
         self.save_position()
 
-        if self.info['time'][0] >= args.max_episode_length:
+        if self.info['time'][0] >= self.args.max_episode_length:
             done = [True for index in range(self.num_agents)]
-            if self.args.save_trajectory_data != "0":
+            if self.args.save_trajectory_data:
                 self.save_trajectory_data()
         else:
             done = [False for index in range(self.num_agents)]
@@ -736,57 +721,14 @@ class Exploration_Env(habitat.RLEnv):
             output[a][2] = gt_action
             self.relative_angle.append(relative_angle)
 
-        if self.use_render or self.save_gifs:
-            ep_dir = '{}/gifs/{}/{}/'.format(self.run_dir, self.scene_id, self.episode_no)
-            if not os.path.exists(ep_dir):
-                os.makedirs(ep_dir)
+        if self.use_render:
+            gif_dir = '{}/gifs/{}/{}/'.format(self.run_dir, self.scene_id, self.episode_no)
+            if not os.path.exists(gif_dir):
+                os.makedirs(gif_dir)
 
-            if args.use_merge:
-                t_map = np.zeros_like(self.explored_map[0])
-                t_collision = np.zeros_like(self.explored_map[0])
-                t_visited_gt = np.zeros_like(self.explored_map[0])
-                t_explored_map = np.zeros_like(self.explored_map[0])
-                t_explorable_map = np.zeros_like(self.explored_map[0])
-                t_gt_explored = np.zeros_like(self.explored_map[0])
-                pos = []
-                for a in range(self.num_agents):
-                    start_x, start_y, start_o, gx1, gx2, gy1, gy2 = inputs['pose_pred'][a]
-                    gx1, gx2, gy1, gy2 = int(gx1), int(gx2), int(gy1), int(gy2)
-                    goal = inputs['goal'][a]
-                    goal = pu.threshold_poses(goal, grid.shape)
-                    start_x_gt, start_y_gt, start_o_gt = self.curr_loc_gt[a]
-                    pos.append((start_x_gt, start_y_gt, start_o_gt))
-
-                    t_map[self.transform(self.map[a], a) == 1] = 1
-                    t_collision[self.transform(
-                        self.collison_map[a], a) == 1] = 1
-                    t_visited_gt[self.transform(
-                        self.visited_gt[a], a) == 1] = 1
-                    t_explored_map += self.transform(self.explored_map[a], a)
-                    t_explorable_map[self.transform(
-                        self.explorable_map[a], a) == 1] = 1
-                    t_gt_explored += self.transform(
-                        self.map[a]*self.explored_map[a], a)
-
-                t_gt_explored[t_gt_explored >= 1] = 1
-                t_explored_map[t_explored_map >= 1] = 1
-                vis_grid = vu.get_colored_map(t_map,
-                                              t_collision,
-                                              t_visited_gt,
-                                              t_visited_gt,
-                                              (goal[0]+gx1, goal[1]+gy1),
-                                              t_explored_map,
-                                              t_explorable_map,
-                                              t_gt_explored)
-                vis_grid = np.flipud(vis_grid)
-
-                vu.visualize_n(self.n_rot, self.n_trans, self.figure_t, self.ax_t, self.obs[0], vis_grid[:, :, ::-1],
-                               pos, pos, self.run_dir, self.scene_id, self.episode_no,
-                               self.timestep, self.use_render,
-                               self.save_gifs, self.render_type)
-            else:
-                self.render(inputs, grid)
-
+            self.render(inputs, grid, map_pred, gif_dir)
+            if args.render_merge:
+                self.render_merged_map(inputs, grid, gif_dir)
         return output
 
     def _get_gt_map(self, full_map_size, agent_id):
@@ -1010,9 +952,8 @@ class Exploration_Env(habitat.RLEnv):
 
         return gt_action
     
-    def render(self, inputs, grid):
+    def render(self, inputs, grid, map_pred, gif_dir):
         for a in range(self.num_agents):
-            
             goal = inputs['goal'][a]
             goal = pu.threshold_poses(goal, grid.shape)
             start_x, start_y, start_o, gx1, gx2, gy1, gy2 = inputs['pose_pred'][a]
@@ -1043,8 +984,8 @@ class Exploration_Env(habitat.RLEnv):
                                             self.collison_map[a],
                                             self.visited_gt[a],
                                             self.visited_gt[a],
-                                            (goal[0]+gx1,
-                                            goal[1]+gy1),
+                                            (goal[0] + gx1,
+                                            goal[1] + gy1),
                                             self.explored_map[a],
                                             self.explorable_map[a],
                                             self.map[a]*self.explored_map[a])
@@ -1052,10 +993,56 @@ class Exploration_Env(habitat.RLEnv):
             pos_gt = (start_x_gt, start_y_gt, start_o_gt)
 
             ax = self.ax[a] if self.num_agents > 1 else self.ax
-            vu.visualize(a, self.figure, ax, self.obs[a], vis_grid_local[:, :, ::-1], 
+            vu.visualize_all(a, self.figure, ax, 
+                            self.obs[a], 
+                            vis_grid_local[:, :, ::-1], 
                             vis_grid_gt[:, :, ::-1],
                             pos_local,
                             pos_gt_local,
                             pos_gt,
-                            self.run_dir, self.scene_id, self.episode_no, self.timestep, 
+                            gif_dir, 
+                            self.timestep, 
                             self.use_render, self.save_gifs)
+
+    def render_merged_map(self, inputs, grid, gif_dir):
+        t_map = np.zeros_like(self.explored_map[0])
+        t_collision = np.zeros_like(self.explored_map[0])
+        t_visited_gt = np.zeros_like(self.explored_map[0])
+        t_explored_map = np.zeros_like(self.explored_map[0])
+        t_explorable_map = np.zeros_like(self.explored_map[0])
+        t_gt_explored = np.zeros_like(self.explored_map[0])
+
+        pos = []
+        for a in range(self.num_agents):
+            start_x, start_y, start_o, gx1, gx2, gy1, gy2 = inputs['pose_pred'][a]
+            gx1, gx2, gy1, gy2 = int(gx1), int(gx2), int(gy1), int(gy2)
+            goal = inputs['goal'][a]
+            goal = pu.threshold_poses(goal, grid.shape)
+            start_x_gt, start_y_gt, start_o_gt = self.curr_loc_gt[a]
+            pos.append((start_x_gt, start_y_gt, start_o_gt))
+
+            t_map[self.transform(self.map[a], a) == 1] = 1
+            t_collision[self.transform(self.collison_map[a], a) == 1] = 1
+            t_visited_gt[self.transform(self.visited_gt[a], a) == 1] = 1
+            t_explored_map += self.transform(self.explored_map[a], a)
+            t_explorable_map[self.transform(self.explorable_map[a], a) == 1] = 1
+            t_gt_explored += self.transform(self.map[a] * self.explored_map[a], a)
+
+        t_gt_explored[t_gt_explored >= 1] = 1
+        t_explored_map[t_explored_map >= 1] = 1
+        vis_grid = vu.get_colored_map(t_map,
+                                    t_collision,
+                                    t_visited_gt,
+                                    t_visited_gt,
+                                    (goal[0] + gx1, goal[1] + gy1),
+                                    t_explored_map,
+                                    t_explorable_map,
+                                    t_gt_explored)
+
+        vis_grid = np.flipud(vis_grid)
+
+        vu.visualize_map(self.figure_m, self.ax_m, vis_grid[:, :, ::-1],
+                        pos, pos, self.gif_dir + "merge/",
+                        self.timestep, 
+                        self.use_render,
+                        self.save_gifs)

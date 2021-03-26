@@ -3,15 +3,27 @@ import sys
 import matplotlib
 import numpy as np
     
-matplotlib.use('TkAgg')
+# matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 import seaborn as sns
 import skimage
 
+def draw_pose(ax, pos, grid, color="Grey", agent_size=8, alpha=0.9):
+    x, y, o = pos
+    x, y = x * 100.0 / 5.0, grid.shape[1] - y * 100.0 / 5.0
 
-def visualize(agent_id, fig, ax, img, grid_local, grid_gt, pos_local, pos_gt_local, pos_gt, dump_dir, scene_name, ep_no, t,
-              visualize, print_images):
+    dx = 0
+    dy = 0
+    fc = color
+    dx = np.cos(np.deg2rad(o))
+    dy = -np.sin(np.deg2rad(o))
+    ax.arrow(x - 1 * dx, y - 1 * dy, dx * agent_size, dy * (agent_size * 1.25),
+                head_width=agent_size, head_length=agent_size * 1.25,
+                length_includes_head=True, fc=fc, ec=fc, alpha=alpha)
+
+def visualize_all(agent_id, fig, ax, img, grid_local, grid_gt, pos_local, pos_gt_local, pos_gt, dump_dir, t,
+              visualize, save_gifs):
     
     for i in range(3):
         ax[i].clear()
@@ -35,31 +47,10 @@ def visualize(agent_id, fig, ax, img, grid_local, grid_gt, pos_local, pos_gt_loc
                     fontsize=20)
 
     # Draw GT agent pose
-    agent_size = 8
-    x, y, o = pos_gt_local
-    x, y = x * 100.0 / 5.0, grid_local.shape[1] - y * 100.0 / 5.0
-
-    dx = 0
-    dy = 0
-    fc = 'Grey'
-    dx = np.cos(np.deg2rad(o))
-    dy = -np.sin(np.deg2rad(o))
-    ax[1].arrow(x - 1 * dx, y - 1 * dy, dx * agent_size, dy * (agent_size * 1.25),
-                head_width=agent_size, head_length=agent_size * 1.25,
-                length_includes_head=True, fc=fc, ec=fc, alpha=0.9)
+    draw_pose(ax[1], pos_gt_local, grid_local, color="Grey", agent_size=8, alpha=0.9)
 
     # Draw predicted agent pose
-    x, y, o = pos_local
-    x, y = x * 100.0 / 5.0, grid_local.shape[1] - y * 100.0 / 5.0
-
-    dx = 0
-    dy = 0
-    fc = 'Red'
-    dx = np.cos(np.deg2rad(o))
-    dy = -np.sin(np.deg2rad(o))
-    ax[1].arrow(x - 1 * dx, y - 1 * dy, dx * agent_size, dy * agent_size * 1.25,
-                head_width=agent_size, head_length=agent_size * 1.25,
-                length_includes_head=True, fc=fc, ec=fc, alpha=0.6)
+    draw_pose(ax[1], pos_local, grid_local, color="Red", agent_size=8, alpha=0.6)
     
     ##########################ground-truth map###########################
     title = "Ground-Truth Map" + str(agent_id)
@@ -70,31 +61,10 @@ def visualize(agent_id, fig, ax, img, grid_local, grid_gt, pos_local, pos_gt_loc
                     fontsize=20)
 
     # Draw GT agent pose
-    agent_size = 8
-    x, y, o = pos_gt
-    x, y = x * 100.0 / 5.0, grid_gt.shape[1] - y * 100.0 / 5.0
-
-    dx = 0
-    dy = 0
-    fc = 'Grey'
-    dx = np.cos(np.deg2rad(o))
-    dy = -np.sin(np.deg2rad(o))
-    ax[1].arrow(x - 1 * dx, y - 1 * dy, dx * agent_size, dy * (agent_size * 1.25),
-                head_width=agent_size, head_length=agent_size * 1.25,
-                length_includes_head=True, fc=fc, ec=fc, alpha=0.9)
+    draw_pose(ax[2], pos_gt, grid_gt, color="Grey", agent_size=8, alpha=0.9)
 
     # Draw predicted agent pose
-    x, y, o = pos_gt
-    x, y = x * 100.0 / 5.0, grid_gt.shape[1] - y * 100.0 / 5.0
-
-    dx = 0
-    dy = 0
-    fc = 'Red'
-    dx = np.cos(np.deg2rad(o))
-    dy = -np.sin(np.deg2rad(o))
-    ax[1].arrow(x - 1 * dx, y - 1 * dy, dx * agent_size, dy * agent_size * 1.25,
-                head_width=agent_size, head_length=agent_size * 1.25,
-                length_includes_head=True, fc=fc, ec=fc, alpha=0.6)
+    draw_pose(ax[2], pos_gt, grid_gt, color="Red", agent_size=8, alpha=0.6)
 
     for _ in range(5):
         plt.tight_layout()
@@ -105,27 +75,33 @@ def visualize(agent_id, fig, ax, img, grid_local, grid_gt, pos_local, pos_gt_loc
         plt.gcf().canvas.flush_events()
     plt.show()
 
-    if print_images:
-        fn = '{}/gifs/{}/{}/{}-{}-Vis-{}.png'.format(dump_dir, scene_name, ep_no, scene_name, ep_no, t)
+    print(dump_dir)
+    print(save_gifs)
+    if save_gifs:
+        fn = '{}/step-{}.png'.format(dump_dir, t)
         plt.savefig(fn)
 
-def visualize_n(rotate,trans,fig, ax, img, grid, pos, gt_pos, dump_dir, scene_name, ep_no, t,
-              visualize, print_images, vis_style):
+def visualize_map(fig, ax, grid, pos, pos_gt, dump_dir, t, visualize, save_gifs):
+    
     ax.clear()
     ax.set_yticks([])
     ax.set_xticks([])
     ax.set_yticklabels([])
     ax.set_xticklabels([])
 
-    if vis_style == 1:
-        title = "Predicted Map and Pose"
-    else:
-        title = "Ground-Truth Map and Pose"
+    title = "Merged Map and Pose"
 
     ax.imshow(grid)
     ax.set_title(title, family='sans-serif',
-                    fontname='Helvetica',
+                    fontname='DejaVu Sans',
                     fontsize=20)
+
+    for p_gt, p in zip(pos_gt,pos):
+        # Draw GT agent pose
+        draw_pose(ax[1], p_gt, grid, color="Grey", agent_size=8, alpha=0.9)
+
+        # Draw predicted agent pose
+        draw_pose(ax[1], p, grid, color="Red", agent_size=8, alpha=0.6)
 
     for _ in range(5):
         plt.tight_layout()
@@ -136,7 +112,7 @@ def visualize_n(rotate,trans,fig, ax, img, grid, pos, gt_pos, dump_dir, scene_na
         plt.gcf().canvas.flush_events()
 
     if print_images:
-        fn = '{}/gifs/{}/{}/{}-{}-Vis-{}.png'.format(dump_dir, scene_name, ep_no, scene_name, ep_no, t)
+        fn = '{}/step-{}.png'.format(dump_dir, t)
         plt.savefig(fn)
 
 def insert_circle(mat, x, y, value):
@@ -145,13 +121,11 @@ def insert_circle(mat, x, y, value):
     mat[x - 1:x + 2, y - 3:y + 4] = value
     return mat
 
-
 def fill_color(colored, mat, color):
     for i in range(3):
         colored[:, :, 2 - i] *= (1 - mat)
         colored[:, :, 2 - i] += (1 - color[i]) * mat
     return colored
-
 
 def get_colored_map(mat, collision_map, visited, visited_gt, goal,
                     explored, gt_map, gt_map_explored):
