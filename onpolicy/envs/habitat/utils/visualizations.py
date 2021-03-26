@@ -67,7 +67,7 @@ def visualize_all(agent_id, fig, ax, img, grid_local, grid_gt, pos_local, pos_gt
     draw_pose(ax[2], pos_gt, grid_gt, color="Red", agent_size=8, alpha=0.6)
 
     for _ in range(5):
-        plt.tight_layout()
+        fig.tight_layout()
 
     if visualize:
         plt.gcf().canvas.flush_events()
@@ -78,7 +78,7 @@ def visualize_all(agent_id, fig, ax, img, grid_local, grid_gt, pos_local, pos_gt
 
     if save_gifs:
         fn = '{}/step-{}.png'.format(dump_dir, t)
-        plt.savefig(fn)
+        fig.savefig(fn)
 
 def visualize_map(fig, ax, grid, pos, pos_gt, dump_dir, t, visualize, save_gifs):
     
@@ -103,7 +103,7 @@ def visualize_map(fig, ax, grid, pos, pos_gt, dump_dir, t, visualize, save_gifs)
         draw_pose(ax, p, grid, color="Red", agent_size=8, alpha=0.6)
 
     for _ in range(5):
-        plt.tight_layout()
+        fig.tight_layout()
 
     if visualize:
         plt.gcf().canvas.flush_events()
@@ -112,7 +112,7 @@ def visualize_map(fig, ax, grid, pos, pos_gt, dump_dir, t, visualize, save_gifs)
 
     if save_gifs:
         fn = '{}/step-{}.png'.format(dump_dir, t)
-        plt.savefig(fn)
+        fig.savefig(fn)
 
 def insert_circle(mat, x, y, value):
     mat[x - 2: x + 3, y - 2:y + 3] = value
