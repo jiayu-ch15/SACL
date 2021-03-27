@@ -1019,6 +1019,7 @@ class Exploration_Env(habitat.RLEnv):
         merge_explored_map = np.zeros_like(self.explored_map[0])
         merge_explorable_map = np.zeros_like(self.explored_map[0])
         merge_gt_explored = np.zeros_like(self.explored_map[0])
+        merge_pred_map = np.zeros_like(self.explored_map[0])
 
         all_pos = []
         all_pos_gt = []
@@ -1054,7 +1055,9 @@ class Exploration_Env(habitat.RLEnv):
             all_pos_gt.append(pos_gt)
             all_goals.append(goal)
 
-            merge_pred_map = np.maximum(merge_map, self.transform(np.rint(map_pred[a]), a))
+            pred_map =  np.zeros_like(self.explored_map[0])
+            pred_map[gx1:gx2, gy1:gy2]= np.rint(map_pred[a])
+            merge_pred_map = np.maximum(merge_pred_map, self.transform(pred_map, a))
             merge_map = np.maximum(merge_map, self.transform(self.map[a], a))
             merge_visited_gt = np.maximum(merge_visited_gt, self.transform(self.visited_gt[a], a))
             merge_visited_vis = np.maximum(merge_visited_vis, self.transform(self.visited_vis[a], a))
