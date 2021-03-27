@@ -80,27 +80,42 @@ def visualize_all(agent_id, fig, ax, img, grid_local, grid_gt, pos_local, pos_gt
         fn = '{}/step-{:0>4d}.png'.format(dump_dir, t)
         fig.savefig(fn)
 
-def visualize_map(fig, ax, grid, pos, pos_gt, dump_dir, t, visualize, save_gifs):
+def visualize_map(fig, ax, grid_gt, grid_pred, pos_gt, pos_pred, dump_dir, t, visualize, save_gifs):
     
-    ax.clear()
-    ax.set_yticks([])
-    ax.set_xticks([])
-    ax.set_yticklabels([])
-    ax.set_xticklabels([])
+    for i in range(2):
+        ax[i].clear()
+        ax[i].set_yticks([])
+        ax[i].set_xticks([])
+        ax[i].set_yticklabels([])
+        ax[i].set_xticklabels([])
 
-    title = "Merged Map and Pose"
+    title = "Merged Pred. Map and Pose"
 
-    ax.imshow(grid)
-    ax.set_title(title, family='sans-serif',
+    ax[0].imshow(grid_pred)
+    ax[0].set_title(title, family='sans-serif',
                     fontname='DejaVu Sans',
                     fontsize=20)
 
-    for p_gt, p in zip(pos_gt,pos):
+    for p_gt, p_pred in zip(pos_gt, pos_pred):
         # Draw GT agent pose
-        draw_pose(ax, p_gt, grid, color="Grey", agent_size=8, alpha=0.9)
+        draw_pose(ax[0], p_gt, grid_pred, color="Grey", agent_size=8, alpha=0.9)
 
         # Draw predicted agent pose
-        draw_pose(ax, p, grid, color="Red", agent_size=8, alpha=0.6)
+        draw_pose(ax[0], p_pred, grid_pred, color="Red", agent_size=8, alpha=0.6)
+
+    title = "Merged GT Map and Pose"
+
+    ax[1].imshow(grid_gt)
+    ax[1].set_title(title, family='sans-serif',
+                    fontname='DejaVu Sans',
+                    fontsize=20)
+
+    for p_gt, p_pred in zip(pos_gt, pos_pred):
+        # Draw GT agent pose
+        draw_pose(ax[1], p_gt, grid_gt, color="Grey", agent_size=8, alpha=0.9)
+
+        # Draw predicted agent pose
+        draw_pose(ax[1], p_pred, grid_gt, color="Red", agent_size=8, alpha=0.6)
 
     for _ in range(5):
         fig.tight_layout()
@@ -133,36 +148,37 @@ def get_colored_map(mat, collision_map, visited, visited_gt, goal,
     pal = sns.color_palette("Paired")
 
     current_palette = [(0.9, 0.9, 0.9)]
-    colored = fill_color(colored, gt_map, current_palette[0])
+    colored = fill_color(colored, gt_map, current_palette[0]) # gray
 
     current_palette = [(235. / 255., 243. / 255., 1.)]
-    colored = fill_color(colored, explored, current_palette[0])
+    colored = fill_color(colored, explored, current_palette[0]) # sky blue
 
     green_palette = sns.light_palette("green")
-    colored = fill_color(colored, mat, pal[2])
+    colored = fill_color(colored, mat, pal[2]) # light green 
 
     current_palette = [(0.6, 0.6, 0.6)]
-    colored = fill_color(colored, gt_map_explored, current_palette[0])
+    colored = fill_color(colored, gt_map_explored, current_palette[0]) #gray
 
-    colored = fill_color(colored, mat * gt_map_explored, pal[3])
+    colored = fill_color(colored, mat * gt_map_explored, pal[3]) # dark green
 
     red_palette = sns.light_palette("red")
 
-    colored = fill_color(colored, visited_gt, current_palette[0])
-    colored = fill_color(colored, visited, pal[4])
-    colored = fill_color(colored, visited * visited_gt, pal[5])
+    colored = fill_color(colored, visited_gt, current_palette[0]) # gray
+    colored = fill_color(colored, visited, pal[4]) # pink
+    colored = fill_color(colored, visited * visited_gt, pal[5]) # red
 
     colored = fill_color(colored, collision_map, pal[2])
 
     current_palette = sns.color_palette()
 
     selem = skimage.morphology.disk(4)
-    goal_mat = np.zeros((m, n))
-    goal_mat[goal[0], goal[1]] = 1
-    goal_mat = 1 - skimage.morphology.binary_dilation(
-        goal_mat, selem) != True
+    for g in goal:
+        goal_mat = np.zeros((m, n))
+        goal_mat[g[0], g[1]] = 1
+        goal_mat = 1 - skimage.morphology.binary_dilation(
+            goal_mat, selem) != True
 
-    colored = fill_color(colored, goal_mat, current_palette[0])
+        colored = fill_color(colored, goal_mat, current_palette[0])
 
     current_palette = sns.color_palette("Paired")
 

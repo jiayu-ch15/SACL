@@ -3,22 +3,6 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-def get_RT(pose, grid_size, full_size):
-    pose = pose.float()
-    x = pose[:, 0]
-    y = pose[:, 1]
-    t = pose[:, 2]
-
-    bs = x.size(0)
-    t = t * np.pi / 180.
-    cos_t = t.cos()
-    sin_t = t.sin()
-
-    T = np.array([[1, 0, 0], [0, 1, 0], [-x*grid_size[2]/full_size[2], -y*grid_size[3]/full_size[3], 1]])
-    R = np.array([[cos_t, -sin_t, 0], [sin_t, cos_t, 0], [0, 0, 1]])
-
-    return R, T
-
 def get_grid(pose, grid_size, device):
     """
     Input:
@@ -74,7 +58,7 @@ def get_grid_full(pose, grid_size, full_size, device):
     t = pose[:, 2]
 
     bs = x.size(0)
-    t = t * np.pi / 180.#pi
+    t = t * np.pi / 180. #pi
     
     cos_t = t.cos()
     sin_t = t.sin()
@@ -92,7 +76,7 @@ def get_grid_full(pose, grid_size, full_size, device):
                            torch.ones(x.shape).to(device), y], 1)
     theta2 = torch.stack([theta21, theta22], 1)
 
-    rot_grid = F.affine_grid(theta1, torch.Size(grid_size),align_corners=True)
+    rot_grid = F.affine_grid(theta1, torch.Size(grid_size), align_corners=True)
     trans_grid = F.affine_grid(theta2, torch.Size(grid_size), align_corners=True)
 
     theta31 = torch.stack([cos_t, sin_t,

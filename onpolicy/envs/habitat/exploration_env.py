@@ -21,7 +21,7 @@ from .utils.map_builder import MapBuilder
 from .utils.fmm_planner import FMMPlanner
 from .utils.noisy_actions import CustomActionSpaceConfiguration
 from .utils.supervision import HabitatMaps
-from .utils.grid import get_grid, get_grid_full, get_RT
+from .utils.grid import get_grid, get_grid_full
 from .utils import pose as pu
 from .utils import visualizations as vu
 
@@ -127,7 +127,7 @@ class Exploration_Env(habitat.RLEnv):
                                                 facecolor="whitesmoke",
                                                 num="Scene {} Map".format(self.scene_id))
             if args.render_merge:
-                self.figure_m, self.ax_m = plt.subplots(1, 1, figsize=(6*16/9, 6),
+                self.figure_m, self.ax_m = plt.subplots(1, 2, figsize=(6*16/9, 6),
                                                     facecolor="whitesmoke",
                                                     num="Scene {} Merge Map".format(self.scene_id))
 
@@ -169,14 +169,16 @@ class Exploration_Env(habitat.RLEnv):
         self.explorable_map = []
         self.n_rot = []
         self.n_trans = []
+        self.n_init_theta = []
 
         obs = super().reset()
         full_map_size = self.map_size_cm//self.map_resolution
         for i in range(self.num_agents):
-            mapp, n_rot, n_trans = self._get_gt_map(full_map_size, i)
+            mapp, n_rot, n_trans, init_theta = self._get_gt_map(full_map_size, i)
             self.explorable_map.append(mapp)
             self.n_rot.append(n_rot)
             self.n_trans.append(n_trans)
+            self.n_init_theta.append(init_theta)
 
         self.prev_explored_area = [0. for index in range(self.num_agents)]
         self.prev_total_explored_area = 0
@@ -730,7 +732,7 @@ class Exploration_Env(habitat.RLEnv):
                 gif_dir = '{}/gifs/{}/episode_{}/merge/'.format(self.run_dir, self.scene_id, self.episode_no)
                 if not os.path.exists(gif_dir):
                     os.makedirs(gif_dir)
-                self.render_merged_map(inputs, grid, gif_dir)
+                self.render_merged_map(inputs, grid, map_pred, gif_dir)
         
         return output
 
@@ -768,7 +770,7 @@ class Exploration_Env(habitat.RLEnv):
                  (grid_size - map_size[1])//2 + map_size[1]] = sim_map
 
         if map_size[0] > map_size[1]:
-            st = torch.tensor([[  # 归一化
+            st = torch.tensor([[ 
                 (x - range_x/2.) * 2. / (range_x * scale) \
                 * map_size[1] * 1. / map_size[0],
                 (y - range_y/2.) * 2. / (range_y * scale),
@@ -783,7 +785,6 @@ class Exploration_Env(habitat.RLEnv):
                 180.0 + np.rad2deg(o)
             ]])
 
-        self.R, self.T = get_RT(st, grid_size, full_map_size)
         rot_mat, trans_mat, n_rot_mat, n_trans_mat = get_grid_full(st, (1, 1,
                                                                         grid_size, grid_size), (1, 1,
                                                                                                 full_map_size, full_map_size), torch.device("cpu"))
@@ -810,7 +811,7 @@ class Exploration_Env(habitat.RLEnv):
         episode_map = episode_map.numpy()
         episode_map[episode_map > 0] = 1.
 
-        return episode_map, n_rot_mat, n_trans_mat
+        return episode_map, n_rot_mat, n_trans_mat, 180.0 + np.rad2deg(o)
 
     def _get_stg(self, grid, explored, start, goal, planning_window, agent_id):
 
@@ -969,7 +970,7 @@ class Exploration_Env(habitat.RLEnv):
                                             self.collison_map[a][gx1:gx2, gy1:gy2],
                                             self.visited_vis[a][gx1:gx2, gy1:gy2],
                                             self.visited_gt[a][gx1:gx2, gy1:gy2],
-                                            goal,
+                                            [goal],
                                             self.explored_map[a][gx1:gx2, gy1:gy2],
                                             self.explorable_map[a][gx1:gx2, gy1:gy2],
                                             self.map[a][gx1:gx2, gy1:gy2] *
@@ -988,8 +989,8 @@ class Exploration_Env(habitat.RLEnv):
                                             self.collison_map[a],
                                             self.visited_gt[a],
                                             self.visited_gt[a],
-                                            (goal[0] + gx1,
-                                            goal[1] + gy1),
+                                            [(goal[0] + gx1,
+                                            goal[1] + gy1)],
                                             self.explored_map[a],
                                             self.explorable_map[a],
                                             self.map[a]*self.explored_map[a])
@@ -1010,67 +1011,81 @@ class Exploration_Env(habitat.RLEnv):
                             self.timestep, 
                             self.use_render, self.save_gifs)
 
-    def render_merged_map(self, inputs, grid, gif_dir):
-        t_map = np.zeros_like(self.explored_map[0])
-        t_collision = np.zeros_like(self.explored_map[0])
-        t_visited_gt = np.zeros_like(self.explored_map[0])
-        t_explored_map = np.zeros_like(self.explored_map[0])
-        t_explorable_map = np.zeros_like(self.explored_map[0])
-        t_gt_explored = np.zeros_like(self.explored_map[0])
+    def render_merged_map(self, inputs, grid, map_pred, gif_dir):
+        merge_map = np.zeros_like(self.explored_map[0])
+        merge_collision_map = np.zeros_like(self.explored_map[0])
+        merge_visited_gt = np.zeros_like(self.explored_map[0])
+        merge_visited_vis = np.zeros_like(self.explored_map[0])
+        merge_explored_map = np.zeros_like(self.explored_map[0])
+        merge_explorable_map = np.zeros_like(self.explored_map[0])
+        merge_gt_explored = np.zeros_like(self.explored_map[0])
 
         all_pos = []
         all_pos_gt = []
+        all_goals = []
         for a in range(self.num_agents):
-
             start_x, start_y, start_o, gx1, gx2, gy1, gy2 = inputs['pose_pred'][a]
             gx1, gx2, gy1, gy2 = int(gx1), int(gx2), int(gy1), int(gy2)
             goal = inputs['goal'][a]
             goal = pu.threshold_poses(goal, grid.shape)
             start_x_gt, start_y_gt, start_o_gt = self.curr_loc_gt[a]
 
-            a_pos = np.zeros_like(self.explored_map[0])
-            a_pos_gt = np.zeros_like(self.explored_map[0])
-            a_pos[start_x, start_y] = 1
-            a_pos_gt[start_x_gt, start_y_gt] = 1
+            pos_map = np.zeros_like(self.explored_map[0])
+            pos_gt_map = np.zeros_like(self.explored_map[0])
+            goal_map = np.zeros_like(self.explored_map[0])
+
+            pos_map[int(start_y * 100.0/5.0), int(start_x * 100.0/5.0)] = 1
+            pos_gt_map[int(start_y_gt * 100.0/5.0), int(start_x_gt * 100.0/5.0)] = 1
+            goal_map[int(goal[0] + gx1), int(goal[1] + gy1)] = 1
+
+            pos_map = self.transform(pos_map, a)
+            pos_gt_map = self.transform(pos_gt_map, a)
+            goal_map = self.transform(goal_map, a)
+
+            (index_b, index_a) = np.unravel_index(np.argmax(pos_map, axis=None), pos_map.shape)
+            (index_gt_b, index_gt_a) = np.unravel_index(np.argmax(pos_gt_map, axis=None), pos_gt_map.shape)
+            (index_goal_a, index_goal_b) = np.unravel_index(np.argmax(goal_map, axis=None), goal_map.shape)
+
+            pos = (index_a * 5.0/100.0, index_b * 5.0/100.0, start_o + self.n_init_theta[a])
+            pos_gt = (index_gt_a * 5.0/100.0, index_gt_b * 5.0/100.0, start_o_gt + self.n_init_theta[a])
+            goal = (index_goal_a, index_goal_b, 0)
             
-            import pdb; pdb.set_trace()
+            all_pos.append(pos)
+            all_pos_gt.append(pos_gt)
+            all_goals.append(goal)
 
-            pos = (start_x, start_y, start_o)
-            pos_gt = (start_x_gt, start_y_gt, start_o_gt)
+            merge_pred_map = np.maximum(merge_map, self.transform(np.rint(map_pred[a]), a))
+            merge_map = np.maximum(merge_map, self.transform(self.map[a], a))
+            merge_visited_gt = np.maximum(merge_visited_gt, self.transform(self.visited_gt[a], a))
+            merge_visited_vis = np.maximum(merge_visited_vis, self.transform(self.visited_vis[a], a))
+            merge_collision_map[self.transform(self.collison_map[a], a) == 1] = 1
+            merge_explorable_map[self.transform(self.explorable_map[a], a) == 1] = 1
+            merge_explored_map = np.maximum(merge_explored_map, self.transform(self.explored_map[a], a))
+            merge_gt_explored = np.maximum(merge_gt_explored, self.transform(self.map[a] * self.explored_map[a], a))
 
-            pos_c = np.array([[start_x, start_y, 1]])
-            pos_gt_c = np.array([[start_x_gt, start_y_gt, 1]])
-            
-            pos_c = np.dot(pos_c, R)
-            pos_c = np.dot(pos_c, T)
-            
-            pos_gt_c = np.dot(pos_gt_c, R)
-            pos_gt_c = np.dot(pos_gt_c, T)
-            
-            all_pos.append(pos_c)
-            all_pos_gt.append(pos_gt_c)
+        vis_grid_gt = vu.get_colored_map(merge_map,
+                                    merge_collision_map,
+                                    merge_visited_gt,
+                                    merge_visited_gt,
+                                    all_goals,
+                                    merge_explored_map,
+                                    merge_explorable_map,
+                                    merge_gt_explored)
+        
+        vis_grid_pred = vu.get_colored_map(merge_pred_map,
+                                    merge_collision_map,
+                                    merge_visited_vis,
+                                    merge_visited_gt,
+                                    all_goals,
+                                    merge_explored_map,
+                                    merge_explorable_map,
+                                    merge_gt_explored)
 
-            t_map[self.transform(self.map[a], a) == 1] = 1
-            t_collision[self.transform(self.collison_map[a], a) == 1] = 1
-            t_visited_gt[self.transform(self.visited_gt[a], a) == 1] = 1
-            t_explorable_map[self.transform(self.explorable_map[a], a) == 1] = 1
+        vis_grid_gt = np.flipud(vis_grid_gt)
+        vis_grid_pred = np.flipud(vis_grid_pred)
 
-            t_explored_map = np.maximum(t_explored_map, self.transform(self.explored_map[a], a))
-            t_gt_explored = np.maximum(t_gt_explored, self.transform(self.map[a] * self.explored_map[a], a))
-
-        vis_grid = vu.get_colored_map(t_map,
-                                    t_collision,
-                                    t_visited_gt,
-                                    t_visited_gt,
-                                    (goal[0] + gx1, goal[1] + gy1), # ! wrong here
-                                    t_explored_map,
-                                    t_explorable_map,
-                                    t_gt_explored)
-
-        vis_grid = np.flipud(vis_grid)
-
-        vu.visualize_map(self.figure_m, self.ax_m, vis_grid[:, :, ::-1],
-                        all_pos, all_pos_gt, gif_dir,
+        vu.visualize_map(self.figure_m, self.ax_m, vis_grid_gt[:, :, ::-1], vis_grid_pred[:, :, ::-1],
+                        all_pos_gt, all_pos, gif_dir,
                         self.timestep, 
                         self.use_render,
                         self.save_gifs)
