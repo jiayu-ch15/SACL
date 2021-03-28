@@ -10,12 +10,12 @@ from habitat.datasets.pointnav.pointnav_dataset import PointNavDatasetV1
 class MultiHabitatEnv(object):
     def __init__(self, args, rank, run_dir):
 
+        self.num_agents = args.num_agents
+
         config_env, config_baseline, dataset = self.get_config(args, rank)
 
         self.env = Exploration_Env(
             args, config_env, config_baseline, dataset, run_dir)
-
-        self.num_agents = args.num_agents
 
         map_size = args.map_size_cm // args.map_resolution
         full_w, full_h = map_size, map_size
@@ -40,13 +40,14 @@ class MultiHabitatEnv(object):
                 low=0.0, high=1.0, shape=(2,), dtype=np.float32))
 
     def get_config(self, args, rank):
-        basic_config = cfg_env(config_paths=[onpolicy.__path__[
-                               0] + "/envs/habitat/habitat-lab/configs/" + args.task_config])
-        basic_config.defrost()
-        basic_config.DATASET.SPLIT = args.split
-        basic_config.freeze()
+        config_env = cfg_env(config_paths=[onpolicy.__path__[0] + "/envs/habitat/habitat-lab/configs/" + args.task_config])
+        
+        config_env.defrost()
+        config_env.DATASET.SPLIT = args.split
+        config_env.DATASET.DATA_PATH = onpolicy.__path__[0] + "/envs/habitat/data/datasets/pointnav/gibson/v1/{}/{}.json.gz".format(args.split,args.split)
+        config_env.freeze()
 
-        scenes = PointNavDatasetV1.get_scenes_to_load(basic_config.DATASET)
+        scenes = PointNavDatasetV1.get_scenes_to_load(config_env.DATASET)
 
         if len(scenes) > 0:
             assert len(scenes) >= args.n_rollout_threads, (
@@ -56,8 +57,6 @@ class MultiHabitatEnv(object):
             scene_split_size = int(
                 np.floor(len(scenes) / args.n_rollout_threads))
 
-        config_env = cfg_env(config_paths=[onpolicy.__path__[
-                             0] + "/envs/habitat/habitat-lab/configs/" + args.task_config])
         config_env.defrost()
 
         if len(scenes) > 0:
@@ -69,16 +68,16 @@ class MultiHabitatEnv(object):
         else:
             gpu_id = 1
 
-        config_env.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = gpu_id
-
-        agent_sensors = []
-        agent_sensors.append("RGB_SENSOR")
-        agent_sensors.append("DEPTH_SENSOR")
-
-        config_env.SIMULATOR.AGENT_0.SENSORS = agent_sensors
-
         config_env.ENVIRONMENT.MAX_EPISODE_STEPS = args.max_episode_length
         config_env.ENVIRONMENT.ITERATOR_OPTIONS.SHUFFLE = False
+
+        config_env.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = gpu_id
+
+        config_env.SIMULATOR.NUM_AGENTS = self.num_agents
+        config_env.SIMULATOR.SEED = args.seed
+        config_env.SIMULATOR.SET_RANDOM_AGENT_POS = args.set_random_agent_pos
+
+        config_env.SIMULATOR.AGENT.SENSORS = ['RGB_SENSOR', 'DEPTH_SENSOR']
 
         config_env.SIMULATOR.RGB_SENSOR.WIDTH = args.env_frame_width
         config_env.SIMULATOR.RGB_SENSOR.HEIGHT = args.env_frame_height
@@ -91,7 +90,6 @@ class MultiHabitatEnv(object):
         config_env.SIMULATOR.DEPTH_SENSOR.POSITION = [0, args.camera_height, 0]
 
         config_env.SIMULATOR.TURN_ANGLE = 10
-        config_env.DATASET.SPLIT = args.split
 
         dataset = PointNavDatasetV1(config_env.DATASET)
         config_env.defrost()

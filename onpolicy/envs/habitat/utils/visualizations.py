@@ -66,8 +66,8 @@ def visualize_all(agent_id, fig, ax, img, grid_local, grid_gt, pos_local, pos_gt
     # Draw predicted agent pose
     draw_pose(ax[2], pos, grid_gt, color="Red", agent_size=8, alpha=0.6)
 
-    for _ in range(5):
-        fig.tight_layout()
+    # for _ in range(5):
+    #     fig.tight_layout()
 
     if visualize:
         plt.gcf().canvas.flush_events()

@@ -259,6 +259,10 @@ class Exploration_Env(habitat.RLEnv):
 
         self.save_position()
 
+        for i in range(self.num_agents):
+            pos = self._env.sim.get_agent_state(i)
+            print(pos)
+
         return state, self.info 
 
     def step(self, action):
@@ -520,6 +524,9 @@ class Exploration_Env(habitat.RLEnv):
         return info
 
     def seed(self, seed):
+        print("get seed!")
+        print(seed)
+        self._env.seed(seed)
         self.rng = np.random.RandomState(seed)
 
     def get_spaces(self):
