@@ -524,8 +524,6 @@ class Exploration_Env(habitat.RLEnv):
         return info
 
     def seed(self, seed):
-        print("get seed!")
-        print(seed)
         self._env.seed(seed)
         self.rng = np.random.RandomState(seed)
 
