@@ -62,8 +62,7 @@ def parse_args(args, parser):
 
     # reward params
     parser.add_argument('--reward_decay', type=float, default=0.9)
-    parser.add_argument('--use_reward_penalty',
-                        action='store_true', default=False)
+    parser.add_argument('--use_reward_penalty', action='store_true', default=False)
 
     # Environment, dataset and episode specifications
     parser.add_argument('-efw', '--env_frame_width', type=int, default=256,
@@ -90,8 +89,10 @@ def parse_args(args, parser):
                         help="horizontal field of view in degrees")
     parser.add_argument('--randomize_env_every', type=int, default=1000,
                         help="randomize scene in a thread every k episodes")
-    parser.add_argument('--set_random_agent_pos', action='store_false',
+    parser.add_argument('--use_different_start_pos', action='store_false',
                         default=True, help="by default True, use random agent position at the initialization")
+    parser.add_argument('--use_fixed_start_pos', action='store_true',
+                        default=False, help="by default True, use fixed agent position at the initialization")
 
     # Local Policy
     parser.add_argument('--local_lr', type=float, default=0.0001)

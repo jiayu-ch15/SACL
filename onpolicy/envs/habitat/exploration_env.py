@@ -101,7 +101,7 @@ class Exploration_Env(habitat.RLEnv):
                                                       dtype='uint8')
 
         self.mapper = []
-        for i in range(self.num_agents):
+        for _ in range(self.num_agents):
             self.mapper.append(self.build_mapper())
         self.curr_loc = []
         self.last_loc = []
@@ -118,7 +118,7 @@ class Exploration_Env(habitat.RLEnv):
                                                          interpolation=Image.NEAREST)])
         
         self.maps_dict = []
-        for i in range(self.num_agents):
+        for _ in range(self.num_agents):
             self.maps_dict.append({})
 
         if self.use_render:
@@ -139,8 +139,8 @@ class Exploration_Env(habitat.RLEnv):
         if not os.path.exists(traj_dir):
             os.makedirs(traj_dir)
 
-        for i in range(self.num_agents):
-            filepath = traj_dir + 'episode' + str(self.episode_no) +'_agent' + str(i) + ".txt"
+        for agent_id in range(self.num_agents):
+            filepath = traj_dir + 'episode' + str(self.episode_no) +'_agent' + str(agent_id) + ".txt"
             with open(filepath, "w+") as f:
                 f.write(self.scene_name + "\n")
                 for state in self.trajectory_states[i]:
@@ -149,17 +149,22 @@ class Exploration_Env(habitat.RLEnv):
 
     def save_position(self):
         self.agent_state = []
-        for i in range(self.num_agents):
+        for agent_id in range(self.num_agents):
             self.agent_state.append(self._env.sim.get_agent_state())
-            self.trajectory_states[i].append([self.agent_state[i].position,
-                                              self.agent_state[i].rotation])
+            self.trajectory_states[agent_id].append([self.agent_state[agent_id].position,
+                                              self.agent_state[agent_id].rotation])
 
     def reset(self):
         self.reward_gamma = 1
         self.episode_no += 1
         self.timestep = 0
         self._previous_action = None
-        self.trajectory_states = [[] for index in range(self.num_agents)]
+        self.trajectory_states = [[] for _ in range(self.num_agents)]
+        self.explored_ratio_step = np.ones(self.num_agents) * (-1.0)
+        self.merge_explored_ratio_step = -1.0
+        self.explored_ratio_threshold = 0.9
+        self.merge_ratio = 0
+        self.ratio = np.zeros(self.num_agents)
 
         if self.args.randomize_env_every > 0:
             if np.mod(self.episode_no, self.args.randomize_env_every) == 0:
@@ -173,23 +178,23 @@ class Exploration_Env(habitat.RLEnv):
 
         obs = super().reset()
         full_map_size = self.map_size_cm//self.map_resolution
-        for i in range(self.num_agents):
-            mapp, n_rot, n_trans, init_theta = self._get_gt_map(full_map_size, i)
+        for agent_id in range(self.num_agents):
+            mapp, n_rot, n_trans, init_theta = self._get_gt_map(full_map_size, agent_id)
             self.explorable_map.append(mapp)
             self.n_rot.append(n_rot)
             self.n_trans.append(n_trans)
             self.n_init_theta.append(init_theta)
 
-        self.prev_explored_area = [0. for index in range(self.num_agents)]
-        self.prev_total_explored_area = 0
+        self.prev_explored_area = [0. for _ in range(self.num_agents)]
+        self.prev_merge_explored_area = 0
 
         # Preprocess observations
-        rgb = [obs[i]['rgb'].astype(np.uint8) for i in range(self.num_agents)]
+        rgb = [obs[agent_id]['rgb'].astype(np.uint8) for agent_id in range(self.num_agents)]
         self.obs = rgb  # For visualization
         if self.args.frame_width != self.args.env_frame_width:
-            rgb = [np.asarray(self.res(rgb[i])) for i in range(self.num_agents)]
-        state = [rgb[i].transpose(2, 0, 1) for i in range(self.num_agents)]
-        depth = [_preprocess_depth(obs[i]['depth']) for i in range(self.num_agents)]
+            rgb = [np.asarray(self.res(rgb[agent_id])) for agent_id in range(self.num_agents)]
+        state = [rgb[agent_id].transpose(2, 0, 1) for agent_id in range(self.num_agents)]
+        depth = [_preprocess_depth(obs[agent_id]['depth']) for agent_id in range(self.num_agents)]
 
         # Initialize map and pose
         self.curr_loc = []
@@ -197,24 +202,24 @@ class Exploration_Env(habitat.RLEnv):
         self.last_loc_gt = []
         self.last_loc = []
         self.last_sim_location = []
-        for i in range(self.num_agents):
-            self.mapper[i].reset_map(self.map_size_cm)
+        for agent_id in range(self.num_agents):
+            self.mapper[agent_id].reset_map(self.map_size_cm)
             self.curr_loc.append([self.map_size_cm/100.0/2.0,
                                   self.map_size_cm/100.0/2.0, 0.])
             self.curr_loc_gt.append([self.map_size_cm/100.0/2.0,
                                      self.map_size_cm/100.0/2.0, 0.])
             self.last_loc_gt.append([self.map_size_cm/100.0/2.0,
                                      self.map_size_cm/100.0/2.0, 0.])
-            self.last_loc.append(self.curr_loc[i])
-            self.last_sim_location.append(self.get_sim_location(i))
+            self.last_loc.append(self.curr_loc[agent_id])
+            self.last_sim_location.append(self.get_sim_location(agent_id))
 
         # Convert pose to cm and degrees for mapper
         mapper_gt_pose = []
-        for i in range(self.num_agents):
+        for agent_id in range(self.num_agents):
             mapper_gt_pose.append(
-                (self.curr_loc_gt[i][0]*100.0,
-                 self.curr_loc_gt[i][1]*100.0,
-                 np.deg2rad(self.curr_loc_gt[i][2]))
+                (self.curr_loc_gt[agent_id][0]*100.0,
+                 self.curr_loc_gt[agent_id][1]*100.0,
+                 np.deg2rad(self.curr_loc_gt[agent_id][2]))
             )
 
         fp_proj = []
@@ -222,9 +227,9 @@ class Exploration_Env(habitat.RLEnv):
         self.map = []
         self.explored_map = []
         # Update ground_truth map and explored area
-        for i in range(self.num_agents):
+        for agent_id in range(self.num_agents):
             fp_proj_t, map_t, fp_explored_t, explored_map_t = \
-                self.mapper[i].update_map(depth[i], mapper_gt_pose[i])
+                self.mapper[agent_id].update_map(depth[agent_id], mapper_gt_pose[agent_id])
             fp_proj.append(fp_proj_t)
             self.map.append(map_t)
             fp_explored.append(fp_explored_t)
@@ -233,14 +238,14 @@ class Exploration_Env(habitat.RLEnv):
         # Initialize variables
         self.scene_name = self.habitat_env.sim.config.SCENE
         self.visited = [np.zeros(self.map[0].shape)
-                        for index in range(self.num_agents)]
+                        for _ in range(self.num_agents)]
         self.visited_vis = [np.zeros(self.map[0].shape)
-                            for index in range(self.num_agents)]
+                            for _ in range(self.num_agents)]
         self.visited_gt = [np.zeros(self.map[0].shape)
-                           for index in range(self.num_agents)]
+                           for _ in range(self.num_agents)]
         self.collison_map = [np.zeros(self.map[0].shape)
-                             for index in range(self.num_agents)]
-        self.col_width = [1 for index in range(self.num_agents)]
+                             for _ in range(self.num_agents)]
+        self.col_width = [1 for _ in range(self.num_agents)]
 
         # Set info
         self.info = {
@@ -250,18 +255,14 @@ class Exploration_Env(habitat.RLEnv):
             'sensor_pose': [],
             'pose_err': [],
         }
-        for i in range(self.num_agents):
+        for agent_id in range(self.num_agents):
             self.info['time'].append(self.timestep)
-            self.info['fp_proj'].append(fp_proj[i])
-            self.info['fp_explored'].append(fp_explored[i])
+            self.info['fp_proj'].append(fp_proj[agent_id])
+            self.info['fp_explored'].append(fp_explored[agent_id])
             self.info['sensor_pose'].append([0., 0., 0.])
             self.info['pose_err'].append([0., 0., 0.])
 
         self.save_position()
-
-        for i in range(self.num_agents):
-            pos = self._env.sim.get_agent_state(i)
-            print(pos)
 
         return state, self.info 
 
@@ -271,20 +272,20 @@ class Exploration_Env(habitat.RLEnv):
         noisy_action = []
 
         # Action remapping
-        for i in range(self.num_agents):
-            if action[i] == 2:  # Forward
-                action[i] = 1
+        for agent_id in range(self.num_agents):
+            if action[agent_id] == 2:  # Forward
+                action[agent_id] = 1
                 noisy_action.append(habitat.SimulatorActions.NOISY_FORWARD)
-            elif action[i] == 1:  # Right
-                action[i] = 3
+            elif action[agent_id] == 1:  # Right
+                action[agent_id] = 3
                 noisy_action.append(habitat.SimulatorActions.NOISY_RIGHT)
-            elif action[i] == 0:  # Left
-                action[i] = 2
+            elif action[agent_id] == 0:  # Left
+                action[agent_id] = 2
                 noisy_action.append(habitat.SimulatorActions.NOISY_LEFT)
 
-        for i in range(self.num_agents):
-            self.last_loc[i] = np.copy(self.curr_loc[i])
-            self.last_loc_gt[i] = np.copy(self.curr_loc_gt[i])
+        for agent_id in range(self.num_agents):
+            self.last_loc[agent_id] = np.copy(self.curr_loc[agent_id])
+            self.last_loc_gt[agent_id] = np.copy(self.curr_loc_gt[agent_id])
 
         self._previous_action = action
 
@@ -292,38 +293,35 @@ class Exploration_Env(habitat.RLEnv):
         rew = []
         done = []
         info = []
-        for i in range(self.num_agents):
+        for agent_id in range(self.num_agents):
             if self.args.noisy_actions:
-                obs_t, rew_t, done_t, info_t = super().step(noisy_action[i], i)
+                obs_t, rew_t, done_t, info_t = super().step(noisy_action[agent_id], agent_id)
             else:
-                obs_t, rew_t, done_t, info_t = super().step(action[i], i)
+                obs_t, rew_t, done_t, info_t = super().step(action[agent_id], agent_id)
             obs.append(obs_t)
             rew.append(rew_t)
             done.append(done_t)
             info.append(info_t)
 
         # Preprocess observations
-        rgb = [obs[index]['rgb'].astype(np.uint8)
-               for index in range(self.num_agents)]
+        rgb = [obs[agent_id]['rgb'].astype(np.uint8) for agent_id in range(self.num_agents)]
 
         self.obs = rgb  # For visualization
 
         if self.args.frame_width != self.args.env_frame_width:
-            rgb = [np.asarray(self.res(rgb[index]))
-                   for index in range(self.num_agents)]
+            rgb = [np.asarray(self.res(rgb[agent_id]))
+                   for agent_id in range(self.num_agents)]
 
-        state = [rgb[index].transpose(2, 0, 1)
-                 for index in range(self.num_agents)]
+        state = [rgb[agent_id].transpose(2, 0, 1) for agent_id in range(self.num_agents)]
 
-        depth = [_preprocess_depth(obs[index]['depth'])
-                 for index in range(self.num_agents)]
+        depth = [_preprocess_depth(obs[agent_id]['depth']) for agent_id in range(self.num_agents)]
 
         # Get base sensor and ground-truth pose
         dx_gt = []
         dy_gt = []
         do_gt = []
-        for i in range(self.num_agents):
-            dx_gt_t, dy_gt_t, do_gt_t = self.get_gt_pose_change(i)
+        for agent_id in range(self.num_agents):
+            dx_gt_t, dy_gt_t, do_gt_t = self.get_gt_pose_change(agent_id)
             dx_gt.append(dx_gt_t)
             dy_gt.append(dy_gt_t)
             do_gt.append(do_gt_t)
@@ -331,20 +329,20 @@ class Exploration_Env(habitat.RLEnv):
         dx_base = []
         dy_base = []
         do_base = []
-        for i in range(self.num_agents):
+        for agent_id in range(self.num_agents):
             dx_base_t, dy_base_t, do_base_t = self.get_base_pose_change(
-                action[i], (dx_gt[i], dy_gt[i], do_gt[i]))
+                action[agent_id], (dx_gt[agent_id], dy_gt[agent_id], do_gt[agent_id]))
             dx_base.append(dx_base_t)
             dy_base.append(dy_base_t)
             do_base.append(do_base_t)
 
-        for i in range(self.num_agents):
-            self.curr_loc[i] = pu.get_new_pose(self.curr_loc[i],
-                                               (dx_base[i], dy_base[i], do_base[i]))
+        for agent_id in range(self.num_agents):
+            self.curr_loc[agent_id] = pu.get_new_pose(self.curr_loc[agent_id],
+                                               (dx_base[agent_id], dy_base[agent_id], do_base[agent_id]))
 
-        for i in range(self.num_agents):
-            self.curr_loc_gt[i] = pu.get_new_pose(self.curr_loc_gt[i],
-                                                  (dx_gt[i], dy_gt[i], do_gt[i]))
+        for agent_id in range(self.num_agents):
+            self.curr_loc_gt[agent_id] = pu.get_new_pose(self.curr_loc_gt[agent_id],
+                                                  (dx_gt[agent_id], dy_gt[agent_id], do_gt[agent_id]))
 
         if not self.args.noisy_odometry:
             self.curr_loc = self.curr_loc_gt
@@ -352,11 +350,11 @@ class Exploration_Env(habitat.RLEnv):
 
         # Convert pose to cm and degrees for mapper
         mapper_gt_pose = []
-        for i in range(self.num_agents):
+        for agent_id in range(self.num_agents):
             mapper_gt_pose.append(
-                (self.curr_loc_gt[i][0]*100.0,
-                 self.curr_loc_gt[i][1]*100.0,
-                 np.deg2rad(self.curr_loc_gt[i][2]))
+                (self.curr_loc_gt[agent_id][0] * 100.0,
+                 self.curr_loc_gt[agent_id][1] * 100.0,
+                 np.deg2rad(self.curr_loc_gt[agent_id][2]))
             )
 
         fp_proj = []
@@ -364,29 +362,29 @@ class Exploration_Env(habitat.RLEnv):
         self.map = []
         self.explored_map = []
         # Update ground_truth map and explored area
-        for i in range(self.num_agents):
+        for agent_id in range(self.num_agents):
             fp_proj_t, map_t, fp_explored_t, explored_map_t = \
-                self.mapper[i].update_map(depth[i], mapper_gt_pose[i])
+                self.mapper[agent_id].update_map(depth[agent_id], mapper_gt_pose[agent_id])
             fp_proj.append(fp_proj_t)
             self.map.append(map_t)
             fp_explored.append(fp_explored_t)
             self.explored_map.append(explored_map_t)
 
         # Update collision map
-        for h in range(self.num_agents):
-            if action[h] == 1:
-                x1, y1, t1 = self.last_loc[h]
-                x2, y2, t2 = self.curr_loc[h]
+        for agent_id in range(self.num_agents):
+            if action[agent_id] == 1:
+                x1, y1, t1 = self.last_loc[agent_id]
+                x2, y2, t2 = self.curr_loc[agent_id]
                 if abs(x1 - x2) < 0.05 and abs(y1 - y2) < 0.05:
-                    self.col_width[h] += 2
-                    self.col_width[h] = min(self.col_width[h], 9)
+                    self.col_width[agent_id] += 2
+                    self.col_width[agent_id] = min(self.col_width[agent_id], 9)
                 else:
-                    self.col_width[h] = 1
+                    self.col_width[agent_id] = 1
 
                 dist = pu.get_l2_distance(x1, x2, y1, y2)
                 if dist < self.args.collision_threshold:  # Collision
                     length = 2
-                    width = self.col_width[h]
+                    width = self.col_width[agent_id]
                     buf = 3
                     for i in range(length):
                         for j in range(width):
@@ -398,8 +396,8 @@ class Exploration_Env(habitat.RLEnv):
                             r, c = int(r*100/self.map_resolution), \
                                 int(c*100/self.map_resolution)
                             [r, c] = pu.threshold_poses([r, c],
-                                                        self.collison_map[h].shape)
-                            self.collison_map[h][r, c] = 1
+                                                        self.collison_map[agent_id].shape)
+                            self.collison_map[agent_id][r, c] = 1
 
         # Set info
         self.info = {
@@ -408,42 +406,53 @@ class Exploration_Env(habitat.RLEnv):
             'fp_explored': [],
             'sensor_pose': [],
             'pose_err': [],
+            'explored_reward': [],
+            'explored_ratio': [],
+            'merge_explored_reward': None,
+            'merge_explored_ratio': None
         }
-        for i in range(self.num_agents):
+        for agent_id in range(self.num_agents):
             self.info['time'].append(self.timestep)
-            self.info['fp_proj'].append(fp_proj[i])
-            self.info['fp_explored'].append(fp_explored[i])
-            self.info['sensor_pose'].append(
-                [dx_base[i], dy_base[i], do_base[i]])
-            self.info['pose_err'].append([dx_gt[i] - dx_base[i],
-                                          dy_gt[i] - dy_base[i],
-                                          do_gt[i] - do_base[i]])
+            self.info['fp_proj'].append(fp_proj[agent_id])
+            self.info['fp_explored'].append(fp_explored[agent_id])
+            self.info['sensor_pose'].append([dx_base[agent_id], dy_base[agent_id], do_base[agent_id]])
+            self.info['pose_err'].append([dx_gt[agent_id] - dx_base[agent_id],
+                                          dy_gt[agent_id] - dy_base[agent_id],
+                                          do_gt[agent_id] - do_base[agent_id]])
 
-        self.info['exp_reward'] = []
-        self.info['exp_ratio'] = []
-        self.info['exp_total_reward'] = None
-        self.info['exp_total_ratio'] = None
         if self.timestep % self.args.num_local_steps == 0:
-            area, ratio, total_area, total_ratio = self.get_global_reward()
-            self.info['exp_total_reward'] = total_area
-            self.info['exp_total_ratio'] = total_ratio
-            for i in range(self.num_agents):
-                self.info['exp_reward'].append(area[i])
-                self.info['exp_ratio'].append(ratio[i])
+            agent_explored_area, agent_explored_ratio, merge_explored_area, merge_explored_ratio = self.get_global_reward()
+            print(merge_explored_area)
+            print(merge_explored_ratio)
+            self.info['merge_explored_reward'] = merge_explored_area
+            self.info['merge_explored_ratio'] = merge_explored_ratio
+            self.merge_ratio += merge_explored_ratio
+            # log step
+            if self.merge_ratio >= self.explored_ratio_threshold and self.merge_explored_ratio_step == -1.0:
+                self.merge_explored_ratio_step = self.timestep
+                self.info['merge_explored_ratio_step'] = self.timestep
+
+            for agent_id in range(self.num_agents):
+                self.info['explored_reward'].append(agent_explored_area[agent_id])
+                self.info['explored_ratio'].append(agent_explored_ratio[agent_id])
+                self.ratio[agent_id] += agent_explored_ratio[agent_id]
+                if self.ratio[agent_id] >= self.explored_ratio_threshold and self.explored_ratio_step[agent_id] == -1.0:
+                    self.explored_ratio_step[agent_id] = self.timestep
+                    self.info["agent{}_explored_ratio_step".format(agent_id)] = self.timestep
 
         else:
-            for i in range(self.num_agents):
-                self.info['exp_reward'].append(None)
-                self.info['exp_ratio'].append(None)
+            for _ in range(self.num_agents):
+                self.info['explored_reward'].append(None)
+                self.info['explored_ratio'].append(None)
 
         self.save_position()
 
         if self.info['time'][0] >= self.args.max_episode_length:
-            done = [True for index in range(self.num_agents)]
+            done = [True for _ in range(self.num_agents)]
             if self.args.save_trajectory_data:
                 self.save_trajectory_data()
         else:
-            done = [False for index in range(self.num_agents)]
+            done = [False for _ in range(self.num_agents)]
 
         return state, rew, done, self.info
 
@@ -456,63 +465,40 @@ class Exploration_Env(habitat.RLEnv):
         return 0.
 
     def get_global_reward(self):
-        m_reward = []
-        m_ratio = []
-        curr_explored = []
-        reward_scale = []
-        curr_total_explored = np.zeros_like(self.explored_map[0])
-        # curr_total_explorable=np.zeros_like(self.explored_map[0])
-        total_explorable_map = np.zeros_like(self.explored_map[0])
-        for i in range(self.num_agents):
-            curr_explored.append(self.explored_map[i]*self.explorable_map[i])
+        agent_explored_rewards = []
+        agent_explored_ratios = []
 
-            cur_t = torch.from_numpy(curr_explored[i])
-            n_rotated = F.grid_sample(cur_t.unsqueeze(0).unsqueeze(
-                0), self.n_rot[i].double(), align_corners=True)
-            n_map = F.grid_sample(
-                n_rotated, self.n_trans[i].double(), align_corners=True)
-            n_map = n_map[0, 0, :, :]
-            curr_total_explored = np.maximum(
-                curr_total_explored, n_map.numpy())
-            # curr_total_explored[n_map.numpy()>0.5]=1
+        # calculate individual reward
+        curr_merge_explored_map = np.zeros_like(self.explored_map[0]) # global
+        merge_explorable_map = np.zeros_like(self.explored_map[0]) # global
 
-            exp_m = torch.from_numpy(self.explorable_map[i])
-            _n_rotated = F.grid_sample(exp_m.unsqueeze(
-                0).unsqueeze(0), self.n_rot[i], align_corners=True)
-            _n_map = F.grid_sample(
-                _n_rotated, self.n_trans[i], align_corners=True)
-            _n_map = _n_map[0, 0, :, :]
-            total_explorable_map = np.maximum(
-                total_explorable_map, _n_map.numpy())
-            # total_explorable_map[_n_map.numpy()==1]=1
+        for agent_id in range(self.num_agents):
+            curr_agent_explored_map = self.explored_map[agent_id] * self.explorable_map[agent_id]
 
-            curr_explored_area = curr_explored[i].sum()
-            reward_scale.append(self.explorable_map[i].sum())
+            curr_merge_explored_map = np.maximum(curr_merge_explored_map, self.transform(curr_agent_explored_map, agent_id))
+            merge_explorable_map = np.maximum(merge_explorable_map, self.transform(self.explorable_map[agent_id], agent_id))
 
-            m_reward.append(
-                (curr_explored_area - self.prev_explored_area[i])*1.)
-            m_ratio.append(m_reward[i]/reward_scale[i])
-            m_reward[i] = m_reward[i] * 25./10000.  # converting to m^2
-            self.prev_explored_area[i] = curr_explored_area
-            m_reward[i] *= 0.02  # Reward Scaling
-            m_reward[i] *= self.reward_gamma
+            curr_agent_explored_area = curr_agent_explored_map.sum()
+            agent_explored_reward = (curr_agent_explored_area - self.prev_explored_area[agent_id]) * 1.0
+            self.prev_explored_area[agent_id] = curr_agent_explored_area
+            # converting to m^2 * Reward Scaling 0.02 * reward time penalty
+            agent_explored_rewards.append(agent_explored_reward * (25./10000) * 0.02 * self.reward_gamma) 
+            
+            reward_scale = self.explorable_map[agent_id].sum()
+            agent_explored_ratios.append(agent_explored_reward/reward_scale)
 
-        # curr_total_explored=curr_total_explored*total_explorable_map
-        curr_total_explored_area = curr_total_explored.sum()
-        total_reward_scale = total_explorable_map.sum()
-        total_reward = (curr_total_explored_area -
-                        self.prev_total_explored_area) * 1.0
-        total_ratio = total_reward/total_reward_scale
-        if total_reward == 0 and self.use_reward_penalty:
-            total_reward = -10*self.reward_gamma
-        total_reward = total_reward * 25./10000.
-        self.prev_total_explored_area = curr_total_explored_area
-        total_reward *= 0.02
-        total_reward *= self.reward_gamma
+        # calculate merge reward
+        curr_merge_explored_area = curr_merge_explored_map.sum()
+        merge_explored_reward_scale = merge_explorable_map.sum()
+        merge_explored_reward = (curr_merge_explored_area - self.prev_merge_explored_area) * 1.0
+        self.prev_merge_explored_area = curr_merge_explored_area
+        merge_explored_ratio = merge_explored_reward / merge_explored_reward_scale
+        merge_explored_reward = merge_explored_reward * (25./10000.) * 0.02 * self.reward_gamma
+
         if self.use_reward_penalty:
             self.reward_gamma *= self.reward_decay
 
-        return m_reward, m_ratio, total_reward, total_ratio
+        return agent_explored_rewards, agent_explored_ratios, merge_explored_reward, merge_explored_ratio
 
     def get_done(self, observations, agent_id):
         # This function is not used, Habitat-RLEnv requires this function
@@ -522,7 +508,7 @@ class Exploration_Env(habitat.RLEnv):
         # This function is not used, Habitat-RLEnv requires this function
         info = {}
         return info
-
+    
     def seed(self, seed):
         self._env.seed(seed)
         self.rng = np.random.RandomState(seed)
@@ -586,12 +572,12 @@ class Exploration_Env(habitat.RLEnv):
         o_err = o_err * self.args.noise_level
         return dx_gt + x_err, dy_gt + y_err, do_gt + np.deg2rad(o_err)
 
-    def transform(self, inputs, a):
+    def transform(self, inputs, agent_id):
         inputs = torch.from_numpy(inputs)
         n_rotated = F.grid_sample(inputs.unsqueeze(0).unsqueeze(
-            0).float(), self.n_rot[a].float(), align_corners=True)
+            0).float(), self.n_rot[agent_id].float(), align_corners=True)
         n_map = F.grid_sample(
-            n_rotated.float(), self.n_trans[a].float(), align_corners=True)
+            n_rotated.float(), self.n_trans[agent_id].float(), align_corners=True)
         n_map = n_map[0, 0, :, :].numpy()
 
         return n_map
@@ -626,33 +612,33 @@ class Exploration_Env(habitat.RLEnv):
         map_pred = inputs['map_pred']
         exp_pred = inputs['exp_pred']
         output = [np.zeros((args.goals_size + 1))
-                  for a in range(self.num_agents)]
+                  for _ in range(self.num_agents)]
 
-        for a in range(self.num_agents):
-            grid = np.rint(map_pred[a])
-            explored = np.rint(exp_pred[a])
+        for agent_id in range(self.num_agents):
+            grid = np.rint(map_pred[agent_id])
+            explored = np.rint(exp_pred[agent_id])
 
             # Get pose prediction and global policy planning window
-            start_x, start_y, start_o, gx1, gx2, gy1, gy2 = inputs['pose_pred'][a]
+            start_x, start_y, start_o, gx1, gx2, gy1, gy2 = inputs['pose_pred'][agent_id]
             gx1, gx2, gy1, gy2 = int(gx1), int(gx2), int(gy1), int(gy2)
             planning_window = [gx1, gx2, gy1, gy2]
 
             # Get last loc
-            last_start_x, last_start_y = self.last_loc[a][0], self.last_loc[a][1]
+            last_start_x, last_start_y = self.last_loc[agent_id][0], self.last_loc[agent_id][1]
             r, c = last_start_y, last_start_x
             last_start = [int(r * 100.0/self.map_resolution - gx1),
                           int(c * 100.0/self.map_resolution - gy1)]
             last_start = pu.threshold_poses(last_start, grid.shape)
 
             # Get curr loc
-            self.curr_loc[a] = [start_x, start_y, start_o]
+            self.curr_loc[agent_id] = [start_x, start_y, start_o]
             r, c = start_y, start_x
             start = [int(r * 100.0/self.map_resolution - gx1),
                      int(c * 100.0/self.map_resolution - gy1)]
             start = pu.threshold_poses(start, grid.shape)
             # TODO: try reducing this
 
-            self.visited[a][gx1:gx2, gy1:gy2][start[0]-2:start[0]+3,
+            self.visited[agent_id][gx1:gx2, gy1:gy2][start[0]-2:start[0]+3,
                                               start[1]-2:start[1]+3] = 1
 
             steps = 25 # ! wrong
@@ -661,22 +647,22 @@ class Exploration_Env(habitat.RLEnv):
                                          last_start[0]) * (i+1) / steps)
                 y = int(last_start[1] + (start[1] -
                                          last_start[1]) * (i+1) / steps)
-                self.visited_vis[a][gx1:gx2, gy1:gy2][x, y] = 1
+                self.visited_vis[agent_id][gx1:gx2, gy1:gy2][x, y] = 1
 
             # Get last loc ground truth pose
-            last_start_x, last_start_y = self.last_loc_gt[a][0], self.last_loc_gt[a][1]
+            last_start_x, last_start_y = self.last_loc_gt[agent_id][0], self.last_loc_gt[agent_id][1]
             r, c = last_start_y, last_start_x
             last_start = [int(r * 100.0/self.map_resolution),
                           int(c * 100.0/self.map_resolution)]
             last_start = pu.threshold_poses(
-                last_start, self.visited_gt[a].shape)
+                last_start, self.visited_gt[agent_id].shape)
 
             # Get ground truth pose
-            start_x_gt, start_y_gt, start_o_gt = self.curr_loc_gt[a]
+            start_x_gt, start_y_gt, start_o_gt = self.curr_loc_gt[agent_id]
             r, c = start_y_gt, start_x_gt
             start_gt = [int(r * 100.0/self.map_resolution),
                         int(c * 100.0/self.map_resolution)]
-            start_gt = pu.threshold_poses(start_gt, self.visited_gt[a].shape)
+            start_gt = pu.threshold_poses(start_gt, self.visited_gt[agent_id].shape)
 
             steps = 25 # ! wrong
             for i in range(steps):
@@ -684,10 +670,10 @@ class Exploration_Env(habitat.RLEnv):
                                          last_start[0]) * (i+1) / steps)
                 y = int(last_start[1] + (start_gt[1] -
                                          last_start[1]) * (i+1) / steps)
-                self.visited_gt[a][x, y] = 1
+                self.visited_gt[agent_id][x, y] = 1
 
             # Get goal
-            goal = inputs['goal'][a]
+            goal = inputs['goal'][agent_id]
             goal = pu.threshold_poses(goal, grid.shape)
 
             # Get intrinsic reward for global policy
@@ -695,18 +681,18 @@ class Exploration_Env(habitat.RLEnv):
             # for choosing explored cell as long-term goal
 
             self.extrinsic_rew.append(-pu.get_l2_distance(10, goal[0], 10, goal[1]))
-            self.intrinsic_rew.append(-exp_pred[a][goal[0], goal[1]])
+            self.intrinsic_rew.append(-exp_pred[agent_id][goal[0], goal[1]])
 
             # Get short-term goal
-            stg = self._get_stg(grid, explored, start, np.copy(goal), planning_window, a)
+            stg = self._get_stg(grid, explored, start, np.copy(goal), planning_window, agent_id)
 
             # Find GT action
             if self.args.use_eval or self.args.use_render or not self.args.train_local:
                 gt_action = 0
             else:
-                gt_action = self._get_gt_action(1 - self.explorable_map[a], start,
+                gt_action = self._get_gt_action(1 - self.explorable_map[agent_id], start,
                                                 [int(stg[0]), int(stg[1])],
-                                                planning_window, start_o, a)
+                                                planning_window, start_o, agent_id)
 
             (stg_x, stg_y) = stg
             relative_dist = pu.get_l2_distance(stg_x, start[0], stg_y, start[1])
@@ -721,9 +707,9 @@ class Exploration_Env(habitat.RLEnv):
             if relative_angle > 180:
                 relative_angle -= 360
 
-            output[a][0] = int((relative_angle % 360.)/5.)
-            output[a][1] = discretize(relative_dist)
-            output[a][2] = gt_action
+            output[agent_id][0] = int((relative_angle % 360.)/5.)
+            output[agent_id][1] = discretize(relative_dist)
+            output[agent_id][2] = gt_action
             self.relative_angle.append(relative_angle)
 
         if self.use_render:
@@ -963,23 +949,23 @@ class Exploration_Env(habitat.RLEnv):
         return gt_action
     
     def render(self, inputs, grid, map_pred, gif_dir):
-        for a in range(self.num_agents):
-            goal = inputs['goal'][a]
+        for agent_id in range(self.num_agents):
+            goal = inputs['goal'][agent_id]
             goal = pu.threshold_poses(goal, grid.shape)
-            start_x, start_y, start_o, gx1, gx2, gy1, gy2 = inputs['pose_pred'][a]
+            start_x, start_y, start_o, gx1, gx2, gy1, gy2 = inputs['pose_pred'][agent_id]
             gx1, gx2, gy1, gy2 = int(gx1), int(gx2), int(gy1), int(gy2)
-            start_x_gt, start_y_gt, start_o_gt = self.curr_loc_gt[a]
+            start_x_gt, start_y_gt, start_o_gt = self.curr_loc_gt[agent_id]
 
             # predicted map and pose
-            vis_grid_local = vu.get_colored_map(np.rint(map_pred[a]),
-                                            self.collison_map[a][gx1:gx2, gy1:gy2],
-                                            self.visited_vis[a][gx1:gx2, gy1:gy2],
-                                            self.visited_gt[a][gx1:gx2, gy1:gy2],
+            vis_grid_local = vu.get_colored_map(np.rint(map_pred[agent_id]),
+                                            self.collison_map[agent_id][gx1:gx2, gy1:gy2],
+                                            self.visited_vis[agent_id][gx1:gx2, gy1:gy2],
+                                            self.visited_gt[agent_id][gx1:gx2, gy1:gy2],
                                             [goal],
-                                            self.explored_map[a][gx1:gx2, gy1:gy2],
-                                            self.explorable_map[a][gx1:gx2, gy1:gy2],
-                                            self.map[a][gx1:gx2, gy1:gy2] *
-                                            self.explored_map[a][gx1:gx2, gy1:gy2])
+                                            self.explored_map[agent_id][gx1:gx2, gy1:gy2],
+                                            self.explorable_map[agent_id][gx1:gx2, gy1:gy2],
+                                            self.map[agent_id][gx1:gx2, gy1:gy2] *
+                                            self.explored_map[agent_id][gx1:gx2, gy1:gy2])
             vis_grid_local = np.flipud(vis_grid_local)
             pos_local = (start_x - gy1 * self.map_resolution/100.0,
                             start_y - gx1 * self.map_resolution/100.0,
@@ -990,22 +976,22 @@ class Exploration_Env(habitat.RLEnv):
 
 
             # ground truth map and pose
-            vis_grid_gt = vu.get_colored_map(self.map[a],
-                                            self.collison_map[a],
-                                            self.visited_gt[a],
-                                            self.visited_gt[a],
+            vis_grid_gt = vu.get_colored_map(self.map[agent_id],
+                                            self.collison_map[agent_id],
+                                            self.visited_gt[agent_id],
+                                            self.visited_gt[agent_id],
                                             [(goal[0] + gx1,
                                             goal[1] + gy1)],
-                                            self.explored_map[a],
-                                            self.explorable_map[a],
-                                            self.map[a]*self.explored_map[a])
+                                            self.explored_map[agent_id],
+                                            self.explorable_map[agent_id],
+                                            self.map[agent_id]*self.explored_map[agent_id])
             vis_grid_gt = np.flipud(vis_grid_gt)
             pos = (start_x, start_y, start_o)
             pos_gt = (start_x_gt, start_y_gt, start_o_gt)
 
-            ax = self.ax[a] if self.num_agents > 1 else self.ax
-            vu.visualize_all(a, self.figure, ax, 
-                            self.obs[a], 
+            ax = self.ax[agent_id] if self.num_agents > 1 else self.ax
+            vu.visualize_all(agent_id, self.figure, ax, 
+                            self.obs[agent_id], 
                             vis_grid_local[:, :, ::-1], 
                             vis_grid_gt[:, :, ::-1],
                             pos_local,
@@ -1029,12 +1015,12 @@ class Exploration_Env(habitat.RLEnv):
         all_pos = []
         all_pos_gt = []
         all_goals = []
-        for a in range(self.num_agents):
-            start_x, start_y, start_o, gx1, gx2, gy1, gy2 = inputs['pose_pred'][a]
+        for agent_id in range(self.num_agents):
+            start_x, start_y, start_o, gx1, gx2, gy1, gy2 = inputs['pose_pred'][agent_id]
             gx1, gx2, gy1, gy2 = int(gx1), int(gx2), int(gy1), int(gy2)
-            goal = inputs['goal'][a]
+            goal = inputs['goal'][agent_id]
             goal = pu.threshold_poses(goal, grid.shape)
-            start_x_gt, start_y_gt, start_o_gt = self.curr_loc_gt[a]
+            start_x_gt, start_y_gt, start_o_gt = self.curr_loc_gt[agent_id]
 
             pos_map = np.zeros_like(self.explored_map[0])
             pos_gt_map = np.zeros_like(self.explored_map[0])
@@ -1044,16 +1030,16 @@ class Exploration_Env(habitat.RLEnv):
             pos_gt_map[int(start_y_gt * 100.0/5.0), int(start_x_gt * 100.0/5.0)] = 1
             goal_map[int(goal[0] + gx1), int(goal[1] + gy1)] = 1
 
-            pos_map = self.transform(pos_map, a)
-            pos_gt_map = self.transform(pos_gt_map, a)
-            goal_map = self.transform(goal_map, a)
+            pos_map = self.transform(pos_map, agent_id)
+            pos_gt_map = self.transform(pos_gt_map, agent_id)
+            goal_map = self.transform(goal_map, agent_id)
 
             (index_b, index_a) = np.unravel_index(np.argmax(pos_map, axis=None), pos_map.shape)
             (index_gt_b, index_gt_a) = np.unravel_index(np.argmax(pos_gt_map, axis=None), pos_gt_map.shape)
             (index_goal_a, index_goal_b) = np.unravel_index(np.argmax(goal_map, axis=None), goal_map.shape)
 
-            pos = (index_a * 5.0/100.0, index_b * 5.0/100.0, start_o + self.n_init_theta[a])
-            pos_gt = (index_gt_a * 5.0/100.0, index_gt_b * 5.0/100.0, start_o_gt + self.n_init_theta[a])
+            pos = (index_a * 5.0/100.0, index_b * 5.0/100.0, start_o + self.n_init_theta[agent_id])
+            pos_gt = (index_gt_a * 5.0/100.0, index_gt_b * 5.0/100.0, start_o_gt + self.n_init_theta[agent_id])
             goal = (index_goal_a, index_goal_b, 0)
             
             all_pos.append(pos)
@@ -1061,15 +1047,15 @@ class Exploration_Env(habitat.RLEnv):
             all_goals.append(goal)
 
             pred_map =  np.zeros_like(self.explored_map[0])
-            pred_map[gx1:gx2, gy1:gy2]= np.rint(map_pred[a])
-            merge_pred_map = np.maximum(merge_pred_map, self.transform(pred_map, a))
-            merge_map = np.maximum(merge_map, self.transform(self.map[a], a))
-            merge_visited_gt = np.maximum(merge_visited_gt, self.transform(self.visited_gt[a], a))
-            merge_visited_vis = np.maximum(merge_visited_vis, self.transform(self.visited_vis[a], a))
-            merge_collision_map[self.transform(self.collison_map[a], a) == 1] = 1
-            merge_explorable_map[self.transform(self.explorable_map[a], a) == 1] = 1
-            merge_explored_map = np.maximum(merge_explored_map, self.transform(self.explored_map[a], a))
-            merge_gt_explored = np.maximum(merge_gt_explored, self.transform(self.map[a] * self.explored_map[a], a))
+            pred_map[gx1:gx2, gy1:gy2]= np.rint(map_pred[agent_id])
+            merge_pred_map = np.maximum(merge_pred_map, self.transform(pred_map, agent_id))
+            merge_map = np.maximum(merge_map, self.transform(self.map[agent_id], agent_id))
+            merge_visited_gt = np.maximum(merge_visited_gt, self.transform(self.visited_gt[agent_id], agent_id))
+            merge_visited_vis = np.maximum(merge_visited_vis, self.transform(self.visited_vis[agent_id], agent_id))
+            merge_collision_map[self.transform(self.collison_map[agent_id], agent_id) == 1] = 1
+            merge_explorable_map[self.transform(self.explorable_map[agent_id], agent_id) == 1] = 1
+            merge_explored_map = np.maximum(merge_explored_map, self.transform(self.explored_map[agent_id], agent_id))
+            merge_gt_explored = np.maximum(merge_gt_explored, self.transform(self.map[agent_id] * self.explored_map[agent_id], agent_id))
 
         vis_grid_gt = vu.get_colored_map(merge_map,
                                     merge_collision_map,

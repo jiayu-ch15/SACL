@@ -75,7 +75,8 @@ class MultiHabitatEnv(object):
 
         config_env.SIMULATOR.NUM_AGENTS = self.num_agents
         config_env.SIMULATOR.SEED = args.seed
-        config_env.SIMULATOR.SET_RANDOM_AGENT_POS = args.set_random_agent_pos
+        config_env.SIMULATOR.USE_DIFFERENT_START_POS = args.use_different_start_pos
+        config_env.SIMULATOR.USE_FIXED_START_POS = args.use_fixed_start_pos
 
         config_env.SIMULATOR.AGENT.SENSORS = ['RGB_SENSOR', 'DEPTH_SENSOR']
 
@@ -116,7 +117,7 @@ class MultiHabitatEnv(object):
 
     def step(self, actions):
         obs, rewards, dones, infos = self.env.step(actions)
-        rewards = np.expand_dims(np.array(infos['exp_reward']), axis=1)
+        rewards = np.expand_dims(np.array(infos['explored_reward']), axis=1)
         return obs, rewards, dones, infos
 
     def close(self):
