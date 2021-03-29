@@ -422,8 +422,6 @@ class Exploration_Env(habitat.RLEnv):
 
         if self.timestep % self.args.num_local_steps == 0:
             agent_explored_area, agent_explored_ratio, merge_explored_area, merge_explored_ratio = self.get_global_reward()
-            print(merge_explored_area)
-            print(merge_explored_ratio)
             self.info['merge_explored_reward'] = merge_explored_area
             self.info['merge_explored_ratio'] = merge_explored_ratio
             self.merge_ratio += merge_explored_ratio
@@ -439,7 +437,6 @@ class Exploration_Env(habitat.RLEnv):
                 if self.ratio[agent_id] >= self.explored_ratio_threshold and self.explored_ratio_step[agent_id] == -1.0:
                     self.explored_ratio_step[agent_id] = self.timestep
                     self.info["agent{}_explored_ratio_step".format(agent_id)] = self.timestep
-
         else:
             for _ in range(self.num_agents):
                 self.info['explored_reward'].append(None)

@@ -837,16 +837,18 @@ class HabitatRunner(Runner):
                 self.local_output = np.array(self.local_output, dtype = np.long)
             
             # log
-            for k,v in eval_info.items():
-                eval_infos[k].append(v)
-
-            for agent_id in range(self.num_agents):
-                print("agent{}_explored_ratio_step: {}".format(agent_id, np.mean(eval_info['explored_ratio_step'][:, agent_id])))
-            print('eval minimal agent explored ratio step: ' + str(np.min(eval_info['explored_ratio_step'])))
-            print('eval merge explored ratio step: ' + str(np.mean(eval_info['merge_explored_ratio_step'])))
-            valid_merge_explored_ratio_step = eval_info['merge_explored_ratio_step'].copy()
-            valid_merge_explored_ratio_step[merge_explored_ratio_step == 0.0] = np.nan
-            print('eval valid merge explored ratio step: ' + str(np.nanmean(valid_merge_explored_ratio_step)))
+            for k, v in eval_info.items():
+                if k == "explored_ratio_step":
+                    for agent_id in range(self.num_agents):
+                        print("agent{}_{}: {}".format(agent_id, k, np.mean(v[:, agent_id])))
+                    print('eval minimal agent {}: {}'.format(k, np.min(v)))
+                else:
+                    eval_infos[k].append(v)
+                    if k == "merge_explored_ratio_step":
+                        print('eval {}: {}'.format(k, np.mean(v)))
+                        v_copy = v.copy()
+                        v_copy[v == 0.0] = np.nan
+                        print('eval valid {}: {}'.format(k, np.nanmean(v_copy)))
 
         for k, v in eval_infos.items():
             print("eval average {}: {}".format(k, np.mean(v)))
