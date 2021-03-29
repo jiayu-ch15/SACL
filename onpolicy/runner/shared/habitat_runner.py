@@ -664,6 +664,13 @@ class HabitatRunner(Runner):
                 else:
                     self.writter.add_scalars(k, {k: np.mean(v)}, total_num_steps)
 
+    def log_eval(self, eval_infos, total_num_steps):
+        for k, v in eval_infos.items():
+            if self.use_wandb:
+                wandb.log({"eval_{}".format(k): np.mean(v)}, step=total_num_steps)
+            else:
+                self.writter.add_scalars("eval_{}".format(k), {"eval_{}".format(k): np.mean(v)}, total_num_steps)
+
     def log_agent(self, train_infos, total_num_steps):
         for k, v in train_infos.items():
             for agent_id in range(self.num_agents):
@@ -686,20 +693,18 @@ class HabitatRunner(Runner):
  
     @torch.no_grad()
     def eval(self):
-        sum_explored_ratios = []
-        sum_explored_rewards = []
-        sum_merge_explored_ratios = []
-        sum_merge_explored_rewards = []
-        merge_explored_ratio_steps = []
+
+        eval_infos = defaultdict(list)
 
         for episode in range(self.all_args.eval_episodes):
             # store each episode ratio or reward
-            sum_explored_ratio = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
-            sum_explored_reward = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
-            sum_merge_explored_ratio = np.zeros((self.n_rollout_threads,), dtype=np.float32)
-            sum_merge_explored_reward = np.zeros((self.n_rollout_threads,), dtype=np.float32)
-            explored_ratio_step = np.ones((self.n_rollout_threads, self.num_agents), dtype=np.float32) * self.max_episode_length
-            merge_explored_ratio_step = np.zeros((self.n_rollout_threads,), dtype=np.float32)
+            eval_info = {}
+            eval_info['sum_explored_ratio'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
+            eval_info['sum_explored_reward'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
+            eval_info['sum_merge_explored_ratio'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
+            eval_info['sum_merge_explored_reward'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
+            eval_info['explored_ratio_step'] = np.ones((self.n_rollout_threads, self.num_agents), dtype=np.float32) * self.max_episode_length
+            eval_info['merge_explored_ratio_step'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
 
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
 
@@ -754,46 +759,27 @@ class HabitatRunner(Runner):
                     self.compute_global_input()
                     self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                     
-                    explored_ratio = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
-                    explored_reward = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
-                    
-                    merge_explored_ratio = np.zeros((self.n_rollout_threads,), dtype=np.float32)
-                    merge_explored_reward = np.zeros((self.n_rollout_threads,), dtype=np.float32)
-                    
+                    step_info = {}
+                    step_info['explored_ratio'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
+                    step_info['explored_reward'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
+                    step_info['merge_explored_ratio'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
+                    step_info['merge_explored_reward'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
                     
                     for e in range(self.n_rollout_threads):
-                        print(infos[e])
-                        if 'explored_ratio' in infos[e].keys():
-                            sum_explored_ratio[e] += np.array(infos[e]['explored_ratio'])
-                            explored_ratio[e] = np.array(infos[e]['explored_ratio'])
-                        if 'merge_explored_ratio' in infos[e].keys():
-                            sum_merge_explored_ratio[e] += infos[e]['merge_explored_ratio']
-                            merge_explored_ratio[e] = infos[e]['merge_explored_ratio']
-                        if 'explored_reward' in infos[e].keys():
-                            sum_explored_reward[e] += np.array(infos[e]['explored_reward'])
-                            explored_reward[e] = np.array(infos[e]['explored_reward'])
-                        if 'merge_explored_reward' in infos[e].keys():
-                            sum_merge_explored_reward[e] += infos[e]['merge_explored_reward']
-                            merge_explored_reward[e] = infos[e]['merge_explored_reward']
+                        for key in step_info.keys():
+                            if key in infos[e].keys():
+                                step_info[key][e] = np.array(infos[e][key])
+                                eval_info["sum_{}".format(key)][e] += np.array(infos[e][key])
+                        
                         if 'merge_explored_ratio_step' in infos[e].keys():
-                            merge_explored_ratio_step[e] = infos[e]['merge_explored_ratio_step']
+                            eval_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
                         for agent_id in range(self.num_agents):
                             agent_k = "agent{}_explored_ratio_step".format(agent_id)
                             if agent_k in infos[e].keys():
-                                explored_ratio_step[e][agent_id] = infos[e][agent_k]
+                                eval_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
 
-                    if self.use_wandb:
-                        wandb.log({'eval_explored_ratio': np.mean(explored_ratio)}, step=step)
-                        wandb.log({'eval_rewards': np.mean(explored_reward)}, step=step)
-                        wandb.log({'eval_merge_explored_ratio': np.mean(merge_explored_ratio)}, step=step)
-                        wandb.log({'eval_merge_rewards': np.mean(merge_explored_reward)}, step=step)
-                        
-                    else:
-                        self.writter.add_scalars('eval_explored_ratio', {'eval_explored_ratio': np.mean(explored_ratio)}, step)
-                        self.writter.add_scalars('eval_rewards', {'eval_rewards': np.mean(explored_reward)}, step)
-                        self.writter.add_scalars('eval_merge_explored_ratio', {'eval_merge_explored_ratio': np.mean(merge_explored_ratio)}, step)
-                        self.writter.add_scalars('eval_merge_rewards', {'eval_merge_rewards': np.mean(merge_explored_reward)}, step)
-                        
+                    self.log_eval(step_info, step)
+                                
                     # Compute Global goal
                     rnn_states = self.eval_compute_global_goal(rnn_states)
                     
@@ -803,27 +789,21 @@ class HabitatRunner(Runner):
                 # Output stores local goals as well as the the ground-truth action
                 self.local_output = self.envs.get_short_term_goal(self.local_input)
                 self.local_output = np.array(self.local_output, dtype = np.long)
+            
             # log
-            valid_merge_explored_ratio_step = merge_explored_ratio_step.copy()
-            valid_merge_explored_ratio_step[merge_explored_ratio_step == 0.0] = np.nan
+            for k,v in eval_info.items():
+                eval_infos[k].append(v)
 
             for agent_id in range(self.num_agents):
-                print("agent{}_explored_ratio_step: {}".format(agent_id, np.mean(explored_ratio_step[:, agent_id])))
-            print('eval_minimal_agent_explored_ratio_step: ' + str(np.min(explored_ratio_step)))
-            print('eval_merge_explored_ratio_step: ' + str(np.mean(merge_explored_ratio_step)))
-            print('eval_valid_merge_explored_ratio_step: ' + str(np.nanmean(valid_merge_explored_ratio_step)))
-                   
-            sum_explored_rewards.append(sum_explored_reward)
-            sum_explored_ratios.append(sum_explored_ratio)
-            sum_merge_explored_rewards.append(sum_merge_explored_reward)
-            sum_merge_explored_ratios.append(sum_merge_explored_ratio)
-            merge_explored_ratio_steps.append(merge_explored_ratio_step)
-        
-        print("eval average episode rewards: " + str(np.mean(sum_explored_rewards)))
-        print("eval average episode explored ratios: "+ str(np.mean(sum_explored_ratios)))
-        print("eval average episode merge rewards: " + str(np.mean(sum_merge_explored_rewards)))
-        print("eval average episode merge explored ratios: "+ str(np.mean(sum_merge_explored_ratios)))
-        print("eval average episode merge explored ratio steps: "+ str(np.mean(merge_explored_ratio_steps)))
+                print("agent{}_explored_ratio_step: {}".format(agent_id, np.mean(eval_info['explored_ratio_step'][:, agent_id])))
+            print('eval minimal agent explored ratio step: ' + str(np.min(eval_info['explored_ratio_step'])))
+            print('eval merge explored ratio step: ' + str(np.mean(eval_info['merge_explored_ratio_step'])))
+            valid_merge_explored_ratio_step = eval_info['merge_explored_ratio_step'].copy()
+            valid_merge_explored_ratio_step[merge_explored_ratio_step == 0.0] = np.nan
+            print('eval valid merge explored ratio step: ' + str(np.nanmean(valid_merge_explored_ratio_step)))
+
+        for k, v in eval_infos.items():
+            print("eval average {}: {}".format(k, np.mean(v)))
 
         if self.all_args.save_gifs:
             print("generating gifs....")
