@@ -190,9 +190,9 @@ class HabitatRunner(Runner):
             else:
                 for agent_id in range(self.num_agents):
                     self.writter.add_scalars("agent{}_explored_ratio_step".format(agent_id), {"agent{}_explored_ratio_step".format(agent_id): np.mean(self.explored_ratio_step[:, agent_id])})
-                self.writter.add_scalars('train_minimal_agent_explored_ratio_step', {'train_minimal_agent_explored_ratio_step': np.min(explored_ratio_step)})
-                self.writter.add_scalars('train_merge_explored_ratio_step', {'train_merge_explored_ratio_step': np.mean(merge_explored_ratio_step)})
-                self.writter.add_scalars('train_valid_merge_explored_ratio_step', {'train_valid_merge_explored_ratio_step': np.nanmean(valid_merge_explored_ratio_step)})
+                self.writter.add_scalars('train_minimal_agent_explored_ratio_step', {'train_minimal_agent_explored_ratio_step': np.min(self.explored_ratio_step)})
+                self.writter.add_scalars('train_merge_explored_ratio_step', {'train_merge_explored_ratio_step': np.mean(self.merge_explored_ratio_step)})
+                self.writter.add_scalars('train_valid_merge_explored_ratio_step', {'train_valid_merge_explored_ratio_step': np.nanmean(self.valid_merge_explored_ratio_step)})
                 self.writter.add_scalars('train_average_episode_merge_rewards', {'train_average_episode_merge_rewards': np.mean(sum_merge_explored_rewards)})
                 self.writter.add_scalars('train_average_episode_merge_explored_ratios', {'train_average_episode_merge_explored_ratios': np.mean(sum_merge_explored_ratios)})
                 self.writter.add_scalars('train_average_episode_merge_explored_ratio_steps', {'train_average_episode_merge_explored_ratio_steps': np.mean(merge_explored_ratio_steps)})
@@ -604,6 +604,8 @@ class HabitatRunner(Runner):
         rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
 
         for e in range(self.n_rollout_threads):
+            if 'explored_ratio' in infos[e].keys():
+                self.explored_ratio[e] += np.array(infos[e]['explored_ratio']) # ! check the last step data
             if 'merge_explored_ratio' in infos[e].keys():
                 self.sum_merge_explored_ratio[e] += infos[e]['merge_explored_ratio']
             if 'merge_explored_reward' in infos[e].keys():
@@ -612,7 +614,9 @@ class HabitatRunner(Runner):
                 self.merge_explored_ratio_step[e] = infos[e]['merge_explored_ratio_step']
             for agent_id in range(self.num_agents):
                 agent_k = "agent{}_explored_ratio_step".format(agent_id)
+                print('nnnnnnnnnnnnn')
                 if agent_k in infos[e].keys():
+                    print(infos[e][agent_k])
                     self.explored_ratio_step[e][agent_id] = infos[e][agent_k]
         
         rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
