@@ -730,7 +730,7 @@ class Exploration_Env(habitat.RLEnv):
 
     def _get_gt_map(self, full_map_size, agent_id):
         self.scene_name = self.habitat_env.sim.config.SCENE
-        logger.error('Computing map for %s', self.scene_name)
+        # logger.error('Computing map for %s', self.scene_name)
 
         # Get map in habitat simulator coordinates
         self.map_obj = HabitatMaps(self.habitat_env)

@@ -136,7 +136,7 @@ class HabitatRunner(Runner):
                     data = rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
                     # insert data into buffer
                     self.insert_global_policy(data)
-                    values, actions, action_log_probs, rnn_states, rnn_states_critic = self.compute_global_goal(step=global_step + 1)
+                    values, actions, action_log_probs, rnn_states, rnn_states_critic = self.compute_global_goal(step = global_step + 1)
 
                 # Local Policy
                 self.compute_local_input(self.local_map)
@@ -336,8 +336,10 @@ class HabitatRunner(Runner):
         self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
         self.global_input['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.local_w, self.local_h), dtype=np.float32)
         self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 2), dtype=np.long)
+        self.global_input['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents*3), dtype=np.float32)
 
         self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
+        self.global_goal = np.zeros((self.n_rollout_threads, self.num_agents, 2), dtype=np.float32) 
 
     def init_local_policy(self):
         self.best_local_loss = np.inf
@@ -415,7 +417,6 @@ class HabitatRunner(Runner):
                 print('mean valid {}: {}'.format(k, np.nanmean(v_copy)))
             else:
                 self.env_infos[k].append(v)
-        print(self.env_infos['merge_explored_ratio_step'])
 
     def insert_slam_module(self, infos):
         # Add frames to memory
@@ -455,7 +456,6 @@ class HabitatRunner(Runner):
     
         for a in range(self.num_agents):
             for e in range(self.n_rollout_threads):
-                
                 r, c = locs[e, a, 1], locs[e, a, 0]
                 loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
                                 int(c * 100.0 / self.map_resolution)]
@@ -463,7 +463,10 @@ class HabitatRunner(Runner):
                 self.local_map[e, a, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = 1.
                 self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
                 self.global_input['global_orientation'][e, a, 1] = int(((locs[e, a, 2] + self.theta[e][a] + 180.0) % 360.0) / 5.)
+                self.global_input['vector'][e, a, 0:self.num_agents] = np.eye(self.num_agents)[a]
+                self.global_input['vector'][e, a, self.num_agents:] = self.global_goal[e].flatten() # ! need to transform
             
+
             merge_map[:,a,:,:,:] = np.maximum(merge_map[:,a,:,:,:], self.transform(self.full_map[:,a,:,:,:], a))
             self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:,a,:,:,:]
             self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:,a,:,:,:]))).numpy()
@@ -510,7 +513,9 @@ class HabitatRunner(Runner):
             for e in range(self.n_rollout_threads):
                 self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
                 self.global_input['global_orientation'][e, a, 1] = int(((locs[e, a, 2] + self.theta[e][a] + 180.0) % 360.0) / 5.)
-
+                self.global_input['vector'][e, a, 0:self.num_agents] = np.eye(self.num_agents)[a]
+                self.global_input['vector'][e, a, self.num_agents:] = self.last_global_goal[e].flatten() # ! need to transform
+            
             merge_map[:,a,:,:,:] = np.maximum(merge_map[:,a,:,:,:], self.transform(self.full_map[:,a,:,:,:], a))
             self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:,a,:,:,:]
             self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:,a,:,:,:]))).numpy()
@@ -542,6 +547,7 @@ class HabitatRunner(Runner):
         rnn_states_critic = np.array(np.split(_t2n(rnn_states_critic), self.n_rollout_threads))
         
         # Compute planner inputs
+        self.last_global_goal = self.global_goal
         self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(action)), self.n_rollout_threads))
  
         return values, actions, action_log_probs, rnn_states, rnn_states_critic
@@ -562,6 +568,7 @@ class HabitatRunner(Runner):
         rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
 
         # Compute planner inputs
+        self.last_global_goal = self.global_goal
         self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(actions)), self.n_rollout_threads))
         
         return rnn_states

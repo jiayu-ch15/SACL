@@ -19,22 +19,29 @@ class MIXBase(nn.Module):
         self._use_maxpool2d = args.use_maxpool2d
         self.hidden_size = args.hidden_size
         self.cnn_keys = []
+        self.embed_keys = []
         self.mlp_keys = []
         self.n_cnn_input = 0
+        self.n_embed_input = 0
         self.n_mlp_input = 0
 
-        for sensor in obs_shape:
-            if obs_shape[sensor].__class__.__name__ == 'Box':
-                sensor_obs_shape = obs_shape[sensor].shape
-                if len(sensor_obs_shape) == 3:
-                    self.cnn_keys.append(sensor)
+        for key in obs_shape:
+            if obs_shape[key].__class__.__name__ == 'Box':
+                key_obs_shape = obs_shape[key].shape
+                if len(key_obs_shape) == 3:
+                    self.cnn_keys.append(key)
                 else:
-                    self.mlp_keys.append(sensor)
+                    if "orientation" in key:
+                        self.embed_keys.append(key)
+                    else:
+                        self.mlp_keys.append(key)
             else:
                 raise NotImplementedError
 
         if len(self.cnn_keys) > 0:
             self.cnn = self._build_cnn_model(obs_shape, cnn_layers_params, self.hidden_size, self._use_orthogonal, self._use_ReLU)
+        if len(self.embed_keys) > 0:
+            self.embed = self._build_embed_model(obs_shape)
         if len(self.mlp_keys) > 0:
             self.mlp = self._build_mlp_model(obs_shape, self.hidden_size, self._use_orthogonal, self._use_ReLU)
 
@@ -45,9 +52,14 @@ class MIXBase(nn.Module):
             cnn_x = self.cnn(cnn_input)
             out_x = cnn_x
 
+        if len(self.embed_keys) > 0:
+            embed_input = self._build_embed_input(x)
+            embed_x = self.embed(embed_input.long()).view(embed_input.size(0), -1)
+            out_x = torch.cat([out_x, embed_x], dim=1)
+
         if len(self.mlp_keys) > 0:
             mlp_input = self._build_mlp_input(x)
-            mlp_x = self.mlp(mlp_input.long()).view(mlp_input.size(0), -1)
+            mlp_x = self.mlp(mlp_input).view(mlp_input.size(0), -1)
             out_x = torch.cat([out_x, mlp_x], dim=1) # ! wrong
 
         return out_x
@@ -124,6 +136,14 @@ class MIXBase(nn.Module):
         ]
         return nn.Sequential(*cnn_layers)
 
+    def _build_embed_model(self, obs_shape):
+        for key in self.embed_keys:
+            self.n_embed_input = 72
+            self.n_embed_output = 8
+            self.embed_dim = np.prod(obs_shape[key].shape)
+
+        return nn.Embedding(self.n_embed_input, self.n_embed_output)
+
     def _build_mlp_model(self, obs_shape, hidden_size, use_orthogonal, use_ReLU):
 
         active_func = [nn.Tanh(), nn.ReLU()][use_ReLU]
@@ -134,18 +154,9 @@ class MIXBase(nn.Module):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
 
         for key in self.mlp_keys:
-            if key in ["global_orientation"]:
-                self.n_mlp_input = 72
-                self.embed = True 
-                self.embed_dim = np.prod(obs_shape[key].shape)
-            else:
-                self.n_mlp_input += np.prod(obs_shape[key].shape)
-                self.embed = False
+            self.n_mlp_input += np.prod(obs_shape[key].shape)
 
-        if self.embed:
-            return nn.Embedding(self.n_mlp_input, 8)
-        else:
-            return nn.Sequential(
+        return nn.Sequential(
                     init_(nn.Linear(self.n_mlp_input, hidden_size)), active_func, nn.LayerNorm(hidden_size))
          
     def _maxpool_output_dim(self, dimension, dilation, kernel_size, stride):
@@ -192,6 +203,14 @@ class MIXBase(nn.Module):
         cnn_input = torch.cat(cnn_input, dim=1)
         return cnn_input
 
+    def _build_embed_input(self, obs):
+        embed_input = []
+        for key in self.embed_keys:
+            embed_input.append(obs[key].view(obs[key].size(0), -1))
+
+        embed_input = torch.cat(embed_input, dim=1)
+        return embed_input
+
     def _build_mlp_input(self, obs):
         mlp_input = []
         for key in self.mlp_keys:
@@ -205,9 +224,10 @@ class MIXBase(nn.Module):
         output_size = 0
         if len(self.cnn_keys) > 0:
             output_size += self.hidden_size
+
+        if len(self.embed_keys) > 0:
+            output_size += 8 * self.embed_dim
+
         if len(self.mlp_keys) > 0:
-            if self.embed:
-                output_size += 8 * self.embed_dim
-            else:
-                output_size += self.hidden_size
+            output_size += self.hidden_size
         return output_size

@@ -29,6 +29,8 @@ class MultiHabitatEnv(object):
             low=0, high=1, shape=(4, local_w, local_h), dtype='uint8')
         global_observation_space['global_orientation'] = gym.spaces.Box(
             low=-1, high=1, shape=(2,), dtype='long')
+        global_observation_space['vector'] = gym.spaces.Box(
+            low=-1, high=1, shape=(self.num_agents*3,), dtype='float')
         global_observation_space = gym.spaces.Dict(global_observation_space)
 
         self.action_space = []
