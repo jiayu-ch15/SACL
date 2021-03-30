@@ -261,6 +261,10 @@ class Exploration_Env(habitat.RLEnv):
             self.info['fp_explored'].append(fp_explored[agent_id])
             self.info['sensor_pose'].append([0., 0., 0.])
             self.info['pose_err'].append([0., 0., 0.])
+            
+        self.info['trans']=self.n_trans
+
+        self.info['rotation']=self.n_rot
 
         self.save_position()
 

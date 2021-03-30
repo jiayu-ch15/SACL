@@ -46,6 +46,9 @@ class HabitatRunner(Runner):
         # reset env
         self.obs, infos = self.envs.reset()
 
+        self.trans = [infos[e]['trans'] for e in range(self.n_rollout_threads)]
+        self.rotation = [infos[e]['rotation'] for e in range(self.n_rollout_threads)]
+
         # Predict map from frame 1:
         self.run_slam_module(self.obs, self.obs, infos)
 
@@ -285,7 +288,7 @@ class HabitatRunner(Runner):
         self.num_local_steps = self.all_args.num_local_steps
         self.max_episode_length = self.all_args.max_episode_length
         self.render_merge = self.all_args.render_merge
-        
+
     def init_map_variables(self):
         ### Full map consists of 4 channels containing the following:
         ### 1. Obstacle Map
@@ -299,7 +302,7 @@ class HabitatRunner(Runner):
         self.local_w, self.local_h = int(self.full_w / self.global_downscaling), \
                         int(self.full_h / self.global_downscaling)
 
-        # Initializing full and local map
+        # Initializing full, merge and local map
         self.full_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h))
         self.local_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.local_w, self.local_h))
 
@@ -365,7 +368,7 @@ class HabitatRunner(Runner):
         self.env_infos = {'explored_ratio': deque(maxlen=100)}
 
         self.global_input = {}
-        self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
+        self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 12, self.local_w, self.local_h), dtype=np.float32)
         self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
         
         self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
@@ -445,9 +448,20 @@ class HabitatRunner(Runner):
                                 self.local_map[:, a, 1, :, :], 
                                 self.local_pose[:,a,:],
                                 build_maps=build_maps)
+    
+    def transform(self, inputs, agent_id):
+        merge_map = np.zeros((self.n_rollout_threads, 4, self.full_h, self.full_w))
+        for e in range(self.n_rollout_threads):
+            output = torch.from_numpy(inputs[e])
+            n_rotated = F.grid_sample(output.unsqueeze(0).float(), self.rotation[e][agent_id].float(), align_corners=True)
+            n_map = F.grid_sample(n_rotated.float(), self.trans[e][agent_id].float(), align_corners=True)
+            merge_map[e,:,:,:] = n_map[0,:,:,:].numpy()
+        return merge_map
 
     def first_compute_global_input(self):
         locs = self.local_pose
+        merge_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h))
+    
         for a in range(self.num_agents):
             for e in range(self.n_rollout_threads):
                 
@@ -457,9 +471,11 @@ class HabitatRunner(Runner):
 
                 self.local_map[e, a, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = 1.
                 self.global_input['global_orientation'][e, a] = int((locs[e, a, 2] + 180.0) / 5.)
-
+            
+            merge_map[:,a,:,:,:] = np.maximum(merge_map[:,a,:,:,:], self.transform(self.full_map[:,a,:,:,:], a))
             self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:,a,:,:,:]
-            self.global_input['global_obs'][:, a, 4:, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:,a,:,:,:]))).numpy()
+            self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:,a,:,:,:]))).numpy()
+            self.global_input['global_obs'][:, a, 8:, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(merge_map[:,a,:,:,:]))).numpy()
 
     def compute_local_action(self):
         local_action = torch.empty(self.n_rollout_threads, self.num_agents)
@@ -497,11 +513,15 @@ class HabitatRunner(Runner):
     
     def compute_global_input(self):
         locs = self.local_pose
+        merge_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h))
         for a in range(self.num_agents):
             for e in range(self.n_rollout_threads):
                 self.global_input['global_orientation'][e, a] = int((locs[e, a, 2] + 180.0) / 5.)
+
+            merge_map[:,a,:,:,:] = np.maximum(merge_map[:,a,:,:,:], self.transform(self.full_map[:,a,:,:,:], a))
             self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:,a,:,:,:]
-            self.global_input['global_obs'][:, a, 4:, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:,a,:,:,:]))).numpy()
+            self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:,a,:,:,:]))).numpy()
+            self.global_input['global_obs'][:, a, 8:, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(merge_map[:,a,:,:,:]))).numpy()
         
     def compute_global_goal(self, step):
         self.trainer.prep_rollout()
