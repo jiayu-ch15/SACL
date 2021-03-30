@@ -47,7 +47,7 @@ class MIXBase(nn.Module):
 
         if len(self.mlp_keys) > 0:
             mlp_input = self._build_mlp_input(x)
-            mlp_x = self.mlp(mlp_input.long()).squeeze(1)
+            mlp_x = self.mlp(mlp_input.long()).view(mlp_input.size(0), -1)
             out_x = torch.cat([out_x, mlp_x], dim=1) # ! wrong
 
         return out_x
@@ -75,7 +75,7 @@ class MIXBase(nn.Module):
             if key in ['rgb','depth']:
                 self.n_cnn_input += obs_shape[key].shape[2] 
                 cnn_dims = np.array(obs_shape[key].shape[:2], dtype=np.float32)
-            elif key in ['global_map','local_map','global_obs']:
+            elif key in ['global_map','local_map','global_obs','global_merge_obs']:
                 self.n_cnn_input += obs_shape[key].shape[0] 
                 cnn_dims = np.array(obs_shape[key].shape[1:3], dtype=np.float32)
             else:
@@ -134,9 +134,10 @@ class MIXBase(nn.Module):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
 
         for key in self.mlp_keys:
-            if key == "global_orientation":
+            if key in ["global_orientation"]:
                 self.n_mlp_input = 72
-                self.embed = True
+                self.embed = True 
+                self.embed_dim = np.prod(obs_shape[key].shape)
             else:
                 self.n_mlp_input += np.prod(obs_shape[key].shape)
                 self.embed = False
@@ -183,7 +184,7 @@ class MIXBase(nn.Module):
         for key in self.cnn_keys:
             if key in ['rgb','depth']:
                 cnn_input.append(obs[key].permute(0, 3, 1, 2) / 255.0)
-            elif key in ['global_map','local_map','global_obs']:
+            elif key in ['global_map', 'local_map', 'global_obs', 'global_merge_obs']:
                 cnn_input.append(obs[key])
             else:
                 raise NotImplementedError
@@ -197,7 +198,6 @@ class MIXBase(nn.Module):
             mlp_input.append(obs[key].view(obs[key].size(0), -1))
 
         mlp_input = torch.cat(mlp_input, dim=1)
-        
         return mlp_input
 
     @property
@@ -207,7 +207,7 @@ class MIXBase(nn.Module):
             output_size += self.hidden_size
         if len(self.mlp_keys) > 0:
             if self.embed:
-                output_size += 8
+                output_size += 8 * self.embed_dim
             else:
                 output_size += self.hidden_size
         return output_size

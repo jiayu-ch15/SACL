@@ -48,6 +48,7 @@ class HabitatRunner(Runner):
 
         self.trans = [infos[e]['trans'] for e in range(self.n_rollout_threads)]
         self.rotation = [infos[e]['rotation'] for e in range(self.n_rollout_threads)]
+        self.theta = [infos[e]['theta'] for e in range(self.n_rollout_threads)]
 
         # Predict map from frame 1:
         self.run_slam_module(self.obs, self.obs, infos)
@@ -86,19 +87,11 @@ class HabitatRunner(Runner):
         episodes = int(self.num_env_steps) // self.max_episode_length // self.n_rollout_threads
 
         for episode in range(episodes):
+            self.init_env_info()
     
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
-
-            self.env_info = {}
-
-            self.env_info['sum_explored_ratio'] = np.zeros((self.n_rollout_threads, self.num_agents))
-            self.env_info['sum_explored_reward'] = np.zeros((self.n_rollout_threads, self.num_agents))
-            self.env_info['sum_merge_explored_ratio'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
-            self.env_info['sum_merge_explored_reward'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
-            self.env_info['explored_ratio_step'] = np.ones((self.n_rollout_threads, self.num_agents), dtype=np.float32) * self.max_episode_length
-            self.env_info['merge_explored_ratio_step'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
-
+            
             for step in range(self.max_episode_length):
 
                 local_step = step % self.num_local_steps
@@ -124,6 +117,9 @@ class HabitatRunner(Runner):
                     self.init_map_and_pose()
                     del self.last_obs
                     self.last_obs = self.obs.copy()
+                    self.trans = [infos[e]['trans'] for e in range(self.n_rollout_threads)]
+                    self.rotation = [infos[e]['rotation'] for e in range(self.n_rollout_threads)]
+                    self.theta = [infos[e]['theta'] for e in range(self.n_rollout_threads)]
                 
                 # Neural SLAM Module
                 if self.train_slam:
@@ -171,19 +167,7 @@ class HabitatRunner(Runner):
             # post process
             total_num_steps = (episode + 1) * self.max_episode_length * self.n_rollout_threads
             
-            for k, v in self.env_info.items():
-                if k == "explored_ratio_step":
-                    for agent_id in range(self.num_agents):
-                        print("agent{}_{}: {}".format(agent_id, k, np.mean(v[:, agent_id])))
-                    print('minimal agent {}: {}'.format(k, np.min(v)))
-                elif k == "merge_explored_ratio_step":
-                    print('invaild {} map num: {}'.format(k, (v == 0.0).sum()))
-                    v_copy = v.copy()
-                    v_copy[v == 0.0] = np.nan
-                    self.env_infos[k].append(v_copy)
-                    print('valid {}: {}'.format(k, np.nanmean(v_copy)))
-                else:
-                    self.env_infos[k].append(v)
+            self.convert_info()
 
             # log information
             if episode % self.log_interval == 0:
@@ -204,7 +188,7 @@ class HabitatRunner(Runner):
                 self.log_env(self.env_infos, total_num_steps)
                 self.log_agent(self.env_infos, total_num_steps)
 
-                print("average episode merge explored reward is {}".format(np.mean(self.env_infos["sum_merge_explored_reward'"])))
+                print("average episode merge explored reward is {}".format(np.mean(self.env_infos["sum_merge_explored_reward"])))
                 print("average episode merge explored ratio is {}".format(np.mean(self.env_infos['sum_merge_explored_ratio'])))
             
             # save model
@@ -330,9 +314,9 @@ class HabitatRunner(Runner):
 
     def init_global_policy(self):
         self.best_gobal_reward = -np.inf
-        self.train_global_infos = {}
-
+        
         # ppo network log info
+        self.train_global_infos = {}
         self.train_global_infos['value_loss']= deque(maxlen=10)
         self.train_global_infos['policy_loss']= deque(maxlen=10)
         self.train_global_infos['dist_entropy'] = deque(maxlen=10)
@@ -349,9 +333,10 @@ class HabitatRunner(Runner):
         self.env_infos['merge_explored_ratio_step'] = deque(maxlen=100)
 
         self.global_input = {}
-        self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 12, self.local_w, self.local_h), dtype=np.float32)
-        self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
-        
+        self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
+        self.global_input['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.local_w, self.local_h), dtype=np.float32)
+        self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 2), dtype=np.long)
+
         self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
 
     def init_local_policy(self):
@@ -406,7 +391,32 @@ class HabitatRunner(Runner):
         else:
             self.slam_memory = FIFOMemory(self.slam_memory_size)
             self.slam_optimizer = torch.optim.Adam(self.nslam_module.parameters(), lr=self.slam_lr, eps=self.slam_opti_eps)
+
+    def init_env_info(self):
+        self.env_info = {}
+        self.env_info['sum_explored_ratio'] = np.zeros((self.n_rollout_threads, self.num_agents))
+        self.env_info['sum_explored_reward'] = np.zeros((self.n_rollout_threads, self.num_agents))
+        self.env_info['sum_merge_explored_ratio'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
+        self.env_info['sum_merge_explored_reward'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
+        self.env_info['explored_ratio_step'] = np.ones((self.n_rollout_threads, self.num_agents), dtype=np.float32) * self.max_episode_length
+        self.env_info['merge_explored_ratio_step'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
     
+    def convert_info(self):
+        for k, v in self.env_info.items():
+            if k == "explored_ratio_step":
+                for agent_id in range(self.num_agents):
+                    print("agent{}_{}: {}/{}".format(agent_id, k, np.mean(v[:, agent_id]), self.max_episode_length))
+                print('minimal agent {}: {}/{}'.format(k, np.min(v), self.max_episode_length))
+            elif k == "merge_explored_ratio_step":
+                print('invaild {} map num: {}/{}'.format(k, (v == 0.0).sum(), self.n_rollout_threads))
+                v_copy = v.copy()
+                v_copy[v == 0.0] = np.nan
+                self.env_infos[k].append(v_copy)
+                print('mean valid {}: {}'.format(k, np.nanmean(v_copy)))
+            else:
+                self.env_infos[k].append(v)
+        print(self.env_infos['merge_explored_ratio_step'])
+
     def insert_slam_module(self, infos):
         # Add frames to memory
         for a in range(self.num_agents):
@@ -441,7 +451,7 @@ class HabitatRunner(Runner):
 
     def first_compute_global_input(self):
         locs = self.local_pose
-        merge_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h))
+        merge_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
     
         for a in range(self.num_agents):
             for e in range(self.n_rollout_threads):
@@ -451,12 +461,13 @@ class HabitatRunner(Runner):
                                 int(c * 100.0 / self.map_resolution)]
 
                 self.local_map[e, a, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = 1.
-                self.global_input['global_orientation'][e, a] = int((locs[e, a, 2] + 180.0) / 5.)
+                self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
+                self.global_input['global_orientation'][e, a, 1] = int(((locs[e, a, 2] + self.theta[e][a] + 180.0) % 360.0) / 5.)
             
             merge_map[:,a,:,:,:] = np.maximum(merge_map[:,a,:,:,:], self.transform(self.full_map[:,a,:,:,:], a))
             self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:,a,:,:,:]
             self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:,a,:,:,:]))).numpy()
-            self.global_input['global_obs'][:, a, 8:, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(merge_map[:,a,:,:,:]))).numpy()
+            self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(merge_map[:,a,:,:,:]))).numpy()
 
     def compute_local_action(self):
         local_action = torch.empty(self.n_rollout_threads, self.num_agents)
@@ -497,12 +508,13 @@ class HabitatRunner(Runner):
         merge_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h))
         for a in range(self.num_agents):
             for e in range(self.n_rollout_threads):
-                self.global_input['global_orientation'][e, a] = int((locs[e, a, 2] + 180.0) / 5.)
+                self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
+                self.global_input['global_orientation'][e, a, 1] = int(((locs[e, a, 2] + self.theta[e][a] + 180.0) % 360.0) / 5.)
 
             merge_map[:,a,:,:,:] = np.maximum(merge_map[:,a,:,:,:], self.transform(self.full_map[:,a,:,:,:], a))
             self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:,a,:,:,:]
             self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:,a,:,:,:]))).numpy()
-            self.global_input['global_obs'][:, a, 8:, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(merge_map[:,a,:,:,:]))).numpy()
+            self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(merge_map[:,a,:,:,:]))).numpy()
         
     def compute_global_goal(self, step):
         self.trainer.prep_rollout()
@@ -699,9 +711,9 @@ class HabitatRunner(Runner):
             torch.save(self.local_policy.state_dict(), str(self.save_dir) + "local_periodic_{}.pt".format(step))
     
     def save_global_model(self, step):
-        if len(self.train_global_infos["average_episode_rewards"]) >= 10 and \
-            (np.mean(self.train_global_infos["average_episode_rewards"]) >= self.best_gobal_reward):
-            self.best_gobal_reward = np.mean(self.train_global_infos["average_episode_rewards"])
+        if len(self.env_infos["sum_merge_explored_reward"]) >= 10 and \
+            (np.mean(self.env_infos["sum_merge_explored_reward"]) >= self.best_gobal_reward):
+            self.best_gobal_reward = np.mean(self.env_infos["sum_merge_explored_reward"])
             torch.save(self.trainer.policy.actor.state_dict(), str(self.save_dir) + "/global_actor_best.pt")
             torch.save(self.trainer.policy.critic.state_dict(), str(self.save_dir) + "/global_critic_best.pt")
         torch.save(self.trainer.policy.actor.state_dict(), str(self.save_dir) + "/global_actor_periodic_{}.pt".format(step))
@@ -724,12 +736,13 @@ class HabitatRunner(Runner):
 
     def log_agent(self, train_infos, total_num_steps):
         for k, v in train_infos.items():
-            for agent_id in range(self.num_agents):
-                agent_k = "agent{}_".format(agent_id) + k
-                if self.use_wandb:
-                    wandb.log({agent_k: np.mean(np.array(v)[:,:,agent_id])}, step=total_num_steps)
-                else:
-                    self.writter.add_scalars(agent_k, {agent_k: np.mean(np.array(v)[:,:,agent_id])}, total_num_steps)
+            if "merge" not in k:
+                for agent_id in range(self.num_agents):
+                    agent_k = "agent{}_".format(agent_id) + k
+                    if self.use_wandb:
+                        wandb.log({agent_k: np.mean(np.array(v)[:,:,agent_id])}, step=total_num_steps)
+                    else:
+                        self.writter.add_scalars(agent_k, {agent_k: np.mean(np.array(v)[:,:,agent_id])}, total_num_steps)
 
     def restore(self):
         if self.use_single_network:
@@ -741,21 +754,34 @@ class HabitatRunner(Runner):
             if not self.all_args.use_render and not self.all_args.use_eval:
                 policy_critic_state_dict = torch.load(str(self.model_dir) + '/global_critic_best.pt')
                 self.policy.critic.load_state_dict(policy_critic_state_dict)
- 
+    
+    def render_gifs(self):
+        gif_dir = str(self.run_dir / 'gifs')
+
+        folders = []
+        get_folders(gif_dir, folders)
+        filer_folders = [folder for folder in folders if "all" in folder or "merge" in folder]
+
+        for folder in filer_folders:
+            image_names = sorted(os.listdir(folder))
+
+            frames = []
+            for image_name in image_names:
+                if image_name.split('.')[-1] == "gif":
+                    continue
+                image_path = os.path.join(folder, image_name)
+                frame = imageio.imread(image_path)
+                frames.append(frame)
+
+            imageio.mimsave(str(folder) + '/render.gif', frames, duration=self.all_args.ifi)
+
     @torch.no_grad()
     def eval(self):
-
-        eval_infos = defaultdict(list)
+        self.eval_infos = defaultdict(list)
 
         for episode in range(self.all_args.eval_episodes):
             # store each episode ratio or reward
-            eval_info = {}
-            eval_info['sum_explored_ratio'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
-            eval_info['sum_explored_reward'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
-            eval_info['sum_merge_explored_ratio'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
-            eval_info['sum_merge_explored_reward'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
-            eval_info['explored_ratio_step'] = np.ones((self.n_rollout_threads, self.num_agents), dtype=np.float32) * self.max_episode_length
-            eval_info['merge_explored_ratio_step'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
+            self.init_env_info()
 
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
 
@@ -764,6 +790,9 @@ class HabitatRunner(Runner):
 
             # reset env
             self.obs, infos = self.envs.reset()
+            self.trans = np.array([infos[e]['trans'] for e in range(self.n_rollout_threads)])
+            self.rotation = np.array([infos[e]['rotation'] for e in range(self.n_rollout_threads)])
+            self.theta = np.array([infos[e]['theta'] for e in range(self.n_rollout_threads)])
 
             # Predict map from frame 1:
             self.run_slam_module(self.obs, self.obs, infos)
@@ -820,14 +849,14 @@ class HabitatRunner(Runner):
                         for key in step_info.keys():
                             if key in infos[e].keys():
                                 step_info[key][e] = np.array(infos[e][key])
-                                eval_info["sum_{}".format(key)][e] += np.array(infos[e][key])
+                                self.env_info["sum_{}".format(key)][e] += np.array(infos[e][key])
                         
                         if 'merge_explored_ratio_step' in infos[e].keys():
-                            eval_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
+                            self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
                         for agent_id in range(self.num_agents):
                             agent_k = "agent{}_explored_ratio_step".format(agent_id)
                             if agent_k in infos[e].keys():
-                                eval_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
+                                self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
 
                     self.log_eval(step_info, step)
                                 
@@ -841,41 +870,12 @@ class HabitatRunner(Runner):
                 self.local_output = self.envs.get_short_term_goal(self.local_input)
                 self.local_output = np.array(self.local_output, dtype = np.long)
             
-            # log
-            for k, v in eval_info.items():
-                if k == "explored_ratio_step":
-                    for agent_id in range(self.num_agents):
-                        print("agent{}_{}: {}".format(agent_id, k, np.mean(v[:, agent_id])))
-                    print('eval minimal agent {}: {}'.format(k, np.min(v)))
-                else:
-                    eval_infos[k].append(v)
-                    if k == "merge_explored_ratio_step":
-                        print('eval {}: {}'.format(k, np.mean(v)))
-                        v_copy = v.copy()
-                        v_copy[v == 0.0] = np.nan
-                        print('eval valid {}: {}'.format(k, np.nanmean(v_copy)))
+            self.convert_info()
 
-        for k, v in eval_infos.items():
-            print("eval average {}: {}".format(k, np.mean(v)))
+        for k, v in self.env_infos.items():
+            print("eval average {}: {}".format(k, np.nanmean(v) if k is 'merge_explored_ratio_step' else np.mean(v)))
 
         if self.all_args.save_gifs:
             print("generating gifs....")
-            gif_dir = str(self.run_dir / 'gifs')
-
-            folders = []
-            get_folders(gif_dir, folders)
-            filer_folders = [folder for folder in folders if "all" in folder or "merge" in folder]
-
-            for folder in filer_folders:
-                image_names = sorted(os.listdir(folder))
-
-                frames = []
-                for image_name in image_names:
-                    if image_name.split('.')[-1] == "gif":
-                        continue
-                    image_path = os.path.join(folder, image_name)
-                    frame = imageio.imread(image_path)
-                    frames.append(frame)
-
-                imageio.mimsave(str(folder) + '/render.gif', frames, duration=self.all_args.ifi)
+            self.render_gifs()
             print("done!")

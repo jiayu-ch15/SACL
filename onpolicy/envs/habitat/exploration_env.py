@@ -262,9 +262,9 @@ class Exploration_Env(habitat.RLEnv):
             self.info['sensor_pose'].append([0., 0., 0.])
             self.info['pose_err'].append([0., 0., 0.])
             
-        self.info['trans']=self.n_trans
-
-        self.info['rotation']=self.n_rot
+        self.info['trans'] = self.n_trans
+        self.info['rotation'] = self.n_rot
+        self.info['theta'] = self.n_init_theta
 
         self.save_position()
 
