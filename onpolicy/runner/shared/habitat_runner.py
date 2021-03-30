@@ -204,7 +204,7 @@ class HabitatRunner(Runner):
             self.log_env(self.train_local_infos, total_num_steps)
             self.log_env(self.train_global_infos, total_num_steps)
             self.log_env(self.env_infos, total_num_steps)
-            # self.log_agent(self.env_infos, total_num_steps)
+            self.log_agent(self.env_infos, total_num_steps)
 
             # log information
             if episode % self.log_interval == 0:
@@ -221,6 +221,10 @@ class HabitatRunner(Runner):
                 
                 print("average episode rewards is {}".format(np.mean(self.train_global_infos["average_episode_rewards"])))
                 print("average episode ratios is {}".format(np.mean(self.env_infos['explored_ratio'])))
+                print("average episode merge rewards is {}".format(np.mean(sum_merge_explored_rewards)))
+                print("average episode merge ratios is {}".format(np.mean(sum_merge_explored_ratios)))
+                print("average merge explored ratio steps is {}".format(np.mean(merge_explored_ratio_steps)))
+
             
             # save model
             if (episode % self.save_interval == 0 or episode == episodes - 1):
@@ -614,9 +618,7 @@ class HabitatRunner(Runner):
                 self.merge_explored_ratio_step[e] = infos[e]['merge_explored_ratio_step']
             for agent_id in range(self.num_agents):
                 agent_k = "agent{}_explored_ratio_step".format(agent_id)
-                print('nnnnnnnnnnnnn')
                 if agent_k in infos[e].keys():
-                    print(infos[e][agent_k])
                     self.explored_ratio_step[e][agent_id] = infos[e][agent_k]
         
         rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
@@ -726,9 +728,9 @@ class HabitatRunner(Runner):
             for agent_id in range(self.num_agents):
                 agent_k = "agent{}_".format(agent_id) + k
                 if self.use_wandb:
-                    wandb.log({agent_k: np.mean(v[:, agent_id])}, step=total_num_steps)
+                    wandb.log({agent_k: np.mean(np.array(v)[:,:,agent_id])}, step=total_num_steps)
                 else:
-                    self.writter.add_scalars(agent_k, {agent_k: np.mean(v[:, agent_id])}, total_num_steps)
+                    self.writter.add_scalars(agent_k, {agent_k: np.mean(np.array(v)[:,:,agent_id])}, total_num_steps)
 
     def restore(self):
         if self.use_single_network:
