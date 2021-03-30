@@ -412,8 +412,8 @@ class Exploration_Env(habitat.RLEnv):
             'pose_err': [],
             'explored_reward': [],
             'explored_ratio': [],
-            'merge_explored_reward': None,
-            'merge_explored_ratio': None
+            'merge_explored_reward': 0.0,
+            'merge_explored_ratio': 0.0,
         }
         for agent_id in range(self.num_agents):
             self.info['time'].append(self.timestep)
@@ -443,8 +443,8 @@ class Exploration_Env(habitat.RLEnv):
                     self.info["agent{}_explored_ratio_step".format(agent_id)] = self.timestep
         else:
             for _ in range(self.num_agents):
-                self.info['explored_reward'].append(None)
-                self.info['explored_ratio'].append(None)
+                self.info['explored_reward'].append(0.0)
+                self.info['explored_ratio'].append(0.0)
 
         self.save_position()
 

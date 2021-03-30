@@ -121,7 +121,8 @@ class MultiHabitatEnv(object):
 
     def step(self, actions):
         obs, rewards, dones, infos = self.env.step(actions)
-        rewards = np.expand_dims(np.array(infos['explored_reward']), axis=1)
+        rewards = np.expand_dims(np.array(infos['explored_reward']), axis=1)\
+        + np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         return obs, rewards, dones, infos
 
     def close(self):
