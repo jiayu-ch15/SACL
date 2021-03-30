@@ -797,9 +797,9 @@ class HabitatRunner(Runner):
 
             # reset env
             self.obs, infos = self.envs.reset()
-            self.trans = np.array([infos[e]['trans'] for e in range(self.n_rollout_threads)])
-            self.rotation = np.array([infos[e]['rotation'] for e in range(self.n_rollout_threads)])
-            self.theta = np.array([infos[e]['theta'] for e in range(self.n_rollout_threads)])
+            self.trans = [infos[e]['trans'] for e in range(self.n_rollout_threads)]
+            self.rotation = [infos[e]['rotation'] for e in range(self.n_rollout_threads)]
+            self.theta = [infos[e]['theta'] for e in range(self.n_rollout_threads)]
 
             # Predict map from frame 1:
             self.run_slam_module(self.obs, self.obs, infos)
