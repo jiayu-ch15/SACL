@@ -465,7 +465,7 @@ class HabitatRunner(Runner):
         point_map = np.zeros((self.n_rollout_threads, self.num_agents, self.full_h, self.full_w), dtype=np.float32)
         for e in range(self.n_rollout_threads):
             for agent_id in range(self.num_agents):
-                point_map[e, agent_id, int(point[e, agent_id, 0]), int(point[e, agent_id, 1])] = 1
+                point_map[e, agent_id, int(point[e, agent_id, 0]+self.lmb[e, agent_id, 0]), int(point[e, agent_id, 1]+self.lmb[e, agent_id, 2])] = 1
                 map = torch.from_numpy(point_map[e, agent_id])
                 n_rotated = F.grid_sample(map.unsqueeze(0).unsqueeze(0).float(), self.rotation[e][agent_id].float(), align_corners=True)
                 n_map = F.grid_sample(n_rotated.float(), self.trans[e][agent_id].float(), align_corners=True)
