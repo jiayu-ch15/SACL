@@ -52,6 +52,8 @@ class HabitatRunner(Runner):
         self.rotation = [infos[e]['rotation'] for e in range(self.n_rollout_threads)]
         self.theta = [infos[e]['theta'] for e in range(self.n_rollout_threads)]
 
+        self.first_compute = 0
+
         # Predict map from frame 1:
         self.run_slam_module(self.obs, self.obs, infos)
 
@@ -270,7 +272,7 @@ class HabitatRunner(Runner):
         # Initializing full, merge and local map
         self.full_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
         self.local_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.local_w, self.local_h), dtype=np.float32)
-
+        
         # Initial full and local pose
         self.full_pose = np.zeros((self.n_rollout_threads, self.num_agents, 3), dtype=np.float32)
         self.local_pose = np.zeros((self.n_rollout_threads, self.num_agents, 3), dtype=np.float32)
@@ -457,10 +459,14 @@ class HabitatRunner(Runner):
 
             (index_a, index_b) = np.unravel_index(np.argmax(merge_map[e, 2, :, :], axis=None), merge_map[e, 2, :, :].shape)
             merge_map[e, 2, :, :] = np.zeros((self.full_h, self.full_w))
-            merge_map[e, 2, index_a - 1: index_a + 2, index_b - 1: index_b + 2] = agent_id + 1
-
-            (index_a, index_b) = np.unravel_index(np.argmax(merge_map[e, 3, :, :], axis=None), merge_map[e, 3, :, :].shape)
-            merge_map[e, 3, index_a - 1: index_a + 2, index_b - 1: index_b + 2] = agent_id + 1
+            trace = np.zeros((self.full_h, self.full_w))
+            if self.first_compute==0:
+                (index_trace_a, index_trace_b) = np.unravel_index(np.argmax(merge_map[e, 3, :, :], axis=None), merge_map[e, 3, :, :].shape)
+                merge_map[e, 2, index_a - 1: index_a + 2, index_b - 1: index_b + 2] = agent_id + 1
+            else: 
+                merge_map[e, 2, index_a - 2: index_a + 3, index_b - 2: index_b + 3] = agent_id + 1
+            trace[merge_map[e, 3]>0.2] = agent_id + 1
+            merge_map[e, 3] = trace
         return merge_map
 
     def point_transform(self, point):
@@ -474,12 +480,12 @@ class HabitatRunner(Runner):
                 point_map[e, agent_id, :, :] = n_map[0, 0, :, :].numpy()
                 (point[e, agent_id, 0], point[e, agent_id, 1]) = np.unravel_index(np.argmax(point_map[e, agent_id, :, :], axis=None), point_map[e, agent_id, :, :].shape)
         return point
-
+    
     def first_compute_global_input(self):
         locs = self.local_pose
         merge_map = np.zeros((self.n_rollout_threads, 4, self.full_w, self.full_h), dtype=np.float32)
         merge_point = self.point_transform(self.global_goal)
-    
+
         for a in range(self.num_agents):
             for e in range(self.n_rollout_threads):
                 r, c = locs[e, a, 1], locs[e, a, 0]
@@ -498,6 +504,8 @@ class HabitatRunner(Runner):
         
         for a in range(self.num_agents): # TODO @CHAO
             self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(merge_map))).numpy()
+        
+        self.first_compute = 1 
 
     def compute_local_action(self):
         local_action = torch.empty(self.n_rollout_threads, self.num_agents)
