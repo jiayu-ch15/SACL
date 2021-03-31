@@ -326,11 +326,11 @@ class HabitatRunner(Runner):
 
         # env info
         self.env_infos = {}
-        self.env_infos['sum_explored_ratio'] = deque(maxlen=100)
-        self.env_infos['sum_explored_reward'] = deque(maxlen=100)
-        self.env_infos['sum_merge_explored_ratio'] = deque(maxlen=100)
-        self.env_infos['sum_merge_explored_reward'] = deque(maxlen=100)
-        self.env_infos['merge_explored_ratio_step'] = deque(maxlen=100)
+        self.env_infos['sum_explored_ratio'] = deque(maxlen=10)
+        self.env_infos['sum_explored_reward'] = deque(maxlen=10)
+        self.env_infos['sum_merge_explored_ratio'] = deque(maxlen=10)
+        self.env_infos['sum_merge_explored_reward'] = deque(maxlen=10)
+        self.env_infos['merge_explored_ratio_step'] = deque(maxlen=10)
 
         self.global_input = {}
         self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
@@ -420,51 +420,50 @@ class HabitatRunner(Runner):
 
     def insert_slam_module(self, infos):
         # Add frames to memory
-        for a in range(self.num_agents):
+        for agent_id in range(self.num_agents):
             for env_idx in range(self.n_rollout_threads):
-                env_poses = infos[env_idx]['sensor_pose'][a]
-                env_gt_fp_projs = np.expand_dims(infos[env_idx]['fp_proj'][a], 0)
-                env_gt_fp_explored = np.expand_dims(infos[env_idx]['fp_explored'][a], 0)
-                env_gt_pose_err = infos[env_idx]['pose_err'][a]
+                env_poses = infos[env_idx]['sensor_pose'][agent_id]
+                env_gt_fp_projs = np.expand_dims(infos[env_idx]['fp_proj'][agent_id], 0)
+                env_gt_fp_explored = np.expand_dims(infos[env_idx]['fp_explored'][agent_id], 0)
+                env_gt_pose_err = infos[env_idx]['pose_err'][agent_id]
                 self.slam_memory.push(
-                    (self.last_obs[env_idx][a], self.obs[env_idx][a], env_poses),
+                    (self.last_obs[env_idx][agent_id], self.obs[env_idx][agent_id], env_poses),
                     (env_gt_fp_projs, env_gt_fp_explored, env_gt_pose_err))
 
     def run_slam_module(self, last_obs, obs, infos, build_maps=True):
         for a in range(self.num_agents):
             poses = np.array([infos[e]['sensor_pose'][a] for e in range(self.n_rollout_threads)])
 
-            _, _, self.local_map[:, a, 0, :, :], self.local_map[:, a, 1, :, :], _, self.local_pose[:,a,:] = \
-                self.nslam_module(last_obs[:,a,:,:,:], obs[:,a,:,:,:], poses, 
+            _, _, self.local_map[:, a, 0, :, :], self.local_map[:, a, 1, :, :], _, self.local_pose[:, a, :] = \
+                self.nslam_module(last_obs[:, a, :, :, :], obs[:, a, :, :, :], poses, 
                                 self.local_map[:, a, 0, :, :],
                                 self.local_map[:, a, 1, :, :], 
-                                self.local_pose[:,a,:],
-                                build_maps=build_maps)
+                                self.local_pose[:, a, :],
+                                build_maps = build_maps)
     
     def transform(self, inputs, agent_id):
-        merge_map = np.zeros((self.n_rollout_threads, 4, self.full_h, self.full_w))
+        merge_map = np.zeros((self.n_rollout_threads, 4, self.full_h, self.full_w), dtype=np.float32)
         for e in range(self.n_rollout_threads):
             output = torch.from_numpy(inputs[e])
             n_rotated = F.grid_sample(output.unsqueeze(0).float(), self.rotation[e][agent_id].float(), align_corners=True)
             n_map = F.grid_sample(n_rotated.float(), self.trans[e][agent_id].float(), align_corners=True)
-            merge_map[e,:,:,:] = n_map[0,:,:,:].numpy()
-            for i in range(2,4):
-                (index_a, index_b) = np.unravel_index(np.argmax(merge_map[e,i,:,:], axis=None), merge_map[e,i,:,:].shape)
-                merge_map[e,i,:,:] = np.zeros((self.full_h, self.full_w))
-                merge_map[e,i,index_a-1:index_a+1,index_b-1:index_b+1] = agent_id
+            merge_map[e, :, :, :] = n_map[0, :, :, :].numpy()
+            for i in range(2, 4):
+                (index_a, index_b) = np.unravel_index(np.argmax(merge_map[e, i, :, :], axis=None), merge_map[e, i, :, :].shape)
+                merge_map[e, i, :, :] = np.zeros((self.full_h, self.full_w))
+                merge_map[e, i, index_a-1:index_a+1, index_b-1:index_b+1] = agent_id
         return merge_map
 
     def point_transform(self, point):
-        point_map = np.zeros((self.n_rollout_threads, self.num_agents, self.full_h, self.full_w))
+        point_map = np.zeros((self.n_rollout_threads, self.num_agents, self.full_h, self.full_w), dtype=np.float32)
         for e in range(self.n_rollout_threads):
             for agent_id in range(self.num_agents):
-                
-                point_map[e, agent_id, int(point[e, agent_id, 0]), int(point[e, agent_id, 1])]=1
+                point_map[e, agent_id, int(point[e, agent_id, 0]), int(point[e, agent_id, 1])] = 1
                 map = torch.from_numpy(point_map[e, agent_id])
                 n_rotated = F.grid_sample(map.unsqueeze(0).unsqueeze(0).float(), self.rotation[e][agent_id].float(), align_corners=True)
                 n_map = F.grid_sample(n_rotated.float(), self.trans[e][agent_id].float(), align_corners=True)
-                point_map[e, agent_id,:,:] = n_map[0,0,:,:].numpy()
-                (point[e, agent_id, 0], point[e, agent_id, 1]) = np.unravel_index(np.argmax(point_map[e, agent_id,:,:], axis=None), point_map[e, agent_id,:,:].shape)
+                point_map[e, agent_id, :, :] = n_map[0, 0, :, :].numpy()
+                (point[e, agent_id, 0], point[e, agent_id, 1]) = np.unravel_index(np.argmax(point_map[e, agent_id, :, :], axis=None), point_map[e, agent_id, :, :].shape)
         return point
 
     def first_compute_global_input(self):
@@ -535,10 +534,10 @@ class HabitatRunner(Runner):
                 self.global_input['vector'][e, a, 0:self.num_agents] = np.eye(self.num_agents)[a]
                 self.global_input['vector'][e, a, self.num_agents:] = merge_point[e].flatten() # ! need to transform
             
-            merge_map[:,a,:,:,:] += self.transform(self.full_map[:,a,:,:,:], a)
-            self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:,a,:,:,:]
-            self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:,a,:,:,:]))).numpy()
-            self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(merge_map[:,a,:,:,:]))).numpy()
+            merge_map[:, a, :, :, :] += self.transform(self.full_map[:, a, :, :, :], a)
+            self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:, a, :, :, :]
+            self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a, :, :, :]))).numpy()
+            self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(merge_map[:, a, :, :, :]))).numpy()
         
     def compute_global_goal(self, step):
         self.trainer.prep_rollout()
@@ -571,8 +570,7 @@ class HabitatRunner(Runner):
  
         return values, actions, action_log_probs, rnn_states, rnn_states_critic
     
-    def eval_compute_global_goal(self, rnn_states):
-        
+    def eval_compute_global_goal(self, rnn_states):      
         self.trainer.prep_rollout()
 
         concat_obs = {}

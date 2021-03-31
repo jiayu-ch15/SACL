@@ -14,7 +14,8 @@ import skimage.morphology
 from PIL import Image
 import matplotlib
 if matplotlib.get_backend() == "agg":
-    matplotlib.use('TkAgg')
+    print("matplot backend is {}".format(matplotlib.get_backend()))
+    # matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 from .utils.map_builder import MapBuilder
