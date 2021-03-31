@@ -6,6 +6,8 @@ import numpy as np
 import imageio
 from collections import defaultdict, deque
 from itertools import chain
+import matplotlib
+import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
@@ -250,6 +252,7 @@ class HabitatRunner(Runner):
         self.num_local_steps = self.all_args.num_local_steps
         self.max_episode_length = self.all_args.max_episode_length
         self.render_merge = self.all_args.render_merge
+        self.visualize_input = self.all_args.visualize_input
 
     def init_map_variables(self):
         ### Full map consists of 4 channels containing the following:
@@ -340,6 +343,10 @@ class HabitatRunner(Runner):
 
         self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
         self.global_goal = np.zeros((self.n_rollout_threads, self.num_agents, 2), dtype=np.float32) 
+
+        if self.visualize_input:
+            plt.ion()
+            self.fig, self.ax = plt.subplots(self.num_agents, 4, figsize=(10, 2.5), facecolor="whitesmoke")
 
     def init_local_policy(self):
         self.best_local_loss = np.inf
@@ -539,6 +546,9 @@ class HabitatRunner(Runner):
             self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a, :, :, :]))).numpy()
             self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(merge_map[:, a, :, :, :]))).numpy()
         
+        if self.visualize_input:
+            self.visualize_obs(self.fig, self.ax, self.global_input['global_obs'])
+            
     def compute_global_goal(self, step):
         self.trainer.prep_rollout()
 
@@ -798,7 +808,22 @@ class HabitatRunner(Runner):
                 frames.append(frame)
 
             imageio.mimsave(str(folder) + '/render.gif', frames, duration=self.all_args.ifi)
-
+    
+    def visualize_obs(self, fig, ax, obs):
+        for agent_id in range(self.num_agents):
+            sub_ax = ax[agent_id] if self.num_agents > 1 else ax
+            for i in range(4):
+                sub_ax[i].clear()
+                sub_ax[i].set_yticks([])
+                sub_ax[i].set_xticks([])
+                sub_ax[i].set_yticklabels([])
+                sub_ax[i].set_xticklabels([])
+                sub_ax[i].imshow(obs[0, 4 + i])
+        plt.gcf().canvas.flush_events()
+        # plt.pause(0.1)
+        fig.canvas.start_event_loop(0.001)
+        plt.gcf().canvas.flush_events()
+    
     @torch.no_grad()
     def eval(self):
         self.eval_infos = defaultdict(list)
