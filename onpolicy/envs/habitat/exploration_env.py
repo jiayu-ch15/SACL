@@ -585,7 +585,6 @@ class Exploration_Env(habitat.RLEnv):
         return n_map
 
     def get_short_term_goal(self, inputs):
-
         args = self.args
 
         self.extrinsic_rew = []
@@ -661,6 +660,7 @@ class Exploration_Env(habitat.RLEnv):
 
             # Get ground truth pose
             start_x_gt, start_y_gt, start_o_gt = self.curr_loc_gt[agent_id]
+
             r, c = start_y_gt, start_x_gt
             start_gt = [int(r * 100.0/self.map_resolution),
                         int(c * 100.0/self.map_resolution)]
@@ -992,6 +992,7 @@ class Exploration_Env(habitat.RLEnv):
             pos_gt = (start_x_gt, start_y_gt, start_o_gt)
 
             ax = self.ax[agent_id] if self.num_agents > 1 else self.ax
+            
             vu.visualize_all(agent_id, self.figure, ax, 
                             self.obs[agent_id], 
                             vis_grid_local[:, :, ::-1], 
