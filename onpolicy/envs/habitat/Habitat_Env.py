@@ -70,7 +70,7 @@ class MultiHabitatEnv(object):
                                                        scene_split_size: (rank + 1) * scene_split_size]
 
         if args.use_the_same_scene:
-            config_env.DATASET.CONTENT_SCENES = [args.scene_id]
+            config_env.DATASET.CONTENT_SCENES = scenes[args.scene_id:args.scene_id+1]
 
         if rank > (args.n_rollout_threads)/2 and args.n_rollout_threads > 6:
             gpu_id = 2
