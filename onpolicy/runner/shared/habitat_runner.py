@@ -429,9 +429,10 @@ class HabitatRunner(Runner):
                 print('minimal agent {}: {}/{}'.format(k, np.min(v), self.max_episode_length))
             elif k == "merge_explored_ratio_step":
                 print('invaild {} map num: {}/{}'.format(k, (v == self.max_episode_length).sum(), self.n_rollout_threads))
-                scene_id = np.argwhere(v == self.max_episode_length)[0]
-                for i in range(len(scene_id)):
-                    print('invaild {} map id: {}\n'.format(k, self.scene_id[scene_id[i]]))
+                if (v == self.max_episode_length).sum() > 0:
+                    scene_id = np.argwhere(v == self.max_episode_length)[0]
+                    for i in range(len(scene_id)):
+                        print('invaild {} map id: {}\n'.format(k, self.scene_id[scene_id[i]]))
                 v_copy = v.copy()
                 v_copy[v == self.max_episode_length] = np.nan
                 self.env_infos[k].append(v_copy)
@@ -488,7 +489,7 @@ class HabitatRunner(Runner):
         
         for e in range(self.n_rollout_threads):
             for agent_id in range(self.num_agents):
-                point_map[e, agent_id, int(point[e, agent_id, 0]+self.lmb[e, agent_id, 0]), int(point[e, agent_id, 1]+self.lmb[e, agent_id, 2])] = agent_id+1
+                point_map[e, agent_id, int(point[e, agent_id, 0]*self.local_w+self.lmb[e, agent_id, 0]), int(point[e, agent_id, 1]*self.local_h+self.lmb[e, agent_id, 2])] = agent_id+1
                 map = torch.from_numpy(point_map[e, agent_id])
                 n_rotated = F.grid_sample(map.unsqueeze(0).unsqueeze(0).float(), rotation[e][agent_id].float(), align_corners=True)
                 n_map = F.grid_sample(n_rotated.float(), trans[e][agent_id].float(), align_corners=True)
@@ -517,14 +518,14 @@ class HabitatRunner(Runner):
                 self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
                 
 
-            merge_map += self.transform(a, self.full_map[:, a, :, :, :], self.agent0_trans, self.agent0_rotation)
+            merge_map += self.transform(a, self.full_map[:, a, :, :, :], self.trans, self.rotation)
             
             self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:,a,:,:,:]
             self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:,a,:,:,:]))).numpy()
         
         for a in range(self.num_agents): # TODO @CHAO
             self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(merge_map))).numpy()
-            self.global_input['global_merge_goal'][:, a, :, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.point_transform(self.global_goal)))).numpy()
+            self.global_input['global_merge_goal'][:, a, :, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.point_transform(self.global_goal, self.trans, self.rotation)))).numpy()
         
         self.first_compute=False
         
@@ -571,13 +572,13 @@ class HabitatRunner(Runner):
                 self.global_input['global_orientation'][e, a, 1] = int(((locs[e, a, 2] + self.theta[e][a] + 180.0) % 360.0) / 5.)
                 self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
             
-            merge_map += self.transform(a, self.full_map[:, a, :, :, :], self.agent0_trans, self.agent0_rotation)
+            merge_map += self.transform(a, self.full_map[:, a, :, :, :], self.trans, self.rotation)
             self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:, a, :, :, :]
             self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a, :, :, :]))).numpy()
         
         for a in range(self.num_agents):
             self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(merge_map))).numpy()
-            self.global_input['global_merge_goal'][:, a, :, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.point_transform(self.global_goal)))).numpy()
+            self.global_input['global_merge_goal'][:, a, :, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.point_transform(self.global_goal, self.trans, self.rotation)))).numpy()
         
         if self.visualize_input:
             self.visualize_obs(self.fig, self.ax, self.global_input)
