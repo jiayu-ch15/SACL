@@ -163,7 +163,7 @@ class Exploration_Env(habitat.RLEnv):
         self.trajectory_states = [[] for _ in range(self.num_agents)]
         self.explored_ratio_step = np.ones(self.num_agents) * (-1.0)
         self.merge_explored_ratio_step = -1.0
-        self.explored_ratio_threshold = 0.9
+        self.explored_ratio_threshold = 0.5
         self.merge_ratio = 0
         self.ratio = np.zeros(self.num_agents)
 
@@ -447,6 +447,7 @@ class Exploration_Env(habitat.RLEnv):
             if self.merge_ratio >= self.explored_ratio_threshold and self.merge_explored_ratio_step == -1.0:
                 self.merge_explored_ratio_step = self.timestep
                 self.info['merge_explored_ratio_step'] = self.timestep
+                print(self.info['merge_explored_ratio_step'])
 
             for agent_id in range(self.num_agents):
                 self.info['explored_reward'].append(agent_explored_area[agent_id])
@@ -455,6 +456,7 @@ class Exploration_Env(habitat.RLEnv):
                 if self.ratio[agent_id] >= self.explored_ratio_threshold and self.explored_ratio_step[agent_id] == -1.0:
                     self.explored_ratio_step[agent_id] = self.timestep
                     self.info["agent{}_explored_ratio_step".format(agent_id)] = self.timestep
+            print(self.ratio)
         else:
             for _ in range(self.num_agents):
                 self.info['explored_reward'].append(0.0)

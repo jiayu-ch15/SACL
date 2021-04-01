@@ -699,7 +699,7 @@ class HabitatRunner(Runner):
                 agent_k = "agent{}_explored_ratio_step".format(agent_id)
                 if agent_k in infos[e].keys():
                     self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
-        
+
         rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
         
@@ -814,13 +814,13 @@ class HabitatRunner(Runner):
 
     def restore(self):
         if self.use_single_network:
-            policy_model_state_dict = torch.load(str(self.model_dir) + '/global_model.pt')#, map_location='cpu')
+            policy_model_state_dict = torch.load(str(self.model_dir))
             self.policy.model.load_state_dict(policy_model_state_dict)
         else:
-            policy_actor_state_dict = torch.load(str(self.model_dir) + '/global_actor_best.pt')#, map_location='cpu')
+            policy_actor_state_dict = torch.load(str(self.model_dir))
             self.policy.actor.load_state_dict(policy_actor_state_dict)
             if not self.all_args.use_render and not self.all_args.use_eval:
-                policy_critic_state_dict = torch.load(str(self.model_dir) + '/global_critic_best.pt')
+                policy_critic_state_dict = torch.load(str(self.model_dir))
                 self.policy.critic.load_state_dict(policy_critic_state_dict)
     
     def render_gifs(self):

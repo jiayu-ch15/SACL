@@ -69,6 +69,9 @@ class MultiHabitatEnv(object):
             config_env.DATASET.CONTENT_SCENES = scenes[rank *
                                                        scene_split_size: (rank + 1) * scene_split_size]
 
+        if args.use_the_same_scene:
+            config_env.DATASET.CONTENT_SCENES = [args.scene_id]
+
         if rank > (args.n_rollout_threads)/2 and args.n_rollout_threads > 6:
             gpu_id = 2
         else:
@@ -97,7 +100,7 @@ class MultiHabitatEnv(object):
         config_env.SIMULATOR.DEPTH_SENSOR.POSITION = [0, args.camera_height, 0]
 
         config_env.SIMULATOR.TURN_ANGLE = 10
-
+        
         dataset = PointNavDatasetV1(config_env.DATASET)
         config_env.defrost()
 
