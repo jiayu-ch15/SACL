@@ -87,7 +87,7 @@ class MIXBase(nn.Module):
             if key in ['rgb','depth']:
                 self.n_cnn_input += obs_shape[key].shape[2] 
                 cnn_dims = np.array(obs_shape[key].shape[:2], dtype=np.float32)
-            elif key in ['global_map','local_map','global_obs','global_merge_obs']:
+            elif key in ['global_map','local_map','global_obs','global_merge_obs','global_merge_goal']:
                 self.n_cnn_input += obs_shape[key].shape[0] 
                 cnn_dims = np.array(obs_shape[key].shape[1:3], dtype=np.float32)
             else:
@@ -195,7 +195,7 @@ class MIXBase(nn.Module):
         for key in self.cnn_keys:
             if key in ['rgb','depth']:
                 cnn_input.append(obs[key].permute(0, 3, 1, 2) / 255.0)
-            elif key in ['global_map', 'local_map', 'global_obs', 'global_merge_obs']:
+            elif key in ['global_map', 'local_map', 'global_obs', 'global_merge_obs', 'global_merge_goal']:
                 cnn_input.append(obs[key])
             else:
                 raise NotImplementedError

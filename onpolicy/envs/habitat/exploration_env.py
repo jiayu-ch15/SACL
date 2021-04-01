@@ -266,6 +266,8 @@ class Exploration_Env(habitat.RLEnv):
         self.info['trans'] = self.n_trans
         self.info['rotation'] = self.n_rot
         self.info['theta'] = self.n_init_theta
+        self.info['scene_id'] = self.scene_id
+
 
         self.save_position()
 
