@@ -173,18 +173,26 @@ class Exploration_Env(habitat.RLEnv):
 
         # Get Ground Truth Map
         self.explorable_map = []
+
         self.n_rot = []
         self.n_trans = []
-        self.n_init_theta = []
+        self.init_theta = []
+
+        self.agent0_n_rot = []
+        self.agent0_n_trans = []
+        self.agent0_init_theta = []
 
         obs = super().reset()
         full_map_size = self.map_size_cm//self.map_resolution
         for agent_id in range(self.num_agents):
-            mapp, n_rot, n_trans, init_theta = self._get_gt_map(full_map_size, agent_id)
+            mapp, n_rot, n_trans, init_theta, agent0_n_rot, agent0_n_trans, agent0_init_theta = self._get_gt_map(full_map_size, agent_id)
             self.explorable_map.append(mapp)
             self.n_rot.append(n_rot)
             self.n_trans.append(n_trans)
-            self.n_init_theta.append(init_theta)
+            self.init_theta.append(init_theta)
+            self.agent0_n_rot.append(agent0_n_rot)
+            self.agent0_n_trans.append(agent0_n_trans)
+            self.agent0_init_theta.append(agent0_init_theta)
 
         self.prev_explored_area = [0. for _ in range(self.num_agents)]
         self.prev_merge_explored_area = 0
@@ -265,7 +273,11 @@ class Exploration_Env(habitat.RLEnv):
             
         self.info['trans'] = self.n_trans
         self.info['rotation'] = self.n_rot
-        self.info['theta'] = self.n_init_theta
+        self.info['theta'] = self.init_theta
+
+        self.info['agent0_trans'] = self.agent0_n_trans
+        self.info['agent0_rotation'] = self.agent0_n_rot
+        self.info['agent0_theta'] = self.agent0_init_theta
 
         self.save_position()
 
@@ -778,6 +790,14 @@ class Exploration_Env(habitat.RLEnv):
                 180.0 + np.rad2deg(o)
             ]])
 
+        if agent_id == 0:
+            self.agent0_st = st
+        
+        delta_st = st - self.agent0_st
+        delta_rot_mat, delta_trans_mat, delta_n_rot_mat, delta_n_trans_mat =\
+            get_grid_full(delta_st, (1, 1, grid_size, grid_size), (1, 1, full_map_size, full_map_size), torch.device("cpu"))
+
+
         rot_mat, trans_mat, n_rot_mat, n_trans_mat = get_grid_full(st, (1, 1,
                                                                         grid_size, grid_size), (1, 1,
                                                                                                 full_map_size, full_map_size), torch.device("cpu"))
@@ -804,7 +824,8 @@ class Exploration_Env(habitat.RLEnv):
         episode_map = episode_map.numpy()
         episode_map[episode_map > 0] = 1.
 
-        return episode_map, n_rot_mat, n_trans_mat, 180.0 + np.rad2deg(o)
+        return episode_map, n_rot_mat, n_trans_mat, 180.0 + np.rad2deg(o), \
+            delta_n_rot_mat, delta_n_trans_mat, delta_st.numpy()[0,2]
 
     def _get_stg(self, grid, explored, start, goal, planning_window, agent_id):
 
@@ -1041,8 +1062,8 @@ class Exploration_Env(habitat.RLEnv):
             (index_gt_b, index_gt_a) = np.unravel_index(np.argmax(pos_gt_map, axis=None), pos_gt_map.shape)
             (index_goal_a, index_goal_b) = np.unravel_index(np.argmax(goal_map, axis=None), goal_map.shape)
 
-            pos = (index_a * 5.0/100.0, index_b * 5.0/100.0, start_o + self.n_init_theta[agent_id])
-            pos_gt = (index_gt_a * 5.0/100.0, index_gt_b * 5.0/100.0, start_o_gt + self.n_init_theta[agent_id])
+            pos = (index_a * 5.0/100.0, index_b * 5.0/100.0, start_o + self.init_theta[agent_id])
+            pos_gt = (index_gt_a * 5.0/100.0, index_gt_b * 5.0/100.0, start_o_gt + self.init_theta[agent_id])
             goal = (index_goal_a, index_goal_b, 0)
             
             all_pos.append(pos)
