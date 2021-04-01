@@ -86,7 +86,7 @@ class AgarRunner(Runner):
                         
                         env_infos.append(env_info)
                 
-                train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards)*self.episode_length
+                train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
                 self.log_train(train_infos, total_num_steps)
                 self.log_env(env_infos, total_num_steps)
 

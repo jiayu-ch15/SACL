@@ -52,8 +52,6 @@ class HabitatRunner(Runner):
         self.rotation = [infos[e]['rotation'] for e in range(self.n_rollout_threads)]
         self.theta = [infos[e]['theta'] for e in range(self.n_rollout_threads)]
         self.scene_id = [infos[e]['scene_id'] for e in range(self.n_rollout_threads)]
-
-        self.first_compute = True
         self.agent0_trans = [infos[e]['agent0_trans'] for e in range(self.n_rollout_threads)]
         self.agent0_rotation = [infos[e]['agent0_rotation'] for e in range(self.n_rollout_threads)]
         self.agent0_theta = [infos[e]['agent0_theta'] for e in range(self.n_rollout_threads)]
@@ -354,7 +352,7 @@ class HabitatRunner(Runner):
 
         self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
         self.global_goal = np.zeros((self.n_rollout_threads, self.num_agents, 2), dtype=np.float32) 
-
+        self.first_compute = True
         if self.visualize_input:
             plt.ion()
             self.fig, self.ax = plt.subplots(self.num_agents + 1, 8, figsize=(10, 2.5), facecolor="whitesmoke")
@@ -527,7 +525,7 @@ class HabitatRunner(Runner):
             self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(merge_map))).numpy()
             self.global_input['global_merge_goal'][:, a, :, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.point_transform(self.global_goal, self.trans, self.rotation)))).numpy()
         
-        self.first_compute=False
+        self.first_compute = False
         
     def compute_local_action(self):
         local_action = torch.empty(self.n_rollout_threads, self.num_agents)
@@ -890,6 +888,7 @@ class HabitatRunner(Runner):
             self.trans = [infos[e]['trans'] for e in range(self.n_rollout_threads)]
             self.rotation = [infos[e]['rotation'] for e in range(self.n_rollout_threads)]
             self.theta = [infos[e]['theta'] for e in range(self.n_rollout_threads)]
+            self.scene_id = [infos[e]['scene_id'] for e in range(self.n_rollout_threads)]
             self.agent0_trans = [infos[e]['agent0_trans'] for e in range(self.n_rollout_threads)]
             self.agent0_rotation = [infos[e]['agent0_rotation'] for e in range(self.n_rollout_threads)]
             self.agent0_theta = [infos[e]['agent0_theta'] for e in range(self.n_rollout_threads)]

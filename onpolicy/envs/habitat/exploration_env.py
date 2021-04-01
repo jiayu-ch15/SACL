@@ -756,7 +756,7 @@ class Exploration_Env(habitat.RLEnv):
 
         agent_y = self._env.sim.get_agent_state(agent_id).position.tolist()[1]*100.
 
-        sim_map = self.map_obj.get_map(agent_y, -50., 50.0)
+        sim_map = self.map_obj.get_map()
 
         sim_map[sim_map > 0] = 1.
 

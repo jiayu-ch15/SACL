@@ -19,10 +19,9 @@ class HabitatMaps(object):
         zx = zx - self.origin
         self.zx = (zx / self.resolution).astype(np.int)
 
-    def get_map(self, y, lb, ub):
-        ids = np.logical_and(self.y > y + lb, self.y < y + ub)
+    def get_map(self):
         num_points = np.zeros((self.size[1], self.size[0]), dtype=np.int32)
-        np.add.at(num_points, (self.zx[ids, 1], self.zx[ids, 0]), 1)
+        np.add.at(num_points, (self.zx[:, 1], self.zx[:, 0]), 1)
         return num_points
 
     def _make_map(self, zx, padding, resolution):
