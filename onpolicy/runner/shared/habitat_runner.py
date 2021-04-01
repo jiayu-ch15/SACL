@@ -436,6 +436,8 @@ class HabitatRunner(Runner):
                 v_copy = v.copy()
                 v_copy[v == self.max_episode_length] = np.nan
                 self.env_infos[k].append(v_copy)
+                print(np.nanmean(v_copy))
+                print(v_copy)
                 print('mean valid {}: {}'.format(k, np.nanmean(v_copy)))
             else:
                 self.env_infos[k].append(v)
