@@ -83,7 +83,7 @@ class MultiHabitatEnv(object):
         config_env.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = gpu_id
 
         config_env.SIMULATOR.NUM_AGENTS = self.num_agents
-        config_env.SIMULATOR.SEED = args.seed
+        config_env.SIMULATOR.SEED = rank+1
         config_env.SIMULATOR.USE_DIFFERENT_START_POS = args.use_different_start_pos
         config_env.SIMULATOR.USE_FIXED_START_POS = args.use_fixed_start_pos
 
