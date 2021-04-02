@@ -62,7 +62,7 @@ def parse_args(args, parser):
                         help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
     parser.add_argument('--save_trajectory_data', action='store_true', default=False)
     parser.add_argument('--use_the_same_scene', action='store_true', default=False)
-    parser.add_argument("--scene_id", type=str, default="Adrian")
+    parser.add_argument("--scene_id", type=int, default=0)
 
     # reward params
     parser.add_argument('--reward_decay', type=float, default=0.9)

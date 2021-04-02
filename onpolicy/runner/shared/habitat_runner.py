@@ -296,7 +296,7 @@ class HabitatRunner(Runner):
     def init_map_and_pose(self):
         self.full_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
         self.full_pose = np.zeros((self.n_rollout_threads, self.num_agents, 3), dtype=np.float32)
-        self.merge_goal_trace = np.zeros((self.n_rollout_threads, 1, self.full_w, self.full_h), dtype=np.float32)
+        self.merge_goal_trace = np.zeros((self.n_rollout_threads, self.full_w, self.full_h), dtype=np.float32)
         self.full_pose[:, :, :2] = self.map_size_cm / 100.0 / 2.0
 
         locs = self.full_pose

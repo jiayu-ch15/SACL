@@ -8,7 +8,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--source_split', type=str, default='val')
 parser.add_argument('--target_split', type=str, default='val_mt')
 parser.add_argument('--dataset_path', type=str,
-                    default='data/datasets/pointnav/gibson/v1/')
+                    default='../data/datasets/pointnav/gibson/v1/')
 parser.add_argument('--num_episodes_per_scene', type=int, default=0,
                     help="0 for all")
 parser.add_argument('--split_by_size', type=int, default=0)
@@ -19,8 +19,8 @@ args = parser.parse_args()
 
 scenes = {}
 split_names = ["small", "large"]
-scenes[split_names[1]] = ['Cantwell', 'Eastville', 'Mosquito', 'Scioto']
-scenes[split_names[0]] = ['Denmark', 'Edgemere', 'Elmira', 'Eudora',
+scenes[split_names[0]] = ['Cantwell', 'Eastville', 'Mosquito', 'Scioto']
+scenes[split_names[1]] = ['Denmark', 'Edgemere', 'Elmira', 'Eudora',
                           'Greigsville', 'Pablo', 'Ribera', 'Sands',
                           'Sisters', 'Swormville']
 
