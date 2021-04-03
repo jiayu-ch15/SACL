@@ -277,6 +277,7 @@ class Exploration_Env(habitat.RLEnv):
         self.info['agent0_trans'] = self.agent0_n_trans
         self.info['agent0_rotation'] = self.agent0_n_rot
         self.info['agent0_theta'] = self.agent0_init_theta
+        self.info['explorable_map'] = self.explorable_map
 
         self.info['scene_id'] = self.scene_id
 

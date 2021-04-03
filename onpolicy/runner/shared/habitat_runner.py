@@ -55,6 +55,7 @@ class HabitatRunner(Runner):
         self.agent0_trans = [infos[e]['agent0_trans'] for e in range(self.n_rollout_threads)]
         self.agent0_rotation = [infos[e]['agent0_rotation'] for e in range(self.n_rollout_threads)]
         self.agent0_theta = [infos[e]['agent0_theta'] for e in range(self.n_rollout_threads)]
+        self.explorable_map = [infos[e]['explorable_map'] for e in range(self.n_rollout_threads)]
 
         # Predict map from frame 1:
         self.run_slam_module(self.obs, self.obs, infos)
@@ -129,6 +130,7 @@ class HabitatRunner(Runner):
                     self.agent0_trans = [infos[e]['agent0_trans'] for e in range(self.n_rollout_threads)]
                     self.agent0_rotation = [infos[e]['agent0_rotation'] for e in range(self.n_rollout_threads)]
                     self.agent0_theta = [infos[e]['agent0_theta'] for e in range(self.n_rollout_threads)]
+                    self.explorable_map = [infos[e]['explorable_map'] for e in range(self.n_rollout_threads)]
 
                 # Neural SLAM Module
                 if self.train_slam:
@@ -177,6 +179,8 @@ class HabitatRunner(Runner):
             total_num_steps = (episode + 1) * self.max_episode_length * self.n_rollout_threads
             
             self.convert_info()
+            print("average episode merge explored reward is {}".format(np.mean(self.env_infos["sum_merge_explored_reward"])))
+            print("average episode merge explored ratio is {}".format(np.mean(self.env_infos['sum_merge_explored_ratio'])))
 
             # log information
             if episode % self.log_interval == 0:
@@ -196,9 +200,6 @@ class HabitatRunner(Runner):
                 self.log_env(self.train_global_infos, total_num_steps)
                 self.log_env(self.env_infos, total_num_steps)
                 self.log_agent(self.env_infos, total_num_steps)
-
-                print("average episode merge explored reward is {}".format(np.mean(self.env_infos["sum_merge_explored_reward"])))
-                print("average episode merge explored ratio is {}".format(np.mean(self.env_infos['sum_merge_explored_ratio'])))
             
             # save model
             if (episode % self.save_interval == 0 or episode == episodes - 1):
@@ -433,9 +434,7 @@ class HabitatRunner(Runner):
                         print('invaild {} map id: {}\n'.format(k, self.scene_id[scene_id[i]]))
                 v_copy = v.copy()
                 v_copy[v == self.max_episode_length] = np.nan
-                self.env_infos[k].append(v_copy)
-                print(np.nanmean(v_copy))
-                print(v_copy)
+                self.env_infos[k].append(v)
                 print('mean valid {}: {}'.format(k, np.nanmean(v_copy)))
             else:
                 self.env_infos[k].append(v)
@@ -486,7 +485,7 @@ class HabitatRunner(Runner):
     def point_transform(self, point, trans, rotation):
         point_map = np.zeros((self.n_rollout_threads, self.num_agents, self.full_h, self.full_w), dtype=np.float32)
         merge_point_map = np.zeros((self.n_rollout_threads, 2, self.full_h, self.full_w), dtype=np.float32)
-        
+        trans_point = np.zeros((self.n_rollout_threads, self.num_agents, 2))
         for e in range(self.n_rollout_threads):
             for agent_id in range(self.num_agents):
                 point_map[e, agent_id, int(point[e, agent_id, 0]*self.local_w+self.lmb[e, agent_id, 0]), int(point[e, agent_id, 1]*self.local_h+self.lmb[e, agent_id, 2])] = agent_id+1
@@ -494,14 +493,21 @@ class HabitatRunner(Runner):
                 n_rotated = F.grid_sample(map.unsqueeze(0).unsqueeze(0).float(), rotation[e][agent_id].float(), align_corners=True)
                 n_map = F.grid_sample(n_rotated.float(), trans[e][agent_id].float(), align_corners=True)
                 point_map[e, agent_id] = n_map[0, 0].numpy()
-                index_a, index_b = np.unravel_index(np.argmax(point_map[e, agent_id], axis=None), point_map[e, agent_id].shape)
-                merge_point_map[e, 0, index_a-2: index_a+3, index_b-2: index_b+3] += agent_id+1 
-
+                trans_point[e, agent_id, 0], trans_point[e, agent_id, 1] = np.unravel_index(np.argmax(point_map[e, agent_id], axis=None), point_map[e, agent_id].shape)
+                merge_point_map[e, 0, int(trans_point[e, agent_id, 0]-2): int(trans_point[e, agent_id, 0]+3), int(trans_point[e, agent_id, 1]-2): int(trans_point[e, agent_id, 1]+3)] += agent_id+1 
         self.merge_goal_trace +=  merge_point_map[:, 0]
         merge_point_map[:, 1] = self.merge_goal_trace
+        return merge_point_map, trans_point
 
-        
-        return merge_point_map
+    def exp_transform(self, inputs, trans, rotation):
+        explorable_map = np.zeros((self.n_rollout_threads, self.full_h, self.full_w), dtype=np.float32)
+        for e in range(self.n_rollout_threads):
+            output = torch.from_numpy(inputs[e][0])
+            n_rotated = F.grid_sample(output.unsqueeze(0).unsqueeze(0).float(), rotation[e][0].float(), align_corners=True)
+            n_map = F.grid_sample(n_rotated.float(), trans[e][0].float(), align_corners=True)
+            explorable_map[e] = n_map[0, 0].numpy()
+        return explorable_map
+
     
     def first_compute_global_input(self):
         locs = self.local_pose
@@ -516,16 +522,15 @@ class HabitatRunner(Runner):
                 self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
                 self.global_input['global_orientation'][e, a, 1] = int(((locs[e, a, 2] + self.theta[e][a] + 180.0) % 360.0) / 5.)
                 self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
-                
-
             merge_map += self.transform(a, self.full_map[:, a, :, :, :], self.trans, self.rotation)
             
             self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:,a,:,:,:]
             self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:,a,:,:,:]))).numpy()
-        
+        global_merge_goal, self.trans_point =self.point_transform(self.global_goal, self.trans, self.rotation)
         for a in range(self.num_agents): # TODO @CHAO
             self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(merge_map))).numpy()
-            self.global_input['global_merge_goal'][:, a, :, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.point_transform(self.global_goal, self.trans, self.rotation)))).numpy()
+            self.global_input['global_merge_goal'][:, a, :, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_merge_goal))).numpy()
+            #self.global_input['global_merge_goal'][:, a, 1, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(self.explorable_map, self.trans, self.rotation)))).numpy()
         
         self.first_compute = False
         
@@ -565,20 +570,23 @@ class HabitatRunner(Runner):
     
     def compute_global_input(self):
         locs = self.local_pose
-        merge_map = np.zeros((self.n_rollout_threads, 4, self.full_w, self.full_h))
+        self.merge_map = np.zeros((self.n_rollout_threads, 4, self.full_w, self.full_h))
         for a in range(self.num_agents):
             for e in range(self.n_rollout_threads):
                 self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
                 self.global_input['global_orientation'][e, a, 1] = int(((locs[e, a, 2] + self.theta[e][a] + 180.0) % 360.0) / 5.)
                 self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
             
-            merge_map += self.transform(a, self.full_map[:, a, :, :, :], self.trans, self.rotation)
+            self.merge_map += self.transform(a, self.full_map[:, a, :, :, :], self.trans, self.rotation)
             self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:, a, :, :, :]
             self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a, :, :, :]))).numpy()
         
+        global_merge_goal, self.trans_point =self.point_transform(self.global_goal, self.trans, self.rotation)
         for a in range(self.num_agents):
-            self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(merge_map))).numpy()
-            self.global_input['global_merge_goal'][:, a, :, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.point_transform(self.global_goal, self.trans, self.rotation)))).numpy()
+            self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map))).numpy()
+            self.global_input['global_merge_goal'][:, a, :, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_merge_goal))).numpy()
+            
+            #self.global_input['global_merge_goal'][:, a, 1, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(self.explorable_map, self.trans, self.rotation)))).numpy()
         
         if self.visualize_input:
             self.visualize_obs(self.fig, self.ax, self.global_input)
@@ -687,12 +695,14 @@ class HabitatRunner(Runner):
 
     def insert_global_policy(self, data):
         rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
-
+        for e in range(self.n_rollout_threads):
+            for agent_id in range(self.num_agents):
+                if self.merge_map[e, 1, int(self.trans_point[e, agent_id, 0]), int(self.trans_point[e, agent_id, 1])]>0:
+                    rewards[e, agent_id] -= 1   
         for e in range(self.n_rollout_threads):
             for key in ['explored_ratio', 'explored_reward', 'merge_explored_ratio', 'merge_explored_reward']:
                 if key in infos[e].keys():
                     self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
-
             if 'merge_explored_ratio_step' in infos[e].keys():
                 self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
             for agent_id in range(self.num_agents):
@@ -894,6 +904,7 @@ class HabitatRunner(Runner):
             self.agent0_trans = [infos[e]['agent0_trans'] for e in range(self.n_rollout_threads)]
             self.agent0_rotation = [infos[e]['agent0_rotation'] for e in range(self.n_rollout_threads)]
             self.agent0_theta = [infos[e]['agent0_theta'] for e in range(self.n_rollout_threads)]
+            self.explorable_map = [infos[e]['explorable_map'] for e in range(self.n_rollout_threads)]
 
             # Predict map from frame 1:
             self.run_slam_module(self.obs, self.obs, infos)

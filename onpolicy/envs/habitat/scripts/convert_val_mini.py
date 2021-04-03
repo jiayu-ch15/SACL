@@ -5,8 +5,8 @@ import gzip
 import io
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--source_split', type=str, default='val_mini')
-parser.add_argument('--target_split', type=str, default='val_mini_c')
+parser.add_argument('--source_split', type=str, default='val')
+parser.add_argument('--target_split', type=str, default='val_mt')
 parser.add_argument('--dataset_path', type=str, default='../data/datasets/pointnav/gibson/v1/')
 parser.add_argument('--num_episodes_per_scene', type=int, default=0,
                     help="0 for all")
