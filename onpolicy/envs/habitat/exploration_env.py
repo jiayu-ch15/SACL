@@ -178,21 +178,26 @@ class Exploration_Env(habitat.RLEnv):
         self.n_trans = []
         self.init_theta = []
 
-        self.agent0_n_rot = []
-        self.agent0_n_trans = []
-        self.agent0_init_theta = []
+        self.agent_n_rot = [[] for agent_id in range(self.num_agents)]
+        self.agent_n_trans = [[] for agent_id in range(self.num_agents)]
+        self.agent_st = []
 
         obs = super().reset()
         full_map_size = self.map_size_cm//self.map_resolution
         for agent_id in range(self.num_agents):
-            mapp, n_rot, n_trans, init_theta, agent0_n_rot, agent0_n_trans, agent0_init_theta = self._get_gt_map(full_map_size, agent_id)
+            mapp, n_rot, n_trans, init_theta = self._get_gt_map(full_map_size, agent_id)
             self.explorable_map.append(mapp)
             self.n_rot.append(n_rot)
             self.n_trans.append(n_trans)
             self.init_theta.append(init_theta)
-            self.agent0_n_rot.append(agent0_n_rot)
-            self.agent0_n_trans.append(agent0_n_trans)
-            self.agent0_init_theta.append(agent0_init_theta)
+        for aa in range(self.num_agents):
+            for a in range(self.num_agents):
+                delta_st = self.agent_st[a] - self.agent_st[aa]
+                delta_rot_mat, delta_trans_mat, delta_n_rot_mat, delta_n_trans_mat =\
+                get_grid_full(delta_st, (1, 1, self.grid_size, self.grid_size), (1, 1, full_map_size, full_map_size), torch.device("cpu"))
+
+                self.agent_n_rot[aa].append(delta_n_rot_mat)
+                self.agent_n_trans[aa].append(delta_n_trans_mat)
 
         self.prev_explored_area = [0. for _ in range(self.num_agents)]
         self.prev_merge_explored_area = 0
@@ -274,9 +279,8 @@ class Exploration_Env(habitat.RLEnv):
         self.info['trans'] = self.n_trans
         self.info['rotation'] = self.n_rot
         self.info['theta'] = self.init_theta
-        self.info['agent0_trans'] = self.agent0_n_trans
-        self.info['agent0_rotation'] = self.agent0_n_rot
-        self.info['agent0_theta'] = self.agent0_init_theta
+        self.info['agent_trans'] = self.agent_n_trans
+        self.info['agent_rotation'] = self.agent_n_rot
         self.info['explorable_map'] = self.explorable_map
 
         self.info['scene_id'] = self.scene_id
@@ -767,41 +771,35 @@ class Exploration_Env(habitat.RLEnv):
 
         map_size = sim_map.shape
         scale = 2.
-        grid_size = int(scale*max(map_size))
+        self.grid_size = int(scale*max(map_size))
 
-        grid_map = np.zeros((grid_size, grid_size))
+        grid_map = np.zeros((self.grid_size, self.grid_size))
 
-        grid_map[(grid_size - map_size[0])//2:
-                 (grid_size - map_size[0])//2 + map_size[0],
-                 (grid_size - map_size[1])//2:
-                 (grid_size - map_size[1])//2 + map_size[1]] = sim_map
+        grid_map[(self.grid_size - map_size[0])//2:
+                 (self.grid_size - map_size[0])//2 + map_size[0],
+                 (self.grid_size - map_size[1])//2:
+                 (self.grid_size - map_size[1])//2 + map_size[1]] = sim_map
 
         if map_size[0] > map_size[1]:
-            st = torch.tensor([[ 
+            self.agent_st.append(torch.tensor([[ 
                 (x - range_x/2.) * 2. / (range_x * scale) \
                 * map_size[1] * 1. / map_size[0],
                 (y - range_y/2.) * 2. / (range_y * scale),
                 180.0 + np.rad2deg(o)
-            ]])
+            ]]))
 
         else:
-            st = torch.tensor([[
+            self.agent_st.append(torch.tensor([[
                 (x - range_x/2.) * 2. / (range_x * scale),
                 (y - range_y/2.) * 2. / (range_y * scale)
                 * map_size[0] * 1. / map_size[1],
                 180.0 + np.rad2deg(o)
-            ]])
-
-        if agent_id == 0:
-            self.agent0_st = st
-        
-        delta_st = st - self.agent0_st
-        delta_rot_mat, delta_trans_mat, delta_n_rot_mat, delta_n_trans_mat =\
-            get_grid_full(delta_st, (1, 1, grid_size, grid_size), (1, 1, full_map_size, full_map_size), torch.device("cpu"))
+            ]]))
 
 
-        rot_mat, trans_mat, n_rot_mat, n_trans_mat = get_grid_full(st, (1, 1,
-                                                                        grid_size, grid_size), (1, 1,
+
+        rot_mat, trans_mat, n_rot_mat, n_trans_mat = get_grid_full(self.agent_st[agent_id], (1, 1,
+                                                                        self.grid_size, self.grid_size), (1, 1,
                                                                                                 full_map_size, full_map_size), torch.device("cpu"))
 
         grid_map = torch.from_numpy(grid_map).float()
@@ -810,24 +808,23 @@ class Exploration_Env(habitat.RLEnv):
         rotated = F.grid_sample(translated, rot_mat, align_corners=True)
 
         episode_map = torch.zeros((full_map_size, full_map_size)).float()
-        if full_map_size > grid_size:
-            episode_map[(full_map_size - grid_size)//2:
-                        (full_map_size - grid_size)//2 + grid_size,
-                        (full_map_size - grid_size)//2:
-                        (full_map_size - grid_size)//2 + grid_size] = \
+        if full_map_size > self.grid_size:
+            episode_map[(full_map_size - self.grid_size)//2:
+                        (full_map_size - self.grid_size)//2 + self.grid_size,
+                        (full_map_size - self.grid_size)//2:
+                        (full_map_size - self.grid_size)//2 + self.grid_size] = \
                 rotated[0, 0]
         else:
             episode_map = rotated[0, 0,
-                                  (grid_size - full_map_size)//2:
-                                  (grid_size - full_map_size)//2 + full_map_size,
-                                  (grid_size - full_map_size)//2:
-                                  (grid_size - full_map_size)//2 + full_map_size]
+                                  (self.grid_size - full_map_size)//2:
+                                  (self.grid_size - full_map_size)//2 + full_map_size,
+                                  (self.grid_size - full_map_size)//2:
+                                  (self.grid_size - full_map_size)//2 + full_map_size]
 
         episode_map = episode_map.numpy()
         episode_map[episode_map > 0] = 1.
 
-        return episode_map, n_rot_mat, n_trans_mat, 180.0 + np.rad2deg(o), \
-            delta_n_rot_mat, delta_n_trans_mat, delta_st.numpy()[0,2]
+        return episode_map, n_rot_mat, n_trans_mat, 180.0 + np.rad2deg(o)
 
     def _get_stg(self, grid, explored, start, goal, planning_window, agent_id):
 

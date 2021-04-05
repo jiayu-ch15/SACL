@@ -30,7 +30,7 @@ class MultiHabitatEnv(object):
         global_observation_space['global_merge_goal'] = gym.spaces.Box(
             low=0, high=1, shape=(2, local_w, local_h), dtype='uint8')
         global_observation_space['global_orientation'] = gym.spaces.Box(
-            low=-1, high=1, shape=(2,), dtype='long')
+            low=-1, high=1, shape=(1,), dtype='long')
         global_observation_space['vector'] = gym.spaces.Box(
             low=-1, high=1, shape=(self.num_agents,), dtype='float')
         global_observation_space = gym.spaces.Dict(global_observation_space)
@@ -85,6 +85,7 @@ class MultiHabitatEnv(object):
         config_env.SIMULATOR.NUM_AGENTS = self.num_agents
         config_env.SIMULATOR.SEED = rank+1
         config_env.SIMULATOR.USE_DIFFERENT_START_POS = args.use_different_start_pos
+        config_env.SIMULATOR.USE_SAME_ROTATION = args.use_same_rotation
         config_env.SIMULATOR.USE_FIXED_START_POS = args.use_fixed_start_pos
 
         config_env.SIMULATOR.AGENT.SENSORS = ['RGB_SENSOR', 'DEPTH_SENSOR']
@@ -126,8 +127,8 @@ class MultiHabitatEnv(object):
 
     def step(self, actions):
         obs, rewards, dones, infos = self.env.step(actions)
-        rewards = np.expand_dims(np.array(infos['explored_reward']), axis=1)\
-        + np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+        #rewards = np.expand_dims(np.array(infos['explored_reward']), axis=1)\
+        rewards = np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         return obs, rewards, dones, infos
 
     def close(self):
