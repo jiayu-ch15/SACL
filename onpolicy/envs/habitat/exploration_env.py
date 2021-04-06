@@ -210,6 +210,7 @@ class Exploration_Env(habitat.RLEnv):
             rgb = [np.asarray(self.res(rgb[agent_id])) for agent_id in range(self.num_agents)]
         state = [rgb[agent_id].transpose(2, 0, 1) for agent_id in range(self.num_agents)]
         depth = [_preprocess_depth(obs[agent_id]['depth']) for agent_id in range(self.num_agents)]
+        print('nnnnnnnnnnnnn')
 
         # Initialize map and pose
         self.curr_loc = []
