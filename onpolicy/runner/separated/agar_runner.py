@@ -75,6 +75,7 @@ class AgarRunner(Runner):
                         env_info['hunt'] = []
                         env_info['attack'] = []
                         env_info['cooperate'] = []
+                        env_info['original_return'] = []
 
                         for info in infos:                    
                             if 'collective_return' in info[agent_id].keys():
@@ -83,7 +84,9 @@ class AgarRunner(Runner):
                                 env_info['split'].append(info[agent_id]['behavior'][0])
                                 env_info['hunt'].append(info[agent_id]['behavior'][1])
                                 env_info['attack'].append(info[agent_id]['behavior'][2])
-                                env_info['cooperate'].append(info[agent_id]['behavior'][3]) 
+                                env_info['cooperate'].append(info[agent_id]['behavior'][3])
+                            if 'o_r' in info[agent_id].keys():
+                                env_info['original_return'].append(info[agent_id]['o_r']) 
                         
                         env_infos.append(env_info)
 

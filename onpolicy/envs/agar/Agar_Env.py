@@ -61,6 +61,7 @@ class AgarEnv(gym.Env):
         self.sum_r = np.zeros((self.num_agents, ))  # summation or reward
         # summation of discounted reward
         self.sum_r_g = np.zeros((self.num_agents, ))
+        self.o_r = np.zeros((self.num_agents, ))
         # summation of discounted reward using standard reward settings (alpha = 1, beta = 0)
         self.sum_r_g_i = np.zeros((self.num_agents, ))
         self.dir = []
@@ -97,6 +98,7 @@ class AgarEnv(gym.Env):
             info[i]['active_masks'] = True
             info[i]['bad_transition'] = False
             info[i]['collective_return'] = self.sum_r[i]
+            info[i]['o_r'] = self.o_r[i]
             info[i]['behavior'] = self.hit[i]
             if self.killed[i] >= 1:
                 done[i] = True
@@ -164,6 +166,7 @@ class AgarEnv(gym.Env):
         self.sum_r += rewards
         self.sum_r_g += rewards * self.m_g
         self.sum_r_g_i += t_rewards2 * self.m_g
+        self.o_r += t_rewards
         self.s_n += 1
 
         return observations, rewards
@@ -185,6 +188,7 @@ class AgarEnv(gym.Env):
             self.t_killed = np.zeros(self.num_agents)
             self.sum_r = np.zeros((self.num_agents, ))
             self.sum_r_g = np.zeros((self.num_agents, ))
+            self.o_r = np.zeros((self.num_agents, ))
             self.sum_r_g_i = np.zeros((self.num_agents, ))
             self.sum_dis = 0.
             self.m_g = 1.
