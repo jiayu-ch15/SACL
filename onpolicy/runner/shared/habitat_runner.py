@@ -344,7 +344,8 @@ class HabitatRunner(Runner):
         self.global_input = {}
         self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
         self.global_input['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.local_w, self.local_h), dtype=np.float32)
-        self.global_input['global_merge_goal'] = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.local_w, self.local_h), dtype=np.long)
+        #self.global_input['global_merge_goal'] = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.local_w, self.local_h), dtype=np.float32)
+        self.global_input['gt_map'] = np.zeros((self.n_rollout_threads, self.num_agents, 1, self.local_w, self.local_h), dtype=np.float32)
         self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
         self.global_input['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents), dtype=np.float32)
 
@@ -435,6 +436,8 @@ class HabitatRunner(Runner):
                 print('mean valid {}: {}'.format(k, np.nanmean(v_copy)))
             else:
                 self.env_infos[k].append(v)
+                if k == 'sum_merge_explored_ratio':
+                    print(np.mean(v))
 
     def insert_slam_module(self, infos):
         # Add frames to memory
@@ -528,8 +531,8 @@ class HabitatRunner(Runner):
             global_goal_map[:, a], self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
         for a in range(self.num_agents): # TODO @CHAO
             self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
-            self.global_input['global_merge_goal'][:, a, :, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a]))).numpy()
-            #self.global_input['global_merge_goal'][:, a, 1, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:, a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
+            #self.global_input['global_merge_goal'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
+            self.global_input['gt_map'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:, a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
         
         self.first_compute = False
         
@@ -583,9 +586,9 @@ class HabitatRunner(Runner):
             global_goal_map[:, a], self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
         for a in range(self.num_agents):
             self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
-            self.global_input['global_merge_goal'][:, a, :, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a]))).numpy()
+            #self.global_input['global_merge_goal'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
             
-            #self.global_input['global_merge_goal'][:, a, 1, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:,a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
+            self.global_input['gt_map'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:,a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
         
         if self.visualize_input:
             self.visualize_obs(self.fig, self.ax, self.global_input)
@@ -867,8 +870,9 @@ class HabitatRunner(Runner):
                     sub_ax[i].imshow(obs['global_obs'][0, agent_id, i])
                 elif i < 4:
                     sub_ax[i].imshow(obs['global_merge_obs'][0, agent_id-self.num_agents, i])
-                elif i < 6:
-                    sub_ax[i].imshow(obs['global_merge_goal'][0, agent_id-self.num_agents, i-4])
+                elif i < 5:
+                    #sub_ax[i].imshow(obs['global_merge_goal'][0, agent_id-self.num_agents, i-4])
+                    sub_ax[i].imshow(obs['gt_map'][0, agent_id-self.num_agents, i-4])
         plt.gcf().canvas.flush_events()
         # plt.pause(0.1)
         fig.canvas.start_event_loop(0.001)
@@ -973,7 +977,7 @@ class HabitatRunner(Runner):
                 self.local_output = np.array(self.local_output, dtype = np.long)
             
             self.convert_info()
-
+            
         for k, v in self.env_infos.items():
             print("eval average {}: {}".format(k, np.nanmean(v) if k == 'merge_explored_ratio_step' else np.mean(v)))
 

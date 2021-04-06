@@ -198,7 +198,8 @@ class Exploration_Env(habitat.RLEnv):
 
                 self.agent_n_rot[aa].append(delta_n_rot_mat)
                 self.agent_n_trans[aa].append(delta_n_trans_mat)
-
+        
+        self.merge_pred_map = np.zeros_like(self.explored_map[0])
         self.prev_explored_area = [0. for _ in range(self.num_agents)]
         self.prev_merge_explored_area = 0
 
@@ -1033,7 +1034,7 @@ class Exploration_Env(habitat.RLEnv):
         merge_explored_map = np.zeros_like(self.explored_map[0])
         merge_explorable_map = np.zeros_like(self.explored_map[0])
         merge_gt_explored = np.zeros_like(self.explored_map[0])
-        merge_pred_map = np.zeros_like(self.explored_map[0])
+        
 
         all_pos = []
         all_pos_gt = []
@@ -1068,10 +1069,10 @@ class Exploration_Env(habitat.RLEnv):
             all_pos.append(pos)
             all_pos_gt.append(pos_gt)
             all_goals.append(goal)
-
-            pred_map =  np.zeros_like(self.explored_map[0])
+            
+            pred_map = np.zeros_like(self.explored_map[0])
             pred_map[gx1:gx2, gy1:gy2]= np.rint(map_pred[agent_id])
-            merge_pred_map = np.maximum(merge_pred_map, self.transform(pred_map, agent_id))
+            self.merge_pred_map = np.maximum(self.merge_pred_map, self.transform(pred_map, agent_id))
             merge_map = np.maximum(merge_map, self.transform(self.map[agent_id], agent_id))
             merge_visited_gt = np.maximum(merge_visited_gt, self.transform(self.visited_gt[agent_id], agent_id))
             merge_visited_vis = np.maximum(merge_visited_vis, self.transform(self.visited_vis[agent_id], agent_id))
