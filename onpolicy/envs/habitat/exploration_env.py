@@ -196,8 +196,8 @@ class Exploration_Env(habitat.RLEnv):
                 delta_rot_mat, delta_trans_mat, delta_n_rot_mat, delta_n_trans_mat =\
                 get_grid_full(delta_st, (1, 1, self.grid_size, self.grid_size), (1, 1, full_map_size, full_map_size), torch.device("cpu"))
 
-                self.agent_n_rot[aa].append(delta_n_rot_mat)
-                self.agent_n_trans[aa].append(delta_n_trans_mat)
+                self.agent_n_rot[aa].append(delta_n_rot_mat.numpy())
+                self.agent_n_trans[aa].append(delta_n_trans_mat.numpy())
         
         self.merge_pred_map = np.zeros_like(self.explored_map[0])
         self.prev_explored_area = [0. for _ in range(self.num_agents)]

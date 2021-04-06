@@ -99,8 +99,8 @@ def parse_args(args, parser):
                         default=True, help="by default True, use random agent position at the initialization")
     parser.add_argument('--use_fixed_start_pos', action='store_true',
                         default=False, help="by default True, use fixed agent position at the initialization")
-    parser.add_argument('--use_same_rotation', action='store_false',
-                        default=True, help="by default True, use random agent position at the initialization")
+    parser.add_argument('--use_same_rotation', action='store_true',
+                        default=False, help="by default True, use fixed agent position at the initialization")
 
     # Local Policy
     parser.add_argument('--local_lr', type=float, default=0.0001)

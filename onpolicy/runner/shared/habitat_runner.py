@@ -463,6 +463,8 @@ class HabitatRunner(Runner):
                                 build_maps = build_maps)
     
     def transform(self, inputs, trans, rotation):
+        trans = check(trans)
+        rotation = check(rotation)
         merge_map = np.zeros((self.n_rollout_threads, 4, self.full_w, self.full_h), dtype=np.float32)
         for e in range(self.n_rollout_threads):
             for agent_id in range(self.num_agents):
@@ -485,6 +487,8 @@ class HabitatRunner(Runner):
         return merge_map
 
     def point_transform(self, point, trans, rotation):
+        trans = check(trans)
+        rotation = check(rotation)
         point_map = np.zeros((self.n_rollout_threads, self.num_agents, self.full_w, self.full_h), dtype=np.float32)
         merge_point_map = np.zeros((self.n_rollout_threads, 2, self.full_w, self.full_h), dtype=np.float32)
         trans_point = np.zeros((self.n_rollout_threads, self.num_agents, 2))
@@ -502,6 +506,8 @@ class HabitatRunner(Runner):
         return merge_point_map, trans_point
 
     def exp_transform(self, agent_id, inputs, trans, rotation):
+        trans = check(trans)
+        rotation = check(rotation)
         explorable_map = np.zeros((self.n_rollout_threads, self.full_w, self.full_h), dtype=np.float32)
         for e in range(self.n_rollout_threads):
             output = torch.from_numpy(inputs[e])

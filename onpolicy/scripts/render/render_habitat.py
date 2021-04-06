@@ -9,7 +9,7 @@ def get_folders(dir, folders):
             folders.append(sub_dir) 
             get_folders(sub_dir, folders)
 
-gif_dir = "/home/yuchao19/project/onpolicy/onpolicy/scripts/results/Habitat/mappo/debug/run49/gifs"
+gif_dir = "/home/yuchao19/project/onpolicy/onpolicy/scripts/results/Habitat/mappo/debug/run8/gifs"
 
 print("generating gifs....")
 folders = []
