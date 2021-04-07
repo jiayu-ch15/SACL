@@ -51,18 +51,25 @@ class Runner(object):
         # dir
         self.model_dir = self.all_args.model_dir
 
-        if self.use_wandb:
-            self.save_dir = str(wandb.run.dir)
-            self.run_dir = str(wandb.run.dir)
-        else:
+        if self.use_render:
+            import imageio
             self.run_dir = config["run_dir"]
-            self.log_dir = str(self.run_dir / 'logs')
-            if not os.path.exists(self.log_dir):
-                os.makedirs(self.log_dir)
-            self.writter = SummaryWriter(self.log_dir)
-            self.save_dir = str(self.run_dir / 'models')
-            if not os.path.exists(self.save_dir):
-                os.makedirs(self.save_dir)
+            self.gif_dir = str(self.run_dir / 'gifs')
+            if not os.path.exists(self.gif_dir):
+                os.makedirs(self.gif_dir)
+        else:
+            if self.use_wandb:
+                self.save_dir = str(wandb.run.dir)
+                self.run_dir = str(wandb.run.dir)
+            else:
+                self.run_dir = config["run_dir"]
+                self.log_dir = str(self.run_dir / 'logs')
+                if not os.path.exists(self.log_dir):
+                    os.makedirs(self.log_dir)
+                self.writter = SummaryWriter(self.log_dir)
+                self.save_dir = str(self.run_dir / 'models')
+                if not os.path.exists(self.save_dir):
+                    os.makedirs(self.save_dir)
 
         if "mappo" in self.algorithm_name:
             if self.use_single_network:

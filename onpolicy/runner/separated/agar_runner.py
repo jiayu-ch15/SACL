@@ -202,7 +202,8 @@ class AgarRunner(Runner):
     @torch.no_grad()
     def render(self):
         envs = self.envs
-        
+        f = str(self.run_dir/'log.txt')
+
         all_frames = []
         for episode in range(self.all_args.render_episodes):
             obs = envs.reset()
@@ -254,7 +255,9 @@ class AgarRunner(Runner):
                         time.sleep(self.all_args.ifi - elapsed)
 
             render_infos = []
-            print("#########episode no."+str(episode))
+            with open(f,'w') as file:
+                file.write("\n########## episode no."+str(episode)+' ##########\n')
+            print("\n########## episode no."+str(episode)+' ##########')
             for agent_id in range(self.num_agents):
                 env_info = {}
 
@@ -277,7 +280,12 @@ class AgarRunner(Runner):
                         env_info['original_return'].append(info[agent_id]['o_r']) 
                         
                 env_info['average_episode_reward'] = np.mean(np.sum(episode_rewards[:, :, agent_id], axis=0))
-                print("agent no."+str(agent_id))
+                with open(f,'w') as file:
+                    file.write("\n@@@@ agent no."+str(agent_id)+' @@@@\n')
+                print("\n@@@@ agent no."+str(agent_id)+' @@@@')
+                with open(f,'w') as file:
+                    for k,v in env_info.items():
+                        file.write('\n'+str(k)+' : '+str(v)+'\n')
                 print(env_info)
                 render_infos.append(env_info)
 
