@@ -199,7 +199,6 @@ class Exploration_Env(habitat.RLEnv):
                 self.agent_n_rot[aa].append(delta_n_rot_mat.numpy())
                 self.agent_n_trans[aa].append(delta_n_trans_mat.numpy())
         
-        self.merge_pred_map = np.zeros_like(self.explored_map[0])
         self.prev_explored_area = [0. for _ in range(self.num_agents)]
         self.prev_merge_explored_area = 0
 
@@ -251,6 +250,7 @@ class Exploration_Env(habitat.RLEnv):
             self.explored_map.append(explored_map_t)
 
         # Initialize variables
+        self.merge_pred_map = np.zeros_like(self.explorable_map[0])
         self.scene_name = self.habitat_env.sim.config.SCENE
         self.visited = [np.zeros(self.map[0].shape)
                         for _ in range(self.num_agents)]
@@ -758,6 +758,8 @@ class Exploration_Env(habitat.RLEnv):
             logger.error("Invalid map: {}/{}".format(self.scene_name, self.episode_no))
             return None
 
+        print(self._env.sim.get_agent_state(agent_id).position.tolist())
+        
         agent_y = self._env.sim.get_agent_state(agent_id).position.tolist()[1]*100.
 
         sim_map = self.map_obj.get_map()
@@ -1090,7 +1092,7 @@ class Exploration_Env(habitat.RLEnv):
                                     merge_explorable_map,
                                     merge_gt_explored)
         
-        vis_grid_pred = vu.get_colored_map(merge_pred_map,
+        vis_grid_pred = vu.get_colored_map(self.merge_pred_map,
                                     merge_collision_map,
                                     merge_visited_vis,
                                     merge_visited_gt,

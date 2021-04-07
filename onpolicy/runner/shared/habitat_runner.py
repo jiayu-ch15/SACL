@@ -530,11 +530,13 @@ class HabitatRunner(Runner):
                 self.local_map[e, a, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = a + 1
                 self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
                 self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
+            
             self.merge_map[:, a] = self.transform(self.full_map, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
             
             self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:,a,:,:,:]
             self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:,a,:,:,:]))).numpy()
             global_goal_map[:, a], self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
+        
         for a in range(self.num_agents): # TODO @CHAO
             self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
             #self.global_input['global_merge_goal'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
@@ -585,7 +587,7 @@ class HabitatRunner(Runner):
                 self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
                 self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
 
-            self.merge_map[:, a] = self.transform(self.full_map, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
+            self.merge_map[:, a] = self.transform(self.full_map, np.array(self.agent_trans)[:, a], np.array(self.agent_rotation)[:,a])
             self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:, a, :, :, :]
             self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a, :, :, :]))).numpy()
         
@@ -864,7 +866,7 @@ class HabitatRunner(Runner):
     
     def visualize_obs(self, fig, ax, obs):
         # individual
-        for agent_id in range(self.num_agents*2):
+        for agent_id in range(self.num_agents * 2):
             sub_ax = ax[agent_id]
             for i in range(8):
                 sub_ax[i].clear()
@@ -878,7 +880,7 @@ class HabitatRunner(Runner):
                     sub_ax[i].imshow(obs['global_merge_obs'][0, agent_id-self.num_agents, i])
                 elif i < 5:
                     #sub_ax[i].imshow(obs['global_merge_goal'][0, agent_id-self.num_agents, i-4])
-                    sub_ax[i].imshow(obs['gt_map'][0, agent_id-self.num_agents, i-4])
+                    sub_ax[i].imshow(obs['gt_map'][0, agent_id - self.num_agents, i-4])
         plt.gcf().canvas.flush_events()
         # plt.pause(0.1)
         fig.canvas.start_event_loop(0.001)
