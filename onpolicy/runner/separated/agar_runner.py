@@ -202,8 +202,6 @@ class AgarRunner(Runner):
     @torch.no_grad()
     def render(self):
         envs = self.envs
-        self.all_args.save_gifs = True
-        self.gif_dir = self.run_dir
         
         all_frames = []
         for episode in range(self.all_args.render_episodes):
@@ -255,13 +253,38 @@ class AgarRunner(Runner):
                     if elapsed < self.all_args.ifi:
                         time.sleep(self.all_args.ifi - elapsed)
 
+            render_infos = []
+            print("#########episode no."+str(episode))
             for agent_id in range(self.num_agents):
-                average_episode_rewards = np.mean(np.sum(episode_rewards[:, :, agent_id], axis=0))
-                print("eval average episode rewards of agent%i: " % agent_id + str(average_episode_rewards))
+                env_info = {}
 
-        if self.all_args.save_gifs:
-            for i in range(self.num_agents):
-                imageio.mimsave(str(self.gif_dir) + '/render_' + str(i) + '.gif', all_frames[i:len(all_frames):self.num_agents], 'GIF', duration=self.all_args.ifi)
+                env_info['collective_return'] = []
+                env_info['split'] = []
+                env_info['hunt'] = []
+                env_info['attack'] = []
+                env_info['cooperate'] = []
+                env_info['original_return'] = []
+
+                for info in infos:                    
+                    if 'collective_return' in info[agent_id].keys():
+                        env_info['collective_return'].append(info[agent_id]['collective_return']) 
+                    if 'behavior' in info[agent_id].keys():
+                        env_info['split'].append(info[agent_id]['behavior'][0])
+                        env_info['hunt'].append(info[agent_id]['behavior'][1])
+                        env_info['attack'].append(info[agent_id]['behavior'][2])
+                        env_info['cooperate'].append(info[agent_id]['behavior'][3])
+                    if 'o_r' in info[agent_id].keys():
+                        env_info['original_return'].append(info[agent_id]['o_r']) 
+                        
+                env_info['average_episode_reward'] = np.mean(np.sum(episode_rewards[:, :, agent_id], axis=0))
+                print("agent no."+str(agent_id))
+                print(env_info)
+                render_infos.append(env_info)
+
+
+            if self.all_args.save_gifs:
+                for i in range(self.num_agents):
+                    imageio.mimsave(str(self.gif_dir) + '/render_agent' + str(i) + '_episode' + str(episode) + '.gif', all_frames[i+self.episode_length*episode:i+self.episode_length*(episode+1):self.num_agents], 'GIF', duration=self.all_args.ifi)
 
     @torch.no_grad()
     def eval(self, total_num_steps):
