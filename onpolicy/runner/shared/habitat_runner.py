@@ -257,7 +257,7 @@ class HabitatRunner(Runner):
         self.max_episode_length = self.all_args.max_episode_length
         self.render_merge = self.all_args.render_merge
         self.visualize_input = self.all_args.visualize_input
-        self.intrinsic_rew = self.all_args.intrinsic_rew
+        self.use_intrinsic_reward = self.all_args.use_intrinsic_reward
 
     def init_map_variables(self):
         ### Full map consists of 4 channels containing the following:
@@ -703,7 +703,7 @@ class HabitatRunner(Runner):
 
     def insert_global_policy(self, data):
         rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
-        if self.intrinsic_rew:
+        if self.use_intrinsic_reward:
             for e in range(self.n_rollout_threads):
                 for agent_id in range(self.num_agents):
                     if self.merge_map[e, agent_id, 1, int(self.trans_point[e, agent_id, 0]), int(self.trans_point[e, agent_id, 1])]>0:

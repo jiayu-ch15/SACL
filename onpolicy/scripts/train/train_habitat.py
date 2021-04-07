@@ -90,9 +90,11 @@ def parse_args(args, parser):
 
     # reward params
     parser.add_argument('--reward_decay', type=float, default=0.9)
-    parser.add_argument('--use_reward_penalty',action='store_true', default=False)
-    parser.add_argument('--intrinsic_rew', action='store_true', default=False)
-
+    parser.add_argument('--use_time_penalty',action='store_true', default=False)
+    parser.add_argument('--use_repeat_penalty',action='store_true', default=False)
+    parser.add_argument('--use_complete_reward',action='store_true', default=False)
+    parser.add_argument('--use_intrinsic_reward', action='store_true', default=False)
+    
     # Environment, dataset and episode specifications
     parser.add_argument('-efw', '--env_frame_width', type=int, default=256,
                         help='Frame width (default:84)')
