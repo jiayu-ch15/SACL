@@ -166,6 +166,11 @@ class Exploration_Env(habitat.RLEnv):
         self.explored_ratio_threshold = 0.9
         self.merge_ratio = 0
         self.ratio = np.zeros(self.num_agents)
+        self.current_merge_ratio = 0
+        self.current_merge_area = 0
+        self.current_agent_explored_area = np.zeros(self.num_agents)
+        self.current_agent_explored_ratio = np.zeros(self.num_agents)
+        
 
         if self.args.randomize_env_every > 0:
             if np.mod(self.episode_no, self.args.randomize_env_every) == 0:
@@ -199,7 +204,8 @@ class Exploration_Env(habitat.RLEnv):
                 self.agent_n_rot[aa].append(delta_n_rot_mat.numpy())
                 self.agent_n_trans[aa].append(delta_n_trans_mat.numpy())
         
-        self.merge_pred_map = np.zeros_like(self.explored_map[0])
+        self.merge_pred_map = np.zeros_like(self.explorable_map[0])
+        self.prev_merge_exlored_map = np.zeros_like(self.explorable_map[0])
         self.prev_explored_area = [0. for _ in range(self.num_agents)]
         self.prev_merge_explored_area = 0
 
@@ -210,7 +216,7 @@ class Exploration_Env(habitat.RLEnv):
             rgb = [np.asarray(self.res(rgb[agent_id])) for agent_id in range(self.num_agents)]
         state = [rgb[agent_id].transpose(2, 0, 1) for agent_id in range(self.num_agents)]
         depth = [_preprocess_depth(obs[agent_id]['depth']) for agent_id in range(self.num_agents)]
-        print('nnnnnnnnnnnnn')
+        
 
         # Initialize map and pose
         self.curr_loc = []
@@ -242,14 +248,16 @@ class Exploration_Env(habitat.RLEnv):
         fp_explored = []
         self.map = []
         self.explored_map = []
+        self.current_explored_gt = []
         # Update ground_truth map and explored area
         for agent_id in range(self.num_agents):
-            fp_proj_t, map_t, fp_explored_t, explored_map_t = \
+            fp_proj_t, map_t, fp_explored_t, explored_map_t, current_explored_gt = \
                 self.mapper[agent_id].update_map(depth[agent_id], mapper_gt_pose[agent_id])
             fp_proj.append(fp_proj_t)
             self.map.append(map_t)
             fp_explored.append(fp_explored_t)
             self.explored_map.append(explored_map_t)
+            self.current_explored_gt.append(current_explored_gt)
 
         # Initialize variables
         self.scene_name = self.habitat_env.sim.config.SCENE
@@ -386,14 +394,16 @@ class Exploration_Env(habitat.RLEnv):
         fp_explored = []
         self.map = []
         self.explored_map = []
+        self.current_explored_gt = []
         # Update ground_truth map and explored area
         for agent_id in range(self.num_agents):
-            fp_proj_t, map_t, fp_explored_t, explored_map_t = \
+            fp_proj_t, map_t, fp_explored_t, explored_map_t, current_explored_gt = \
                 self.mapper[agent_id].update_map(depth[agent_id], mapper_gt_pose[agent_id])
             fp_proj.append(fp_proj_t)
             self.map.append(map_t)
             fp_explored.append(fp_explored_t)
             self.explored_map.append(explored_map_t)
+            self.current_explored_gt.append(current_explored_gt)
 
         # Update collision map
         for agent_id in range(self.num_agents):
@@ -445,23 +455,47 @@ class Exploration_Env(habitat.RLEnv):
                                           dy_gt[agent_id] - dy_base[agent_id],
                                           do_gt[agent_id] - do_base[agent_id]])
 
-        if self.timestep % self.args.num_local_steps == 0:
-            agent_explored_area, agent_explored_ratio, merge_explored_area, merge_explored_ratio = self.get_global_reward()
-            self.info['merge_explored_reward'] = merge_explored_area
-            self.info['merge_explored_ratio'] = merge_explored_ratio
-            self.merge_ratio += merge_explored_ratio
-            # log step
-            if self.merge_ratio >= self.explored_ratio_threshold and self.merge_explored_ratio_step == -1.0:
-                self.merge_explored_ratio_step = self.timestep
-                self.info['merge_explored_ratio_step'] = self.timestep
+        
+        agent_explored_area, agent_explored_ratio, merge_explored_area, merge_explored_ratio, curr_merge_explored_map = self.get_global_reward()
+      
+        # log step
+        self.merge_ratio += merge_explored_ratio
+        self.current_merge_ratio += merge_explored_ratio
+        self.current_merge_area += merge_explored_area
+        if self.merge_ratio >= self.explored_ratio_threshold and self.merge_explored_ratio_step == -1.0:
+            self.merge_explored_ratio_step = self.timestep
+            self.info['merge_explored_ratio_step'] = self.timestep
 
+        for agent_id in range(self.num_agents):
+            self.ratio[agent_id] += agent_explored_ratio[agent_id]
+            self.current_agent_explored_area[agent_id] += agent_explored_area[agent_id]
+            self.current_agent_explored_ratio[agent_id] += agent_explored_ratio[agent_id]
+            if self.ratio[agent_id] >= self.explored_ratio_threshold and self.explored_ratio_step[agent_id] == -1.0:
+                self.explored_ratio_step[agent_id] = self.timestep
+                self.info["agent{}_explored_ratio_step".format(agent_id)] = self.timestep
+
+        agents_explored_map = np.zeros_like(self.explored_map[0])
+        if self.timestep % self.args.num_local_steps == 0:
+            self.info['merge_explored_reward'] = self.current_merge_area
+            self.info['merge_explored_ratio'] = self.current_merge_ratio
             for agent_id in range(self.num_agents):
-                self.info['explored_reward'].append(agent_explored_area[agent_id])
-                self.info['explored_ratio'].append(agent_explored_ratio[agent_id])
-                self.ratio[agent_id] += agent_explored_ratio[agent_id]
-                if self.ratio[agent_id] >= self.explored_ratio_threshold and self.explored_ratio_step[agent_id] == -1.0:
-                    self.explored_ratio_step[agent_id] = self.timestep
-                    self.info["agent{}_explored_ratio_step".format(agent_id)] = self.timestep
+                self.info['explored_reward'].append(self.current_agent_explored_area[agent_id])
+                self.info['explored_ratio'].append(self.current_agent_explored_ratio[agent_id])
+                agents_explored_map = np.maximum(agents_explored_map, self.transform(self.current_explored_gt[agent_id], agent_id))
+            
+            #plt.imshow(agents_explored_map)
+            #plt.show()
+            #plt.imshow(self.prev_merge_exlored_map)
+            #plt.show()
+            self.info['merge_explored_reward'] -= (agents_explored_map[self.prev_merge_exlored_map == 1].sum() * (25./10000) * 0.02)
+            #print(-(agents_explored_map[self.prev_merge_exlored_map == 1].sum() * (25./10000) * 0.02))
+            #print(self.info['merge_explored_reward'])
+            self.prev_merge_exlored_map = curr_merge_explored_map
+            self.current_merge_ratio = 0
+            self.current_merge_area = 0
+            self.current_agent_explored_ratio = np.zeros(self.num_agents)
+            self.current_agent_explored_area = np.zeros(self.num_agents)
+
         else:
             for _ in range(self.num_agents):
                 self.info['explored_reward'].append(0.0)
@@ -520,7 +554,7 @@ class Exploration_Env(habitat.RLEnv):
         if self.use_reward_penalty:
             self.reward_gamma *= self.reward_decay
 
-        return agent_explored_rewards, agent_explored_ratios, merge_explored_reward, merge_explored_ratio
+        return agent_explored_rewards, agent_explored_ratios, merge_explored_reward, merge_explored_ratio, curr_merge_explored_map
 
     def get_done(self, observations, agent_id):
         # This function is not used, Habitat-RLEnv requires this function
@@ -553,6 +587,7 @@ class Exploration_Env(habitat.RLEnv):
         params['vision_range'] = self.args.vision_range
         params['visualize'] = self.use_render
         params['obs_threshold'] = self.args.obs_threshold
+        params['num_local_steps'] = self.args.num_local_steps
         self.selem = skimage.morphology.disk(self.args.obstacle_boundary /
                                              self.map_resolution)
         mapper = MapBuilder(params)
@@ -1091,7 +1126,7 @@ class Exploration_Env(habitat.RLEnv):
                                     merge_explorable_map,
                                     merge_gt_explored)
         
-        vis_grid_pred = vu.get_colored_map(merge_pred_map,
+        vis_grid_pred = vu.get_colored_map(self.merge_pred_map,
                                     merge_collision_map,
                                     merge_visited_vis,
                                     merge_visited_gt,
