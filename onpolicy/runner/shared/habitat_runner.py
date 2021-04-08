@@ -112,6 +112,14 @@ class HabitatRunner(Runner):
 
                 # Obser reward and next obs
                 self.obs, rewards, dones, infos = self.envs.step(actions_env)
+
+                for e in range(self.n_rollout_threads):
+                    if 'merge_explored_ratio_step' in infos[e].keys():
+                        self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
+                        for agent_id in range(self.num_agents):
+                            agent_k = "agent{}_explored_ratio_step".format(agent_id)
+                            if agent_k in infos[e].keys():
+                                self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
                               
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
@@ -335,12 +343,16 @@ class HabitatRunner(Runner):
 
         # env info
         self.env_infos = {}
-        self.env_infos['sum_explored_ratio'] = deque(maxlen=10)
-        self.env_infos['sum_explored_reward'] = deque(maxlen=10)
-        self.env_infos['sum_merge_explored_ratio'] = deque(maxlen=10)
-        self.env_infos['sum_merge_explored_reward'] = deque(maxlen=10)
-        self.env_infos['merge_explored_ratio_step'] = deque(maxlen=10)
-        self.env_infos['invalid_merge_explored_ratio_step_num'] = deque(maxlen=10)
+        length = self.eval_episodes
+        self.env_infos['sum_explored_ratio'] = deque(maxlen=length)
+        self.env_infos['sum_explored_reward'] = deque(maxlen=length)
+        self.env_infos['sum_merge_explored_ratio'] = deque(maxlen=length)
+        self.env_infos['sum_merge_explored_reward'] = deque(maxlen=length)
+        self.env_infos['merge_explored_ratio_step'] = deque(maxlen=length)
+        self.env_infos['invalid_merge_explored_ratio_step_num'] = deque(maxlen=length)
+        self.env_infos['invalid_merge_map_num'] = deque(maxlen=length)
+        self.env_infos['max_sum_merge_explored_ratio'] = deque(maxlen=length)
+        self.env_infos['min_sum_merge_explored_ratio'] = deque(maxlen=length)
 
         self.global_input = {}
         self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
@@ -427,6 +439,7 @@ class HabitatRunner(Runner):
                 print('minimal agent {}: {}/{}'.format(k, np.min(v), self.max_episode_length))
             elif k == "merge_explored_ratio_step":
                 print('invaild {} map num: {}/{}'.format(k, (v == self.max_episode_length).sum(), self.n_rollout_threads))
+                self.env_infos['invalid_merge_map_num'].append((v == self.max_episode_length).sum())
                 if (v == self.max_episode_length).sum() > 0:
                     scene_id = np.argwhere(v == self.max_episode_length)[0]
                     for i in range(len(scene_id)):
@@ -438,6 +451,8 @@ class HabitatRunner(Runner):
             else:
                 self.env_infos[k].append(v)
                 if k == 'sum_merge_explored_ratio':
+                    self.env_infos['max_sum_merge_explored_ratio'].append(np.max(v))
+                    self.env_infos['min_sum_merge_explored_ratio'].append(np.min(v))
                     ic(np.mean(v))
 
     def insert_slam_module(self, infos):
@@ -799,7 +814,7 @@ class HabitatRunner(Runner):
             torch.save(self.local_policy.state_dict(), str(self.save_dir) + "local_periodic_{}.pt".format(step))
     
     def save_global_model(self, step):
-        if len(self.env_infos["sum_merge_explored_reward"]) >= 10 and \
+        if len(self.env_infos["sum_merge_explored_reward"]) >= self.eval_episodes and \
             (np.mean(self.env_infos["sum_merge_explored_reward"]) >= self.best_gobal_reward):
             self.best_gobal_reward = np.mean(self.env_infos["sum_merge_explored_reward"])
             torch.save(self.trainer.policy.actor.state_dict(), str(self.save_dir) + "/global_actor_best.pt")
@@ -936,6 +951,14 @@ class HabitatRunner(Runner):
 
                 # Obser reward and next obs
                 self.obs, rewards, dones, infos = self.envs.step(actions_env)
+                for e in range(self.n_rollout_threads):
+                    if 'merge_explored_ratio_step' in infos[e].keys():
+                        self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
+                        for agent_id in range(self.num_agents):
+                            agent_k = "agent{}_explored_ratio_step".format(agent_id)
+                            if agent_k in infos[e].keys():
+                                self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
+
                                 
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
@@ -964,13 +987,7 @@ class HabitatRunner(Runner):
                                 step_info[key][e] = np.array(infos[e][key])
                                 self.env_info["sum_{}".format(key)][e] += np.array(infos[e][key])
                         
-                        if 'merge_explored_ratio_step' in infos[e].keys():
-                            self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
-                        for agent_id in range(self.num_agents):
-                            agent_k = "agent{}_explored_ratio_step".format(agent_id)
-                            if agent_k in infos[e].keys():
-                                self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
-
+                        
                     self.log_eval(step_info, step)
                                 
                     # Compute Global goal
