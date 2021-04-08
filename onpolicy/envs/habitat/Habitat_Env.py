@@ -71,7 +71,7 @@ class MultiHabitatEnv(object):
             config_env.DATASET.CONTENT_SCENES = scenes[rank *
                                                        scene_split_size: (rank + 1) * scene_split_size]
 
-        if args.use_the_same_scene:
+        if args.use_same_scene:
             config_env.DATASET.CONTENT_SCENES = scenes[args.scene_id:args.scene_id+1]
 
         if rank > (args.n_rollout_threads)/2 and args.n_rollout_threads > 6:
@@ -86,9 +86,8 @@ class MultiHabitatEnv(object):
 
         config_env.SIMULATOR.NUM_AGENTS = self.num_agents
         config_env.SIMULATOR.SEED = rank * 5000 + args.seed
-        config_env.SIMULATOR.USE_DIFFERENT_START_POS = args.use_different_start_pos
         config_env.SIMULATOR.USE_SAME_ROTATION = args.use_same_rotation
-        config_env.SIMULATOR.USE_FIXED_START_POS = args.use_fixed_start_pos
+        config_env.SIMULATOR.USE_DIFFERENT_START_POS = args.use_different_start_pos
 
         config_env.SIMULATOR.AGENT.SENSORS = ['RGB_SENSOR', 'DEPTH_SENSOR']
 
