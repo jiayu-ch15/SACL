@@ -90,6 +90,7 @@ def parse_args(args, parser):
 
     # reward params
     parser.add_argument('--reward_decay', type=float, default=0.9)
+    parser.add_argument('--use_restrict_map',action='store_true', default=False)
     parser.add_argument('--use_time_penalty',action='store_true', default=False)
     parser.add_argument('--use_repeat_penalty',action='store_true', default=False)
     parser.add_argument('--use_complete_reward',action='store_true', default=False)

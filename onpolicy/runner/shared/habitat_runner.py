@@ -18,6 +18,7 @@ from onpolicy.runner.shared.base_runner import Runner
 from onpolicy.envs.habitat.model.model import Neural_SLAM_Module, Local_IL_Policy
 from onpolicy.envs.habitat.utils.memory import FIFOMemory
 from onpolicy.algorithms.utils.util import init, check
+from icecream import ic
 
 def _t2n(x):
     return x.detach().cpu().numpy()
@@ -437,7 +438,7 @@ class HabitatRunner(Runner):
             else:
                 self.env_infos[k].append(v)
                 if k == 'sum_merge_explored_ratio':
-                    print(np.mean(v))
+                    ic(np.mean(v))
 
     def insert_slam_module(self, infos):
         # Add frames to memory
@@ -878,7 +879,7 @@ class HabitatRunner(Runner):
                     sub_ax[i].imshow(obs['global_merge_obs'][0, agent_id-self.num_agents, i])
                 elif i < 5:
                     #sub_ax[i].imshow(obs['global_merge_goal'][0, agent_id-self.num_agents, i-4])
-                    sub_ax[i].imshow(obs['gt_map'][0, agent_id-self.num_agents, i-4])
+                    sub_ax[i].imshow(obs['gt_map'][0, agent_id - self.num_agents, i-4])
         plt.gcf().canvas.flush_events()
         # plt.pause(0.1)
         fig.canvas.start_event_loop(0.001)
@@ -923,7 +924,7 @@ class HabitatRunner(Runner):
             self.local_output = np.array(self.local_output, dtype = np.long)
             
             for step in range(self.max_episode_length):
-                print("step {}".format(step))
+                ic(step)
                 local_step = step % self.num_local_steps
                 global_step = (step // self.num_local_steps) % self.episode_length
                 eval_global_step = step // self.num_local_steps + 1

@@ -56,6 +56,7 @@ class Exploration_Env(habitat.RLEnv):
         self.run_dir = run_dir
 
         self.num_agents = args.num_agents
+        self.use_restrict_map = args.use_restrict_map
         self.use_complete_reward = args.use_complete_reward
         self.use_time_penalty = args.use_time_penalty
         self.use_repeat_penalty = args.use_repeat_penalty
@@ -796,7 +797,10 @@ class Exploration_Env(habitat.RLEnv):
 
         agent_y = self._env.sim.get_agent_state(agent_id).position.tolist()[1]*100.
 
-        sim_map = self.map_obj.get_map()
+        if self.use_restrict_map:
+            sim_map = self.map_obj.get_restrict_map(agent_y, -50., 50.0)
+        else:
+            sim_map = self.map_obj.get_map()
 
         sim_map[sim_map > 0] = 1.
 

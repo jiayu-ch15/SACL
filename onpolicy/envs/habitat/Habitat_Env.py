@@ -80,12 +80,12 @@ class MultiHabitatEnv(object):
             gpu_id = 1
 
         config_env.ENVIRONMENT.MAX_EPISODE_STEPS = args.max_episode_length
-        config_env.ENVIRONMENT.ITERATOR_OPTIONS.SHUFFLE = False
+        config_env.ENVIRONMENT.ITERATOR_OPTIONS.SHUFFLE = True
 
         config_env.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = gpu_id
 
         config_env.SIMULATOR.NUM_AGENTS = self.num_agents
-        config_env.SIMULATOR.SEED = rank+1
+        config_env.SIMULATOR.SEED = rank * 5000 + args.seed
         config_env.SIMULATOR.USE_DIFFERENT_START_POS = args.use_different_start_pos
         config_env.SIMULATOR.USE_SAME_ROTATION = args.use_same_rotation
         config_env.SIMULATOR.USE_FIXED_START_POS = args.use_fixed_start_pos
