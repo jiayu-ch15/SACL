@@ -61,13 +61,17 @@ def parse_args(args, parser):
     parser.add_argument("--visualize_input", action='store_true', default=False,
                         help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
     parser.add_argument('--save_trajectory_data', action='store_true', default=False)
-    parser.add_argument('--use_the_same_scene', action='store_true', default=False)
+    parser.add_argument('--use_same_scene', action='store_true', default=False)
     parser.add_argument("--scene_id", type=int, default=0)
 
     # reward params
     parser.add_argument('--reward_decay', type=float, default=0.9)
-    parser.add_argument('--use_reward_penalty', action='store_true', default=False)
-    parser.add_argument('--intrinsic_rew', action='store_true', default=False)
+    parser.add_argument('--use_restrict_map',action='store_true', default=False)
+    parser.add_argument('--use_time_penalty',action='store_true', default=False)
+    parser.add_argument('--use_repeat_penalty',action='store_true', default=False)
+    parser.add_argument('--use_complete_reward',action='store_true', default=False)
+    parser.add_argument('--use_intrinsic_reward', action='store_true', default=False)
+    parser.add_argument('--use_restrict_map', action='store_true', default=False)
     
 
     # Environment, dataset and episode specifications
@@ -95,10 +99,8 @@ def parse_args(args, parser):
                         help="horizontal field of view in degrees")
     parser.add_argument('--randomize_env_every', type=int, default=1000,
                         help="randomize scene in a thread every k episodes")
-    parser.add_argument('--use_different_start_pos', action='store_false',
-                        default=True, help="by default True, use random agent position at the initialization")
-    parser.add_argument('--use_fixed_start_pos', action='store_true',
-                        default=False, help="by default True, use fixed agent position at the initialization")
+    parser.add_argument('--use_different_start_pos', action='store_true',
+                        default=False, help="by default True, use random agent position at the initialization")
     parser.add_argument('--use_same_rotation', action='store_true',
                         default=False, help="by default True, use fixed agent position at the initialization")
 
