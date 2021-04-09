@@ -114,6 +114,9 @@ class HabitatRunner(Runner):
                 self.obs, rewards, dones, infos = self.envs.step(actions_env)
 
                 for e in range(self.n_rollout_threads):
+                    for key in ['explored_ratio', 'explored_reward', 'merge_explored_ratio', 'merge_explored_reward']:
+                        if key in infos[e].keys():
+                            self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
                     if 'merge_explored_ratio_step' in infos[e].keys():
                         self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
                         for agent_id in range(self.num_agents):
@@ -359,7 +362,7 @@ class HabitatRunner(Runner):
         self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
         self.global_input['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.local_w, self.local_h), dtype=np.float32)
         # self.global_input['global_merge_goal'] = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.local_w, self.local_h), dtype=np.float32)
-        self.global_input['gt_map'] = np.zeros((self.n_rollout_threads, self.num_agents, 1, self.local_w, self.local_h), dtype=np.float32)
+        # self.global_input['gt_map'] = np.zeros((self.n_rollout_threads, self.num_agents, 1, self.local_w, self.local_h), dtype=np.float32)
         self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
         self.global_input['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents), dtype=np.float32)
 
@@ -557,7 +560,7 @@ class HabitatRunner(Runner):
         for a in range(self.num_agents): # TODO @CHAO
             self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
             # self.global_input['global_merge_goal'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
-            self.global_input['gt_map'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:, a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
+            # self.global_input['gt_map'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:, a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
         
         self.first_compute = False
         
@@ -727,9 +730,6 @@ class HabitatRunner(Runner):
                 for agent_id in range(self.num_agents):
                     if self.merge_map[e, agent_id, 1, int(self.trans_point[e, agent_id, 0]), int(self.trans_point[e, agent_id, 1])]>0:
                         rewards[e, agent_id] -= 0.02
-            for key in ['explored_ratio', 'explored_reward', 'merge_explored_ratio', 'merge_explored_reward']:
-                if key in infos[e].keys():
-                    self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
             
         rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
@@ -949,6 +949,9 @@ class HabitatRunner(Runner):
                 self.obs, rewards, dones, infos = self.envs.step(actions_env)
 
                 for e in range(self.n_rollout_threads):
+                    for key in ['explored_ratio', 'explored_reward', 'merge_explored_ratio', 'merge_explored_reward']:
+                        if key in infos[e].keys():
+                            self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
                     if 'merge_explored_ratio_step' in infos[e].keys():
                         self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
                         for agent_id in range(self.num_agents):
@@ -982,7 +985,6 @@ class HabitatRunner(Runner):
                             if key in infos[e].keys():
                                 step_info[key][e] = np.array(infos[e][key])
                                 self.env_info["sum_{}".format(key)][e] += np.array(infos[e][key])
-                        
                         
                     self.log_eval(step_info, step)
                                 

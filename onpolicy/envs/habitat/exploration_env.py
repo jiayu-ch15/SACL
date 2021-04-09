@@ -169,10 +169,6 @@ class Exploration_Env(habitat.RLEnv):
         self.explored_ratio_threshold = 0.9
         self.merge_ratio = 0
         self.ratio = np.zeros(self.num_agents)
-        self.local_merge_ratio = 0
-        self.local_merge_area = 0
-        self.local_agent_explored_area = np.zeros(self.num_agents)
-        self.local_agent_explored_ratio = np.zeros(self.num_agents)
         
 
         if self.args.randomize_env_every > 0:
@@ -464,42 +460,30 @@ class Exploration_Env(habitat.RLEnv):
       
         # log step
         self.merge_ratio += merge_explored_ratio
-        self.local_merge_ratio += merge_explored_ratio
-        self.local_merge_area += merge_explored_area
         if self.merge_ratio >= self.explored_ratio_threshold and self.merge_explored_ratio_step == -1.0:
             self.merge_explored_ratio_step = self.timestep
             self.info['merge_explored_ratio_step'] = self.timestep
 
         for agent_id in range(self.num_agents):
             self.ratio[agent_id] += agent_explored_ratio[agent_id]
-            self.local_agent_explored_area[agent_id] += agent_explored_area[agent_id]
-            self.local_agent_explored_ratio[agent_id] += agent_explored_ratio[agent_id]
             if self.ratio[agent_id] >= self.explored_ratio_threshold and self.explored_ratio_step[agent_id] == -1.0:
                 self.explored_ratio_step[agent_id] = self.timestep
                 self.info["agent{}_explored_ratio_step".format(agent_id)] = self.timestep
 
         agents_explored_map = np.zeros_like(self.explored_map[0])
-        if self.timestep % self.args.num_local_steps == 0:
-            self.info['merge_explored_reward'] = self.local_merge_area
-            self.info['merge_explored_ratio'] = self.local_merge_ratio
+        
+        self.info['merge_explored_reward'] = merge_explored_area
+        self.info['merge_explored_ratio'] = merge_explored_ratio
 
-            for agent_id in range(self.num_agents):
-                self.info['explored_reward'].append(self.local_agent_explored_area[agent_id])
-                self.info['explored_ratio'].append(self.local_agent_explored_ratio[agent_id])
+        for agent_id in range(self.num_agents):
+            self.info['explored_reward'].append(agent_explored_area[agent_id])
+            self.info['explored_ratio'].append(agent_explored_ratio[agent_id])
+            if self.timestep % self.args.num_local_steps == 0:
                 agents_explored_map = np.maximum(agents_explored_map, self.transform(self.current_explored_gt[agent_id], agent_id))
-            
-            if self.merge_ratio < self.explored_ratio_threshold and self.use_repeat_penalty:
-                self.info['merge_explored_reward'] -= (agents_explored_map[self.prev_merge_exlored_map == 1].sum() * (25./10000) * 0.02)
+        
+        if self.timestep % self.args.num_local_steps == 0 and self.merge_ratio < self.explored_ratio_threshold and self.use_repeat_penalty:
+            self.info['merge_explored_reward'] -= (agents_explored_map[self.prev_merge_exlored_map == 1].sum() * (25./10000) * 0.02)
             self.prev_merge_exlored_map = curr_merge_explored_map
-            self.local_merge_ratio = 0
-            self.local_merge_area = 0
-            self.local_agent_explored_ratio = np.zeros(self.num_agents)
-            self.local_agent_explored_area = np.zeros(self.num_agents)
-
-        else:
-            for _ in range(self.num_agents):
-                self.info['explored_reward'].append(0.0)
-                self.info['explored_ratio'].append(0.0)
 
         self.save_position()
 
