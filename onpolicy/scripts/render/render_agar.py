@@ -18,7 +18,7 @@ def make_render_env(all_args):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "Agar":
-                env = AgarEnv(all_args)
+                env = AgarEnv(all_args,eval=True)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
@@ -34,7 +34,7 @@ def make_render_env(all_args):
 def parse_args(args, parser):
     parser.add_argument('--num_agents', type=int, default=2, help="number of players")
     parser.add_argument("--share_reward", action='store_true', default=False)
-    parser.add_argument("--use_curriculum_learning", action='store_false', default=True)
+    parser.add_argument("--use_curriculum_learning", action='store_false', default=False)
     parser.add_argument('--action_repeat', type=int, default=5, help="delay")
 
     all_args = parser.parse_known_args(args)[0]
@@ -56,9 +56,9 @@ def main(args):
         raise NotImplementedError
 
     assert all_args.use_render, ("u need to set use_render be True")
-    #assert not (all_args.model_dir == None or all_args.model_dir == ""), ("set model_dir first")
+    assert not (all_args.model_dir == None or all_args.model_dir == ""), ("set model_dir first")
     assert all_args.n_rollout_threads==1, ("only support to use 1 env to render.")
-    
+
     # cuda
     if all_args.cuda and torch.cuda.is_available():
         print("choose to use gpu...")
