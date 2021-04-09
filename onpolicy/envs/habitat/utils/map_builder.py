@@ -30,9 +30,16 @@ class MapBuilder(object):
 
         self.agent_height = params['agent_height']
         self.agent_view_angle = params['agent_view_angle']
+        self.timestep = 0
+        self.num_local_steps = params['num_local_steps']
         return
 
     def update_map(self, depth, current_pose):
+        if self.timestep % self.num_local_steps == 0:
+            self.current_explored_map = np.zeros((self.map_size_cm // self.resolution,
+                             self.map_size_cm // self.resolution,
+                             len(self.z_bins) + 1), dtype=np.float32)
+        self.timestep  += 1
         with np.errstate(invalid="ignore"):
             depth[depth > self.vision_range * self.resolution] = np.NaN
         point_cloud = du.get_point_cloud_from_z(depth, self.camera_matrix, \
@@ -70,6 +77,8 @@ class MapBuilder(object):
 
         self.map = self.map + geocentric_flat
 
+        self.current_explored_map = self.current_explored_map + geocentric_flat
+
         map_gt = self.map[:, :, 1] / self.obs_threshold
         map_gt[map_gt >= 0.5] = 1.0
         map_gt[map_gt < 0.5] = 0.0
@@ -77,7 +86,10 @@ class MapBuilder(object):
         explored_gt = self.map.sum(2)
         explored_gt[explored_gt > 1] = 1.0
 
-        return agent_view_cropped, map_gt, agent_view_explored, explored_gt
+        current_explored_gt = self.current_explored_map.sum(2)
+        current_explored_gt[current_explored_gt>1] = 1.0
+
+        return agent_view_cropped, map_gt, agent_view_explored, explored_gt, current_explored_gt
 
     def get_st_pose(self, current_loc):
         loc = [- (current_loc[0] / self.resolution

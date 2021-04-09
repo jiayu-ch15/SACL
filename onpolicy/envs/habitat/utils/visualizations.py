@@ -3,7 +3,10 @@ import sys
 import matplotlib
 import numpy as np
     
-# matplotlib.use('TkAgg')
+if sys.platform == 'darwin':
+    matplotlib.use("tkagg")
+else:
+    matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 import seaborn as sns
@@ -74,7 +77,7 @@ def visualize_all(agent_id, fig, ax, img, grid_local, grid_gt, pos_local, pos_gt
         fig.canvas.start_event_loop(0.001)
         plt.gcf().canvas.flush_events()
     
-    plt.show()
+    # plt.show()
 
     if save_gifs:
         fn = '{}/step-{:0>4d}.png'.format(dump_dir, t)
