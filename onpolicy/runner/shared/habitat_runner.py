@@ -136,6 +136,7 @@ class HabitatRunner(Runner):
                     self.agent_trans = [infos[e]['agent_trans'] for e in range(self.n_rollout_threads)]
                     self.agent_rotation = [infos[e]['agent_rotation'] for e in range(self.n_rollout_threads)]
                     self.explorable_map = [infos[e]['explorable_map'] for e in range(self.n_rollout_threads)]
+                    self.scene_id = [infos[e]['scene_id'] for e in range(self.n_rollout_threads)]
 
                 # Neural SLAM Module
                 if self.train_slam:
@@ -357,7 +358,7 @@ class HabitatRunner(Runner):
         self.global_input = {}
         self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
         self.global_input['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.local_w, self.local_h), dtype=np.float32)
-        #self.global_input['global_merge_goal'] = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.local_w, self.local_h), dtype=np.float32)
+        # self.global_input['global_merge_goal'] = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.local_w, self.local_h), dtype=np.float32)
         self.global_input['gt_map'] = np.zeros((self.n_rollout_threads, self.num_agents, 1, self.local_w, self.local_h), dtype=np.float32)
         self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
         self.global_input['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents), dtype=np.float32)
@@ -536,7 +537,7 @@ class HabitatRunner(Runner):
     def first_compute_global_input(self):
         locs = self.local_pose
         self.merge_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
-        global_goal_map = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.full_w, self.full_h), dtype=np.float32)
+        # global_goal_map = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.full_w, self.full_h), dtype=np.float32)
         for a in range(self.num_agents):
             for e in range(self.n_rollout_threads):
                 r, c = locs[e, a, 1], locs[e, a, 0]
@@ -551,11 +552,11 @@ class HabitatRunner(Runner):
             
             self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:,a,:,:,:]
             self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:,a,:,:,:]))).numpy()
-            global_goal_map[:, a], self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
+            # global_goal_map[:, a], self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
         
         for a in range(self.num_agents): # TODO @CHAO
             self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
-            #self.global_input['global_merge_goal'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
+            # self.global_input['global_merge_goal'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
             self.global_input['gt_map'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:, a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
         
         self.first_compute = False
@@ -597,7 +598,7 @@ class HabitatRunner(Runner):
     def compute_global_input(self):
         locs = self.local_pose
         self.merge_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
-        global_goal_map = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.full_w, self.full_h), dtype=np.float32)
+        # global_goal_map = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.full_w, self.full_h), dtype=np.float32)
         for a in range(self.num_agents):
             for e in range(self.n_rollout_threads):
                 self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
@@ -607,12 +608,11 @@ class HabitatRunner(Runner):
             self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:, a, :, :, :]
             self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a, :, :, :]))).numpy()
         
-            global_goal_map[:, a], self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
+            # global_goal_map[:, a], self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
         for a in range(self.num_agents):
             self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
-            #self.global_input['global_merge_goal'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
-            
-            self.global_input['gt_map'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:,a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
+            # self.global_input['global_merge_goal'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
+            # self.global_input['gt_map'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:,a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
         
         if self.visualize_input:
             self.visualize_obs(self.fig, self.ax, self.global_input)
@@ -721,22 +721,16 @@ class HabitatRunner(Runner):
 
     def insert_global_policy(self, data):
         rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
-        if self.use_intrinsic_reward:
-            for e in range(self.n_rollout_threads):
+            
+        for e in range(self.n_rollout_threads):
+            if self.use_intrinsic_reward:
                 for agent_id in range(self.num_agents):
                     if self.merge_map[e, agent_id, 1, int(self.trans_point[e, agent_id, 0]), int(self.trans_point[e, agent_id, 1])]>0:
                         rewards[e, agent_id] -= 0.02
-        for e in range(self.n_rollout_threads):
             for key in ['explored_ratio', 'explored_reward', 'merge_explored_ratio', 'merge_explored_reward']:
                 if key in infos[e].keys():
                     self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
-            if 'merge_explored_ratio_step' in infos[e].keys():
-                self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
-            for agent_id in range(self.num_agents):
-                agent_k = "agent{}_explored_ratio_step".format(agent_id)
-                if agent_k in infos[e].keys():
-                    self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
-
+            
         rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
         
@@ -953,6 +947,7 @@ class HabitatRunner(Runner):
 
                 # Obser reward and next obs
                 self.obs, rewards, dones, infos = self.envs.step(actions_env)
+
                 for e in range(self.n_rollout_threads):
                     if 'merge_explored_ratio_step' in infos[e].keys():
                         self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
@@ -960,7 +955,6 @@ class HabitatRunner(Runner):
                             agent_k = "agent{}_explored_ratio_step".format(agent_id)
                             if agent_k in infos[e].keys():
                                 self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
-
                                 
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
