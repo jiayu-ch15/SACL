@@ -53,6 +53,8 @@
   - use_single_network: share base or not
   - use_recurrent_policy: rnn or mlp
   - use_eval: turn on evaluation while training, if True, u need to set "n_eval_rollout_threads"
+  - wandb_name: For example, if your wandb link is https://wandb.ai/mapping, then you need to change wandb_name to "mapping". 
+  - user_name: only control the program name shown in "nvidia-smi".
 
 ## 2. StarCraftII
 
