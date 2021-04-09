@@ -556,6 +556,7 @@ class HabitatRunner(Runner):
             self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:,a,:,:,:]
             self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:,a,:,:,:]))).numpy()
             # global_goal_map[:, a], self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
+            _, self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
         
         for a in range(self.num_agents): # TODO @CHAO
             self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
@@ -612,6 +613,7 @@ class HabitatRunner(Runner):
             self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a, :, :, :]))).numpy()
         
             # global_goal_map[:, a], self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
+            _, self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
         for a in range(self.num_agents):
             self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
             # self.global_input['global_merge_goal'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()

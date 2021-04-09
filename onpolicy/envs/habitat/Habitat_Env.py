@@ -29,8 +29,8 @@ class MultiHabitatEnv(object):
             low=0, high=1, shape=(4, local_w, local_h), dtype='uint8')
         #global_observation_space['global_merge_goal'] = gym.spaces.Box(
             #low=0, high=1, shape=(2, local_w, local_h), dtype='uint8')
-        global_observation_space['gt_map'] = gym.spaces.Box(
-            low=0, high=1, shape=(1, local_w, local_h), dtype='uint8')
+        #global_observation_space['gt_map'] = gym.spaces.Box(
+            #low=0, high=1, shape=(1, local_w, local_h), dtype='uint8')
         global_observation_space['global_orientation'] = gym.spaces.Box(
             low=-1, high=1, shape=(1,), dtype='long')
         global_observation_space['vector'] = gym.spaces.Box(
