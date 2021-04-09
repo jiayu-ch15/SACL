@@ -441,9 +441,9 @@ class HabitatRunner(Runner):
                 print('invaild {} map num: {}/{}'.format(k, (v == self.max_episode_length).sum(), self.n_rollout_threads))
                 self.env_infos['invalid_merge_map_num'].append((v == self.max_episode_length).sum())
                 if (v == self.max_episode_length).sum() > 0:
-                    scene_id = np.argwhere(v == self.max_episode_length)[0]
+                    scene_id = np.argwhere(v == self.max_episode_length).reshape((v == self.max_episode_length).sum())
                     for i in range(len(scene_id)):
-                        print('invaild {} map id: {}\n'.format(k, self.scene_id[scene_id[i]]))
+                        print('invaild {} map id: {}'.format(k, self.scene_id[scene_id[i]]))
                 v_copy = v.copy()
                 v_copy[v == self.max_episode_length] = np.nan
                 self.env_infos[k].append(v)
