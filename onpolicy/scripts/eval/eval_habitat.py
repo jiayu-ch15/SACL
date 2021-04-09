@@ -71,7 +71,6 @@ def parse_args(args, parser):
     parser.add_argument('--use_repeat_penalty',action='store_true', default=False)
     parser.add_argument('--use_complete_reward',action='store_true', default=False)
     parser.add_argument('--use_intrinsic_reward', action='store_true', default=False)
-    parser.add_argument('--use_restrict_map', action='store_true', default=False)
     
 
     # Environment, dataset and episode specifications

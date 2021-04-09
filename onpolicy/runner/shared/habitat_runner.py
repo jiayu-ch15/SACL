@@ -343,7 +343,7 @@ class HabitatRunner(Runner):
 
         # env info
         self.env_infos = {}
-        length = self.eval_episodes
+        length = self.all_args.eval_episodes
         self.env_infos['sum_explored_ratio'] = deque(maxlen=length)
         self.env_infos['sum_explored_reward'] = deque(maxlen=length)
         self.env_infos['sum_merge_explored_ratio'] = deque(maxlen=length)
@@ -814,7 +814,7 @@ class HabitatRunner(Runner):
             torch.save(self.local_policy.state_dict(), str(self.save_dir) + "local_periodic_{}.pt".format(step))
     
     def save_global_model(self, step):
-        if len(self.env_infos["sum_merge_explored_reward"]) >= self.eval_episodes and \
+        if len(self.env_infos["sum_merge_explored_reward"]) >= self.all_args.eval_episodes and \
             (np.mean(self.env_infos["sum_merge_explored_reward"]) >= self.best_gobal_reward):
             self.best_gobal_reward = np.mean(self.env_infos["sum_merge_explored_reward"])
             torch.save(self.trainer.policy.actor.state_dict(), str(self.save_dir) + "/global_actor_best.pt")
