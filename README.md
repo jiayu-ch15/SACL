@@ -318,8 +318,9 @@ git submodule foreach git submodule update
 
 
 ``` 
-pip install -i https://pypi.tuna.tsinghua.edu.cn/simple magnum scikit-image lmdb scikit-learnscikit-fmm yacs imageio-ffmpeg numpy-quaternion numba tqdm gitpython attrs==19.1.0 
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple magnum scikit-image lmdb scikit-learn==0.24.1 scikit-fmm yacs imageio-ffmpeg numpy-quaternion numba tqdm gitpython attrs==19.1.0
 ```
+tips: IF u encounter errors, try to use `--ignore-installed`.
 ```
 cd onpolicy
 git submodule update --init --recursive
