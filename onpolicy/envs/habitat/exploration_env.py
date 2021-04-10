@@ -780,8 +780,6 @@ class Exploration_Env(habitat.RLEnv):
             logger.error("Invalid map: {}/{}".format(self.scene_name, self.episode_no))
             return None
 
-        print(self._env.sim.get_agent_state(agent_id).position.tolist())
-        
         agent_y = self._env.sim.get_agent_state(agent_id).position.tolist()[1]*100.
 
         if self.use_restrict_map:

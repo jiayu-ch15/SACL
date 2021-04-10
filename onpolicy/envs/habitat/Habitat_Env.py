@@ -27,15 +27,18 @@ class MultiHabitatEnv(object):
             low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
         global_observation_space['global_merge_obs'] = gym.spaces.Box(
             low=0, high=1, shape=(4, local_w, local_h), dtype='uint8')
-        #global_observation_space['global_merge_goal'] = gym.spaces.Box(
-            #low=0, high=1, shape=(2, local_w, local_h), dtype='uint8')
-        #global_observation_space['gt_map'] = gym.spaces.Box(
-            #low=0, high=1, shape=(1, local_w, local_h), dtype='uint8')
         global_observation_space['global_orientation'] = gym.spaces.Box(
             low=-1, high=1, shape=(1,), dtype='long')
         global_observation_space['vector'] = gym.spaces.Box(
             low=-1, high=1, shape=(self.num_agents,), dtype='float')
+        # global_observation_space['global_merge_goal'] = gym.spaces.Box(
+        #   low=0, high=1, shape=(2, local_w, local_h), dtype='uint8')
+        share_global_observation_space = global_observation_space.copy()
+        share_global_observation_space['gt_map'] = gym.spaces.Box(
+            low=0, high=1, shape=(1, local_w, local_h), dtype='uint8')
+        
         global_observation_space = gym.spaces.Dict(global_observation_space)
+        share_global_observation_space = gym.spaces.Dict(share_global_observation_space)
 
         self.action_space = []
         self.observation_space = []
@@ -43,7 +46,7 @@ class MultiHabitatEnv(object):
 
         for agent_id in range(self.num_agents):
             self.observation_space.append(global_observation_space)
-            self.share_observation_space.append(global_observation_space)
+            self.share_observation_space.append(share_global_observation_space)
             self.action_space.append(gym.spaces.Box(
                 low=0.0, high=1.0, shape=(2,), dtype=np.float32))
 
