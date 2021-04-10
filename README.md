@@ -53,6 +53,8 @@
   - use_single_network: share base or not
   - use_recurrent_policy: rnn or mlp
   - use_eval: turn on evaluation while training, if True, u need to set "n_eval_rollout_threads"
+  - wandb_name: For example, if your wandb link is https://wandb.ai/mapping, then you need to change wandb_name to "mapping". 
+  - user_name: only control the program name shown in "nvidia-smi".
 
 ## 2. StarCraftII
 
@@ -322,13 +324,16 @@ pip install -i https://pypi.tuna.tsinghua.edu.cn/simple magnum scikit-image lmdb
 cd onpolicy
 git submodule update --init --recursive
 cd habitat/habitat-sim
-python setup.py install --headless
+./build.sh --headless # make sure you use sh file!!!!!!
 cd habitat/habitat-lab
 pip install -e .
 # if you failed to install habitat-api, you can use `build.sh --headless` instead.
 ```
 
-Remember to change the absolute path in `/home/yuchao/project/onpolicy/onpolicy/envs/habitat/habitat-lab/habitat/config/default.py` and `/home/yuchao/project/onpolicy/onpolicy/envs/habitat/habitat-lab/configs/tasks/pointnav_gibson.yaml` files.
+Remember to add PYTHONPATH in your ~/.bashrc file:
+```
+export PYTHONPATH=$PYTHONPATH:/home/yuchao/project/onpolicy/onpolicy/envs/habitat/habitat-sim/
+```
 
 ```
 cd /home/yuchao/project/onpolicy/onpolicy/envs/habitat

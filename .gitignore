@@ -14,10 +14,12 @@ api
 logs
 .nfs*
 *.so
+*.out
 png
 
 gibson/assets/dataset
 docker
 dataset
 data
+pretrained_models
 

@@ -18,7 +18,7 @@ class AgarRunner(Runner):
         super(AgarRunner, self).__init__(config)
 
     def run(self):
-        self.warmup()   
+        self.warmup()
 
         start = time.time()
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
@@ -86,7 +86,7 @@ class AgarRunner(Runner):
                         
                         env_infos.append(env_info)
                 
-                train_infos["average_step_rewards"] = np.mean(self.buffer.rewards)
+                train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
                 self.log_train(train_infos, total_num_steps)
                 self.log_env(env_infos, total_num_steps)
 
@@ -177,9 +177,8 @@ class AgarRunner(Runner):
     @torch.no_grad()
     def render(self):
         envs = self.envs
-        self.all_args.save_gifs = True
-        self.gif_dir = self.run_dir
-        
+        f = str(self.run_dir/'log.txt')
+
         all_frames = []
         for episode in range(self.all_args.render_episodes):
             obs = envs.reset()
@@ -224,11 +223,45 @@ class AgarRunner(Runner):
                     if elapsed < self.all_args.ifi:
                         time.sleep(self.all_args.ifi - elapsed)
 
-            print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
+            render_infos = []
+            with open(f,'a') as file:
+                file.write("\n########## episode no."+str(episode)+' ##########\n')
+            print("\n########## episode no."+str(episode)+' ##########')
+            for agent_id in range(self.num_agents):
+                env_info = {}
 
-        if self.all_args.save_gifs:
-            for i in range(self.num_agents):
-                imageio.mimsave(str(self.gif_dir) + '/render_' + str(i) + '.gif', all_frames[i:len(all_frames):self.num_agents], 'GIF', duration=self.all_args.ifi)
+                env_info['collective_return'] = []
+                env_info['split'] = []
+                env_info['hunt'] = []
+                env_info['attack'] = []
+                env_info['cooperate'] = []
+                env_info['original_return'] = []
+
+                for info in infos:                    
+                    if 'collective_return' in info[agent_id].keys():
+                        env_info['collective_return'].append(info[agent_id]['collective_return']) 
+                    if 'behavior' in info[agent_id].keys():
+                        env_info['split'].append(info[agent_id]['behavior'][0])
+                        env_info['hunt'].append(info[agent_id]['behavior'][1])
+                        env_info['attack'].append(info[agent_id]['behavior'][2])
+                        env_info['cooperate'].append(info[agent_id]['behavior'][3])
+                    if 'o_r' in info[agent_id].keys():
+                        env_info['original_return'].append(info[agent_id]['o_r']) 
+                        
+                env_info['average_episode_reward'] = np.mean(np.sum(np.array(episode_rewards), axis=0))
+                with open(f,'a') as file:
+                    file.write("\n@@@@ agent no."+str(agent_id)+' @@@@\n')
+                print("\n@@@@ agent no."+str(agent_id)+' @@@@')
+                with open(f,'a') as file:
+                    for k,v in env_info.items():
+                        file.write('\n'+str(k)+' : '+str(v)+'\n')
+                print(env_info)
+                render_infos.append(env_info)
+
+
+            if self.all_args.save_gifs:
+                for i in range(self.num_agents):
+                    imageio.mimsave(str(self.gif_dir) + '/render_agent' + str(i) + '_episode' + str(episode) + '.gif', all_frames[i+self.episode_length*episode:i+self.episode_length*(episode+1):self.num_agents], 'GIF', duration=self.all_args.ifi)
             
     @torch.no_grad()
     def eval(self, total_num_steps):
@@ -248,17 +281,15 @@ class AgarRunner(Runner):
             eval_rnn_states = np.array(np.split(_t2n(eval_rnn_states), self.n_eval_rollout_threads))
             
             # Obser reward and next obs
-            eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions)
+            eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions)  
             eval_episode_rewards.append(eval_rewards)
 
             eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
             eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
             eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), 1), dtype=np.float32)
 
-        eval_episode_rewards = np.array(eval_episode_rewards)
         eval_env_infos = {}
-        eval_average_episode_rewards = np.mean(np.sum(eval_episode_rewards, axis=0))
-        eval_env_infos['eval_average_episode_rewards'] = eval_average_episode_rewards
-        print("eval average episode rewards of agent: " + str(eval_average_episode_rewards))
+        eval_env_infos['eval_average_episode_rewards'] = np.mean(eval_episode_rewards)*self.episode_length
+        #print("eval average episode rewards of agent: " + str(eval_average_episode_rewards))
 
         self.log_eval(eval_env_infos, total_num_steps)

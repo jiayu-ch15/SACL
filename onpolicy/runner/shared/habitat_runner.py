@@ -3,7 +3,11 @@ import wandb
 import os
 import gym
 import numpy as np
+import imageio
+from collections import defaultdict, deque
 from itertools import chain
+import matplotlib
+import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
@@ -14,11 +18,18 @@ from onpolicy.runner.shared.base_runner import Runner
 from onpolicy.envs.habitat.model.model import Neural_SLAM_Module, Local_IL_Policy
 from onpolicy.envs.habitat.utils.memory import FIFOMemory
 from onpolicy.algorithms.utils.util import init, check
-
-from collections import defaultdict, deque
+from icecream import ic
 
 def _t2n(x):
     return x.detach().cpu().numpy()
+
+def get_folders(dir, folders):
+    get_dir = os.listdir(dir)
+    for i in get_dir:          
+        sub_dir = os.path.join(dir, i)
+        if os.path.isdir(sub_dir): 
+            folders.append(sub_dir) 
+            get_folders(sub_dir, folders)
 
 class HabitatRunner(Runner):
     def __init__(self, config):
@@ -26,9 +37,7 @@ class HabitatRunner(Runner):
         # init parameters
         self.init_hyper_parameters()
         # init variables
-        self.init_map_variables()
-        # map and pose
-        self.init_map_and_pose() 
+        self.init_map_variables() 
         # global policy
         self.init_global_policy() 
         # local policy
@@ -39,6 +48,13 @@ class HabitatRunner(Runner):
     def warmup(self):
         # reset env
         self.obs, infos = self.envs.reset()
+
+        self.trans = [infos[e]['trans'] for e in range(self.n_rollout_threads)]
+        self.rotation = [infos[e]['rotation'] for e in range(self.n_rollout_threads)]
+        self.scene_id = [infos[e]['scene_id'] for e in range(self.n_rollout_threads)]
+        self.agent_trans = [infos[e]['agent_trans'] for e in range(self.n_rollout_threads)]
+        self.agent_rotation = [infos[e]['agent_rotation'] for e in range(self.n_rollout_threads)]
+        self.explorable_map = [infos[e]['explorable_map'] for e in range(self.n_rollout_threads)]
 
         # Predict map from frame 1:
         self.run_slam_module(self.obs, self.obs, infos)
@@ -63,45 +79,68 @@ class HabitatRunner(Runner):
         self.local_output = self.envs.get_short_term_goal(self.local_input)
         self.local_output = np.array(self.local_output, dtype = np.long)
         
-        self.last_obs = self.obs 
+        self.last_obs = self.obs.copy()
             
         return values, actions, action_log_probs, rnn_states, rnn_states_critic
  
     def run(self):
+        # map and pose
+        self.init_map_and_pose()
+
         values, actions, action_log_probs, rnn_states, rnn_states_critic = self.warmup()   
 
         start = time.time()
-        episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
+        episodes = int(self.num_env_steps) // self.max_episode_length // self.n_rollout_threads
 
         for episode in range(episodes):
-
+            self.init_env_info()
+    
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
-
+            
             for step in range(self.max_episode_length):
+
                 local_step = step % self.num_local_steps
                 global_step = (step // self.num_local_steps) % self.episode_length
+                eval_global_step = step // self.num_local_steps + 1
 
                 del self.last_obs
-                self.last_obs = self.obs
+                self.last_obs = self.obs.copy()
 
                 # Sample actions
                 actions_env = self.compute_local_action()
 
                 # Obser reward and next obs
                 self.obs, rewards, dones, infos = self.envs.step(actions_env)
+
+                for e in range(self.n_rollout_threads):
+                    for key in ['explored_ratio', 'explored_reward', 'merge_explored_ratio', 'merge_explored_reward']:
+                        if key in infos[e].keys():
+                            self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
+                    if 'merge_explored_ratio_step' in infos[e].keys():
+                        self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
+                        for agent_id in range(self.num_agents):
+                            agent_k = "agent{}_explored_ratio_step".format(agent_id)
+                            if agent_k in infos[e].keys():
+                                self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
                               
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
-                self.gobal_masks *= self.local_masks
+                self.global_masks *= self.local_masks
 
                 # Reinitialize variables when episode ends
                 if step == self.max_episode_length - 1:
                     self.init_map_and_pose()
                     del self.last_obs
-                    self.last_obs = self.obs
-                
+                    self.last_obs = self.obs.copy()
+                    self.trans = [infos[e]['trans'] for e in range(self.n_rollout_threads)]
+                    self.rotation = [infos[e]['rotation'] for e in range(self.n_rollout_threads)]
+                    self.agent_trans = [infos[e]['agent_trans'] for e in range(self.n_rollout_threads)]
+                    self.agent_rotation = [infos[e]['agent_rotation'] for e in range(self.n_rollout_threads)]
+                    self.explorable_map = [infos[e]['explorable_map'] for e in range(self.n_rollout_threads)]
+                    self.scene_id = [infos[e]['scene_id'] for e in range(self.n_rollout_threads)]
+
                 # Neural SLAM Module
                 if self.train_slam:
                     self.insert_slam_module(infos)
@@ -117,12 +156,12 @@ class HabitatRunner(Runner):
                     data = rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
                     # insert data into buffer
                     self.insert_global_policy(data)
-                    values, actions, action_log_probs, rnn_states, rnn_states_critic = self.compute_global_goal(step=global_step + 1)
+                    values, actions, action_log_probs, rnn_states, rnn_states_critic = self.compute_global_goal(step = global_step + 1)
 
                 # Local Policy
                 self.compute_local_input(self.local_map)
-                # Output stores local goals as well as the the ground-truth action
 
+                # Output stores local goals as well as the the ground-truth action
                 self.local_output = self.envs.get_short_term_goal(self.local_input)
                 self.local_output = np.array(self.local_output, dtype = np.long)
 
@@ -143,10 +182,15 @@ class HabitatRunner(Runner):
                     self.train_global_policy()
                     
                 # Finish Training
-                torch.set_grad_enabled(False)       
+                torch.set_grad_enabled(False)
+                
             # post process
-            total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
+            total_num_steps = (episode + 1) * self.max_episode_length * self.n_rollout_threads
             
+            self.convert_info()
+            print("average episode merge explored reward is {}".format(np.mean(self.env_infos["sum_merge_explored_reward"])))
+            print("average episode merge explored ratio is {}".format(np.mean(self.env_infos['sum_merge_explored_ratio'])))
+
             # log information
             if episode % self.log_interval == 0:
                 end = time.time()
@@ -160,32 +204,17 @@ class HabitatRunner(Runner):
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
 
-                if self.env_name == "Habitat":
-                    env_infos = {}
-                    for agent_id in range(self.num_agents):
-                        exp_ratio = []
-                        for info in infos:
-                            if 'exp_ratio' in info.keys():
-                                exp_ratio.append(info['exp_ratio'][agent_id])
-                        agent_k = 'agent%i/exp_ratio' % agent_id
-                        env_infos[agent_k] = exp_ratio
-                
-                self.train_global_infos["average_episode_rewards"].append(np.mean(self.buffer.rewards) * self.max_episode_length)
-                print("average episode rewards is {}".format(np.mean(self.train_global_infos["average_episode_rewards"])))
-                self.log_train(self.train_slam_infos, total_num_steps)
-                self.log_train(self.train_local_infos, total_num_steps)
-                self.log_train(self.train_global_infos, total_num_steps)
-                self.log_env(env_infos, total_num_steps)
+                self.log_env(self.train_slam_infos, total_num_steps)
+                self.log_env(self.train_local_infos, total_num_steps)
+                self.log_env(self.train_global_infos, total_num_steps)
+                self.log_env(self.env_infos, total_num_steps)
+                self.log_agent(self.env_infos, total_num_steps)
             
             # save model
             if (episode % self.save_interval == 0 or episode == episodes - 1):
                 self.save_slam_model(total_num_steps)
                 self.save_global_model(total_num_steps)
                 self.save_local_model(total_num_steps)
-
-            # eval
-            if episode % self.eval_interval == 0 and self.use_eval:
-                self.eval(total_num_steps)
 
     def get_local_map_boundaries(self, agent_loc, local_sizes, full_sizes):
         loc_r, loc_c = agent_loc
@@ -239,7 +268,10 @@ class HabitatRunner(Runner):
         self.local_policy_update_freq = self.all_args.local_policy_update_freq
         self.num_local_steps = self.all_args.num_local_steps
         self.max_episode_length = self.all_args.max_episode_length
-        
+        self.render_merge = self.all_args.render_merge
+        self.visualize_input = self.all_args.visualize_input
+        self.use_intrinsic_reward = self.all_args.use_intrinsic_reward
+
     def init_map_variables(self):
         ### Full map consists of 4 channels containing the following:
         ### 1. Obstacle Map
@@ -253,16 +285,16 @@ class HabitatRunner(Runner):
         self.local_w, self.local_h = int(self.full_w / self.global_downscaling), \
                         int(self.full_h / self.global_downscaling)
 
-        # Initializing full and local map
-        self.full_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h))
-        self.local_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.local_w, self.local_h))
-
+        # Initializing full, merge and local map
+        self.full_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
+        self.local_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.local_w, self.local_h), dtype=np.float32)
+        
         # Initial full and local pose
-        self.full_pose = np.zeros((self.n_rollout_threads, self.num_agents, 3))
-        self.local_pose = np.zeros((self.n_rollout_threads, self.num_agents, 3))
+        self.full_pose = np.zeros((self.n_rollout_threads, self.num_agents, 3), dtype=np.float32)
+        self.local_pose = np.zeros((self.n_rollout_threads, self.num_agents, 3), dtype=np.float32)
 
         # Origin of local map
-        self.origins = np.zeros((self.n_rollout_threads, self.num_agents, 3))
+        self.origins = np.zeros((self.n_rollout_threads, self.num_agents, 3), dtype=np.float32)
 
         # Local Map Boundaries
         self.lmb = np.zeros((self.n_rollout_threads, self.num_agents, 4)).astype(int)
@@ -270,14 +302,12 @@ class HabitatRunner(Runner):
         ### Planner pose inputs has 7 dimensions
         ### 1-3 store continuous global agent location
         ### 4-7 store local map boundaries
-        self.planner_pose_inputs = np.zeros((self.n_rollout_threads, self.num_agents, 7))
+        self.planner_pose_inputs = np.zeros((self.n_rollout_threads, self.num_agents, 7), dtype=np.float32)
                
     def init_map_and_pose(self):
-        # self.full_map.fill_(0.) # TODO remove this code
-        # self.full_pose.fill_(0.) # TODO remove this code
-        self.full_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h))
-        self.local_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.local_w, self.local_h))
-
+        self.full_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
+        self.full_pose = np.zeros((self.n_rollout_threads, self.num_agents, 3), dtype=np.float32)
+        self.merge_goal_trace = np.zeros((self.n_rollout_threads, self.full_w, self.full_h), dtype=np.float32)
         self.full_pose[:, :, :2] = self.map_size_cm / 100.0 / 2.0
 
         locs = self.full_pose
@@ -288,7 +318,7 @@ class HabitatRunner(Runner):
                 loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
                                 int(c * 100.0 / self.map_resolution)]
 
-                self.full_map[e, a, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = 1.0
+                self.full_map[e, a, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = a + 1
 
                 self.lmb[e, a] = self.get_local_map_boundaries((loc_r, loc_c),
                                                     (self.local_w, self.local_h),
@@ -304,21 +334,44 @@ class HabitatRunner(Runner):
                 self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
 
     def init_global_policy(self):
-        
         self.best_gobal_reward = -np.inf
+        
+        # ppo network log info
         self.train_global_infos = {}
-        self.train_global_infos['value_loss']= deque(maxlen=1000)
-        self.train_global_infos['policy_loss']= deque(maxlen=1000)
-        self.train_global_infos['dist_entropy'] = deque(maxlen=1000)
-        self.train_global_infos['actor_grad_norm'] = deque(maxlen=1000)
-        self.train_global_infos['critic_grad_norm'] = deque(maxlen=1000)
-        self.train_global_infos['ratio'] = deque(maxlen=1000)
-        self.train_global_infos['average_episode_rewards'] = deque(maxlen=1000)
+        self.train_global_infos['value_loss']= deque(maxlen=10)
+        self.train_global_infos['policy_loss']= deque(maxlen=10)
+        self.train_global_infos['dist_entropy'] = deque(maxlen=10)
+        self.train_global_infos['actor_grad_norm'] = deque(maxlen=10)
+        self.train_global_infos['critic_grad_norm'] = deque(maxlen=10)
+        self.train_global_infos['ratio'] = deque(maxlen=10)
+
+        # env info
+        self.env_infos = {}
+        length = self.all_args.eval_episodes
+        self.env_infos['sum_explored_ratio'] = deque(maxlen=length)
+        self.env_infos['sum_explored_reward'] = deque(maxlen=length)
+        self.env_infos['sum_merge_explored_ratio'] = deque(maxlen=length)
+        self.env_infos['sum_merge_explored_reward'] = deque(maxlen=length)
+        self.env_infos['merge_explored_ratio_step'] = deque(maxlen=length)
+        self.env_infos['invalid_merge_explored_ratio_step_num'] = deque(maxlen=length)
+        self.env_infos['invalid_merge_map_num'] = deque(maxlen=length)
+        self.env_infos['max_sum_merge_explored_ratio'] = deque(maxlen=length)
+        self.env_infos['min_sum_merge_explored_ratio'] = deque(maxlen=length)
+
         self.global_input = {}
         self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
+        self.global_input['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.local_w, self.local_h), dtype=np.float32)
+        # self.global_input['global_merge_goal'] = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.local_w, self.local_h), dtype=np.float32)
+        # self.global_input['gt_map'] = np.zeros((self.n_rollout_threads, self.num_agents, 1, self.local_w, self.local_h), dtype=np.float32)
         self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
-        
-        self.gobal_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
+        self.global_input['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents), dtype=np.float32)
+
+        self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
+        self.global_goal = np.zeros((self.n_rollout_threads, self.num_agents, 2), dtype=np.float32) 
+        self.first_compute = True
+        if self.visualize_input:
+            plt.ion()
+            self.fig, self.ax = plt.subplots(self.num_agents*2, 8, figsize=(10, 2.5), facecolor="whitesmoke")
 
     def init_local_policy(self):
         self.best_local_loss = np.inf
@@ -338,7 +391,8 @@ class HabitatRunner(Runner):
         self.local_policy = Local_IL_Policy(local_observation_space.shape, local_action_space.n,
                                recurrent=self.use_local_recurrent_policy,
                                hidden_size=self.local_hidden_size,
-                               deterministic=self.all_args.use_local_deterministic).to(self.device)
+                               deterministic=self.all_args.use_local_deterministic,
+                               device=self.device)
         
         if self.load_local != "0":
             print("Loading local {}".format(self.load_local))
@@ -359,7 +413,7 @@ class HabitatRunner(Runner):
         self.train_slam_infos['exp_costs'] = deque(maxlen=1000)
         self.train_slam_infos['pose_costs'] = deque(maxlen=1000)
         
-        self.nslam_module = Neural_SLAM_Module(self.all_args).to(self.device)
+        self.nslam_module = Neural_SLAM_Module(self.all_args, device=self.device)
         
         if self.load_slam != "0":
             print("Loading slam {}".format(self.load_slam))
@@ -371,45 +425,146 @@ class HabitatRunner(Runner):
         else:
             self.slam_memory = FIFOMemory(self.slam_memory_size)
             self.slam_optimizer = torch.optim.Adam(self.nslam_module.parameters(), lr=self.slam_lr, eps=self.slam_opti_eps)
+
+    def init_env_info(self):
+        self.env_info = {}
+        self.env_info['sum_explored_ratio'] = np.zeros((self.n_rollout_threads, self.num_agents))
+        self.env_info['sum_explored_reward'] = np.zeros((self.n_rollout_threads, self.num_agents))
+        self.env_info['sum_merge_explored_ratio'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
+        self.env_info['sum_merge_explored_reward'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
+        self.env_info['explored_ratio_step'] = np.ones((self.n_rollout_threads, self.num_agents), dtype=np.float32) * self.max_episode_length
+        self.env_info['merge_explored_ratio_step'] = np.ones((self.n_rollout_threads,), dtype=np.float32) * self.max_episode_length
     
+    def convert_info(self):
+        for k, v in self.env_info.items():
+            if k == "explored_ratio_step":
+                for agent_id in range(self.num_agents):
+                    print("agent{}_{}: {}/{}".format(agent_id, k, np.mean(v[:, agent_id]), self.max_episode_length))
+                print('minimal agent {}: {}/{}'.format(k, np.min(v), self.max_episode_length))
+            elif k == "merge_explored_ratio_step":
+                print('invaild {} map num: {}/{}'.format(k, (v == self.max_episode_length).sum(), self.n_rollout_threads))
+                self.env_infos['invalid_merge_map_num'].append((v == self.max_episode_length).sum())
+                if (v == self.max_episode_length).sum() > 0:
+                    scene_id = np.argwhere(v == self.max_episode_length).reshape((v == self.max_episode_length).sum())
+                    for i in range(len(scene_id)):
+                        print('invaild {} map id: {}'.format(k, self.scene_id[scene_id[i]]))
+                v_copy = v.copy()
+                v_copy[v == self.max_episode_length] = np.nan
+                self.env_infos[k].append(v)
+                print('mean valid {}: {}'.format(k, np.nanmean(v_copy)))
+            else:
+                self.env_infos[k].append(v)
+                if k == 'sum_merge_explored_ratio':
+                    self.env_infos['max_sum_merge_explored_ratio'].append(np.max(v))
+                    self.env_infos['min_sum_merge_explored_ratio'].append(np.min(v))
+                    ic(np.mean(v))
+
     def insert_slam_module(self, infos):
         # Add frames to memory
-        for a in range(self.num_agents):
+        for agent_id in range(self.num_agents):
             for env_idx in range(self.n_rollout_threads):
-                env_poses = infos[env_idx]['sensor_pose'][a]
-                env_gt_fp_projs = np.expand_dims(infos[env_idx]['fp_proj'][a], 0)
-                env_gt_fp_explored = np.expand_dims(infos[env_idx]['fp_explored'][a], 0)
-                env_gt_pose_err = infos[env_idx]['pose_err'][a]
+                env_poses = infos[env_idx]['sensor_pose'][agent_id]
+                env_gt_fp_projs = np.expand_dims(infos[env_idx]['fp_proj'][agent_id], 0)
+                env_gt_fp_explored = np.expand_dims(infos[env_idx]['fp_explored'][agent_id], 0)
+                env_gt_pose_err = infos[env_idx]['pose_err'][agent_id]
                 self.slam_memory.push(
-                    (self.last_obs[env_idx][a], self.obs[env_idx][a], env_poses),
+                    (self.last_obs[env_idx][agent_id], self.obs[env_idx][agent_id], env_poses),
                     (env_gt_fp_projs, env_gt_fp_explored, env_gt_pose_err))
 
     def run_slam_module(self, last_obs, obs, infos, build_maps=True):
         for a in range(self.num_agents):
             poses = np.array([infos[e]['sensor_pose'][a] for e in range(self.n_rollout_threads)])
 
-            _, _, self.local_map[:, a, 0, :, :], self.local_map[:, a, 1, :, :], _, self.local_pose[:,a,:] = \
-                self.nslam_module(last_obs[:,a,:,:,:], obs[:,a,:,:,:], poses, 
+            _, _, self.local_map[:, a, 0, :, :], self.local_map[:, a, 1, :, :], _, self.local_pose[:, a, :] = \
+                self.nslam_module(last_obs[:, a, :, :, :], obs[:, a, :, :, :], poses, 
                                 self.local_map[:, a, 0, :, :],
                                 self.local_map[:, a, 1, :, :], 
-                                self.local_pose[:,a,:],
-                                build_maps=build_maps)
+                                self.local_pose[:, a, :],
+                                build_maps = build_maps)
+    
+    def transform(self, inputs, trans, rotation):
+        trans = check(trans)
+        rotation = check(rotation)
+        merge_map = np.zeros((self.n_rollout_threads, 4, self.full_w, self.full_h), dtype=np.float32)
+        for e in range(self.n_rollout_threads):
+            for agent_id in range(self.num_agents):
+                output = torch.from_numpy(inputs[e, agent_id])
+                n_rotated = F.grid_sample(output.unsqueeze(0).float(), rotation[e][agent_id].float(), align_corners=True)
+                n_map = F.grid_sample(n_rotated.float(), trans[e][agent_id].float(), align_corners=True)
+                agent_merge_map = n_map[0, :, :, :].numpy()
 
+                (index_a, index_b) = np.unravel_index(np.argmax(agent_merge_map[2, :, :], axis=None), agent_merge_map[2, :, :].shape)
+                agent_merge_map[2, :, :] = np.zeros((self.full_h, self.full_w), dtype=np.float32)
+                if self.first_compute:
+                    agent_merge_map[2, index_a - 1: index_a + 2, index_b - 1: index_b + 2] = agent_id + 1
+                else: 
+                    agent_merge_map[2, index_a - 2: index_a + 3, index_b - 2: index_b + 3] = agent_id + 1
+            
+                trace = np.zeros((self.full_h, self.full_w), dtype=np.float32)
+                trace[agent_merge_map[3] > 0.2] = agent_id + 1
+                agent_merge_map[3] = trace
+                merge_map[e] += agent_merge_map
+        return merge_map
+
+    def point_transform(self, point, trans, rotation):
+        trans = check(trans)
+        rotation = check(rotation)
+        point_map = np.zeros((self.n_rollout_threads, self.num_agents, self.full_w, self.full_h), dtype=np.float32)
+        merge_point_map = np.zeros((self.n_rollout_threads, 2, self.full_w, self.full_h), dtype=np.float32)
+        trans_point = np.zeros((self.n_rollout_threads, self.num_agents, 2))
+        for e in range(self.n_rollout_threads):
+            for agent_id in range(self.num_agents):
+                point_map[e, agent_id, int(point[e, agent_id, 0]*self.local_w+self.lmb[e, agent_id, 0]), int(point[e, agent_id, 1]*self.local_h+self.lmb[e, agent_id, 2])] = agent_id+1
+                map = torch.from_numpy(point_map[e, agent_id])
+                n_rotated = F.grid_sample(map.unsqueeze(0).unsqueeze(0).float(), rotation[e][agent_id].float(), align_corners=True)
+                n_map = F.grid_sample(n_rotated.float(), trans[e][agent_id].float(), align_corners=True)
+                point_map[e, agent_id] = n_map[0, 0].numpy()
+                trans_point[e, agent_id, 0], trans_point[e, agent_id, 1] = np.unravel_index(np.argmax(point_map[e, agent_id], axis=None), point_map[e, agent_id].shape)
+                merge_point_map[e, 0, int(trans_point[e, agent_id, 0]-2): int(trans_point[e, agent_id, 0]+3), int(trans_point[e, agent_id, 1]-2): int(trans_point[e, agent_id, 1]+3)] += agent_id+1 
+        self.merge_goal_trace +=  merge_point_map[:, 0]
+        merge_point_map[:, 1] = self.merge_goal_trace
+        return merge_point_map, trans_point
+
+    def exp_transform(self, agent_id, inputs, trans, rotation):
+        trans = check(trans)
+        rotation = check(rotation)
+        explorable_map = np.zeros((self.n_rollout_threads, self.full_w, self.full_h), dtype=np.float32)
+        for e in range(self.n_rollout_threads):
+            output = torch.from_numpy(inputs[e])
+            n_rotated = F.grid_sample(output.unsqueeze(0).unsqueeze(0).float(), rotation[e][agent_id].float(), align_corners=True)
+            n_map = F.grid_sample(n_rotated.float(), trans[e][agent_id].float(), align_corners=True)
+            explorable_map[e] = n_map[0, 0].numpy()
+        return explorable_map
+
+    
     def first_compute_global_input(self):
         locs = self.local_pose
+        self.merge_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
+        # global_goal_map = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.full_w, self.full_h), dtype=np.float32)
         for a in range(self.num_agents):
             for e in range(self.n_rollout_threads):
-                
                 r, c = locs[e, a, 1], locs[e, a, 0]
                 loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
                                 int(c * 100.0 / self.map_resolution)]
 
-                self.local_map[e, a, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = 1.
-                self.global_input['global_orientation'][e, a] = int((locs[e, a, 2] + 180.0) / 5.)
-
+                self.local_map[e, a, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = a + 1
+                self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
+                self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
+            
+            self.merge_map[:, a] = self.transform(self.full_map, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
+            
             self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:,a,:,:,:]
-            self.global_input['global_obs'][:, a, 4:, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:,a,:,:,:]))).numpy()
-
+            self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:,a,:,:,:]))).numpy()
+            # global_goal_map[:, a], self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
+            _, self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
+        
+        for a in range(self.num_agents): # TODO @CHAO
+            self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
+            # self.global_input['global_merge_goal'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
+            # self.global_input['gt_map'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:, a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
+        
+        self.first_compute = False
+        
     def compute_local_action(self):
         local_action = torch.empty(self.n_rollout_threads, self.num_agents)
         for a in range(self.num_agents):
@@ -446,12 +601,27 @@ class HabitatRunner(Runner):
     
     def compute_global_input(self):
         locs = self.local_pose
+        self.merge_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
+        # global_goal_map = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.full_w, self.full_h), dtype=np.float32)
         for a in range(self.num_agents):
             for e in range(self.n_rollout_threads):
-                self.global_input['global_orientation'][e, a] = int((locs[e, a, 2] + 180.0) / 5.)
-            self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:,a,:,:,:]
-            self.global_input['global_obs'][:, a, 4:, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:,a,:,:,:]))).numpy()
+                self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
+                self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
+
+            self.merge_map[:, a] = self.transform(self.full_map, np.array(self.agent_trans)[:, a], np.array(self.agent_rotation)[:,a])
+            self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:, a, :, :, :]
+            self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a, :, :, :]))).numpy()
         
+            # global_goal_map[:, a], self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
+            _, self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
+        for a in range(self.num_agents):
+            self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
+            # self.global_input['global_merge_goal'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
+            # self.global_input['gt_map'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:,a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
+        
+        if self.visualize_input:
+            self.visualize_obs(self.fig, self.ax, self.global_input)
+            
     def compute_global_goal(self, step):
         self.trainer.prep_rollout()
 
@@ -478,11 +648,31 @@ class HabitatRunner(Runner):
         rnn_states_critic = np.array(np.split(_t2n(rnn_states_critic), self.n_rollout_threads))
         
         # Compute planner inputs
+        self.last_global_goal = self.global_goal
         self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(action)), self.n_rollout_threads))
  
         return values, actions, action_log_probs, rnn_states, rnn_states_critic
     
-    
+    def eval_compute_global_goal(self, rnn_states):      
+        self.trainer.prep_rollout()
+
+        concat_obs = {}
+        for key in self.global_input.keys():
+            concat_obs[key] = np.concatenate(self.global_input[key])
+        
+        actions, rnn_states = self.trainer.policy.act(concat_obs,
+                                    np.concatenate(rnn_states),
+                                    np.concatenate(self.global_masks),
+                                    deterministic=False)
+        
+        rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
+
+        # Compute planner inputs
+        self.last_global_goal = self.global_goal
+        self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(actions)), self.n_rollout_threads))
+        
+        return rnn_states
+
     @torch.no_grad()
     def compute(self):
         self.trainer.prep_rollout()
@@ -510,7 +700,7 @@ class HabitatRunner(Runner):
                 loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
                                 int(c * 100.0 / self.map_resolution)]
 
-                self.local_map[e, a, 2:, loc_r - 2:loc_r + 3, loc_c - 2:loc_c + 3] = 1.
+                self.local_map[e, a, 2:, loc_r - 2:loc_r + 3, loc_c - 2:loc_c + 3] = a + 1
 
     def update_map_and_pose(self):
         for e in range(self.n_rollout_threads):
@@ -536,14 +726,22 @@ class HabitatRunner(Runner):
 
     def insert_global_policy(self, data):
         rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
-
+            
+        for e in range(self.n_rollout_threads):
+            if self.use_intrinsic_reward:
+                for agent_id in range(self.num_agents):
+                    if self.merge_map[e, agent_id, 1, int(self.trans_point[e, agent_id, 0]), int(self.trans_point[e, agent_id, 1])]>0:
+                        rewards[e, agent_id] -= 0.02
+            
         rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
         
         self.share_global_input = self.global_input # ! wrong
-        self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
-        self.buffer.insert(self.share_global_input, self.global_input, rnn_states, rnn_states_critic, actions, action_log_probs, values, rewards, self.global_masks)
 
+        self.buffer.insert(self.share_global_input, self.global_input, rnn_states, rnn_states_critic, actions, action_log_probs, values, rewards, self.global_masks)
+        
+        self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
+        
     def train_slam_module(self):
         for _ in range(self.slam_iterations):
             inputs, outputs = self.slam_memory.sample(self.slam_batch_size)
@@ -594,138 +792,220 @@ class HabitatRunner(Runner):
     def train_global_policy(self):
         self.compute()
         train_global_infos = self.train()
+        
         for k, v in train_global_infos.items():
             self.train_global_infos[k].append(v)
 
     def save_slam_model(self, step):
-        if len(self.train_slam_infos['costs']) >= 1000 and np.mean(self.train_slam_infos['costs']) < self.best_slam_cost:
-            self.best_slam_cost = np.mean(self.train_slam_infos['costs'])
-            torch.save(self.nslam_module.state_dict(), str(self.save_dir) + "/slam_best.pt")
-        torch.save(self.nslam_module.state_dict(), str(self.save_dir) + "slam_periodic_{}.pt".format(step))
+        if self.train_slam:
+            if len(self.train_slam_infos['costs']) >= 1000 and np.mean(self.train_slam_infos['costs']) < self.best_slam_cost:
+                self.best_slam_cost = np.mean(self.train_slam_infos['costs'])
+                torch.save(self.nslam_module.state_dict(), str(self.save_dir) + "/slam_best.pt")
+            torch.save(self.nslam_module.state_dict(), str(self.save_dir) + "slam_periodic_{}.pt".format(step))
 
     def save_local_model(self, step):
-        if len(self.train_local_infos['local_policy_loss']) >= 100 and \
+        if self.train_local:
+            if len(self.train_local_infos['local_policy_loss']) >= 100 and \
                 (np.mean(self.train_local_infos['local_policy_loss']) <= self.best_local_loss):
-            self.best_local_loss = np.mean(self.train_local_infos['local_policy_loss'])
-            torch.save(self.local_policy.state_dict(), str(self.save_dir) + "/local_best.pt")
-        torch.save(self.local_policy.state_dict(), str(self.save_dir) + "local_periodic_{}.pt".format(step))
+                self.best_local_loss = np.mean(self.train_local_infos['local_policy_loss'])
+                torch.save(self.local_policy.state_dict(), str(self.save_dir) + "/local_best.pt")
+            torch.save(self.local_policy.state_dict(), str(self.save_dir) + "local_periodic_{}.pt".format(step))
     
     def save_global_model(self, step):
-        if len(self.train_global_infos["average_episode_rewards"]) >= 100 and \
-            (np.mean(self.train_global_infos["average_episode_rewards"]) >= self.best_gobal_reward):
-            self.best_gobal_reward = np.mean(self.train_global_infos["average_episode_rewards"])
+        if len(self.env_infos["sum_merge_explored_reward"]) >= self.all_args.eval_episodes and \
+            (np.mean(self.env_infos["sum_merge_explored_reward"]) >= self.best_gobal_reward):
+            self.best_gobal_reward = np.mean(self.env_infos["sum_merge_explored_reward"])
             torch.save(self.trainer.policy.actor.state_dict(), str(self.save_dir) + "/global_actor_best.pt")
             torch.save(self.trainer.policy.critic.state_dict(), str(self.save_dir) + "/global_critic_best.pt")
-        torch.save(self.trainer.policy.actor.state_dict(), str(self.save_dir) + "global_actor_periodic_{}.pt".format(step))
-        torch.save(self.trainer.policy.critic.state_dict(), str(self.save_dir) + "global_critic_periodic_{}.pt".format(step))
-
-    def log_train(self, train_infos, total_num_steps):
-        for k, v in train_infos.items():
+        torch.save(self.trainer.policy.actor.state_dict(), str(self.save_dir) + "/global_actor_periodic_{}.pt".format(step))
+        torch.save(self.trainer.policy.critic.state_dict(), str(self.save_dir) + "/global_critic_periodic_{}.pt".format(step))
+    
+    def log_env(self, env_infos, total_num_steps):
+        for k, v in env_infos.items():
             if len(v) > 0:
                 if self.use_wandb:
-                    wandb.log({k: np.mean(_t2n(v))}, step=total_num_steps)
+                    wandb.log({k: np.nanmean(v) if k == "merge_explored_ratio_step" else np.mean(v)}, step=total_num_steps)
                 else:
-                    self.writter.add_scalars(k, {k: np.mean(v) if isinstance (v, deque) else v} , total_num_steps)
+                    self.writter.add_scalars(k, {k: np.nanmean(v) if k == "merge_explored_ratio_step" else np.mean(v)}, total_num_steps)
 
-    @torch.no_grad()
-    def eval(self, total_num_steps):
-        eval_episode_rewards = []
-        eval_obs = self.eval_envs.reset()
-
-        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
-        eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
-
-        for eval_step in range(self.max_episode_length):
-            self.trainer.prep_rollout()
-            eval_action, eval_rnn_states = self.trainer.policy.act(np.concatenate(eval_obs),
-                                                np.concatenate(eval_rnn_states),
-                                                np.concatenate(eval_masks),
-                                                deterministic=True)
-            eval_actions = np.array(np.split(_t2n(eval_action), self.n_eval_rollout_threads))
-            eval_rnn_states = np.array(np.split(_t2n(eval_rnn_states), self.n_eval_rollout_threads))
-            
-            if self.eval_envs.action_space[0].__class__.__name__ == 'MultiDiscrete':
-                for i in range(self.eval_envs.action_space[0].shape):
-                    eval_uc_actions_env = np.eye(self.eval_envs.action_space[0].high[i]+1)[eval_actions[:, :, i]]
-                    if i == 0:
-                        eval_actions_env = eval_uc_actions_env
-                    else:
-                        eval_actions_env = np.concatenate((eval_actions_env, eval_uc_actions_env), axis=2)
-            elif self.eval_envs.action_space[0].__class__.__name__ == 'Discrete':
-                eval_actions_env = np.squeeze(np.eye(self.eval_envs.action_space[0].n)[eval_actions], 2)
+    def log_eval(self, eval_infos, total_num_steps):
+        for k, v in eval_infos.items():
+            if self.use_wandb:
+                wandb.log({"eval_{}".format(k): np.mean(v)}, step=total_num_steps)
             else:
-                raise NotImplementedError
+                self.writter.add_scalars("eval_{}".format(k), {"eval_{}".format(k): np.mean(v)}, total_num_steps)
 
-            # Obser reward and next obs
-            eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions_env)
-            eval_episode_rewards.append(eval_rewards)
+    def log_agent(self, train_infos, total_num_steps):
+        for k, v in train_infos.items():
+            if "merge" not in k:
+                for agent_id in range(self.num_agents):
+                    agent_k = "agent{}_".format(agent_id) + k
+                    if self.use_wandb:
+                        wandb.log({agent_k: np.mean(np.array(v)[:,:,agent_id])}, step=total_num_steps)
+                    else:
+                        self.writter.add_scalars(agent_k, {agent_k: np.mean(np.array(v)[:,:,agent_id])}, total_num_steps)
 
-            eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
-            eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
-            eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), 1), dtype=np.float32)
+    def restore(self):
+        if self.use_single_network:
+            policy_model_state_dict = torch.load(str(self.model_dir))
+            self.policy.model.load_state_dict(policy_model_state_dict)
+        else:
+            policy_actor_state_dict = torch.load(str(self.model_dir))
+            self.policy.actor.load_state_dict(policy_actor_state_dict)
+            if not self.all_args.use_render and not self.all_args.use_eval:
+                policy_critic_state_dict = torch.load(str(self.model_dir))
+                self.policy.critic.load_state_dict(policy_critic_state_dict)
+    
+    def render_gifs(self):
+        gif_dir = str(self.run_dir / 'gifs')
 
-        eval_episode_rewards = np.array(eval_episode_rewards)
-        eval_env_infos = {}
-        eval_env_infos['eval_average_episode_rewards'] = np.sum(np.array(eval_episode_rewards), axis=0)
-        print("eval average episode rewards of agent: " + str(eval_average_episode_rewards))
-        self.log_env(eval_env_infos, total_num_steps)
+        folders = []
+        get_folders(gif_dir, folders)
+        filer_folders = [folder for folder in folders if "all" in folder or "merge" in folder]
 
+        for folder in filer_folders:
+            image_names = sorted(os.listdir(folder))
+
+            frames = []
+            for image_name in image_names:
+                if image_name.split('.')[-1] == "gif":
+                    continue
+                image_path = os.path.join(folder, image_name)
+                frame = imageio.imread(image_path)
+                frames.append(frame)
+
+            imageio.mimsave(str(folder) + '/render.gif', frames, duration=self.all_args.ifi)
+    
+    def visualize_obs(self, fig, ax, obs):
+        # individual
+        for agent_id in range(self.num_agents * 2):
+            sub_ax = ax[agent_id]
+            for i in range(8):
+                sub_ax[i].clear()
+                sub_ax[i].set_yticks([])
+                sub_ax[i].set_xticks([])
+                sub_ax[i].set_yticklabels([])
+                sub_ax[i].set_xticklabels([])
+                if agent_id < self.num_agents:
+                    sub_ax[i].imshow(obs['global_obs'][0, agent_id, i])
+                elif i < 4:
+                    sub_ax[i].imshow(obs['global_merge_obs'][0, agent_id-self.num_agents, i])
+                elif i < 5:
+                    #sub_ax[i].imshow(obs['global_merge_goal'][0, agent_id-self.num_agents, i-4])
+                    sub_ax[i].imshow(obs['gt_map'][0, agent_id - self.num_agents, i-4])
+        plt.gcf().canvas.flush_events()
+        # plt.pause(0.1)
+        fig.canvas.start_event_loop(0.001)
+        plt.gcf().canvas.flush_events()
+    
     @torch.no_grad()
-    def render(self):
-        envs = self.envs
-        
-        all_frames = []
-        for episode in range(self.all_args.render_episodes):
-            obs = envs.reset()
-            if self.all_args.save_gifs:
-                image = envs.render('rgb_array', close=False)[0]
-                all_frames.append(image)
+    def eval(self):
+        self.eval_infos = defaultdict(list)
+
+        for episode in range(self.all_args.eval_episodes):
+            # store each episode ratio or reward
+            self.init_env_info()
 
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-            
-            episode_rewards = []
+
+            # init map and pose 
+            self.init_map_and_pose() 
+
+            # reset env
+            self.obs, infos = self.envs.reset()
+            self.trans = [infos[e]['trans'] for e in range(self.n_rollout_threads)]
+            self.rotation = [infos[e]['rotation'] for e in range(self.n_rollout_threads)]
+            self.scene_id = [infos[e]['scene_id'] for e in range(self.n_rollout_threads)]
+            self.agent_trans = [infos[e]['agent_trans'] for e in range(self.n_rollout_threads)]
+            self.agent_rotation = [infos[e]['agent_rotation'] for e in range(self.n_rollout_threads)]
+            self.explorable_map = [infos[e]['explorable_map'] for e in range(self.n_rollout_threads)]
+
+            # Predict map from frame 1:
+            self.run_slam_module(self.obs, self.obs, infos)
+
+            # Compute Global policy input
+            self.first_compute_global_input()
+
+            # Compute Global goal
+            rnn_states = self.eval_compute_global_goal(rnn_states)
+
+            # compute local input
+            self.compute_local_input(self.global_input['global_obs'])
+
+            # Output stores local goals as well as the the ground-truth action
+            self.local_output = self.envs.get_short_term_goal(self.local_input)
+            self.local_output = np.array(self.local_output, dtype = np.long)
             
             for step in range(self.max_episode_length):
-                calc_start = time.time()
+                ic(step)
+                local_step = step % self.num_local_steps
+                global_step = (step // self.num_local_steps) % self.episode_length
+                eval_global_step = step // self.num_local_steps + 1
 
-                self.trainer.prep_rollout()
-                action, rnn_states = self.trainer.policy.act(np.concatenate(obs),
-                                                    np.concatenate(rnn_states),
-                                                    np.concatenate(masks),
-                                                    deterministic=True)
-                actions = np.array(np.split(_t2n(action), self.n_rollout_threads))
-                rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
+                self.last_obs = self.obs.copy()
 
-                if envs.action_space[0].__class__.__name__ == 'MultiDiscrete':
-                    for i in range(envs.action_space[0].shape):
-                        uc_actions_env = np.eye(envs.action_space[0].high[i]+1)[actions[:, :, i]]
-                        if i == 0:
-                            actions_env = uc_actions_env
-                        else:
-                            actions_env = np.concatenate((actions_env, uc_actions_env), axis=2)
-                elif envs.action_space[0].__class__.__name__ == 'Discrete':
-                    actions_env = np.squeeze(np.eye(envs.action_space[0].n)[actions], 2)
-                else:
-                    raise NotImplementedError
+                # Sample actions
+                actions_env = self.compute_local_action()
 
                 # Obser reward and next obs
-                obs, rewards, dones, infos = envs.step(actions_env)
-                episode_rewards.append(rewards)
+                self.obs, rewards, dones, infos = self.envs.step(actions_env)
 
-                rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
-                masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-                masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
+                for e in range(self.n_rollout_threads):
+                    for key in ['explored_ratio', 'explored_reward', 'merge_explored_ratio', 'merge_explored_reward']:
+                        if key in infos[e].keys():
+                            self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
+                    if 'merge_explored_ratio_step' in infos[e].keys():
+                        self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
+                        for agent_id in range(self.num_agents):
+                            agent_k = "agent{}_explored_ratio_step".format(agent_id)
+                            if agent_k in infos[e].keys():
+                                self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
+                                
+                self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+                self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
-                if self.all_args.save_gifs:
-                    image = envs.render('rgb_array', close=False)[0]
-                    all_frames.append(image)
-                    calc_end = time.time()
-                    elapsed = calc_end - calc_start
-                    if elapsed < self.all_args.ifi:
-                        time.sleep(self.all_args.ifi - elapsed)
+                self.global_masks *= self.local_masks
 
-            print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
+                self.run_slam_module(self.last_obs, self.obs, infos)
+                self.update_local_map()
+
+                # Global Policy
+                if local_step == self.num_local_steps - 1:
+                    # For every global step, update the full and local maps
+                    self.update_map_and_pose()
+                    self.compute_global_input()
+                    self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+                    
+                    step_info = {}
+                    step_info['explored_ratio'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
+                    step_info['explored_reward'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
+                    step_info['merge_explored_ratio'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
+                    step_info['merge_explored_reward'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
+                    
+                    for e in range(self.n_rollout_threads):
+                        for key in step_info.keys():
+                            if key in infos[e].keys():
+                                step_info[key][e] = np.array(infos[e][key])
+                                self.env_info["sum_{}".format(key)][e] += np.array(infos[e][key])
+                        
+                    self.log_eval(step_info, step)
+                                
+                    # Compute Global goal
+                    rnn_states = self.eval_compute_global_goal(rnn_states)
+                    
+                # Local Policy
+                self.compute_local_input(self.local_map)
+
+                # Output stores local goals as well as the the ground-truth action
+                self.local_output = self.envs.get_short_term_goal(self.local_input)
+                self.local_output = np.array(self.local_output, dtype = np.long)
+            
+            self.convert_info()
+            
+        for k, v in self.env_infos.items():
+            print("eval average {}: {}".format(k, np.nanmean(v) if k == 'merge_explored_ratio_step' else np.mean(v)))
 
         if self.all_args.save_gifs:
-            imageio.mimsave(str(self.gif_dir) + 'render.gif', all_frames, duration=self.all_args.ifi)
+            print("generating gifs....")
+            self.render_gifs()
+            print("done!")

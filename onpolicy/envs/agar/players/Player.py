@@ -136,5 +136,5 @@ class Player:
         return max(self.cells, key=lambda c: c.radius)
 
     def mincell(self):
-        return max(self.cells, key=lambda c: c.radius)
+        return min(self.cells, key=lambda c: c.radius)
 

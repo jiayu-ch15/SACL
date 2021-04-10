@@ -13,50 +13,26 @@ import torch
 from onpolicy.config import get_config
 from onpolicy.envs.habitat.Habitat_Env import MultiHabitatEnv
 
-from onpolicy.envs.env_wrappers import InfoSubprocVecEnv, InfoDummyVecEnv
-
-
-def make_train_env(all_args, run_dir):
-    def get_env_fn(rank):
-        def init_env():
-            if all_args.env_name == "Habitat":
-                env = MultiHabitatEnv(args=all_args,
-                                      rank=rank,
-                                      run_dir=run_dir
-                                      )
-            else:
-                print("Can not support the " +
-                      all_args.env_name + "environment.")
-                raise NotImplementedError
-            env.seed(all_args.seed + rank * 1000)
-            return env
-        return init_env
-    if all_args.n_rollout_threads == 1:
-        return InfoDummyVecEnv([get_env_fn(0)])
-    else:
-        return InfoSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
-
-
+from onpolicy.envs.env_wrappers import ChooseInfoSubprocVecEnv, ChooseInfoDummyVecEnv
+    
 def make_eval_env(all_args, run_dir):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "Habitat":
-                env = MultiHabitatEnv(args=all_args,
+                env = MultiHabitatEnv(args=all_args, 
                                       rank=rank,
-                                      run_dir=run_dir
-                                      )
+                                      run_dir=run_dir)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
                 raise NotImplementedError
-            env.seed(all_args.seed * 50000 + rank * 10000)
+            env.seed(all_args.seed + rank * 5000)
             return env
         return init_env
-    if all_args.n_eval_rollout_threads == 1:
-        return InfoDummyVecEnv([get_env_fn(0)])
+    if all_args.n_rollout_threads == 1:
+        return ChooseInfoDummyVecEnv([get_env_fn(0)])
     else:
-        return InfoSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_eval_rollout_threads)])
-
+        return ChooseInfoSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
 def parse_args(args, parser):
     parser.add_argument('--scenario_name', type=str,
@@ -95,7 +71,7 @@ def parse_args(args, parser):
     parser.add_argument('--use_repeat_penalty',action='store_true', default=False)
     parser.add_argument('--use_complete_reward',action='store_true', default=False)
     parser.add_argument('--use_intrinsic_reward', action='store_true', default=False)
-    
+
     # Environment, dataset and episode specifications
     parser.add_argument('-efw', '--env_frame_width', type=int, default=256,
                         help='Frame width (default:84)')
@@ -180,13 +156,14 @@ def main(args):
     print("global episode length is {}. \n".format(all_args.episode_length))
 
     if all_args.algorithm_name == "rmappo" or all_args.algorithm_name == "rmappg":
-        assert (all_args.use_recurrent_policy or all_args.use_naive_recurrent_policy), (
-            "check recurrent policy!")
+        assert (all_args.use_recurrent_policy or all_args.use_naive_recurrent_policy), ("check recurrent policy!")
     elif all_args.algorithm_name == "mappo" or all_args.algorithm_name == "mappg":
-        assert (all_args.use_recurrent_policy ==
-                False and all_args.use_naive_recurrent_policy == False), ("check recurrent policy!")
+        assert (all_args.use_recurrent_policy == False and all_args.use_naive_recurrent_policy == False), ("check recurrent policy!")
     else:
         raise NotImplementedError
+
+    assert all_args.use_eval or all_args.use_render, ("u need to set use_eval or use_render be True")
+    assert not (all_args.model_dir == None or all_args.model_dir == ""), ("set model_dir first")
 
     # cuda
     if all_args.cuda and torch.cuda.is_available():
@@ -224,8 +201,7 @@ def main(args):
         if not run_dir.exists():
             curr_run = 'run1'
         else:
-            exst_run_nums = [int(str(folder.name).split('run')[
-                                 1]) for folder in run_dir.iterdir() if str(folder.name).startswith('run')]
+            exst_run_nums = [int(str(folder.name).split('run')[1]) for folder in run_dir.iterdir() if str(folder.name).startswith('run')]
             if len(exst_run_nums) == 0:
                 curr_run = 'run1'
             else:
@@ -234,8 +210,8 @@ def main(args):
         if not run_dir.exists():
             os.makedirs(str(run_dir))
 
-    setproctitle.setproctitle(str(all_args.algorithm_name) + "-" +
-                              str(all_args.env_name) + "-" + str(all_args.experiment_name) + "@" + str(all_args.user_name))
+    setproctitle.setproctitle(str(all_args.algorithm_name) + "-" + \
+        str(all_args.env_name) + "-" + str(all_args.experiment_name) + "@" + str(all_args.user_name))
 
     # seed
     torch.manual_seed(all_args.seed)
@@ -243,8 +219,8 @@ def main(args):
     np.random.seed(all_args.seed)
 
     # env init
-    envs = make_train_env(all_args, run_dir)
-    eval_envs = make_eval_env(all_args, run_dir) if all_args.use_eval else None
+    envs = make_eval_env(all_args, run_dir)
+    eval_envs = None
     num_agents = all_args.num_agents
 
     config = {
@@ -263,18 +239,15 @@ def main(args):
         from onpolicy.runner.separated.habitat_runner import HabitatRunner as Runner
 
     runner = Runner(config)
-    runner.run()
-
+    runner.eval()
+    
     # post process
     envs.close()
-    if all_args.use_eval and eval_envs is not envs:
-        eval_envs.close()
 
     if all_args.use_wandb:
         run.finish()
     else:
-        runner.writter.export_scalars_to_json(
-            str(runner.log_dir + '/summary.json'))
+        runner.writter.export_scalars_to_json(str(runner.log_dir + '/summary.json'))
         runner.writter.close()
 
 
