@@ -754,7 +754,7 @@ class HabitatRunner(Runner):
         if not self.use_centralized_V:
             self.share_global_input = self.global_input.copy()
 
-        self.buffer.insert(self.share_global_input, self.global_input, rnn_states, rnn_states_critic, actions, action_log_probs, values, self.reward, self.global_masks)
+        self.buffer.insert(self.share_global_input, self.global_input, rnn_states, rnn_states_critic, actions, action_log_probs, values, self.rewards, self.global_masks)
         
         self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
         self.rewards = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
