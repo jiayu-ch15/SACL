@@ -113,6 +113,7 @@ class HabitatRunner(Runner):
 
                 # Obser reward and next obs
                 self.obs, rewards, dones, infos = self.envs.step(actions_env)
+                self.reward += rewards
 
                 for e in range(self.n_rollout_threads):
                     for key in ['explored_ratio', 'explored_reward', 'merge_explored_ratio', 'merge_explored_reward']:
@@ -371,6 +372,8 @@ class HabitatRunner(Runner):
         
         self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
         self.global_goal = np.zeros((self.n_rollout_threads, self.num_agents, 2), dtype=np.float32) 
+        self.reward = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
+
         self.first_compute = True
         if self.visualize_input:
             plt.ion()
@@ -736,13 +739,13 @@ class HabitatRunner(Runner):
                 self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
 
     def insert_global_policy(self, data):
-        rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
+        _, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
             
         for e in range(self.n_rollout_threads):
             if self.use_intrinsic_reward:
                 for agent_id in range(self.num_agents):
                     if self.merge_map[e, agent_id, 1, int(self.trans_point[e, agent_id, 0]), int(self.trans_point[e, agent_id, 1])]>0:
-                        rewards[e, agent_id] -= 0.02
+                        self.reward[e, agent_id] -= 0.02
             
         rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
@@ -750,9 +753,10 @@ class HabitatRunner(Runner):
         if not self.use_centralized_V:
             self.share_global_input = self.global_input.copy()
 
-        self.buffer.insert(self.share_global_input, self.global_input, rnn_states, rnn_states_critic, actions, action_log_probs, values, rewards, self.global_masks)
+        self.buffer.insert(self.share_global_input, self.global_input, rnn_states, rnn_states_critic, actions, action_log_probs, values, self.reward, self.global_masks)
         
         self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
+        self.reward = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
         
     def train_slam_module(self):
         for _ in range(self.slam_iterations):
@@ -961,6 +965,7 @@ class HabitatRunner(Runner):
 
                 # Obser reward and next obs
                 self.obs, rewards, dones, infos = self.envs.step(actions_env)
+                self.reward += rewards
 
                 for e in range(self.n_rollout_threads):
                     for key in ['explored_ratio', 'explored_reward', 'merge_explored_ratio', 'merge_explored_reward']:
@@ -987,6 +992,7 @@ class HabitatRunner(Runner):
                     self.update_map_and_pose()
                     self.compute_global_input()
                     self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+                    self.reward = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                     
                     step_info = {}
                     step_info['explored_ratio'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
