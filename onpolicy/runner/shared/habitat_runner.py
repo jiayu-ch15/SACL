@@ -112,8 +112,8 @@ class HabitatRunner(Runner):
                 actions_env = self.compute_local_action()
 
                 # Obser reward and next obs
-                self.obs, rewards, dones, infos = self.envs.step(actions_env)
-                self.reward += rewards
+                self.obs, reward, dones, infos = self.envs.step(actions_env)
+                self.rewards += reward
 
                 for e in range(self.n_rollout_threads):
                     for key in ['explored_ratio', 'explored_reward', 'merge_explored_ratio', 'merge_explored_reward']:
@@ -155,7 +155,7 @@ class HabitatRunner(Runner):
                     # For every global step, update the full and local maps
                     self.update_map_and_pose()
                     self.compute_global_input()
-                    data = rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
+                    data = dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
                     # insert data into buffer
                     self.insert_global_policy(data)
                     values, actions, action_log_probs, rnn_states, rnn_states_critic = self.compute_global_goal(step = global_step + 1)
@@ -372,7 +372,7 @@ class HabitatRunner(Runner):
         
         self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
         self.global_goal = np.zeros((self.n_rollout_threads, self.num_agents, 2), dtype=np.float32) 
-        self.reward = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
+        self.rewards = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
 
         self.first_compute = True
         if self.visualize_input:
@@ -452,8 +452,11 @@ class HabitatRunner(Runner):
                 self.env_infos['invalid_merge_map_num'].append((v == self.max_episode_length).sum())
                 if (v == self.max_episode_length).sum() > 0:
                     scene_id = np.argwhere(v == self.max_episode_length).reshape((v == self.max_episode_length).sum())
-                    for i in range(len(scene_id)):
-                        print('invaild {} map id: {}'.format(k, self.scene_id[scene_id[i]]))
+                    if self.all_args.use_same_scene:
+                        print('invaild {} map id: {}'.format(k, self.scene_id[scene_id[0]]))
+                    else:
+                        for i in range(len(scene_id)):
+                            print('invaild {} map id: {}'.format(k, self.scene_id[scene_id[i]]))
                 v_copy = v.copy()
                 v_copy[v == self.max_episode_length] = np.nan
                 self.env_infos[k].append(v)
@@ -559,16 +562,16 @@ class HabitatRunner(Runner):
             
             self.merge_map[:, a] = self.transform(self.full_map, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
             
-            self.global_input['global_obs'][:, a, 0:4] = self.local_map[:,a].copy()
-            self.global_input['global_obs'][:, a, 4:8] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:,a,:,:,:]))).numpy()
+            self.global_input['global_obs'][:, a, 0:4] = self.local_map[:, a].copy()
+            self.global_input['global_obs'][:, a, 4:8] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a]))).numpy()
             # global_goal_map[:, a], self.trans_point = self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
-            _, self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
+            _, self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:, a], np.array(self.agent_rotation)[:,a])
         
         for a in range(self.num_agents): # TODO @CHAO
-            self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
+            self.global_input['global_merge_obs'][:, a, 0:4] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
             # self.global_input['global_merge_goal'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
             if self.use_centralized_V:
-                self.share_global_input['gt_map'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:, a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
+                self.share_global_input['gt_map'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:, a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
         
         for key in self.global_input.keys():
             self.share_global_input[key] = self.global_input[key].copy()
@@ -583,10 +586,10 @@ class HabitatRunner(Runner):
             if self.train_local:
                 torch.set_grad_enabled(True)
         
-            action, action_prob, self.local_rnn_states[:,a] =\
-                self.local_policy(self.obs[:,a],
-                                    self.local_rnn_states[:,a],
-                                    self.local_masks[:,a],
+            action, action_prob, self.local_rnn_states[:, a] =\
+                self.local_policy(self.obs[:, a],
+                                    self.local_rnn_states[:, a],
+                                    self.local_masks[:, a],
                                     extras=local_goals)
 
             if self.train_local:
@@ -618,17 +621,17 @@ class HabitatRunner(Runner):
                 self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
                 self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
 
-            self.merge_map[:, a] = self.transform(self.full_map, np.array(self.agent_trans)[:, a], np.array(self.agent_rotation)[:,a])
-            self.global_input['global_obs'][:, a, 0:4, :, :] = self.local_map[:, a, :, :, :]
-            self.global_input['global_obs'][:, a, 4:8, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a, :, :, :]))).numpy()
+            self.merge_map[:, a] = self.transform(self.full_map, np.array(self.agent_trans)[:, a], np.array(self.agent_rotation)[:, a])
+            self.global_input['global_obs'][:, a, 0:4] = self.local_map[:, a]
+            self.global_input['global_obs'][:, a, 4:8] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a]))).numpy()
         
             # global_goal_map[:, a], self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
-            _, self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
+            _, self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:, a])
         for a in range(self.num_agents):
-            self.global_input['global_merge_obs'][:, a, 0:4, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
-            # self.global_input['global_merge_goal'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
+            self.global_input['global_merge_obs'][:, a, 0:4] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
+            # self.global_input['global_merge_goal'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
             if self.use_centralized_V:
-                self.share_global_input['gt_map'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:,a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
+                self.share_global_input['gt_map'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:, a], np.array(self.agent_trans)[:, a], np.array(self.agent_rotation)[:, a])))).numpy()
 
         for key in self.global_input.keys():
             self.share_global_input[key] = self.global_input[key].copy()
@@ -737,13 +740,13 @@ class HabitatRunner(Runner):
                 self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
 
     def insert_global_policy(self, data):
-        _, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
+        dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
             
         for e in range(self.n_rollout_threads):
             if self.use_intrinsic_reward:
                 for agent_id in range(self.num_agents):
                     if self.merge_map[e, agent_id, 1, int(self.trans_point[e, agent_id, 0]), int(self.trans_point[e, agent_id, 1])]>0:
-                        self.reward[e, agent_id] -= 0.02
+                        self.rewards[e, agent_id] -= 0.02
             
         rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
@@ -754,7 +757,7 @@ class HabitatRunner(Runner):
         self.buffer.insert(self.share_global_input, self.global_input, rnn_states, rnn_states_critic, actions, action_log_probs, values, self.reward, self.global_masks)
         
         self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
-        self.reward = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
+        self.rewards = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
         
     def train_slam_module(self):
         for _ in range(self.slam_iterations):
@@ -962,8 +965,7 @@ class HabitatRunner(Runner):
                 actions_env = self.compute_local_action()
 
                 # Obser reward and next obs
-                self.obs, rewards, dones, infos = self.envs.step(actions_env)
-                self.reward += rewards
+                self.obs, reward, dones, infos = self.envs.step(actions_env)
 
                 for e in range(self.n_rollout_threads):
                     for key in ['explored_ratio', 'explored_reward', 'merge_explored_ratio', 'merge_explored_reward']:
@@ -990,7 +992,6 @@ class HabitatRunner(Runner):
                     self.update_map_and_pose()
                     self.compute_global_input()
                     self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-                    self.reward = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                     
                     step_info = {}
                     step_info['explored_ratio'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
