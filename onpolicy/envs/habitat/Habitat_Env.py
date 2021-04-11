@@ -73,7 +73,7 @@ class MultiHabitatEnv(object):
         if len(scenes) > 0:
             config_env.DATASET.CONTENT_SCENES = scenes[rank *
                                                        scene_split_size: (rank + 1) * scene_split_size]
-
+        config_env.DATASET.USE_SAME_SCENE = args.use_same_scene
         if args.use_same_scene:
             config_env.DATASET.CONTENT_SCENES = scenes[args.scene_id:args.scene_id+1]
 
