@@ -352,7 +352,7 @@ class HabitatRunner(Runner):
         
         self.env_infos['sum_explored_ratio'] = deque(maxlen=length)
         self.env_infos['sum_explored_reward'] = deque(maxlen=length)
-        self.env_infos['sum_mer_explored_ratio'] = deque(maxlen=length)
+        self.env_infos['sum_mer_explored_reward'] = deque(maxlen=length)
         self.env_infos['sum_merge_explored_ratio'] = deque(maxlen=length)
         self.env_infos['sum_merge_explored_reward'] = deque(maxlen=length)
         self.env_infos['merge_explored_ratio_step'] = deque(maxlen=length)
