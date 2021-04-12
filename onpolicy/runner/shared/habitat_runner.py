@@ -337,21 +337,22 @@ class HabitatRunner(Runner):
 
     def init_global_policy(self):
         self.best_gobal_reward = -np.inf
-        
+        length = self.all_args.eval_episodes
         # ppo network log info
         self.train_global_infos = {}
-        self.train_global_infos['value_loss']= deque(maxlen=10)
-        self.train_global_infos['policy_loss']= deque(maxlen=10)
-        self.train_global_infos['dist_entropy'] = deque(maxlen=10)
-        self.train_global_infos['actor_grad_norm'] = deque(maxlen=10)
-        self.train_global_infos['critic_grad_norm'] = deque(maxlen=10)
-        self.train_global_infos['ratio'] = deque(maxlen=10)
+        self.train_global_infos['value_loss']= deque(maxlen=length)
+        self.train_global_infos['policy_loss']= deque(maxlen=length)
+        self.train_global_infos['dist_entropy'] = deque(maxlen=length)
+        self.train_global_infos['actor_grad_norm'] = deque(maxlen=length)
+        self.train_global_infos['critic_grad_norm'] = deque(maxlen=length)
+        self.train_global_infos['ratio'] = deque(maxlen=length)
 
         # env info
         self.env_infos = {}
-        length = self.all_args.eval_episodes
+        
         self.env_infos['sum_explored_ratio'] = deque(maxlen=length)
         self.env_infos['sum_explored_reward'] = deque(maxlen=length)
+        self.env_infos['sum_mer_explored_ratio'] = deque(maxlen=length)
         self.env_infos['sum_merge_explored_ratio'] = deque(maxlen=length)
         self.env_infos['sum_merge_explored_reward'] = deque(maxlen=length)
         self.env_infos['merge_explored_ratio_step'] = deque(maxlen=length)
@@ -435,6 +436,7 @@ class HabitatRunner(Runner):
     def init_env_info(self):
         self.env_info = {}
         self.env_info['sum_explored_ratio'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
+        self.env_info['sum_mer_explored_reward'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
         self.env_info['sum_explored_reward'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
         self.env_info['sum_merge_explored_ratio'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
         self.env_info['sum_merge_explored_reward'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
@@ -741,13 +743,15 @@ class HabitatRunner(Runner):
 
     def insert_global_policy(self, data):
         dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
-            
+    
         for e in range(self.n_rollout_threads):
             if self.use_intrinsic_reward:
                 for agent_id in range(self.num_agents):
                     if self.merge_map[e, agent_id, 1, int(self.trans_point[e, agent_id, 0]), int(self.trans_point[e, agent_id, 1])]>0:
                         self.rewards[e, agent_id] -= 0.02
-            
+        
+        self.env_info['sum_mer_explored_reward'] += self.rewards[:,:,0]
+        
         rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
         

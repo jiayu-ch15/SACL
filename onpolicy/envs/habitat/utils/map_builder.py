@@ -30,15 +30,11 @@ class MapBuilder(object):
 
         self.agent_height = params['agent_height']
         self.agent_view_angle = params['agent_view_angle']
-        self.timestep = 0
+        self.timestep = -1
         self.num_local_steps = params['num_local_steps']
         return
 
-    def update_map(self, depth, current_pose):
-        if self.timestep % self.num_local_steps == 0:
-            self.current_explored_map = np.zeros((self.map_size_cm // self.resolution,
-                             self.map_size_cm // self.resolution,
-                             len(self.z_bins) + 1), dtype=np.float32)
+    def update_map(self, depth, current_pose):  
         self.timestep  += 1
         with np.errstate(invalid="ignore"):
             depth[depth > self.vision_range * self.resolution] = np.NaN
@@ -89,6 +85,10 @@ class MapBuilder(object):
         current_explored_gt = self.current_explored_map.sum(2)
         current_explored_gt[current_explored_gt>1] = 1.0
 
+        if self.timestep % self.num_local_steps == 0:
+            self.current_explored_map = np.zeros((self.map_size_cm // self.resolution,
+                                self.map_size_cm // self.resolution,
+                                len(self.z_bins) + 1), dtype=np.float32) 
         return agent_view_cropped, map_gt, agent_view_explored, explored_gt, current_explored_gt
 
     def get_st_pose(self, current_loc):
@@ -103,6 +103,10 @@ class MapBuilder(object):
 
     def reset_map(self, map_size):
         self.map_size_cm = map_size
+
+        self.current_explored_map = np.zeros((self.map_size_cm // self.resolution,
+                                self.map_size_cm // self.resolution,
+                                len(self.z_bins) + 1), dtype=np.float32) 
 
         self.map = np.zeros((self.map_size_cm // self.resolution,
                              self.map_size_cm // self.resolution,
