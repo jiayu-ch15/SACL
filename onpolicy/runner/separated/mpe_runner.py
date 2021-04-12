@@ -15,7 +15,6 @@ def _t2n(x):
 class MPERunner(Runner):
     def __init__(self, config):
         super(MPERunner, self).__init__(config)
-        import pdb; pdb.set_trace()
        
     def run(self):
         self.warmup()   
@@ -86,7 +85,7 @@ class MPERunner(Runner):
         for o in obs:
             share_obs.append(list(chain(*o)))
         share_obs = np.array(share_obs)
-        
+
         for agent_id in range(self.num_agents):
             if not self.use_centralized_V:
                 share_obs = np.array(list(obs[:, agent_id]))
