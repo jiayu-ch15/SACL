@@ -22,7 +22,7 @@ class HumanRunner(Runner):
 
     def load_prey_model(self):
         # policy network
-        from onpolicy.envs.mpe.policy.Policy import PreyPolicy
+        from onpolicy.envs.human.prey_policy.Policy import PreyPolicy
         self.prey_policy = PreyPolicy(self.all_args,
                             self.envs.observation_space[-1],
                             self.envs.action_space[-1],

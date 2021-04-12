@@ -59,7 +59,7 @@ def parse_args(args, parser):
     parser.add_argument('--num_adversaries', type=int,
                         default=3, help="number of players")
     # pretrained parameters
-    parser.add_argument("--prey_model_dir", type=str, default=None, help="by default None. set the path to pretrained model.")
+    parser.add_argument("--prey_model_dir", type=str, default="/home/yuchao/project/onpolicy/onpolicy/envs/human/prey_policy/", help="by default None. set the path to pretrained model.")
 
     all_args = parser.parse_known_args(args)[0]
 
