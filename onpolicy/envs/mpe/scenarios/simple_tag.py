@@ -5,12 +5,13 @@ from onpolicy.envs.mpe.scenario import BaseScenario
 class Scenario(BaseScenario):
     def make_world(self, args):
         world = World()
+        world.world_length = args.episode_length
         # set any world properties first
         world.dim_c = 2
-        num_good_agents = args.num_good_agents#1
-        num_adversaries = args.num_adversaries#3
+        num_good_agents = args.num_good_agents # 1
+        num_adversaries = args.num_adversaries # 3
         num_agents = num_adversaries + num_good_agents
-        num_landmarks = args.num_landmarks#2
+        num_landmarks = args.num_landmarks # 2
         # add agents
         world.agents = [Agent() for i in range(num_agents)]
         for i, agent in enumerate(world.agents):
@@ -20,7 +21,7 @@ class Scenario(BaseScenario):
             agent.adversary = True if i < num_adversaries else False
             agent.size = 0.075 if agent.adversary else 0.05
             agent.accel = 3.0 if agent.adversary else 4.0
-            #agent.accel = 20.0 if agent.adversary else 25.0
+            # agent.accel = 20.0 if agent.adversary else 25.0
             agent.max_speed = 1.0 if agent.adversary else 1.3
         # add landmarks
         world.landmarks = [Landmark() for i in range(num_landmarks)]
@@ -62,7 +63,6 @@ class Scenario(BaseScenario):
         else:
             return 0
 
-
     def is_collision(self, agent1, agent2):
         delta_pos = agent1.state.p_pos - agent2.state.p_pos
         dist = np.sqrt(np.sum(np.square(delta_pos)))
@@ -76,7 +76,6 @@ class Scenario(BaseScenario):
     # return all adversarial agents
     def adversaries(self, world):
         return [agent for agent in world.agents if agent.adversary]
-
 
     def reward(self, agent, world):
         # Agents are rewarded based on minimum agent distance to each landmark

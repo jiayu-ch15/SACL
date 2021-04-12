@@ -20,6 +20,7 @@ class Scenario(BaseScenario):
 
     def make_world(self,args):
         world = World()
+        world.world_length = args.episode_length
         # set any world properties first
         num_agents = args.num_agents#3
         num_adversaries = 1

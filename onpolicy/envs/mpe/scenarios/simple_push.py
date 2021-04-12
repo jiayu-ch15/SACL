@@ -11,6 +11,7 @@ import random
 class Scenario(BaseScenario):
     def make_world(self, args):
         world = World()
+        world.world_length = args.episode_length
         # set any world properties first
         world.dim_c = 2
         num_agents = args.num_agents#2

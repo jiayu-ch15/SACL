@@ -5,6 +5,7 @@ from onpolicy.envs.mpe.scenario import BaseScenario
 class Scenario(BaseScenario):
     def make_world(self,args):
         world = World()
+        world.world_length = args.episode_length
         # set any world properties first
         world.dim_c = 4
         #world.damping = 1

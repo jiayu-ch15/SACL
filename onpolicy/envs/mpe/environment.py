@@ -41,14 +41,11 @@ class MultiAgentEnv(gym.Env):
         # if true, action is a number 0...N, otherwise action is a one-hot N-dimensional vector
         self.discrete_action_input = False
         # if true, even the action is continuous, action will be performed discretely
-        self.force_discrete_action = world.discrete_action if hasattr(
-            world, 'discrete_action') else False
-        # in this env, force_discrete_action == False��because world do not have discrete_action
+        self.force_discrete_action = world.discrete_action if hasattr(world, 'discrete_action') else False
+        # in this env, force_discrete_action == False because world do not have discrete_action
 
         # if true, every agent has the same reward
-        self.shared_reward = world.collaborative if hasattr(
-            world, 'collaborative') else False
-        #self.shared_reward = False
+        self.shared_reward = world.collaborative if hasattr(world, 'collaborative') else False
         self.time = 0
 
         # configure spaces
@@ -135,8 +132,8 @@ class MultiAgentEnv(gym.Env):
             info_n.append(info)
 
         # all agents get total reward in cooperative case, if shared reward, all agents have the same reward, and reward is sum
-        reward = np.sum(reward_n)
         if self.shared_reward:
+            reward = np.sum(reward_n)
             reward_n = [[reward]] * self.n
 
         if self.post_step_callback is not None:
