@@ -11,14 +11,14 @@ import torch
 
 from onpolicy.config import get_config
 
-from onpolicy.envs.mpe.MPE_env import MPEEnv
+from onpolicy.envs.human.Human_env import HumanEnv
 from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
 
 def make_train_env(all_args):
     def get_env_fn(rank):
         def init_env():
-            if all_args.env_name == "MPE":
-                env = MPEEnv(all_args)
+            if all_args.env_name == "Human":
+                env = HumanEnv(all_args)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
@@ -35,8 +35,8 @@ def make_train_env(all_args):
 def make_eval_env(all_args):
     def get_env_fn(rank):
         def init_env():
-            if all_args.env_name == "MPE":
-                env = MPEEnv(all_args)
+            if all_args.env_name == "Human":
+                env = HumanEnv(all_args)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
@@ -58,6 +58,8 @@ def parse_args(args, parser):
                         default=1, help="number of players")
     parser.add_argument('--num_adversaries', type=int,
                         default=3, help="number of players")
+    # pretrained parameters
+    parser.add_argument("--prey_model_dir", type=str, default=None, help="by default None. set the path to pretrained model.")
 
     all_args = parser.parse_known_args(args)[0]
 
@@ -74,9 +76,6 @@ def main(args):
         assert (all_args.use_recurrent_policy == False and all_args.use_naive_recurrent_policy == False), ("check recurrent policy!")
     else:
         raise NotImplementedError
-
-    assert (all_args.share_policy == True and all_args.scenario_name == 'simple_tag') == False, (
-        "The simple_tag scenario can not use shared policy. Please check the config.py.")
 
     # cuda
     if all_args.cuda and torch.cuda.is_available():
@@ -136,22 +135,22 @@ def main(args):
     eval_envs = make_eval_env(all_args) if all_args.use_eval else None
     num_good_agents = all_args.num_good_agents
     num_adversaries = all_args.num_adversaries
-    num_agents = num_good_agents + num_adversaries
+    # num_agents = num_good_agents + num_adversaries
 
     config = {
         "all_args": all_args,
         "envs": envs,
         "eval_envs": eval_envs,
-        "num_agents": num_agents,
+        "num_agents": num_adversaries,
         "device": device,
         "run_dir": run_dir
     }
 
     # run experiments
     if all_args.share_policy:
-        from onpolicy.runner.shared.mpe_runner import MPERunner as Runner
+        from onpolicy.runner.shared.human_runner import HumanRunner as Runner
     else:
-        from onpolicy.runner.separated.mpe_runner import MPERunner as Runner
+        from onpolicy.runner.separated.human_runner import HumanRunner as Runner
 
     runner = Runner(config)
     runner.run()
