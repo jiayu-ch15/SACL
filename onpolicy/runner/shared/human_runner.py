@@ -50,9 +50,9 @@ class HumanRunner(Runner):
                 values, actions, action_log_probs, rnn_states, rnn_states_critic, actions_env = self.collect(step)
                     
                 # Obser reward and next obs
-                dict_obs, dict_rewards, dict_dones, infos = self.envs.step(actions_env)
+                dict_obs, dict_rewards, dones, infos = self.envs.step(actions_env)
                 
-                obs, rewards, dones, self.prey_obs = self._convert(dict_obs, dict_rewards, dict_dones)
+                obs, rewards, self.prey_obs = self._convert(dict_obs, dict_rewards)
 
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
 
@@ -102,17 +102,15 @@ class HumanRunner(Runner):
             if episode % self.eval_interval == 0 and self.use_eval:
                 self.eval(total_num_steps)
 
-    def _convert(self, dict_obs, dict_rewards, dict_dones):
+    def _convert(self, dict_obs, dict_rewards):
         prey_obs = []
         predator_obs = []
         rewards = []
-        dones = []
-        for o,r,d in zip(dict_obs, dict_rewards, dict_dones):
+        for o,r in zip(dict_obs, dict_rewards):
             prey_obs.append(np.array(o['prey']))
             predator_obs.append(np.array(o['predator']))
             rewards.append(np.array(r['predator']))
-            dones.append(np.array(d['predator']))
-        return np.array(predator_obs), np.array(rewards), np.array(dones), np.array(prey_obs)
+        return np.array(predator_obs), np.array(rewards), np.array(prey_obs)
 
     def _convert_obs(self, dict_obs):
         prey_obs = []
@@ -232,9 +230,9 @@ class HumanRunner(Runner):
                 raise NotImplementedError
 
             # Obser reward and next obs
-            eval_dict_obs, eval_dict_rewards, eval_dict_dones, eval_infos = self.eval_envs.step(eval_actions_env)
+            eval_dict_obs, eval_dict_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions_env)
             
-            eval_obs, eval_rewards, eval_dones, eval_prey_obs = self._convert(eval_dict_obs, eval_dict_rewards, eval_dict_dones)
+            eval_obs, eval_rewards, eval_prey_obs = self._convert(eval_dict_obs, eval_dict_rewards)
             eval_episode_rewards.append(eval_rewards)
 
             eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
@@ -257,8 +255,7 @@ class HumanRunner(Runner):
             obs, prey_obs = self._convert_obs(dict_obs)
 
             if self.all_args.save_gifs:
-                image = envs.render('rgb_array')[0]
-                print(image.shape)
+                image = envs.render('rgb_array')[0][0]
                 all_frames.append(image)
 
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
@@ -298,8 +295,8 @@ class HumanRunner(Runner):
                     raise NotImplementedError
 
                 # Obser reward and next obs
-                dict_obs, dict_rewards, dict_dones, infos = envs.step(actions_env)
-                obs, rewards, dones, prey_obs = self._convert(dict_obs, dict_rewards, dict_dones)
+                dict_obs, dict_rewards, dones, infos = envs.step(actions_env)
+                obs, rewards, prey_obs = self._convert(dict_obs, dict_rewards)
                 episode_rewards.append(rewards)
 
                 rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
@@ -307,7 +304,7 @@ class HumanRunner(Runner):
                 masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
                 if self.all_args.save_gifs:
-                    image = envs.render('rgb_array')[0]
+                    image = envs.render('rgb_array')[0][0]
                     all_frames.append(image)
                     calc_end = time.time()
                     elapsed = calc_end - calc_start
@@ -317,4 +314,4 @@ class HumanRunner(Runner):
             print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
 
         if self.all_args.save_gifs:
-            imageio.mimsave(str(self.gif_dir) + 'render.gif', all_frames, duration=self.all_args.ifi)
+            imageio.mimsave(str(self.gif_dir) + '/render.gif', all_frames, duration=self.all_args.ifi)

@@ -148,7 +148,7 @@ class MultiAgentEnv(gym.Env):
         if self.post_step_callback is not None:
             self.post_step_callback(self.world)
 
-        return obs_n, reward_n, done_n, info_n
+        return obs_n, reward_n, done_n['predator'], info_n
 
     def reset(self):
         self.current_step = 0
@@ -414,7 +414,7 @@ class MultiAgentEnv(gym.Env):
 
             # render to display or array
             results.append(self.viewers[i].render(
-                return_rgb_array=mode == 'rgb_array'))
+                return_rgb_array = mode == 'rgb_array'))
 
         return results
 
