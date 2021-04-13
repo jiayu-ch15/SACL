@@ -18,7 +18,7 @@ class HumanRunner(Runner):
         super(HumanRunner, self).__init__(config)
 
         # load good agent model
-        if self.all_args.prey_model_dir is not None:
+        if self.all_args.prey_model_dir is not None and not self.all_args.use_fixed_prey:
             self.load_prey_model()
 
     def load_prey_model(self):
@@ -39,8 +39,9 @@ class HumanRunner(Runner):
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
 
         for episode in range(episodes):
-            self.prey_rnn_states = np.zeros((self.n_rollout_threads, self.all_args.num_good_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            self.prey_masks = np.ones((self.n_rollout_threads, self.all_args.num_good_agents, 1), dtype=np.float32)
+            if not self.all_args.use_fixed_prey:
+                self.prey_rnn_states = np.zeros((self.n_rollout_threads, self.all_args.num_good_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+                self.prey_masks = np.ones((self.n_rollout_threads, self.all_args.num_good_agents, 1), dtype=np.float32)
         
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
@@ -106,7 +107,7 @@ class HumanRunner(Runner):
         prey_obs = []
         predator_obs = []
         rewards = []
-        for o,r in zip(dict_obs, dict_rewards):
+        for o, r in zip(dict_obs, dict_rewards):
             prey_obs.append(np.array(o['prey']))
             predator_obs.append(np.array(o['predator']))
             rewards.append(np.array(r['predator']))
@@ -146,29 +147,32 @@ class HumanRunner(Runner):
                             np.concatenate(self.buffer.rnn_states[step]),
                             np.concatenate(self.buffer.rnn_states_critic[step]),
                             np.concatenate(self.buffer.masks[step]))
-        prey_action, prey_rnn_states = self.prey_policy.act(np.concatenate(self.prey_obs),
-                                                    np.concatenate(self.prey_rnn_states),
-                                                    np.concatenate(self.prey_masks),
-                                                    deterministic=True)
+        if not self.all_args.use_fixed_prey:
+            prey_action, prey_rnn_states = self.prey_policy.act(np.concatenate(self.prey_obs),
+                                                        np.concatenate(self.prey_rnn_states),
+                                                        np.concatenate(self.prey_masks),
+                                                        deterministic=True)
+            self.prey_rnn_states = np.array(np.split(_t2n(prey_rnn_states), self.n_rollout_threads))
+        else:
+            prey_action = torch.zeros([self.n_rollout_threads, self.all_args.num_good_agents], dtype=int).to(self.device)
         # [self.envs, agents, dim]
         values = np.array(np.split(_t2n(value), self.n_rollout_threads))
         actions = np.array(np.split(_t2n(action), self.n_rollout_threads))
+        prey_actions = np.array(np.split(_t2n(prey_action), self.n_rollout_threads))
         action_log_probs = np.array(np.split(_t2n(action_log_prob), self.n_rollout_threads))
         rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
-        self.prey_rnn_states = np.array(np.split(_t2n(prey_rnn_states), self.n_rollout_threads))
         rnn_states_critic = np.array(np.split(_t2n(rnn_states_critic), self.n_rollout_threads))
         # rearrange action
-        action_env = torch.cat([action, prey_action])
-        actions_env = np.array(np.split(_t2n(action_env), self.n_rollout_threads))
+        tmp_actions = np.concatenate([actions, prey_actions], axis=1)
         if self.envs.action_space[0].__class__.__name__ == 'MultiDiscrete':
             for i in range(self.envs.action_space[0].shape):
-                uc_actions_env = np.eye(self.envs.action_space[0].high[i] + 1)[actions_env[:, :, i]]
+                uc_actions_env = np.eye(self.envs.action_space[0].high[i] + 1)[tmp_actions[:, :, i]]
                 if i == 0:
                     actions_env = uc_actions_env
                 else:
                     actions_env = np.concatenate((actions_env, uc_actions_env), axis=2)
         elif self.envs.action_space[0].__class__.__name__ == 'Discrete':
-            actions_env = np.squeeze(np.eye(self.envs.action_space[0].n)[actions_env], 2)
+            actions_env = np.squeeze(np.eye(self.envs.action_space[0].n)[tmp_actions], 2)
         else:
             raise NotImplementedError
 
@@ -199,33 +203,39 @@ class HumanRunner(Runner):
 
         eval_rnn_states = np.zeros((self.n_eval_rollout_threads, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
-        eval_prey_rnn_states = np.zeros((self.n_eval_rollout_threads, self.all_args.num_good_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
-        eval_prey_masks = np.ones((self.n_eval_rollout_threads, self.all_args.num_good_agents, 1), dtype=np.float32)
-        
+        if not self.all_args.use_fixed_prey:
+            eval_prey_rnn_states = np.zeros((self.n_eval_rollout_threads, self.all_args.num_good_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            eval_prey_masks = np.ones((self.n_eval_rollout_threads, self.all_args.num_good_agents, 1), dtype=np.float32)
+            
         for eval_step in range(self.episode_length):
             self.trainer.prep_rollout()
             eval_action, eval_rnn_states = self.trainer.policy.act(np.concatenate(eval_obs),
                                                 np.concatenate(eval_rnn_states),
                                                 np.concatenate(eval_masks),
                                                 deterministic=True)
-            eval_prey_action, eval_prey_rnn_states = self.prey_policy.act(np.concatenate(eval_prey_obs),
+            if not self.all_args.use_fixed_prey:
+                eval_prey_action, eval_prey_rnn_states = self.prey_policy.act(np.concatenate(eval_prey_obs),
                                                 np.concatenate(eval_prey_rnn_states),
                                                 np.concatenate(eval_prey_masks),
                                                 deterministic=True)
-            eval_action = torch.cat([eval_action, eval_prey_action])
+                eval_prey_rnn_states = np.array(np.split(_t2n(eval_prey_rnn_states), self.n_eval_rollout_threads))
+            else:
+                eval_prey_action = torch.zeros([self.n_eval_rollout_threads, self.all_args.num_good_agents], dtype=int).to(self.device)
+            
             eval_actions = np.array(np.split(_t2n(eval_action), self.n_eval_rollout_threads))
+            eval_prey_actions = np.array(np.split(_t2n(eval_prey_action), self.n_eval_rollout_threads))
+            tmp_eval_actions = np.concatenate([eval_actions, eval_prey_actions], axis=1)
             eval_rnn_states = np.array(np.split(_t2n(eval_rnn_states), self.n_eval_rollout_threads))
-            eval_prey_rnn_states = np.array(np.split(_t2n(eval_prey_rnn_states), self.n_eval_rollout_threads))
             
             if self.eval_envs.action_space[0].__class__.__name__ == 'MultiDiscrete':
                 for i in range(self.eval_envs.action_space[0].shape):
-                    eval_uc_actions_env = np.eye(self.eval_envs.action_space[0].high[i]+1)[eval_actions[:, :, i]]
+                    eval_uc_actions_env = np.eye(self.eval_envs.action_space[0].high[i]+1)[tmp_eval_actions[:, :, i]]
                     if i == 0:
                         eval_actions_env = eval_uc_actions_env
                     else:
                         eval_actions_env = np.concatenate((eval_actions_env, eval_uc_actions_env), axis=2)
             elif self.eval_envs.action_space[0].__class__.__name__ == 'Discrete':
-                eval_actions_env = np.squeeze(np.eye(self.eval_envs.action_space[0].n)[eval_actions], 2)
+                eval_actions_env = np.squeeze(np.eye(self.eval_envs.action_space[0].n)[tmp_eval_actions_env], 2)
             else:
                 raise NotImplementedError
 
@@ -260,8 +270,9 @@ class HumanRunner(Runner):
 
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-            prey_rnn_states = np.zeros((self.n_rollout_threads, self.all_args.num_good_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            prey_masks = np.ones((self.n_rollout_threads, self.all_args.num_good_agents, 1), dtype=np.float32)
+            if not self.all_args.use_fixed_prey:
+                prey_rnn_states = np.zeros((self.n_rollout_threads, self.all_args.num_good_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+                prey_masks = np.ones((self.n_rollout_threads, self.all_args.num_good_agents, 1), dtype=np.float32)
         
             episode_rewards = []
             
@@ -273,24 +284,29 @@ class HumanRunner(Runner):
                                                     np.concatenate(rnn_states),
                                                     np.concatenate(masks),
                                                     deterministic=True)
-                prey_action, prey_rnn_states = self.prey_policy.act(np.concatenate(prey_obs),
-                                                np.concatenate(prey_rnn_states),
-                                                np.concatenate(prey_masks),
-                                                deterministic=True)
-                action = torch.cat([action, prey_action])
+                if not self.all_args.use_fixed_prey:
+                    prey_action, prey_rnn_states = self.prey_policy.act(np.concatenate(prey_obs),
+                                                    np.concatenate(prey_rnn_states),
+                                                    np.concatenate(prey_masks),
+                                                    deterministic=True)
+                    prey_rnn_states = np.array(np.split(_t2n(prey_rnn_states), self.n_rollout_threads))
+                else:
+                    prey_action = torch.zeros([self.n_rollout_threads, self.all_args.num_good_agents], dtype=int).to(self.device)
+                
                 actions = np.array(np.split(_t2n(action), self.n_rollout_threads))
+                prey_actions = np.array(np.split(_t2n(prey_action), self.n_rollout_threads))
                 rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
-                prey_rnn_states = np.array(np.split(_t2n(prey_rnn_states), self.n_rollout_threads))
+                tmp_actions = np.concatenate([actions, prey_actions], axis=1)
 
                 if envs.action_space[0].__class__.__name__ == 'MultiDiscrete':
                     for i in range(envs.action_space[0].shape):
-                        uc_actions_env = np.eye(envs.action_space[0].high[i]+1)[actions[:, :, i]]
+                        uc_actions_env = np.eye(envs.action_space[0].high[i]+1)[tmp_actions[:, :, i]]
                         if i == 0:
                             actions_env = uc_actions_env
                         else:
                             actions_env = np.concatenate((actions_env, uc_actions_env), axis=2)
                 elif envs.action_space[0].__class__.__name__ == 'Discrete':
-                    actions_env = np.squeeze(np.eye(envs.action_space[0].n)[actions], 2)
+                    actions_env = np.squeeze(np.eye(envs.action_space[0].n)[tmp_actions], 2)
                 else:
                     raise NotImplementedError
 
