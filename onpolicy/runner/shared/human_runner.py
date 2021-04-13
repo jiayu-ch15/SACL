@@ -5,6 +5,7 @@ import os
 import numpy as np
 from itertools import chain
 import torch
+import imageio
 
 from onpolicy.utils.util import update_linear_schedule
 from onpolicy.runner.shared.base_runner import Runner
@@ -256,7 +257,8 @@ class HumanRunner(Runner):
             obs, prey_obs = self._convert_obs(dict_obs)
 
             if self.all_args.save_gifs:
-                image = envs.render('rgb_array', close=False)[0]
+                image = envs.render('rgb_array')[0]
+                print(image.shape)
                 all_frames.append(image)
 
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
@@ -278,9 +280,10 @@ class HumanRunner(Runner):
                                                 np.concatenate(prey_rnn_states),
                                                 np.concatenate(prey_masks),
                                                 deterministic=True)
-                action = torch.cat([eval_action, prey_action])
+                action = torch.cat([action, prey_action])
                 actions = np.array(np.split(_t2n(action), self.n_rollout_threads))
                 rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
+                prey_rnn_states = np.array(np.split(_t2n(prey_rnn_states), self.n_rollout_threads))
 
                 if envs.action_space[0].__class__.__name__ == 'MultiDiscrete':
                     for i in range(envs.action_space[0].shape):
@@ -304,12 +307,12 @@ class HumanRunner(Runner):
                 masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
                 if self.all_args.save_gifs:
-                    image = envs.render('rgb_array', close=False)[0]
+                    image = envs.render('rgb_array')[0]
                     all_frames.append(image)
                     calc_end = time.time()
                     elapsed = calc_end - calc_start
                     if elapsed < self.all_args.ifi:
-                        time.sleep(ifi - elapsed)
+                        time.sleep(self.all_args.ifi - elapsed)
 
             print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
 

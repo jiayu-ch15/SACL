@@ -267,7 +267,7 @@ class MultiAgentEnv(gym.Env):
         self.render_geoms = None
         self.render_geoms_xform = None
 
-    def render(self, mode='human', close=True):
+    def render(self, mode='human', close=False):
         if close:
             # close any existic renderers
             for i, viewer in enumerate(self.viewers):
