@@ -4,8 +4,14 @@ from onpolicy.envs.human.scenario import BaseScenario
 
 class Scenario(BaseScenario):
     def make_world(self, args):
+        self.use_distance_reward = args.use_distance_reward
+        self.use_direction_reward = args.use_direction_reward
+        self.use_pos_four_direction = args.use_pos_four_direction
+        self.direction_alpha = args.direction_alpha
+
         world = World()
         world.world_length = args.episode_length
+        
         # set any world properties first
         world.dim_c = 2
         num_good_agents = args.num_good_agents # 1
@@ -43,8 +49,20 @@ class Scenario(BaseScenario):
         # random properties for landmarks
         world.assign_landmark_colors()
         # random properties for landmarks
+        agents = self.good_agents(world)
+        adversaries = self.adversaries(world)
         # set random initial states
-        for agent in world.agents:
+        for agent in agents:
+            if self.use_pos_four_direction:
+                array_direction = np.array([[1,1],[1,-1],[-1,1],[-1,-1]])
+                direction = np.random.randint(4)
+                abs_pos = np.random.uniform(0.5, 1, world.dim_p)
+                agent.state.p_pos = abs_pos * array_direction[direction]
+            else:
+                agent.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
+            agent.state.p_vel = np.zeros(world.dim_p)
+            agent.state.c = np.zeros(world.dim_c)
+        for agent in adversaries:
             agent.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
             agent.state.p_vel = np.zeros(world.dim_p)
             agent.state.c = np.zeros(world.dim_c)
@@ -113,17 +131,29 @@ class Scenario(BaseScenario):
     def adversary_reward(self, agent, world):
         # Adversaries are rewarded for collisions with agents
         rew = 0
-        shape = True #different from openai
+
         agents = self.good_agents(world)
         adversaries = self.adversaries(world)
-        if shape:  # reward can optionally be shaped (decreased reward for increased distance from agents)
+        
+        # distance reward
+        if self.use_distance_reward:
             for adv in adversaries:
                 rew -= 0.1 * min([np.sqrt(np.sum(np.square(a.state.p_pos - adv.state.p_pos))) for a in agents])
+            
+        # direction reward
+        if self.use_direction_reward:
+            for a in agents:
+                for adv in adversaries:
+                    if np.any(np.sign(adv.action.u) == np.sign(a.state.p_pos - adv.state.p_pos)):
+                        rew += self.direction_alpha * 1.0
+        
+        # complete reward
         if agent.collide:
             for ag in agents:
                 for adv in adversaries:
                     if self.is_collision(ag, adv):
-                        rew += 10
+                        rew += 1.0
+        
         return rew
 
     def observation(self, agent, world):

@@ -61,7 +61,11 @@ def parse_args(args, parser):
     # pretrained parameters
     parser.add_argument("--prey_model_dir", type=str, default="/home/yuchao/project/onpolicy/onpolicy/envs/human/prey_policy/", help="by default None. set the path to pretrained model.")
     parser.add_argument('--use_fixed_prey', action='store_true', default=False)
-    
+    parser.add_argument('--use_pos_four_direction', action='store_true', default=False)
+    parser.add_argument('--use_direction_reward', action='store_true', default=False)
+    parser.add_argument('--use_distance_reward', action='store_true', default=False)
+    parser.add_argument('--direction_alpha', type=float,default=0.1, help="number of players")
+
     all_args = parser.parse_known_args(args)[0]
 
     return all_args
