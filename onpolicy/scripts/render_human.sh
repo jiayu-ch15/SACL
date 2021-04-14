@@ -11,5 +11,5 @@ seed_max=1
 echo "env is ${env}"
 for seed in `seq ${seed_max}`
 do
-    CUDA_VISIBLE_DEVICES=0 python render/render_human.py --use_fixed_prey --save_gifs --env_name ${env} --algorithm_name ${algo} --experiment_name ${exp} --scenario_name ${scenario} --num_good_agents ${num_good_agents} --num_adversaries ${num_adversaries} --num_landmarks ${num_landmarks} --seed ${seed} --n_training_threads 1 --n_rollout_threads 1 --use_render --episode_length 25 --render_episodes 5 --model_dir "/home/yuchao/project/onpolicy/onpolicy/scripts/results/Human/simple_tag/rmappo/debug/run19/models/"
+    CUDA_VISIBLE_DEVICES=0 python render/render_human.py --use_fixed_prey --use_pos_four_direction --save_gifs --env_name ${env} --algorithm_name ${algo} --experiment_name ${exp} --scenario_name ${scenario} --num_good_agents ${num_good_agents} --num_adversaries ${num_adversaries} --num_landmarks ${num_landmarks} --seed ${seed} --n_training_threads 1 --n_rollout_threads 1 --use_render --episode_length 25 --render_episodes 5 --model_dir "/home/yuchao/project/onpolicy/onpolicy/scripts/results/Human/simple_tag/rmappo/debug/wandb/run-20210413_174708-1zlup6n3/files/"
 done

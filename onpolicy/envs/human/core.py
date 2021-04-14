@@ -108,6 +108,11 @@ class Agent(Entity):
         self.action_callback = None
         # zoe 20200420
         self.goal = None
+        self.direction = None
+        self.collision = 0
+        self.fail = 0
+        self.success = 0
+        self.idv_reward = 0.0
 
 # multi-agent world
 class World(object):

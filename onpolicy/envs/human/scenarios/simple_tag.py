@@ -11,6 +11,7 @@ class Scenario(BaseScenario):
 
         world = World()
         world.world_length = args.episode_length
+        world.collaborative = True
         
         # set any world properties first
         world.dim_c = 2
@@ -54,23 +55,35 @@ class Scenario(BaseScenario):
         # set random initial states
         for agent in agents:
             if self.use_pos_four_direction:
-                array_direction = np.array([[1,1],[1,-1],[-1,1],[-1,-1]])
+                array_direction = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
                 direction = np.random.randint(4)
                 abs_pos = np.random.uniform(0.5, 1, world.dim_p)
-                agent.state.p_pos = abs_pos * array_direction[direction]
+                agent.direction = array_direction[direction]
+                agent.state.p_pos = abs_pos * agent.direction
             else:
                 agent.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
             agent.state.p_vel = np.zeros(world.dim_p)
             agent.state.c = np.zeros(world.dim_c)
+            agent.collision = 0
+            agent.fail = 0
+            agent.success = 0
+            agent.idv_reward = 0.0
+
         for agent in adversaries:
             agent.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
+            for good_agent in agents:
+                agent.direction = np.sign(good_agent.state.p_pos - agent.state.p_pos)
             agent.state.p_vel = np.zeros(world.dim_p)
             agent.state.c = np.zeros(world.dim_c)
+            agent.collision = 0
+            agent.fail = 0
+            agent.success = 0
+            agent.idv_reward = 0.0
+
         for i, landmark in enumerate(world.landmarks):
             if not landmark.boundary:
                 landmark.state.p_pos = 0.8 * np.random.uniform(-1, +1, world.dim_p)
                 landmark.state.p_vel = np.zeros(world.dim_p)
-
 
     def benchmark_data(self, agent, world):
         # returns data for benchmarking purposes
@@ -102,18 +115,36 @@ class Scenario(BaseScenario):
         main_reward = self.adversary_reward(agent, world) if agent.adversary else self.agent_reward(agent, world)
         return main_reward
 
+    def info(self, agent, world):  
+        agent_info = {'landmark_collision': agent.collision, 
+                        'fail': agent.fail, 
+                        'success': agent.success,
+                        'com_episode_rewards': agent.success - agent.fail - agent.collision,
+                        'idv_episode_rewards': agent.idv_reward}
+        return agent_info
+
     def agent_reward(self, agent, world):
         # Agents are negatively rewarded if caught by adversaries
         rew = 0
-        shape = True #different from openai
+
         adversaries = self.adversaries(world)
-        if shape:  # reward can optionally be shaped (increased reward for increased distance from adversary)
+        
+        # distance reward
+        if self.use_distance_reward:  # reward can optionally be shaped (increased reward for increased distance from adversary)
             for adv in adversaries:
                 rew += 0.1 * np.sqrt(np.sum(np.square(agent.state.p_pos - adv.state.p_pos)))
+        
         if agent.collide:
+            # complete reward
             for a in adversaries:
                 if self.is_collision(a, agent):
-                    rew -= 10
+                    agent.fail += 1
+                    rew -= 1.0
+            # collision reward
+            for l in world.landmarks:
+                if self.is_collision(l, agent):
+                    agent.collision += 1
+                    rew -= 1.0
 
         # agents are penalized for exiting the screen, so that they can be caught by the adversaries
         def bound(x):
@@ -126,34 +157,38 @@ class Scenario(BaseScenario):
             x = abs(agent.state.p_pos[p])
             rew -= bound(x)
 
+        agent.idv_reward += rew
+
         return rew
 
     def adversary_reward(self, agent, world):
         # Adversaries are rewarded for collisions with agents
         rew = 0
-
         agents = self.good_agents(world)
-        adversaries = self.adversaries(world)
         
         # distance reward
         if self.use_distance_reward:
-            for adv in adversaries:
-                rew -= 0.1 * min([np.sqrt(np.sum(np.square(a.state.p_pos - adv.state.p_pos))) for a in agents])
+            rew -= 0.1 * min([np.sqrt(np.sum(np.square(a.state.p_pos - agent.state.p_pos))) for a in agents])
             
         # direction reward
         if self.use_direction_reward:
-            for a in agents:
-                for adv in adversaries:
-                    if np.any(np.sign(adv.action.u) == np.sign(a.state.p_pos - adv.state.p_pos)):
-                        rew += self.direction_alpha * 1.0
+            if np.any(np.sign(agent.action.u) == agent.direction):
+                rew += self.direction_alpha * 1.0
         
-        # complete reward
         if agent.collide:
-            for ag in agents:
-                for adv in adversaries:
-                    if self.is_collision(ag, adv):
-                        rew += 1.0
-        
+            # complete reward
+            for a in agents:
+                if self.is_collision(a, agent):
+                    agent.success += 1
+                    rew += 1.0
+            # collision reward
+            for l in world.landmarks:
+                if self.is_collision(l, agent):
+                    agent.collision += 1
+                    rew -= 1.0
+
+        agent.idv_reward += rew
+
         return rew
 
     def observation(self, agent, world):

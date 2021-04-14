@@ -9,6 +9,7 @@ import imageio
 
 from onpolicy.utils.util import update_linear_schedule
 from onpolicy.runner.shared.base_runner import Runner
+from collections import defaultdict
 
 def _t2n(x):
     return x.detach().cpu().numpy()
@@ -85,16 +86,14 @@ class HumanRunner(Runner):
                                 int(total_num_steps / (end - start))))
 
                 if self.env_name == "Human":
-                    env_infos = {}
-                    for agent_id in range(self.num_agents):
-                        idv_rews = []
-                        for info in infos:
-                            if 'individual_reward' in info[agent_id].keys():
-                                idv_rews.append(info[agent_id]['individual_reward'])
-                        agent_k = 'agent%i/individual_rewards' % agent_id
-                        env_infos[agent_k] = idv_rews
+                    env_infos = defaultdict(list)
+                    for info in infos:
+                        for agent_id in range(self.all_args.num_good_agents + self.all_args.num_adversaries):
+                            for key in info[agent_id].keys():
+                                agent_key = 'agent{}/{}'.format(agent_id, key)
+                                env_infos[agent_key].append(info[agent_id][key])
 
-                train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
+                train_infos["average_episode_rewards"] = np.mean(np.sum(self.buffer.rewards, axis=0))
                 print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
                 self.log_train(train_infos, total_num_steps)
                 self.log_env(env_infos, total_num_steps)

@@ -118,6 +118,7 @@ class MultiAgentEnv(gym.Env):
         reward_n = defaultdict(list)
         done_n = defaultdict(list)
         info_n = []
+
         self.agents = self.world.policy_agents
         # set action for each agent
         for i, agent in enumerate(self.agents):
@@ -134,16 +135,12 @@ class MultiAgentEnv(gym.Env):
                 obs_n['prey'].append(self._get_obs(agent))
                 reward_n['prey'].append([self._get_reward(agent)])
                 done_n['prey'].append(self._get_done(agent))
-            info = {'individual_reward': self._get_reward(agent)}
-            env_info = self._get_info(agent)
-            if 'fail' in env_info.keys():
-                info['fail'] = env_info['fail']
-            info_n.append(info)
+            info_n.append(self._get_info(agent))
 
         # all agents get total reward in cooperative case, if shared reward, all agents have the same reward, and reward is sum
         if self.shared_reward:
             reward = np.sum(reward_n['predator'])
-            reward_n['predator'] = [[reward]] * self.n
+            reward_n['predator'] = [[reward]] * len(reward_n['predator'])
 
         if self.post_step_callback is not None:
             self.post_step_callback(self.world)
