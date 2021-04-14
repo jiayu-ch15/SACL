@@ -45,6 +45,7 @@ def parse_args(args, parser):
     parser.add_argument('--use_pos_four_direction', action='store_true', default=False)
     parser.add_argument('--use_direction_reward', action='store_true', default=False)
     parser.add_argument('--use_distance_reward', action='store_true', default=False)
+    parser.add_argument('--add_direction_encoder', action='store_true', default=False)
     parser.add_argument('--direction_alpha', type=float,default=0.1, help="number of players")
 
     all_args = parser.parse_known_args(args)[0]

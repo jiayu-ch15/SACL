@@ -7,6 +7,7 @@ class Scenario(BaseScenario):
         self.use_distance_reward = args.use_distance_reward
         self.use_direction_reward = args.use_direction_reward
         self.use_pos_four_direction = args.use_pos_four_direction
+        self.add_direction_encoder = args.add_direction_encoder
         self.direction_alpha = args.direction_alpha
 
         world = World()
@@ -45,6 +46,7 @@ class Scenario(BaseScenario):
         return world
 
     def reset_world(self, world):
+        array_direction = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
         # random properties for agents
         world.assign_agent_colors()
         # random properties for landmarks
@@ -55,7 +57,6 @@ class Scenario(BaseScenario):
         # set random initial states
         for agent in agents:
             if self.use_pos_four_direction:
-                array_direction = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
                 direction = np.random.randint(4)
                 abs_pos = np.random.uniform(0.5, 1, world.dim_p)
                 agent.direction = array_direction[direction]
@@ -68,11 +69,15 @@ class Scenario(BaseScenario):
             agent.fail = 0
             agent.success = 0
             agent.idv_reward = 0.0
+        
+        # randomly choose one prey
+        choice = np.random.randint(world.num_good_agents)
 
         for agent in adversaries:
+            agent.goal = agents[choice]
             agent.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
-            for good_agent in agents:
-                agent.direction = np.sign(good_agent.state.p_pos - agent.state.p_pos)
+            agent.direction = np.sign(agent.goal.state.p_pos - agent.state.p_pos)
+            agent.direction_encoder = np.eye(4)[np.argmax(np.all(np.where(array_direction == agent.direction, True, False), axis=1))]
             agent.state.p_vel = np.zeros(world.dim_p)
             agent.state.c = np.zeros(world.dim_c)
             agent.collision = 0
@@ -128,7 +133,7 @@ class Scenario(BaseScenario):
         rew = 0
 
         adversaries = self.adversaries(world)
-        
+
         # distance reward
         if self.use_distance_reward:  # reward can optionally be shaped (increased reward for increased distance from adversary)
             for adv in adversaries:
@@ -164,11 +169,10 @@ class Scenario(BaseScenario):
     def adversary_reward(self, agent, world):
         # Adversaries are rewarded for collisions with agents
         rew = 0
-        agents = self.good_agents(world)
-        
+
         # distance reward
         if self.use_distance_reward:
-            rew -= 0.1 * min([np.sqrt(np.sum(np.square(a.state.p_pos - agent.state.p_pos))) for a in agents])
+            rew -= 0.1 * np.sqrt(np.sum(np.square(agent.goal.state.p_pos - agent.state.p_pos)))
             
         # direction reward
         if self.use_direction_reward:
@@ -177,10 +181,9 @@ class Scenario(BaseScenario):
         
         if agent.collide:
             # complete reward
-            for a in agents:
-                if self.is_collision(a, agent):
-                    agent.success += 1
-                    rew += 1.0
+            if self.is_collision(agent.goal, agent):
+                agent.success += 1
+                rew += 1.0
             # collision reward
             for l in world.landmarks:
                 if self.is_collision(l, agent):
@@ -197,6 +200,7 @@ class Scenario(BaseScenario):
         for entity in world.landmarks:
             if not entity.boundary:
                 entity_pos.append(entity.state.p_pos - agent.state.p_pos)
+        
         # communication of all other agents
         other_pos = []
         other_vel = []
@@ -205,4 +209,8 @@ class Scenario(BaseScenario):
             other_pos.append(other.state.p_pos - agent.state.p_pos)
             if not other.adversary:
                 other_vel.append(other.state.p_vel)
-        return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + entity_pos + other_pos + other_vel)
+        
+        if agent.adversary and self.add_direction_encoder:
+            return np.concatenate([agent.direction_encoder] + [agent.state.p_vel] + [agent.state.p_pos] + entity_pos + other_pos + other_vel)
+        else:
+            return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + entity_pos + other_pos + other_vel)
