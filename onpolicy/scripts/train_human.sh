@@ -2,7 +2,7 @@
 env="Human"
 scenario="simple_tag"
 num_landmarks=2
-num_good_agents=1
+num_good_agents=2
 num_adversaries=3
 algo="rmappo"
 exp="debug"

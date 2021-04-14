@@ -153,7 +153,7 @@ class HumanRunner(Runner):
                                                         deterministic=True)
             self.prey_rnn_states = np.array(np.split(_t2n(prey_rnn_states), self.n_rollout_threads))
         else:
-            prey_action = torch.zeros([self.n_rollout_threads, self.all_args.num_good_agents], dtype=int).to(self.device)
+            prey_action = torch.zeros([self.n_rollout_threads*self.all_args.num_good_agents, 1], dtype=int).to(self.device)
         # [self.envs, agents, dim]
         values = np.array(np.split(_t2n(value), self.n_rollout_threads))
         actions = np.array(np.split(_t2n(action), self.n_rollout_threads))
@@ -219,7 +219,7 @@ class HumanRunner(Runner):
                                                 deterministic=True)
                 eval_prey_rnn_states = np.array(np.split(_t2n(eval_prey_rnn_states), self.n_eval_rollout_threads))
             else:
-                eval_prey_action = torch.zeros([self.n_eval_rollout_threads, self.all_args.num_good_agents], dtype=int).to(self.device)
+                eval_prey_action = torch.zeros([self.n_eval_rollout_threads*self.all_args.num_good_agents, 1], dtype=int).to(self.device)
             
             eval_actions = np.array(np.split(_t2n(eval_action), self.n_eval_rollout_threads))
             eval_prey_actions = np.array(np.split(_t2n(eval_prey_action), self.n_eval_rollout_threads))
@@ -295,7 +295,7 @@ class HumanRunner(Runner):
                                                     deterministic=True)
                     prey_rnn_states = np.array(np.split(_t2n(prey_rnn_states), self.n_rollout_threads))
                 else:
-                    prey_action = torch.zeros([self.n_rollout_threads, self.all_args.num_good_agents], dtype=int).to(self.device)
+                    prey_action = torch.zeros([self.n_rollout_threads*self.all_args.num_good_agents, 1], dtype=int).to(self.device)
                 
                 actions = np.array(np.split(_t2n(action), self.n_rollout_threads))
                 prey_actions = np.array(np.split(_t2n(prey_action), self.n_rollout_threads))
