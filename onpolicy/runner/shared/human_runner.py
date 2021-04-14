@@ -234,7 +234,7 @@ class HumanRunner(Runner):
                     else:
                         eval_actions_env = np.concatenate((eval_actions_env, eval_uc_actions_env), axis=2)
             elif self.eval_envs.action_space[0].__class__.__name__ == 'Discrete':
-                eval_actions_env = np.squeeze(np.eye(self.eval_envs.action_space[0].n)[tmp_eval_actions_env], 2)
+                eval_actions_env = np.squeeze(np.eye(self.eval_envs.action_space[0].n)[tmp_eval_actions], 2)
             else:
                 raise NotImplementedError
 
