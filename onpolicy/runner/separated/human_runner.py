@@ -12,9 +12,9 @@ from onpolicy.runner.separated.base_runner import Runner
 def _t2n(x):
     return x.detach().cpu().numpy()
 
-class MPERunner(Runner):
+class HumanRunner(Runner):
     def __init__(self, config):
-        super(MPERunner, self).__init__(config)
+        super(HumanRunner, self).__init__(config)
        
     def run(self):
         self.warmup()   
