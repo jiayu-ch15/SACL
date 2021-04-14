@@ -249,7 +249,12 @@ class HumanRunner(Runner):
             eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), 1), dtype=np.float32)
             
         eval_episode_rewards = np.array(eval_episode_rewards)
-        eval_env_infos = {}
+        eval_env_infos = defaultdict(list)
+        for eval_info in eval_infos:
+            for agent_id in range(self.all_args.num_good_agents + self.all_args.num_adversaries):
+                for key in eval_info[agent_id].keys():
+                    agent_key = 'agent{}/eval_{}'.format(agent_id, key)
+                    eval_env_infos[agent_key].append(eval_info[agent_id][key])
         eval_env_infos['eval_average_episode_rewards'] = np.sum(np.array(eval_episode_rewards), axis=0)
         print("eval average episode rewards of agent: " + str(np.mean(eval_env_infos['eval_average_episode_rewards'])))
         self.log_env(eval_env_infos, total_num_steps)
