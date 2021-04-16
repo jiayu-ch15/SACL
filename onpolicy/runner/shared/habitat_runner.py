@@ -121,10 +121,10 @@ class HabitatRunner(Runner):
                             self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
                     if 'merge_explored_ratio_step' in infos[e].keys():
                         self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
-                        for agent_id in range(self.num_agents):
-                            agent_k = "agent{}_explored_ratio_step".format(agent_id)
-                            if agent_k in infos[e].keys():
-                                self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
+                    for agent_id in range(self.num_agents):
+                        agent_k = "agent{}_explored_ratio_step".format(agent_id)
+                        if agent_k in infos[e].keys():
+                            self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
                               
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
@@ -337,21 +337,22 @@ class HabitatRunner(Runner):
 
     def init_global_policy(self):
         self.best_gobal_reward = -np.inf
-        
+        length = self.all_args.eval_episodes
         # ppo network log info
         self.train_global_infos = {}
-        self.train_global_infos['value_loss']= deque(maxlen=10)
-        self.train_global_infos['policy_loss']= deque(maxlen=10)
-        self.train_global_infos['dist_entropy'] = deque(maxlen=10)
-        self.train_global_infos['actor_grad_norm'] = deque(maxlen=10)
-        self.train_global_infos['critic_grad_norm'] = deque(maxlen=10)
-        self.train_global_infos['ratio'] = deque(maxlen=10)
+        self.train_global_infos['value_loss']= deque(maxlen=length)
+        self.train_global_infos['policy_loss']= deque(maxlen=length)
+        self.train_global_infos['dist_entropy'] = deque(maxlen=length)
+        self.train_global_infos['actor_grad_norm'] = deque(maxlen=length)
+        self.train_global_infos['critic_grad_norm'] = deque(maxlen=length)
+        self.train_global_infos['ratio'] = deque(maxlen=length)
 
         # env info
         self.env_infos = {}
-        length = self.all_args.eval_episodes
+        
         self.env_infos['sum_explored_ratio'] = deque(maxlen=length)
         self.env_infos['sum_explored_reward'] = deque(maxlen=length)
+        self.env_infos['sum_mer_explored_reward'] = deque(maxlen=length)
         self.env_infos['sum_merge_explored_ratio'] = deque(maxlen=length)
         self.env_infos['sum_merge_explored_reward'] = deque(maxlen=length)
         self.env_infos['merge_explored_ratio_step'] = deque(maxlen=length)
@@ -435,6 +436,7 @@ class HabitatRunner(Runner):
     def init_env_info(self):
         self.env_info = {}
         self.env_info['sum_explored_ratio'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
+        self.env_info['sum_mer_explored_reward'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
         self.env_info['sum_explored_reward'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
         self.env_info['sum_merge_explored_ratio'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
         self.env_info['sum_merge_explored_reward'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
@@ -550,6 +552,7 @@ class HabitatRunner(Runner):
         locs = self.local_pose
         self.merge_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
         # global_goal_map = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.full_w, self.full_h), dtype=np.float32)
+        self.trans_point = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents, 2))
         for a in range(self.num_agents):
             for e in range(self.n_rollout_threads):
                 r, c = locs[e, a, 1], locs[e, a, 0]
@@ -565,7 +568,7 @@ class HabitatRunner(Runner):
             self.global_input['global_obs'][:, a, 0:4] = self.local_map[:, a].copy()
             self.global_input['global_obs'][:, a, 4:8] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a]))).numpy()
             # global_goal_map[:, a], self.trans_point = self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
-            _, self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:, a], np.array(self.agent_rotation)[:,a])
+            _, self.trans_point[:,a] =self.point_transform(self.global_goal, np.array(self.agent_trans)[:, a], np.array(self.agent_rotation)[:,a])
         
         for a in range(self.num_agents): # TODO @CHAO
             self.global_input['global_merge_obs'][:, a, 0:4] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
@@ -615,6 +618,7 @@ class HabitatRunner(Runner):
     def compute_global_input(self):
         locs = self.local_pose
         self.merge_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
+        self.trans_point = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents, 2))
         # global_goal_map = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.full_w, self.full_h), dtype=np.float32)
         for a in range(self.num_agents):
             for e in range(self.n_rollout_threads):
@@ -626,7 +630,7 @@ class HabitatRunner(Runner):
             self.global_input['global_obs'][:, a, 4:8] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a]))).numpy()
         
             # global_goal_map[:, a], self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
-            _, self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:, a])
+            _, self.trans_point[:, a] =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:, a])
         for a in range(self.num_agents):
             self.global_input['global_merge_obs'][:, a, 0:4] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
             # self.global_input['global_merge_goal'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
@@ -741,13 +745,15 @@ class HabitatRunner(Runner):
 
     def insert_global_policy(self, data):
         dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
-            
+    
         for e in range(self.n_rollout_threads):
             if self.use_intrinsic_reward:
                 for agent_id in range(self.num_agents):
-                    if self.merge_map[e, agent_id, 1, int(self.trans_point[e, agent_id, 0]), int(self.trans_point[e, agent_id, 1])]>0:
+                    if self.merge_map[e, 0, 1, int(self.trans_point[e, 0, agent_id, 0]), int(self.trans_point[e, 0, agent_id, 1])]>0:
                         self.rewards[e, agent_id] -= 0.02
-            
+        
+        self.env_info['sum_mer_explored_reward'] += self.rewards[:,:,0]
+        
         rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
         
@@ -973,10 +979,10 @@ class HabitatRunner(Runner):
                             self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
                     if 'merge_explored_ratio_step' in infos[e].keys():
                         self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
-                        for agent_id in range(self.num_agents):
-                            agent_k = "agent{}_explored_ratio_step".format(agent_id)
-                            if agent_k in infos[e].keys():
-                                self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
+                    for agent_id in range(self.num_agents):
+                        agent_k = "agent{}_explored_ratio_step".format(agent_id)
+                        if agent_k in infos[e].keys():
+                            self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
                                 
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
@@ -1004,8 +1010,9 @@ class HabitatRunner(Runner):
                             if key in infos[e].keys():
                                 step_info[key][e] = np.array(infos[e][key])
                                 self.env_info["sum_{}".format(key)][e] += np.array(infos[e][key])
-                        
-                    self.log_eval(step_info, step)
+                    
+                    if not self.use_render:
+                        self.log_eval(step_info, step)
                                 
                     # Compute Global goal
                     rnn_states = self.eval_compute_global_goal(rnn_states)

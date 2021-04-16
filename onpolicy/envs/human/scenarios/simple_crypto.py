@@ -6,8 +6,8 @@ adversary to goal. Adversary is rewarded for its distance to the goal.
 
 
 import numpy as np
-from onpolicy.envs.mpe.core import World, Agent, Landmark
-from onpolicy.envs.mpe.scenario import BaseScenario
+from onpolicy.envs.human.core import World, Agent, Landmark
+from onpolicy.envs.human.scenario import BaseScenario
 import random
 
 

@@ -479,7 +479,7 @@ class Exploration_Env(habitat.RLEnv):
             self.info['explored_reward'].append(agent_explored_area[agent_id])
             self.info['explored_ratio'].append(agent_explored_ratio[agent_id])
             if self.timestep % self.args.num_local_steps == 0:
-                agents_explored_map = np.maximum(agents_explored_map, self.transform(self.current_explored_gt[agent_id], agent_id))
+                agents_explored_map = np.maximum(agents_explored_map, self.transform(self.current_explored_gt[agent_id]*self.explorable_map[agent_id], agent_id))
         
         if self.timestep % self.args.num_local_steps == 0 and self.merge_ratio < self.explored_ratio_threshold and self.use_repeat_penalty:
             self.info['merge_explored_reward'] -= (agents_explored_map[self.prev_merge_exlored_map == 1].sum() * (25./10000) * 0.02)
@@ -516,7 +516,7 @@ class Exploration_Env(habitat.RLEnv):
 
         for agent_id in range(self.num_agents):
             curr_agent_explored_map = self.explored_map[agent_id] * self.explorable_map[agent_id]
-
+            
             curr_merge_explored_map = np.maximum(curr_merge_explored_map, self.transform(curr_agent_explored_map, agent_id))
             merge_explorable_map = np.maximum(merge_explorable_map, self.transform(self.explorable_map[agent_id], agent_id))
 
