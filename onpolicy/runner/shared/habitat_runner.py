@@ -446,6 +446,7 @@ class HabitatRunner(Runner):
     def convert_info(self):
         for k, v in self.env_info.items():
             if k == "explored_ratio_step":
+                self.env_infos[k].append(v)
                 for agent_id in range(self.num_agents):
                     print("agent{}_{}: {}/{}".format(agent_id, k, np.mean(v[:, agent_id]), self.max_episode_length))
                 print('minimal agent {}: {}/{}'.format(k, np.min(v), self.max_episode_length))
