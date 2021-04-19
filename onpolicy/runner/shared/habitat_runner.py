@@ -95,6 +95,8 @@ class HabitatRunner(Runner):
 
         for episode in range(episodes):
             self.init_env_info()
+            if not self.use_delta_reward:
+                self.rewards = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
     
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
@@ -115,7 +117,7 @@ class HabitatRunner(Runner):
                 self.obs, reward, dones, infos = self.envs.step(actions_env)
                 self.rewards += reward
 
-                for e in range(self.n_rollout_threads):
+                for e in range (self.n_rollout_threads):
                     for key in ['explored_ratio', 'explored_reward', 'merge_explored_ratio', 'merge_explored_reward']:
                         if key in infos[e].keys():
                             self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
@@ -273,6 +275,7 @@ class HabitatRunner(Runner):
         self.render_merge = self.all_args.render_merge
         self.visualize_input = self.all_args.visualize_input
         self.use_intrinsic_reward = self.all_args.use_intrinsic_reward
+        self.use_delta_reward = self.all_args.use_delta_reward
 
     def init_map_variables(self):
         ### Full map consists of 4 channels containing the following:
@@ -360,6 +363,7 @@ class HabitatRunner(Runner):
         self.env_infos['invalid_merge_map_num'] = deque(maxlen=length)
         self.env_infos['max_sum_merge_explored_ratio'] = deque(maxlen=length)
         self.env_infos['min_sum_merge_explored_ratio'] = deque(maxlen=length)
+        self.env_infos['explored_ratio_step'] = deque(maxlen=length)
 
         self.global_input = {}
         self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
@@ -753,7 +757,10 @@ class HabitatRunner(Runner):
                     if self.merge_map[e, 0, 1, int(self.trans_point[e, 0, agent_id, 0]), int(self.trans_point[e, 0, agent_id, 1])]>0:
                         self.rewards[e, agent_id] -= 0.02
         
-        self.env_info['sum_mer_explored_reward'] += self.rewards[:,:,0]
+        if self.use_delta_reward:
+            self.env_info['sum_mer_explored_reward'] += self.rewards[:,:,0]
+        else:
+            self.env_info['sum_mer_explored_reward'] = self.rewards[:,:,0]
         
         rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
@@ -764,7 +771,8 @@ class HabitatRunner(Runner):
         self.buffer.insert(self.share_global_input, self.global_input, rnn_states, rnn_states_critic, actions, action_log_probs, values, self.rewards, self.global_masks)
         
         self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
-        self.rewards = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
+        if self.use_delta_reward:
+            self.rewards = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
         
     def train_slam_module(self):
         for _ in range(self.slam_iterations):
@@ -929,6 +937,8 @@ class HabitatRunner(Runner):
         for episode in range(self.all_args.eval_episodes):
             # store each episode ratio or reward
             self.init_env_info()
+            if not self.use_delta_reward:
+                self.rewards = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
 
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
 
