@@ -105,13 +105,13 @@ class AgarEnv(gym.Env):
                 info[i]['active_masks'] = False
                 if self.killed[i] == 1:
                     info[i]['episode'] = {'r': self.sum_r[i], 'r_g': self.sum_r_g[i],
-                                          'r_g_i': self.sum_r_g_i[i], 'hit': self.hit[i], 'dis': self.sum_dis / self.s_n}
+                                          'r_g_i': self.sum_r_g_i[i], 'hit': self.hit[i], 'dis': self.sum_dis[i] / self.s_n}
                 else:
                     info[i]['bad_transition'] = True
             elif self.s_n >= self.stop_step:
                 done[i] = True
                 info[i]['episode'] = {'r': self.sum_r[i], 'r_g': self.sum_r_g[i],
-                                      'r_g_i': self.sum_r_g_i[i], 'hit': self.hit[i], 'dis': self.sum_dis / self.s_n}
+                                      'r_g_i': self.sum_r_g_i[i], 'hit': self.hit[i], 'dis': self.sum_dis[i] / self.s_n}
 
         if np.sum(done) == self.num_agents:
             for i in range(self.num_agents):
@@ -156,12 +156,21 @@ class AgarEnv(gym.Env):
         self.split = np.zeros(self.num_agents)
         observations = [self.parse_obs(self.agents[i], i, actions)
                         for i in range(self.num_agents)]
-        t_dis = self.agents[0].centerPos.clone().sub(
-            self.agents[1].centerPos).sqDist() / self.server.config.r
-        self.sum_dis += t_dis
-        self.near = (t_dis <= 0.5)
-        if self.killed[0] + self.killed[1] > 0.1: 
-            self.near = False
+
+        for i in range(self.num_agents):
+            for j in range(self.num_agents):
+                if i >= j:
+                    continue
+                t_dis = self.agents[i].centerPos.clone().sub(
+                            self.agents[j].centerPos).sqDist() / self.server.config.r
+                self.sum_dis[i] += t_dis
+
+                if t_dis <= 0.5 and self.killed[i] + self.killed[j] == 0:
+                    self.near[i][j] = 1
+                    self.near[j][i] = 1
+            
+        '''if self.killed[0] + self.killed[1] > 0.1: 
+            self.near = False'''
         self.last_action = deepcopy(np.array(actions).reshape(-1))
         self.sum_r += rewards
         self.sum_r_g += rewards * self.m_g
@@ -190,14 +199,14 @@ class AgarEnv(gym.Env):
             self.sum_r_g = np.zeros((self.num_agents, ))
             self.o_r = np.zeros((self.num_agents, ))
             self.sum_r_g_i = np.zeros((self.num_agents, ))
-            self.sum_dis = 0.
+            self.sum_dis = np.zeros(self.num_agents)
             self.m_g = 1.
             self.last_action = [0 for i in range(3 * self.num_players)]
             self.s_n = 0
 
             self.split = np.zeros(self.num_agents)
             self.hit = np.zeros((self.num_agents, 4))
-            self.near = False
+            self.near = [[0]*self.num_agents for _ in range(self.num_agents)]
 
             self.server = GameServer(self)
             self.server.start(self.gamemode)
@@ -263,7 +272,16 @@ class AgarEnv(gym.Env):
         for cell in player.viewNodes:
             t, feature = self.cell_obs(cell, player, id)
             obs[t].append(feature)
-            
+
+        other_mass = 0
+        other_killed = 0
+        for partner in range(self.num_agents):
+            if partner == id:
+                continue           
+            other_mass += sum([c.mass for c in self.agents[partner].cells]) / 50
+            if self.agents[partner]:
+                other_killed += 1
+
         for i in range(len(obs)):
             obs[i].sort(key = lambda x:x[0] ** 2 + x[1] ** 2)
         obs_f = np.zeros(s_size)
@@ -283,9 +301,11 @@ class AgarEnv(gym.Env):
         obs_f[-19:-16] = self.last_action[id * 3 : id * 3 + 3]
         obs_f[-20] = self.bot_speed
         obs_f[-21] = (self.killed[id] != 0)
-        obs_f[-22] = (self.killed[1 - id] != 0)
+        #obs_f[-22] = (self.killed[1 - id] != 0)
+        obs_f[-22] = other_killed
         obs_f[-23] = sum([c.mass for c in player.cells]) / 50
-        obs_f[-24] = sum([c.mass for c in self.agents[1 - id].cells]) / 50
+        #obs_f[-24] = sum([c.mass for c in self.agents[1 - id].cells]) / 50
+        obs_f[-24] = other_mass
         obs_f[-25] = 0#self.coop_eps[id]
         obs_f[-26] = 0#self.coop_eps[1 - id]
         obs_f[-27] = 0#self.kill_reward_eps[id]
@@ -308,12 +328,12 @@ class AgarEnv(gym.Env):
         else:self.rewards_forced[id] = 0.'''
         obs_f[-4] = position_x
         obs_f[-3] = position_y
-        if obs_f[-4] <= -0.99:obs_f[-2] = -1
+        '''if obs_f[-4] <= -0.99:obs_f[-2] = -1
         if obs_f[-3] <= -0.99:obs_f[-1] = -1
         if obs_f[-4] >=  0.99:obs_f[-2] =  1
         if obs_f[-3] >=  0.99:obs_f[-1] =  1
         obs_f[-5] = obs[0][0][-3]
-        obs_f[-6] = obs[0][0][-2]
+        obs_f[-6] = obs[0][0][-2]'''
 
         return deepcopy(obs_f)
 
@@ -412,17 +432,19 @@ class AgarEnv(gym.Env):
 
     def parse_reward(self, player, id):
         mass_reward, kill_reward, killed_reward = self.calc_reward(player, id)
+        coop_times = np.count_nonzero(self.near[id])
+
         if mass_reward < 0 and self.reward_settings == "agg":
             mass_reward = 0  # no death penalty.
         if mass_reward > 0:
             if kill_reward:
-                self.hit[id][2] += 1
+                self.hit[id][2] += 1  #attack
             elif self.split[id]:
-                self.hit[id][0] += 1
-            elif self.near:
-                self.hit[id][3] += 1
+                self.hit[id][0] += 1    
+            elif coop_times:
+                self.hit[id][3] += coop_times  #cooperate
             else:
-                self.hit[id][1] += 1  # numbers of 4 events
+                self.hit[id][1] += 1  # hunt
 
         if len(player.cells) == 0:
             self.t_killed[id] += 1
