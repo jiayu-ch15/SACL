@@ -160,11 +160,11 @@ class Runner(object):
             if self.use_single_network:
                 policy_model_state_dict = torch.load(str(self.model_dir) + '/model_agent' + str(agent_id) + '.pt')
                 self.policy[agent_id].model.load_state_dict(policy_model_state_dict)
-            else:
-                policy_actor_state_dict = torch.load(str(self.model_dir) + '/actor_agent' + str(agent_id) + '.pt')
-                self.policy[agent_id].actor.load_state_dict(policy_actor_state_dict)
-                policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic_agent' + str(agent_id) + '.pt')
-                self.policy[agent_id].critic.load_state_dict(policy_critic_state_dict)
+            # else:
+                # policy_actor_state_dict = torch.load(str(self.model_dir) + '/actor_agent' + str(agent_id) + '.pt')
+                # self.policy[agent_id].actor.load_state_dict(policy_actor_state_dict)
+                # policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic_agent' + str(agent_id) + '.pt')
+                # self.policy[agent_id].critic.load_state_dict(policy_critic_state_dict)
 
     def log_train(self, train_infos, total_num_steps): 
         for agent_id in range(self.num_agents):
