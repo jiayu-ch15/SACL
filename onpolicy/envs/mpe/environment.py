@@ -256,7 +256,8 @@ class MultiAgentEnv(gym.Env):
         self.render_geoms = None
         self.render_geoms_xform = None
 
-    def render(self, mode='human', close=True):
+    def render(self, mode='human', close=False):
+
         if close:
             # close any existic renderers
             for i, viewer in enumerate(self.viewers):
@@ -404,7 +405,7 @@ class MultiAgentEnv(gym.Env):
             # render to display or array
             results.append(self.viewers[i].render(
                 return_rgb_array=mode == 'rgb_array'))
-
+        
         return results
 
     # create receptor field locations in local coordinate frame
