@@ -123,10 +123,12 @@ class HabitatRunner(Runner):
                             self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
                     if 'merge_explored_ratio_step' in infos[e].keys():
                         self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
+                        self.env_info['sum_merge_explored_reward'][e] += 1
                     for agent_id in range(self.num_agents):
                         agent_k = "agent{}_explored_ratio_step".format(agent_id)
                         if agent_k in infos[e].keys():
                             self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
+                            self.env_info['sum_explored_reward'][e][agent_id] += 1
                               
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
@@ -688,7 +690,7 @@ class HabitatRunner(Runner):
         actions, rnn_states = self.trainer.policy.act(concat_obs,
                                     np.concatenate(rnn_states),
                                     np.concatenate(self.global_masks),
-                                    deterministic=False)
+                                    deterministic=True)
         
         rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
 
