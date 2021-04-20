@@ -116,19 +116,16 @@ class HabitatRunner(Runner):
                 # Obser reward and next obs
                 self.obs, reward, dones, infos = self.envs.step(actions_env)
                 self.rewards += reward
-
                 for e in range (self.n_rollout_threads):
                     for key in ['explored_ratio', 'explored_reward', 'merge_explored_ratio', 'merge_explored_reward']:
                         if key in infos[e].keys():
                             self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
                     if 'merge_explored_ratio_step' in infos[e].keys():
                         self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
-                        self.env_info['sum_merge_explored_reward'][e] += 1
                     for agent_id in range(self.num_agents):
                         agent_k = "agent{}_explored_ratio_step".format(agent_id)
                         if agent_k in infos[e].keys():
                             self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
-                            self.env_info['sum_explored_reward'][e][agent_id] += 1
                               
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
