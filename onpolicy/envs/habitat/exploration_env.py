@@ -270,6 +270,11 @@ class Exploration_Env(habitat.RLEnv):
         self.collison_map = [np.zeros(self.map[0].shape)
                              for _ in range(self.num_agents)]
         self.col_width = [1 for _ in range(self.num_agents)]
+        if self.episode_no >1 :
+            merge_reward = self.info['merge_explored_reward']
+            merge_ratio = self.info['merge_explored_ratio']
+            reward = self.info['explored_reward']
+            ratio = self.info['explored_ratio']
 
         # Set info
         self.info = {
@@ -294,6 +299,11 @@ class Exploration_Env(habitat.RLEnv):
         self.info['explorable_map'] = self.explorable_map
 
         self.info['scene_id'] = self.scene_id
+        if self.episode_no >1 :
+            self.info['merge_explored_reward'] = merge_reward
+            self.info['merge_explored_ratio'] = merge_ratio
+            self.info['explored_reward'] = reward
+            self.info['explored_ratio'] = ratio
 
         self.save_position()
 
