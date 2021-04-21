@@ -57,7 +57,6 @@ class MLPBase(nn.Module):
         super(MLPBase, self).__init__()
 
         self._use_feature_normalization = args.use_feature_normalization
-        self._use_feature_popart = args.use_feature_popart
         self._use_orthogonal = args.use_orthogonal
         self._use_ReLU = args.use_ReLU
         self._use_attn = args.use_attn
@@ -69,13 +68,7 @@ class MLPBase(nn.Module):
         self._attn_size = args.attn_size
         self.hidden_size = args.hidden_size
 
-        assert (self._use_feature_normalization and self._use_feature_popart) == False, (
-            "--use_feature_normalization and --use_feature_popart can not be set True simultaneously.")
-
         obs_dim = obs_shape[0]
-
-        if self._use_feature_popart:
-            self.feature_norm = PopArt(obs_dim)
 
         if self._use_feature_normalization:
             self.feature_norm = nn.LayerNorm(obs_dim)
@@ -109,7 +102,7 @@ class MLPBase(nn.Module):
                               self._layer_N, self._use_orthogonal, self._use_ReLU)
 
     def forward(self, x):
-        if self._use_feature_popart or self._use_feature_normalization:
+        if self._use_feature_normalization:
             x = self.feature_norm(x)
 
         if self._use_attn and self._use_attn_internal:

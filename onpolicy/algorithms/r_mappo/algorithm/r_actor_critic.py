@@ -12,6 +12,7 @@ from onpolicy.algorithms.utils.mix import MIXBase
 from onpolicy.algorithms.utils.rnn import RNNLayer
 from onpolicy.algorithms.utils.act import ACTLayer
 from onpolicy.utils.util import get_shape_from_obs_space
+from onpolicy.utils.popart import PopArt
 
 class R_Actor(nn.Module):
     def __init__(self, args, obs_space, action_space, device=torch.device("cpu")):
@@ -148,6 +149,7 @@ class R_Critic(nn.Module):
         self._use_naive_recurrent_policy = args.use_naive_recurrent_policy
         self._use_recurrent_policy = args.use_recurrent_policy
         self._use_influence_policy = args.use_influence_policy
+        self._use_popart = args.use_popart
         self._influence_layer_N = args.influence_layer_N
         self._recurrent_N = args.recurrent_N
         self.tpdv = dict(dtype=torch.float32, device=device)
@@ -176,7 +178,10 @@ class R_Critic(nn.Module):
         def init_(m): 
             return init(m, init_method, lambda x: nn.init.constant_(x, 0))
 
-        self.v_out = init_(nn.Linear(input_size, 1))
+        if self._use_popart:
+            self.v_out = init_(PopArt(input_size, 1, device=device))
+        else:
+            self.v_out = init_(nn.Linear(input_size, 1))
 
         self.to(device)
 
