@@ -192,7 +192,7 @@ class MPERunner(Runner):
         for episode in range(self.all_args.render_episodes):
             obs = envs.reset()
             if self.all_args.save_gifs:
-                image = envs.render('rgb_array', close=False)[0]
+                image = envs.render('rgb_array')[0][0]
                 all_frames.append(image)
 
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
@@ -232,12 +232,12 @@ class MPERunner(Runner):
                 masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
                 if self.all_args.save_gifs:
-                    image = envs.render('rgb_array', close=False)[0]
+                    image = envs.render('rgb_array')[0][0]
                     all_frames.append(image)
                     calc_end = time.time()
                     elapsed = calc_end - calc_start
                     if elapsed < self.all_args.ifi:
-                        time.sleep(ifi - elapsed)
+                        time.sleep(self.all_args.ifi - elapsed)
 
             print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
 
