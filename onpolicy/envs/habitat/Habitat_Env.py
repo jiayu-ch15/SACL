@@ -11,6 +11,7 @@ class MultiHabitatEnv(object):
     def __init__(self, args, rank, run_dir):
 
         self.num_agents = args.num_agents
+        self.use_partial_reward = args.use_partial_reward
 
         config_env, config_baseline, dataset = self.get_config(args, rank)
 
@@ -135,8 +136,10 @@ class MultiHabitatEnv(object):
 
     def step(self, actions):
         obs, rewards, dones, infos = self.env.step(actions)
-        #rewards = np.expand_dims(np.array(infos['explored_reward']), axis=1)\
-        rewards = np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+        if self.use_partial_reward:
+            rewards = 0.3 * np.expand_dims(np.array(infos['explored_reward']), axis=1) + 0.7 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+        else:
+            rewards = np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         return obs, rewards, dones, infos
 
     def close(self):
