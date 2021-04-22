@@ -44,7 +44,8 @@ class PopArt(torch.nn.Module):
         input_vector = input_vector.to(**self.tpdv)
 
         return F.linear(input_vector, self.weight, self.bias)
-
+    
+    @torch.no_grad()
     def update(self, input_vector):
         old_mean, old_stddev = self.mean, self.stddev
 
@@ -70,9 +71,6 @@ class PopArt(torch.nn.Module):
         if type(input_vector) == np.ndarray:
             input_vector = torch.from_numpy(input_vector)
         input_vector = input_vector.to(**self.tpdv)
-
-        with torch.no_grad():
-            self.update(input_vector)
 
         mean, var = self.debiased_mean_var()
         out = (input_vector - mean[(None,) * self.norm_axes]) / torch.sqrt(var)[(None,) * self.norm_axes]

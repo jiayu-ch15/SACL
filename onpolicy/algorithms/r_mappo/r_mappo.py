@@ -52,12 +52,15 @@ class R_MAPPO():
             self.value_normalizer = None
 
     def cal_value_loss(self, values, value_preds_batch, return_batch, active_masks_batch):
+        value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
         if self._use_popart:
-            value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
+            self.value_normalizer.update(return_batch)
             error_clipped = self.value_normalizer.normalize(return_batch) - value_pred_clipped
             error_original = self.value_normalizer.normalize(return_batch) - values
+        elif self._use_valuenorm:
+            error_clipped = self.value_normalizer(return_batch) - value_pred_clipped
+            error_original = self.value_normalizer(return_batch) - values
         else:
-            value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
             error_clipped = return_batch - value_pred_clipped
             error_original = return_batch - values
 
@@ -147,7 +150,7 @@ class R_MAPPO():
         return value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, ratio
 
     def train(self, buffer, turn_on=True):
-        if self._use_popart:
+        if self._use_popart or self._use_valuenorm:
             advantages = buffer.returns[:-1] - self.value_normalizer.denormalize(buffer.value_preds[:-1])
         else:
             advantages = buffer.returns[:-1] - buffer.value_preds[:-1]

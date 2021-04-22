@@ -20,6 +20,7 @@ class SharedReplayBuffer(object):
         self.gae_lambda = args.gae_lambda
         self._use_gae = args.use_gae
         self._use_popart = args.use_popart
+        self._use_valuenorm = args.use_valuenorm
         self._use_proper_time_limits = args.use_proper_time_limits 
 
         self._mixed_obs = False  # for mixed observation   
@@ -154,7 +155,7 @@ class SharedReplayBuffer(object):
                 self.value_preds[-1] = next_value
                 gae = 0
                 for step in reversed(range(self.rewards.shape[0])):
-                    if self._use_popart:
+                    if self._use_popart or self._use_valuenorm:
                         # step + 1
                         delta = self.rewards[step] + self.gamma * value_normalizer.denormalize(self.value_preds[step + 1]) * self.masks[step + 1]  \
                             - value_normalizer.denormalize(self.value_preds[step])
@@ -169,7 +170,7 @@ class SharedReplayBuffer(object):
             else:
                 self.returns[-1] = next_value
                 for step in reversed(range(self.rewards.shape[0])):
-                    if self._use_popart:
+                    if self._use_popart or self._use_valuenorm:
                         self.returns[step] = (self.returns[step + 1] * self.gamma * self.masks[step + 1] + self.rewards[step]) * self.bad_masks[step + 1] \
                                             + (1 - self.bad_masks[step + 1]) * value_normalizer.denormalize(self.value_preds[step]) 
                     else:
@@ -180,7 +181,7 @@ class SharedReplayBuffer(object):
                 self.value_preds[-1] = next_value
                 gae = 0
                 for step in reversed(range(self.rewards.shape[0])):
-                    if self._use_popart:
+                    if self._use_popart or self._use_valuenorm:
                         delta = self.rewards[step] + self.gamma * value_normalizer.denormalize(self.value_preds[step + 1]) * self.masks[step + 1] \
                             - value_normalizer.denormalize(self.value_preds[step])
                         gae = delta + self.gamma * self.gae_lambda * self.masks[step + 1] * gae 

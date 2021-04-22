@@ -33,7 +33,7 @@ class ValueNorm(nn.Module):
         debiased_var = (debiased_mean_sq - debiased_mean ** 2).clamp(min=1e-2)
         return debiased_mean, debiased_var
 
-    def normalize(self, input_vector, train=True):
+    def forward(self, input_vector, train=True):
         # Make sure input is float32
         if type(input_vector) == np.ndarray:
             input_vector = torch.from_numpy(input_vector)
