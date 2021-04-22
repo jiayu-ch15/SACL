@@ -46,20 +46,24 @@ class R_MAPPO():
         
         if self._use_popart:
             self.value_normalizer = self.policy.critic.v_out
+            if self._use_policy_vhead:
+                self.policy_value_normalizer = self.policy.actor.v_out
         elif self._use_valuenorm:
             self.value_normalizer = self.ValueNorm(1, device = self.device)
+            if self._use_policy_vhead:
+                self.policy_value_normalizer = self.ValueNorm(1, device = self.device)
         else:
             self.value_normalizer = None
+            if self._use_policy_vhead:
+                self.policy_value_normalizer = None
 
-    def cal_value_loss(self, values, value_preds_batch, return_batch, active_masks_batch):
+    def cal_value_loss(self, value_normalizer, values, value_preds_batch, return_batch, active_masks_batch):
         value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
-        if self._use_popart:
-            self.value_normalizer.update(return_batch)
-            error_clipped = self.value_normalizer.normalize(return_batch) - value_pred_clipped
-            error_original = self.value_normalizer.normalize(return_batch) - values
-        elif self._use_valuenorm:
-            error_clipped = self.value_normalizer(return_batch) - value_pred_clipped
-            error_original = self.value_normalizer(return_batch) - values
+        
+        if self._use_popart or self._use_valuenorm:
+            value_normalizer.update(return_batch)
+            error_clipped = value_normalizer.normalize(return_batch) - value_pred_clipped
+            error_original = value_normalizer.normalize(return_batch) - values
         else:
             error_clipped = return_batch - value_pred_clipped
             error_original = return_batch - values
@@ -116,7 +120,7 @@ class R_MAPPO():
             policy_action_loss = -torch.sum(torch.min(surr1, surr2), dim=-1, keepdim=True).mean()
 
         if self._use_policy_vhead:
-            policy_value_loss = self.cal_value_loss(policy_values, value_preds_batch, return_batch, active_masks_batch)       
+            policy_value_loss = self.cal_value_loss(self.policy_value_normalizer, policy_values, value_preds_batch, return_batch, active_masks_batch)       
             policy_loss = policy_action_loss + policy_value_loss * self.policy_value_loss_coef
         else:
             policy_loss = policy_action_loss
@@ -134,7 +138,7 @@ class R_MAPPO():
         self.policy.actor_optimizer.step()
 
         # critic update
-        value_loss = self.cal_value_loss(values, value_preds_batch, return_batch, active_masks_batch)
+        value_loss = self.cal_value_loss(self.value_normalizer, values, value_preds_batch, return_batch, active_masks_batch)
 
         self.policy.critic_optimizer.zero_grad()
 
@@ -159,7 +163,6 @@ class R_MAPPO():
         mean_advantages = np.nanmean(advantages_copy)
         std_advantages = np.nanstd(advantages_copy)
         advantages = (advantages - mean_advantages) / (std_advantages + 1e-5)
-        
 
         train_info = {}
 

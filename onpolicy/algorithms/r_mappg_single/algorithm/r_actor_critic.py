@@ -10,6 +10,7 @@ from onpolicy.algorithms.utils.mlp import MLPBase, MLPLayer
 from onpolicy.algorithms.utils.rnn import RNNLayer
 from onpolicy.algorithms.utils.act import ACTLayer
 from onpolicy.algorithms.utils.util import init, check
+from onpolicy.algorithms.utils.popart import PopArt
 
 from onpolicy.utils.util import get_shape_from_obs_space
 
@@ -23,6 +24,7 @@ class R_Model(nn.Module):
         self._use_naive_recurrent_policy = args.use_naive_recurrent_policy
         self._use_recurrent_policy = args.use_recurrent_policy
         self._use_centralized_V = args.use_centralized_V
+        self._use_popart = args.use_popart
         self.hidden_size = args.hidden_size
         self.device = device
         self.tpdv = dict(dtype=torch.float32, device=device)
@@ -49,7 +51,10 @@ class R_Model(nn.Module):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0))
 
         # value
-        self.v_out = init_(nn.Linear(self.hidden_size, 1))
+        if self._use_popart:
+            self.v_out = init_(PopArt(input_size, 1, device=device))
+        else:
+            self.v_out = init_(nn.Linear(input_size, 1))
 
         # action
         self.act = ACTLayer(action_space, self.hidden_size, self._use_orthogonal, self._gain)

@@ -47,6 +47,10 @@ class PopArt(torch.nn.Module):
     
     @torch.no_grad()
     def update(self, input_vector):
+        if type(input_vector) == np.ndarray:
+            input_vector = torch.from_numpy(input_vector)
+        input_vector = input_vector.to(**self.tpdv)
+        
         old_mean, old_stddev = self.mean, self.stddev
 
         batch_mean = input_vector.mean(dim=tuple(range(self.norm_axes)))

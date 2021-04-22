@@ -11,8 +11,8 @@ from onpolicy.algorithms.utils.mlp import MLPBase, MLPLayer
 from onpolicy.algorithms.utils.mix import MIXBase
 from onpolicy.algorithms.utils.rnn import RNNLayer
 from onpolicy.algorithms.utils.act import ACTLayer
+from onpolicy.algorithms.utils.popart import PopArt
 from onpolicy.utils.util import get_shape_from_obs_space
-from onpolicy.utils.popart import PopArt
 
 class R_Actor(nn.Module):
     def __init__(self, args, obs_space, action_space, device=torch.device("cpu")):
@@ -57,7 +57,10 @@ class R_Actor(nn.Module):
             init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][self._use_orthogonal]
             def init_(m): 
                 return init(m, init_method, lambda x: nn.init.constant_(x, 0))
-            self.v_out = init_(nn.Linear(input_size, 1))
+            if self._use_popart:
+                self.v_out = init_(PopArt(input_size, 1, device=device))
+            else:
+                self.v_out = init_(nn.Linear(input_size, 1))
 
         self.to(device)
 
