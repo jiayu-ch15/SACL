@@ -172,6 +172,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
             break
         elif cmd == 'get_spaces':
             remote.send((env.observation_space, env.share_observation_space, env.action_space))
+        elif cmd == 'get_max_step':
+            remote.send((env.max_steps))
         else:
             raise NotImplementedError
 
@@ -273,6 +275,10 @@ class SubprocVecEnv(ShareVecEnv):
         obs = [remote.recv() for remote in self.remotes]
         return np.stack(obs)
 
+    def get_max_step(self):
+        for remote in self.remotes:
+            remote.send(('get_max_step', None))
+        return np.stack([remote.recv() for remote in self.remotes])
 
     def reset_task(self):
         for remote in self.remotes:
@@ -897,6 +903,9 @@ class DummyVecEnv(ShareVecEnv):
     def reset(self):
         obs = [env.reset() for env in self.envs]
         return np.array(obs)
+
+    def get_max_step(self):
+        return [env.max_steps for env in self.envs]
 
     def close(self):
         for env in self.envs:
