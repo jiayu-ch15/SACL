@@ -15,7 +15,7 @@ class MIXBase(nn.Module):
         super(MIXBase, self).__init__()
 
         self._use_orthogonal = args.use_orthogonal
-        self._use_ReLU = args.use_ReLU
+        self._activation_id = args.activation_id
         self._use_maxpool2d = args.use_maxpool2d
         self.hidden_size = args.hidden_size
         self.cnn_keys = []
@@ -39,11 +39,11 @@ class MIXBase(nn.Module):
                 raise NotImplementedError
 
         if len(self.cnn_keys) > 0:
-            self.cnn = self._build_cnn_model(obs_shape, cnn_layers_params, self.hidden_size, self._use_orthogonal, self._use_ReLU)
+            self.cnn = self._build_cnn_model(obs_shape, cnn_layers_params, self.hidden_size, self._use_orthogonal, self._activation_id)
         if len(self.embed_keys) > 0:
             self.embed = self._build_embed_model(obs_shape)
         if len(self.mlp_keys) > 0:
-            self.mlp = self._build_mlp_model(obs_shape, self.hidden_size, self._use_orthogonal, self._use_ReLU)
+            self.mlp = self._build_mlp_model(obs_shape, self.hidden_size, self._use_orthogonal, self._activation_id)
 
     def forward(self, x):
         out_x = x
@@ -84,7 +84,7 @@ class MIXBase(nn.Module):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
 
         for key in self.cnn_keys:
-            if key in ['rgb','depth']:
+            if key in ['rgb','depth','image']:
                 self.n_cnn_input += obs_shape[key].shape[2] 
                 cnn_dims = np.array(obs_shape[key].shape[:2], dtype=np.float32)
             elif key in ['global_map','local_map','global_obs','global_merge_obs','global_merge_goal','gt_map']:
