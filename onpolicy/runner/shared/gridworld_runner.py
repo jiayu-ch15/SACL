@@ -31,9 +31,9 @@ class GridWorldRunner(Runner):
                 values, actions, action_log_probs, rnn_states, rnn_states_critic, actions_env = self.collect(step)
                     
                 # Obser reward and next obs
-                obs, rewards, dones, infos = self.envs.step(actions_env)
-
-                data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
+                dict_obs, rewards, dones, infos = self.envs.step(actions_env)
+                
+                data = dict_obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
 
                 # insert data into buffer
                 self.insert(data)
@@ -80,29 +80,43 @@ class GridWorldRunner(Runner):
             # eval
             if episode % self.eval_interval == 0 and self.use_eval:
                 self.eval(total_num_steps)
+    
+    def _convert(self, dict_obs):
+        obs = {}
+        obs['image'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['image'].shape), dtype=np.float32)
+        obs['direction'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['direction'].shape), dtype=np.float32)
+        for i, o in enumerate(dict_obs):
+            obs['image'][i][0] = o['image']
+            obs['direction'][i][0] = np.eye(4)[o['direction']]
+        return obs
 
     def warmup(self):
         # reset env
-        obs = self.envs.reset()
+        dict_obs = self.envs.reset()
+        obs = self._convert(dict_obs)
+        share_obs = self._convert(dict_obs)
 
-        import pdb; pdb.set_trace()
+        for key in obs.keys():
+            self.buffer.obs[key][0] = obs[key].copy()
 
-        # replay buffer
-        if self.use_centralized_V:
-            share_obs = obs.reshape(self.n_rollout_threads, -1)
-            share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
-        else:
-            share_obs = obs
-
-        self.buffer.share_obs[0] = share_obs.copy()
-        self.buffer.obs[0] = obs.copy()
+        for key in share_obs.keys():
+            self.buffer.share_obs[key][0] = share_obs[key].copy()
 
     @torch.no_grad()
     def collect(self, step):
         self.trainer.prep_rollout()
+
+        concat_share_obs = {}
+        concat_obs = {}
+
+        for key in self.buffer.share_obs.keys():
+            concat_share_obs[key] = np.concatenate(self.buffer.share_obs[key][step])
+        for key in self.buffer.obs.keys():
+            concat_obs[key] = np.concatenate(self.buffer.obs[key][step])
+
         value, action, action_log_prob, rnn_states, rnn_states_critic \
-            = self.trainer.policy.get_actions(np.concatenate(self.buffer.share_obs[step]),
-                            np.concatenate(self.buffer.obs[step]),
+            = self.trainer.policy.get_actions(concat_share_obs,
+                            concat_obs,
                             np.concatenate(self.buffer.rnn_states[step]),
                             np.concatenate(self.buffer.rnn_states_critic[step]),
                             np.concatenate(self.buffer.masks[step]))
@@ -128,32 +142,35 @@ class GridWorldRunner(Runner):
         return values, actions, action_log_probs, rnn_states, rnn_states_critic, actions_env
 
     def insert(self, data):
-        obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
+        dict_obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
 
         rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
         masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
         masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
-        if self.use_centralized_V:
-            share_obs = obs.reshape(self.n_rollout_threads, -1)
-            share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
-        else:
-            share_obs = obs
+        obs = self._convert(dict_obs)
+        share_obs = self._convert(dict_obs)
 
         self.buffer.insert(share_obs, obs, rnn_states, rnn_states_critic, actions, action_log_probs, values, rewards, masks)
 
     @torch.no_grad()
     def eval(self, total_num_steps):
         eval_episode_rewards = []
-        eval_obs = self.eval_envs.reset()
+        eval_dict_obs = self.eval_envs.reset()
+        eval_obs = self._convert(eval_dict_obs)
 
         eval_rnn_states = np.zeros((self.n_eval_rollout_threads, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
 
         for eval_step in range(self.episode_length):
             self.trainer.prep_rollout()
-            eval_action, eval_rnn_states = self.trainer.policy.act(np.concatenate(eval_obs),
+
+            concat_eval_obs = {}
+            for key in eval_obs.keys():
+                concat_eval_obs[key] = np.concatenate(eval_obs[key])
+
+            eval_action, eval_rnn_states = self.trainer.policy.act(concat_eval_obs,
                                                 np.concatenate(eval_rnn_states),
                                                 np.concatenate(eval_masks),
                                                 deterministic=True)
@@ -173,7 +190,9 @@ class GridWorldRunner(Runner):
                 raise NotImplementedError
 
             # Obser reward and next obs
-            eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions_env)
+            eval_dict_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions_env)
+            eval_obs = self._convert(eval_dict_obs)
+
             eval_episode_rewards.append(eval_rewards)
 
             eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
@@ -192,7 +211,9 @@ class GridWorldRunner(Runner):
         
         all_frames = []
         for episode in range(self.all_args.render_episodes):
-            obs = envs.reset()
+            dict_obs = envs.reset()
+            obs = self._convert(dict_obs)
+
             if self.all_args.save_gifs:
                 image = envs.render('rgb_array')[0][0]
                 all_frames.append(image)
@@ -206,7 +227,12 @@ class GridWorldRunner(Runner):
                 calc_start = time.time()
 
                 self.trainer.prep_rollout()
-                action, rnn_states = self.trainer.policy.act(np.concatenate(obs),
+
+                concat_obs = {}
+                for key in obs.keys():
+                    concat_obs[key] = np.concatenate(obs[key])
+
+                action, rnn_states = self.trainer.policy.act(concat_obs,
                                                     np.concatenate(rnn_states),
                                                     np.concatenate(masks),
                                                     deterministic=True)
@@ -226,7 +252,8 @@ class GridWorldRunner(Runner):
                     raise NotImplementedError
 
                 # Obser reward and next obs
-                obs, rewards, dones, infos = envs.step(actions_env)
+                dict_obs, rewards, dones, infos = envs.step(actions_env)
+                obs = self._convert(dict_obs)
                 episode_rewards.append(rewards)
 
                 rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)

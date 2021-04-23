@@ -24,6 +24,7 @@
 - [Habitat](https://github.com/facebookresearch/habitat-sim)
 - [Gibson](https://github.com/StanfordVL/GibsonEnv)
 - [Gibson2](https://github.com/StanfordVL/iGibson)
+- [Mini-GridWorld](https://github.com/maximecb/gym-minigrid)
 
 ## TODOs:
 - [ ] multi-agent FLOW
@@ -344,8 +345,11 @@ wget https://dl.fbaipublicfiles.com/habitat/data/datasets/pointnav/gibson/v1/poi
 unzip pointnav_gibson_v1.zip
 ln -s /mnt/disk2/nav/habitat_data/scene_datasets
 ```
+## 11.Human-Robot
 
-## 11. Docs：
+## 12.Mini-GridWorld
+
+## 13. Docs：
 
 ```
 pip install sphinx sphinxcontrib-apidoc sphinx_rtd_theme recommonmark
@@ -354,7 +358,7 @@ sphinx-quickstart
 make html
 ```
 
-## 12. submodules
+## 14. submodules
 
 here we give an example on how to add your repo as a submodule of on-policy repo
 ```
