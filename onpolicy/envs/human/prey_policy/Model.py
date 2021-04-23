@@ -20,7 +20,7 @@ class R_Actor(nn.Module):
 
         self._gain = args.gain
         self._use_orthogonal = args.use_orthogonal 
-        self._use_ReLU = args.use_ReLU
+        self._activation_id = args.activation_id
         self._use_policy_active_masks = args.use_policy_active_masks 
         self._use_naive_recurrent_policy = args.use_naive_recurrent_policy
         self._use_recurrent_policy = args.use_recurrent_policy
@@ -47,7 +47,7 @@ class R_Actor(nn.Module):
 
         if self._use_influence_policy:
             self.mlp = MLPLayer(obs_shape[0], self.hidden_size,
-                              self._influence_layer_N, self._use_orthogonal, self._use_ReLU)
+                              self._influence_layer_N, self._use_orthogonal, self._activation_id)
             input_size += self.hidden_size
 
         self.act = ACTLayer(action_space, input_size, self._use_orthogonal, self._gain)

@@ -42,7 +42,7 @@ class R_MAPPO():
         if self._use_popart:
             self.value_normalizer = self.policy.critic.v_out
         elif self._use_valuenorm:
-            self.value_normalizer = self.ValueNorm(1, device = self.device)
+            self.value_normalizer = ValueNorm(1, device = self.device)
         else:
             self.value_normalizer = None
 

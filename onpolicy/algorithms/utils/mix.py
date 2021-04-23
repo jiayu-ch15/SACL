@@ -64,7 +64,7 @@ class MIXBase(nn.Module):
 
         return out_x
 
-    def _build_cnn_model(self, obs_shape, cnn_layers_params, hidden_size, use_orthogonal, use_ReLU):
+    def _build_cnn_model(self, obs_shape, cnn_layers_params, hidden_size, use_orthogonal, activation_id):
         
         if cnn_layers_params is None:
             cnn_layers_params = [(32, 8, 4, 0), (64, 4, 2, 0), (64, 3, 1, 0)]
@@ -76,9 +76,9 @@ class MIXBase(nn.Module):
                 return output
             cnn_layers_params = _convert(cnn_layers_params)
         
-        active_func = [nn.Tanh(), nn.ReLU()][use_ReLU]
+        active_func = [nn.Tanh(), nn.ReLU(), nn.LeakyReLU(), nn.ELU()][activation_id]
         init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][use_orthogonal]
-        gain = nn.init.calculate_gain(['tanh', 'relu'][use_ReLU])
+        gain = nn.init.calculate_gain(['tanh', 'relu', 'leaky_relu', 'leaky_relu'][activation_id])
 
         def init_(m):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
@@ -144,11 +144,11 @@ class MIXBase(nn.Module):
 
         return nn.Embedding(self.n_embed_input, self.n_embed_output)
 
-    def _build_mlp_model(self, obs_shape, hidden_size, use_orthogonal, use_ReLU):
+    def _build_mlp_model(self, obs_shape, hidden_size, use_orthogonal, activation_id):
 
-        active_func = [nn.Tanh(), nn.ReLU()][use_ReLU]
+        active_func = [nn.Tanh(), nn.ReLU(), nn.LeakyReLU(), nn.ELU()][activation_id]
         init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][use_orthogonal]
-        gain = nn.init.calculate_gain(['tanh', 'relu'][use_ReLU])
+        gain = nn.init.calculate_gain(['tanh', 'relu', 'leaky_relu', 'leaky_relu'][activation_id])
 
         def init_(m):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)

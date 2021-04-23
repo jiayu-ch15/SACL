@@ -8,13 +8,13 @@ from .util import init, get_clones
 from .attention import Encoder
 
 class MLPLayer(nn.Module):
-    def __init__(self, input_dim, hidden_size, layer_N, use_orthogonal, use_ReLU):
+    def __init__(self, input_dim, hidden_size, layer_N, use_orthogonal, activation_id):
         super(MLPLayer, self).__init__()
         self._layer_N = layer_N
 
-        active_func = [nn.Tanh(), nn.ReLU()][use_ReLU]
+        active_func = [nn.Tanh(), nn.ReLU(), nn.LeakyReLU(), nn.ELU()][activation_id]
         init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][use_orthogonal]
-        gain = nn.init.calculate_gain(['tanh', 'relu'][use_ReLU])
+        gain = nn.init.calculate_gain(['tanh', 'relu', 'leaky_relu', 'leaky_relu'][activation_id])
 
         def init_(m):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
@@ -32,12 +32,12 @@ class MLPLayer(nn.Module):
         return x
 
 class CONVLayer(nn.Module):
-    def __init__(self, input_dim, hidden_size, use_orthogonal, use_ReLU):
+    def __init__(self, input_dim, hidden_size, use_orthogonal, activation_id):
         super(CONVLayer, self).__init__()
 
-        active_func = [nn.Tanh(), nn.ReLU()][use_ReLU]
+        active_func = [nn.Tanh(), nn.ReLU(), nn.LeakyReLU(), nn.ELU()][activation_id]
         init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][use_orthogonal]
-        gain = nn.init.calculate_gain(['tanh', 'relu'][use_ReLU])
+        gain = nn.init.calculate_gain(['tanh', 'relu', 'leaky_relu', 'leaky_relu'][activation_id])
 
         def init_(m):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
@@ -58,7 +58,7 @@ class MLPBase(nn.Module):
 
         self._use_feature_normalization = args.use_feature_normalization
         self._use_orthogonal = args.use_orthogonal
-        self._use_ReLU = args.use_ReLU
+        self._activation_id = args.activation_id
         self._use_attn = args.use_attn
         self._use_attn_internal = use_attn_internal
         self._use_average_pool = args.use_average_pool
@@ -92,14 +92,14 @@ class MLPBase(nn.Module):
             inputs_dim = obs_dim
 
         if self._use_conv1d:
-            self.conv = CONVLayer(self._stacked_frames, self.hidden_size, self._use_orthogonal, self._use_ReLU)
+            self.conv = CONVLayer(self._stacked_frames, self.hidden_size, self._use_orthogonal, self._activation_id)
             random_x = torch.FloatTensor(1, self._stacked_frames, inputs_dim//self._stacked_frames)
             random_out = self.conv(random_x)
             assert len(random_out.shape)==3
             inputs_dim = random_out.size(-1) * random_out.size(-2)
 
         self.mlp = MLPLayer(inputs_dim, self.hidden_size,
-                              self._layer_N, self._use_orthogonal, self._use_ReLU)
+                              self._layer_N, self._use_orthogonal, self._activation_id)
 
     def forward(self, x):
         if self._use_feature_normalization:

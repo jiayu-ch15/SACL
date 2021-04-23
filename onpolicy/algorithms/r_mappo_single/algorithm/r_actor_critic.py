@@ -19,7 +19,7 @@ class R_Model(nn.Module):
         super(R_Model, self).__init__()
         self._gain = args.gain
         self._use_orthogonal = args.use_orthogonal
-        self._use_ReLU = args.use_ReLU
+        self._activation_id = args.activation_id
         self._recurrent_N = args.recurrent_N
         self._use_naive_recurrent_policy = args.use_naive_recurrent_policy
         self._use_recurrent_policy = args.use_recurrent_policy
@@ -42,7 +42,7 @@ class R_Model(nn.Module):
             self.share_obs_prep = self.obs_prep
 
         # common layer
-        self.common = MLPLayer(self.hidden_size, self.hidden_size, layer_N=0, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
+        self.common = MLPLayer(self.hidden_size, self.hidden_size, layer_N=0, use_orthogonal=self._use_orthogonal, activation_id=self._activation_id)
         
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)

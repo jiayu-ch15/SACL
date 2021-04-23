@@ -49,9 +49,9 @@ class R_MAPPO():
             if self._use_policy_vhead:
                 self.policy_value_normalizer = self.policy.actor.v_out
         elif self._use_valuenorm:
-            self.value_normalizer = self.ValueNorm(1, device = self.device)
+            self.value_normalizer = ValueNorm(1, device = self.device)
             if self._use_policy_vhead:
-                self.policy_value_normalizer = self.ValueNorm(1, device = self.device)
+                self.policy_value_normalizer = ValueNorm(1, device = self.device)
         else:
             self.value_normalizer = None
             if self._use_policy_vhead:
