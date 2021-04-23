@@ -11,14 +11,14 @@ import torch
 
 from onpolicy.config import get_config
 
-from onpolicy.envs.mpe.MPE_env import MPEEnv
+from onpolicy.envs.human.Human_env import HumanEnv
 from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
 
 def make_render_env(all_args):
     def get_env_fn(rank):
         def init_env():
-            if all_args.env_name == "MPE":
-                env = MPEEnv(all_args)
+            if all_args.env_name == "Human":
+                env = HumanEnv(all_args)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
@@ -34,9 +34,19 @@ def make_render_env(all_args):
 def parse_args(args, parser):
     parser.add_argument('--scenario_name', type=str,
                         default='simple_spread', help="Which scenario to run on")
-    parser.add_argument("--num_landmarks", type=int, default=3)
-    parser.add_argument('--num_agents', type=int,
-                        default=2, help="number of players")
+    parser.add_argument("--num_landmarks", type=int, default=2)
+    parser.add_argument('--num_good_agents', type=int,
+                        default=1, help="number of players")
+    parser.add_argument('--num_adversaries', type=int,
+                        default=3, help="number of players")
+    # pretrained parameters
+    parser.add_argument("--prey_model_dir", type=str, default="/home/yuchao/project/onpolicy/onpolicy/envs/human/prey_policy/", help="by default None. set the path to pretrained model.")
+    parser.add_argument('--use_fixed_prey', action='store_true', default=False)
+    parser.add_argument('--use_pos_four_direction', action='store_true', default=False)
+    parser.add_argument('--use_direction_reward', action='store_true', default=False)
+    parser.add_argument('--use_distance_reward', action='store_true', default=False)
+    parser.add_argument('--add_direction_encoder', action='store_true', default=False)
+    parser.add_argument('--direction_alpha', type=float,default=0.1, help="number of players")
 
     all_args = parser.parse_known_args(args)[0]
 
@@ -55,9 +65,6 @@ def main(args):
             "check recurrent policy!")
     else:
         raise NotImplementedError
-
-    assert (all_args.share_policy == True and all_args.scenario_name == 'simple_speaker_listener') == False, (
-        "The simple_speaker_listener scenario can not use shared policy. Please check the config.py.")
 
     assert all_args.use_render, ("u need to set use_render be True")
     assert not (all_args.model_dir == None or all_args.model_dir == ""), ("set model_dir first")
@@ -104,22 +111,24 @@ def main(args):
     # env init
     envs = make_render_env(all_args)
     eval_envs = None
-    num_agents = all_args.num_agents
+    num_good_agents = all_args.num_good_agents
+    num_adversaries = all_args.num_adversaries
+    # num_agents = all_args.num_agents
 
     config = {
         "all_args": all_args,
         "envs": envs,
         "eval_envs": eval_envs,
-        "num_agents": num_agents,
+        "num_agents": num_adversaries,
         "device": device,
         "run_dir": run_dir
     }
 
     # run experiments
     if all_args.share_policy:
-        from onpolicy.runner.shared.mpe_runner import MPERunner as Runner
+        from onpolicy.runner.shared.human_runner import HumanRunner as Runner
     else:
-        from onpolicy.runner.separated.mpe_runner import MPERunner as Runner
+        from onpolicy.runner.separated.human_runner import HumanRunner as Runner
 
     runner = Runner(config)
     runner.render()

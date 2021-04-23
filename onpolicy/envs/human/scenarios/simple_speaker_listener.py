@@ -1,6 +1,6 @@
 import numpy as np
-from onpolicy.envs.mpe.core import World, Agent, Landmark
-from onpolicy.envs.mpe.scenario import BaseScenario
+from onpolicy.envs.human.core import World, Agent, Landmark
+from onpolicy.envs.human.scenario import BaseScenario
 
 
 class Scenario(BaseScenario):
@@ -95,5 +95,4 @@ class Scenario(BaseScenario):
             return np.concatenate([goal_color])
         # listener
         if agent.silent:
-            print(comm)
             return np.concatenate([agent.state.p_vel] + entity_pos + comm)

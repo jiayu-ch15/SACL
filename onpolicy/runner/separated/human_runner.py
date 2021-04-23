@@ -8,14 +8,13 @@ import torch
 
 from onpolicy.utils.util import update_linear_schedule
 from onpolicy.runner.separated.base_runner import Runner
-import imageio
 
 def _t2n(x):
     return x.detach().cpu().numpy()
 
-class MPERunner(Runner):
+class HumanRunner(Runner):
     def __init__(self, config):
-        super(MPERunner, self).__init__(config)
+        super(HumanRunner, self).__init__(config)
        
     def run(self):
         self.warmup()   
@@ -242,15 +241,13 @@ class MPERunner(Runner):
             episode_rewards = []
             obs = self.envs.reset()
             if self.all_args.save_gifs:
-                image = self.envs.render('rgb_array')[0][0]
+                image = self.envs.render('rgb_array', close=False)[0]
                 all_frames.append(image)
 
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
 
             for step in range(self.episode_length):
-                calc_start = time.time()
-                
                 temp_actions_env = []
                 for agent_id in range(self.num_agents):
                     if not self.use_centralized_V:
@@ -295,14 +292,13 @@ class MPERunner(Runner):
                 masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
                 if self.all_args.save_gifs:
-                    image = self.envs.render('rgb_array')[0][0]
+                    image = self.envs.render('rgb_array', close=False)[0]
                     all_frames.append(image)
                     calc_end = time.time()
                     elapsed = calc_end - calc_start
                     if elapsed < self.all_args.ifi:
-                        time.sleep(self.all_args.ifi - elapsed)
+                        time.sleep(ifi - elapsed)
 
-            episode_rewards = np.array(episode_rewards)
             for agent_id in range(self.num_agents):
                 average_episode_rewards = np.mean(np.sum(episode_rewards[:, :, agent_id], axis=0))
                 print("eval average episode rewards of agent%i: " % agent_id + str(average_episode_rewards))
