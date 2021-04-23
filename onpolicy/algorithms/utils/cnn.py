@@ -11,12 +11,13 @@ class Flatten(nn.Module):
         return x.view(x.size(0), -1)
 
 class CNNLayer(nn.Module):
-    def __init__(self, obs_shape, hidden_size, use_orthogonal, use_ReLU, kernel_size=3, stride=1):
+    def __init__(self, obs_shape, hidden_size, use_orthogonal, activation_id, kernel_size=3, stride=1):
         super(CNNLayer, self).__init__()
 
-        active_func = [nn.Tanh(), nn.ReLU()][use_ReLU]
+        active_func = [nn.Tanh(), nn.ReLU(), nn.LeakyReLU(), nn.ELU()][activation_id]
         init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][use_orthogonal]
-        gain = nn.init.calculate_gain(['tanh', 'relu'][use_ReLU])
+        gain = nn.init.calculate_gain(['tanh', 'relu', 'leaky_relu', 'leaky_relu'][activation_id])
+
 
         def init_(m):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
@@ -42,10 +43,10 @@ class CNNBase(nn.Module):
         super(CNNBase, self).__init__()
 
         self._use_orthogonal = args.use_orthogonal
-        self._use_ReLU = args.use_ReLU
+        self._activation_id = args.activation_id
         self.hidden_size = args.hidden_size
 
-        self.cnn = CNNLayer(obs_shape, self.hidden_size, self._use_orthogonal, self._use_ReLU)
+        self.cnn = CNNLayer(obs_shape, self.hidden_size, self._use_orthogonal, self._activation_id)
 
     def forward(self, x):
         x = self.cnn(x)

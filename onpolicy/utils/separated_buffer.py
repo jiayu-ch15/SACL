@@ -20,6 +20,7 @@ class SeparatedReplayBuffer(object):
         self.gae_lambda = args.gae_lambda
         self._use_gae = args.use_gae
         self._use_popart = args.use_popart
+        self._use_valuenorm = args.use_valuenorm
         self._use_proper_time_limits = args.use_proper_time_limits
 
         obs_shape = get_shape_from_obs_space(obs_space)
@@ -120,7 +121,7 @@ class SeparatedReplayBuffer(object):
                 self.value_preds[-1] = next_value
                 gae = 0
                 for step in reversed(range(self.rewards.shape[0])):
-                    if self._use_popart:
+                    if self._use_popart or self._use_valuenorm:
                         delta = self.rewards[step] + self.gamma * value_normalizer.denormalize(self.value_preds[
                             step + 1]) * self.masks[step + 1] - value_normalizer.denormalize(self.value_preds[step])
                         gae = delta + self.gamma * self.gae_lambda * self.masks[step + 1] * gae
@@ -145,7 +146,7 @@ class SeparatedReplayBuffer(object):
                 self.value_preds[-1] = next_value
                 gae = 0
                 for step in reversed(range(self.rewards.shape[0])):
-                    if self._use_popart:
+                    if self._use_popart or self._use_valuenorm:
                         delta = self.rewards[step] + self.gamma * value_normalizer.denormalize(self.value_preds[step + 1]) * self.masks[step + 1] - value_normalizer.denormalize(self.value_preds[step])
                         gae = delta + self.gamma * self.gae_lambda * self.masks[step + 1] * gae
                         self.returns[step] = gae + value_normalizer.denormalize(self.value_preds[step])

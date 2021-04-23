@@ -22,6 +22,7 @@ class R_Actor(nn.Module):
         self._use_orthogonal = args.use_orthogonal  
         self._use_naive_recurrent_policy = args.use_naive_recurrent_policy
         self._use_recurrent_policy = args.use_recurrent_policy 
+        self._use_popart = args.use_popart
         self._recurrent_N = args.recurrent_N  
         self.tpdv = dict(dtype=torch.float32, device=device)
         init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][self._use_orthogonal]
@@ -37,7 +38,10 @@ class R_Actor(nn.Module):
         def init_(m): 
             return init(m, init_method, lambda x: nn.init.constant_(x, 0))
 
-        self.v_out = init_(nn.Linear(self.hidden_size, 1))
+        if self._use_popart:
+            self.v_out = init_(PopArt(input_size, 1, device=device))
+        else:
+            self.v_out = init_(nn.Linear(input_size, 1))
 
         self.to(device)
 

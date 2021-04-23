@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from onpolicy.utils.util import get_gard_norm, huber_loss, mse_loss
-from onpolicy.utils.popart import PopArt
+from onpolicy.utils.valuenorm import ValueNorm
 from onpolicy.algorithms.utils.util import check
 
 
@@ -39,10 +39,13 @@ class R_MAPPG():
         self._use_clipped_value_loss = args.use_clipped_value_loss
         self._use_huber_loss = args.use_huber_loss
         self._use_popart = args.use_popart
+        self._use_valuenorm = args.use_valuenorm
         self._use_value_active_masks = args.use_value_active_masks
 
         if self._use_popart:
-            self.value_normalizer = PopArt(1, device=self.device)
+            self.value_normalizer = self.policy.critic.v_out
+        elif self._use_valuenorm:
+            self.value_normalizer = ValueNorm(1, device = self.device)
         else:
             self.value_normalizer = None
 
@@ -86,12 +89,13 @@ class R_MAPPG():
 
         values = self.policy.get_values(share_obs_batch, rnn_states_critic_batch, masks_batch)
 
+        value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
+        
         if self._use_popart:
-            value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
-            error_clipped = self.value_normalizer(return_batch) - value_pred_clipped
-            error_original = self.value_normalizer(return_batch) - values
+            self.value_normalizer.update(return_batch)
+            error_clipped = self.value_normalizer.normalize(return_batch) - value_pred_clipped
+            error_original = self.value_normalizer.normalize(return_batch) - values
         else:
-            value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
             error_clipped = return_batch - value_pred_clipped
             error_original = return_batch - values
 
@@ -166,12 +170,12 @@ class R_MAPPG():
         kl_divergence = torch.sum((old_action_probs_batch * (old_action_log_probs_batch-new_action_log_probs)), dim=-1, keepdim=True)
         kl_loss = (kl_divergence * active_masks_batch).sum() / active_masks_batch.sum()
 
+        value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
+            
         if self._use_popart:
-            value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
-            error_clipped = self.value_normalizer(return_batch) - value_pred_clipped
-            error_original = self.value_normalizer(return_batch) - values
+            error_clipped = self.value_normalizer.normalize(return_batch) - value_pred_clipped
+            error_original = self.value_normalizer.normalize(return_batch) - values
         else:
-            value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
             error_clipped = return_batch - value_pred_clipped
             error_original = return_batch - values
 

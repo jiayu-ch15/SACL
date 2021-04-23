@@ -10,6 +10,7 @@ from onpolicy.algorithms.utils.mlp import MLPBase, MLPLayer
 from onpolicy.algorithms.utils.rnn import RNNLayer
 from onpolicy.algorithms.utils.act import ACTLayer
 from onpolicy.algorithms.utils.util import init, check
+from onpolicy.algorithms.utils.popart import PopArt
 
 from onpolicy.utils.util import get_shape_from_obs_space
 
@@ -18,11 +19,12 @@ class R_Model(nn.Module):
         super(R_Model, self).__init__()
         self._gain = args.gain
         self._use_orthogonal = args.use_orthogonal
-        self._use_ReLU = args.use_ReLU
+        self._activation_id = args.activation_id
         self._recurrent_N = args.recurrent_N
         self._use_naive_recurrent_policy = args.use_naive_recurrent_policy
         self._use_recurrent_policy = args.use_recurrent_policy
         self._use_centralized_V = args.use_centralized_V
+        self._use_popart = args.use_popart
         self.hidden_size = args.hidden_size
         self.device = device
         self.tpdv = dict(dtype=torch.float32, device=device)
@@ -40,7 +42,7 @@ class R_Model(nn.Module):
             self.share_obs_prep = self.obs_prep
 
         # common layer
-        self.common = MLPLayer(self.hidden_size, self.hidden_size, layer_N=0, use_orthogonal=self._use_orthogonal, use_ReLU=self._use_ReLU)
+        self.common = MLPLayer(self.hidden_size, self.hidden_size, layer_N=0, use_orthogonal=self._use_orthogonal, activation_id=self._activation_id)
         
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
@@ -49,7 +51,10 @@ class R_Model(nn.Module):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0))
 
         # value
-        self.v_out = init_(nn.Linear(self.hidden_size, 1))
+        if self._use_popart:
+            self.v_out = init_(PopArt(input_size, 1, device=device))
+        else:
+            self.v_out = init_(nn.Linear(input_size, 1))
 
         # action
         self.act = ACTLayer(action_space, self.hidden_size, self._use_orthogonal, self._gain)

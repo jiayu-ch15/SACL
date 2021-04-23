@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from onpolicy.utils.util import get_gard_norm, huber_loss, mse_loss
-from onpolicy.utils.popart import PopArt
+from onpolicy.utils.valuenorm import ValueNorm
 from onpolicy.algorithms.utils.util import check
 
 class R_MAPPO():
@@ -37,22 +37,34 @@ class R_MAPPO():
         self._use_clipped_value_loss = args.use_clipped_value_loss
         self._use_huber_loss = args.use_huber_loss
         self._use_popart = args.use_popart
+        self._use_valuenorm = args.use_valuenorm
         self._use_value_active_masks = args.use_value_active_masks
         self._use_policy_active_masks = args.use_policy_active_masks
         self._use_policy_vhead = args.use_policy_vhead
         
+        assert (self._use_popart and self._use_valuenorm) == False, ("self._use_popart and self._use_valuenorm can not be set True simultaneously")
+        
         if self._use_popart:
-            self.value_normalizer = PopArt(1, device=self.device)
+            self.value_normalizer = self.policy.critic.v_out
+            if self._use_policy_vhead:
+                self.policy_value_normalizer = self.policy.actor.v_out
+        elif self._use_valuenorm:
+            self.value_normalizer = ValueNorm(1, device = self.device)
+            if self._use_policy_vhead:
+                self.policy_value_normalizer = ValueNorm(1, device = self.device)
         else:
             self.value_normalizer = None
+            if self._use_policy_vhead:
+                self.policy_value_normalizer = None
 
-    def cal_value_loss(self, values, value_preds_batch, return_batch, active_masks_batch):
-        if self._use_popart:
-            value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
-            error_clipped = self.value_normalizer(return_batch) - value_pred_clipped
-            error_original = self.value_normalizer(return_batch) - values
+    def cal_value_loss(self, value_normalizer, values, value_preds_batch, return_batch, active_masks_batch):
+        value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
+        
+        if self._use_popart or self._use_valuenorm:
+            value_normalizer.update(return_batch)
+            error_clipped = value_normalizer.normalize(return_batch) - value_pred_clipped
+            error_original = value_normalizer.normalize(return_batch) - values
         else:
-            value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
             error_clipped = return_batch - value_pred_clipped
             error_original = return_batch - values
 
@@ -108,7 +120,7 @@ class R_MAPPO():
             policy_action_loss = -torch.sum(torch.min(surr1, surr2), dim=-1, keepdim=True).mean()
 
         if self._use_policy_vhead:
-            policy_value_loss = self.cal_value_loss(policy_values, value_preds_batch, return_batch, active_masks_batch)       
+            policy_value_loss = self.cal_value_loss(self.policy_value_normalizer, policy_values, value_preds_batch, return_batch, active_masks_batch)       
             policy_loss = policy_action_loss + policy_value_loss * self.policy_value_loss_coef
         else:
             policy_loss = policy_action_loss
@@ -126,7 +138,7 @@ class R_MAPPO():
         self.policy.actor_optimizer.step()
 
         # critic update
-        value_loss = self.cal_value_loss(values, value_preds_batch, return_batch, active_masks_batch)
+        value_loss = self.cal_value_loss(self.value_normalizer, values, value_preds_batch, return_batch, active_masks_batch)
 
         self.policy.critic_optimizer.zero_grad()
 
@@ -142,7 +154,7 @@ class R_MAPPO():
         return value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, ratio
 
     def train(self, buffer, turn_on=True):
-        if self._use_popart:
+        if self._use_popart or self._use_valuenorm:
             advantages = buffer.returns[:-1] - self.value_normalizer.denormalize(buffer.value_preds[:-1])
         else:
             advantages = buffer.returns[:-1] - buffer.value_preds[:-1]
@@ -151,7 +163,6 @@ class R_MAPPO():
         mean_advantages = np.nanmean(advantages_copy)
         std_advantages = np.nanstd(advantages_copy)
         advantages = (advantages - mean_advantages) / (std_advantages + 1e-5)
-        
 
         train_info = {}
 

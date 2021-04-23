@@ -95,4 +95,5 @@ class Scenario(BaseScenario):
             return np.concatenate([goal_color])
         # listener
         if agent.silent:
+            print(comm)
             return np.concatenate([agent.state.p_vel] + entity_pos + comm)

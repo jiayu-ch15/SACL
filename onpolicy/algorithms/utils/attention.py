@@ -11,7 +11,7 @@ class Encoder(nn.Module):
     def __init__(self, args, split_shape, cat_self=True):
         super(Encoder, self).__init__()
         self._use_orthogonal = args.use_orthogonal
-        self._use_ReLU = args.use_ReLU
+        self._activation_id = args.activation_id
         self._attn_N = args.attn_N
         self._attn_size = args.attn_size
         self._attn_heads = args.attn_heads
@@ -20,13 +20,13 @@ class Encoder(nn.Module):
         self._cat_self = cat_self
         if self._cat_self:
             self.embedding = CatSelfEmbedding(
-                split_shape[1:], self._attn_size, self._use_orthogonal, self._use_ReLU)
+                split_shape[1:], self._attn_size, self._use_orthogonal, self._activation_id)
         else:
             self.embedding = Embedding(
-                split_shape[1:], self._attn_size, self._use_orthogonal, self._use_ReLU)
+                split_shape[1:], self._attn_size, self._use_orthogonal, self._activation_id)
 
         self.layers = get_clones(EncoderLayer(
-            self._attn_size, self._attn_heads, self._dropout, self._use_orthogonal, self._use_ReLU), self._attn_N)
+            self._attn_size, self._attn_heads, self._dropout, self._use_orthogonal, self._activation_id), self._attn_N)
         self.norm = nn.LayerNorm(self._attn_size)
 
     def forward(self, x, self_idx=-1, mask=None):
@@ -55,12 +55,12 @@ def split_obs(obs, split_shape):
 
 
 class FeedForward(nn.Module):
-    def __init__(self, d_model, d_ff=512, dropout=0.0, use_orthogonal=True, use_ReLU=False):
+    def __init__(self, d_model, d_ff=512, dropout=0.0, use_orthogonal=True, activation_id=1):
         super(FeedForward, self).__init__()
         # We set d_ff as a default to 2048
-        active_func = [nn.Tanh(), nn.ReLU()][use_ReLU]
+        active_func = [nn.Tanh(), nn.ReLU(), nn.LeakyReLU(), nn.ELU()][activation_id]
         init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][use_orthogonal]
-        gain = nn.init.calculate_gain(['tanh', 'relu'][use_ReLU])
+        gain = nn.init.calculate_gain(['tanh', 'relu', 'leaky_relu', 'leaky_relu'][activation_id])
 
         def init_(m):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
@@ -139,13 +139,13 @@ class MultiHeadAttention(nn.Module):
 
 
 class EncoderLayer(nn.Module):
-    def __init__(self, d_model, heads, dropout=0.0, use_orthogonal=True, use_ReLU=False, d_ff=512, use_FF=False):
+    def __init__(self, d_model, heads, dropout=0.0, use_orthogonal=True, activation_id=False, d_ff=512, use_FF=False):
         super(EncoderLayer, self).__init__()
         self._use_FF = use_FF
         self.norm_1 = nn.LayerNorm(d_model)
         self.norm_2 = nn.LayerNorm(d_model)
         self.attn = MultiHeadAttention(heads, d_model, dropout, use_orthogonal)
-        self.ff = FeedForward(d_model, d_ff, dropout, use_orthogonal, use_ReLU)
+        self.ff = FeedForward(d_model, d_ff, dropout, use_orthogonal, activation_id)
         self.dropout_1 = nn.Dropout(dropout)
         self.dropout_2 = nn.Dropout(dropout)
 
@@ -159,13 +159,13 @@ class EncoderLayer(nn.Module):
 
 
 class CatSelfEmbedding(nn.Module):
-    def __init__(self, split_shape, d_model, use_orthogonal=True, use_ReLU=False):
+    def __init__(self, split_shape, d_model, use_orthogonal=True, activation_id=1):
         super(CatSelfEmbedding, self).__init__()
         self.split_shape = split_shape
 
-        active_func = [nn.Tanh(), nn.ReLU()][use_ReLU]
+        active_func = [nn.Tanh(), nn.ReLU(), nn.LeakyReLU(), nn.ELU()][activation_id]
         init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][use_orthogonal]
-        gain = nn.init.calculate_gain(['tanh', 'relu'][use_ReLU])
+        gain = nn.init.calculate_gain(['tanh', 'relu', 'leaky_relu', 'leaky_relu'][activation_id])
 
         def init_(m):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
@@ -199,13 +199,13 @@ class CatSelfEmbedding(nn.Module):
 
 
 class Embedding(nn.Module):
-    def __init__(self, split_shape, d_model, use_orthogonal=True, use_ReLU=False):
+    def __init__(self, split_shape, d_model, use_orthogonal=True, activation_id=1):
         super(Embedding, self).__init__()
         self.split_shape = split_shape
 
-        active_func = [nn.Tanh(), nn.ReLU()][use_ReLU]
+        active_func = [nn.Tanh(), nn.ReLU(), nn.LeakyReLU(), nn.ELU()][activation_id]
         init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][use_orthogonal]
-        gain = nn.init.calculate_gain(['tanh', 'relu'][use_ReLU])
+        gain = nn.init.calculate_gain(['tanh', 'relu', 'leaky_relu', 'leaky_relu'][activation_id])
 
         def init_(m):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)

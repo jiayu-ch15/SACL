@@ -56,8 +56,8 @@ def get_config():
             Dimension of hidden layers for actor/critic networks
         --layer_N <int>
             Number of layers for actor/critic networks
-        --use_ReLU
-            by default True, will use ReLU. or else will use Tanh.
+        --activation_id
+            choose 0 to use tanh, 1 to use relu, 2 to use leaky relu, 3 to use elu
         --use_popart
             by default True, use running mean and std to normalize rewards. 
         --use_feature_popart
@@ -147,7 +147,7 @@ def get_config():
         --clone_coef <float>
             clone term coefficient (default: 0.01)
     
-    Run parameters：
+    Run parameters:
         --use_linear_lr_decay
             by default, do not apply linear decay to learning rate. If set, use a linear schedule on the learning rate
     
@@ -229,11 +229,10 @@ def get_config():
                         help="Dimension of hidden layers for actor/critic networks") # TODO @zoeyuchao. The same comment might in need of change.
     parser.add_argument("--layer_N", type=int, default=1,
                         help="Number of layers for actor/critic networks")
-    parser.add_argument("--use_ReLU", action='store_false',
-                        default=True, help="Whether to use ReLU")
-    parser.add_argument("--use_popart", action='store_false', default=True, help="by default True, use running mean and std to normalize rewards.")
-    parser.add_argument("--use_feature_popart", action='store_true',
-                        default=False, help="Whether to apply popart to the inputs, by default False.")
+    parser.add_argument("--activation_id", type=int,
+                        default=1, help="choose 0 to use tanh, 1 to use relu, 2 to use leaky relu, 3 to use elu")
+    parser.add_argument("--use_popart", action='store_true', default=False, help="by default False, use PopArt to normalize rewards.")
+    parser.add_argument("--use_valuenorm", action='store_false', default=True, help="by default True, use running mean and std to normalize rewards.")
     parser.add_argument("--use_feature_normalization", action='store_false',
                         default=True, help="Whether to apply layernorm to the inputs")
     parser.add_argument("--use_orthogonal", action='store_false', default=True,
@@ -272,6 +271,8 @@ def get_config():
     # optimizer parameters
     parser.add_argument("--lr", type=float, default=5e-4,
                         help='learning rate (default: 5e-4)')
+    parser.add_argument("--tau", type=float, default=0.995,
+                        help='soft update polyak (default: 0.995)')
     parser.add_argument("--critic_lr", type=float, default=5e-4,
                         help='critic learning rate (default: 5e-4)')
     parser.add_argument("--opti_eps", type=float, default=1e-5,

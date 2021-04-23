@@ -11,6 +11,7 @@ class MultiHabitatEnv(object):
     def __init__(self, args, rank, run_dir):
 
         self.num_agents = args.num_agents
+        self.use_partial_reward = args.use_partial_reward
 
         config_env, config_baseline, dataset = self.get_config(args, rank)
 
@@ -76,6 +77,10 @@ class MultiHabitatEnv(object):
         config_env.DATASET.USE_SAME_SCENE = args.use_same_scene
         if args.use_same_scene:
             config_env.DATASET.CONTENT_SCENES = scenes[args.scene_id:args.scene_id+1]
+        if args.use_selected_small_scenes:
+            scene_num=[2,14,16,20,21,28,29,30,37,38]
+            config_env.DATASET.CONTENT_SCENES = scenes[scene_num[rank]:scene_num[rank]+1]
+            
 
         if rank > (args.n_rollout_threads)/2 and args.n_rollout_threads > 6:
             gpu_id = 2
@@ -131,8 +136,10 @@ class MultiHabitatEnv(object):
 
     def step(self, actions):
         obs, rewards, dones, infos = self.env.step(actions)
-        #rewards = np.expand_dims(np.array(infos['explored_reward']), axis=1)\
-        rewards = np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+        if self.use_partial_reward:
+            rewards = 0.3 * np.expand_dims(np.array(infos['explored_reward']), axis=1) + 0.7 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+        else:
+            rewards = np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         return obs, rewards, dones, infos
 
     def close(self):
