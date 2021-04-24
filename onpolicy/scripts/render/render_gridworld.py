@@ -12,7 +12,7 @@ import torch
 from onpolicy.config import get_config
 
 from onpolicy.envs.gridworld.GridWorld_Env import GridWorldEnv
-from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
+from onpolicy.envs.env_wrappers import ChooseSimpleSubprocVecEnv, ChooseSimpleDummyVecEnv
 
 def make_render_env(all_args):
     def get_env_fn(rank):
@@ -27,9 +27,9 @@ def make_render_env(all_args):
             return env
         return init_env
     if all_args.n_rollout_threads == 1:
-        return DummyVecEnv([get_env_fn(0)])
+        return ChooseSimpleDummyVecEnv([get_env_fn(0)])
     else:
-        return SubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
+        return ChooseSimpleSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
 def parse_args(args, parser):
     parser.add_argument('--scenario_name', type=str,

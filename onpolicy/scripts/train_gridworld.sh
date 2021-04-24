@@ -1,7 +1,7 @@
 #!/bin/sh
 env="GridWorld"
-scenario="MiniGrid-DoorKey-5x5-v0"
-num_agents=1
+scenario="MiniGrid-Human-v0"
+num_agents=2
 algo="rmappo"
 exp="debug"
 seed_max=1

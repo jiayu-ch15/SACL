@@ -538,6 +538,8 @@ def choosesimpleworker(remote, parent_remote, env_fn_wrapper):
         elif cmd == 'get_spaces':
             remote.send(
                 (env.observation_space, env.share_observation_space, env.action_space))
+        elif cmd == 'get_max_step':
+            remote.send((env.max_steps))
         else:
             raise NotImplementedError
 
@@ -590,6 +592,11 @@ class ChooseSimpleSubprocVecEnv(ShareVecEnv):
     def reset_task(self):
         for remote in self.remotes:
             remote.send(('reset_task', None))
+        return np.stack([remote.recv() for remote in self.remotes])
+
+    def get_max_step(self):
+        for remote in self.remotes:
+            remote.send(('get_max_step', None))
         return np.stack([remote.recv() for remote in self.remotes])
 
     def close(self):
@@ -1081,6 +1088,9 @@ class ChooseSimpleDummyVecEnv(ShareVecEnv):
     def close(self):
         for env in self.envs:
             env.close()
+
+    def get_max_step(self):
+        return [env.max_steps for env in self.envs]
 
     def render(self, mode="human"):
         if mode == "rgb_array":

@@ -81,8 +81,9 @@ class GridWorldRunner(Runner):
         obs['image'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['image'].shape), dtype=np.float32)
         obs['direction'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['direction'].shape), dtype=np.float32)
         for i, o in enumerate(dict_obs):
-            obs['image'][i][0] = o['image']
-            obs['direction'][i][0] = np.eye(4)[o['direction']]
+            for agent_id in range(self.num_agents):
+                obs['image'][i, agent_id] = o[agent_id]['image']
+                obs['direction'][i, agent_id] = np.eye(4)[o[agent_id]['direction']]
         return obs
 
     def warmup(self):
@@ -154,7 +155,9 @@ class GridWorldRunner(Runner):
     @torch.no_grad()
     def eval(self, total_num_steps):
         eval_episode_rewards = []
-        eval_dict_obs = self.eval_envs.reset()
+
+        reset_choose = np.ones(self.n_eval_rollout_threads) == 1.0
+        eval_dict_obs = self.eval_envs.reset(reset_choose)
         eval_obs = self._convert(eval_dict_obs)
 
         eval_rnn_states = np.zeros((self.n_eval_rollout_threads, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
@@ -197,12 +200,15 @@ class GridWorldRunner(Runner):
         all_frames = []
         for episode in range(self.all_args.render_episodes):
             ic(episode)
-            dict_obs = envs.reset()
+            reset_choose = np.ones(self.n_rollout_threads) == 1.0
+            dict_obs = envs.reset(reset_choose)
             obs = self._convert(dict_obs)
 
             if self.all_args.save_gifs:
                 image = envs.render('rgb_array')[0]
                 all_frames.append(image)
+            else:
+                envs.render('human')
 
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
@@ -222,7 +228,7 @@ class GridWorldRunner(Runner):
                 action, rnn_states = self.trainer.policy.act(concat_obs,
                                                     np.concatenate(rnn_states),
                                                     np.concatenate(masks),
-                                                    deterministic=True)
+                                                    deterministic=False)
                 actions = np.array(np.split(_t2n(action), self.n_rollout_threads))
                 rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
 
@@ -242,6 +248,12 @@ class GridWorldRunner(Runner):
                     elapsed = calc_end - calc_start
                     if elapsed < self.all_args.ifi:
                         time.sleep(self.all_args.ifi - elapsed)
+                else:
+                    envs.render('human')
+
+                if np.all(dones[0]):
+                    ic("end")
+                    break
 
             print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
 

@@ -4,6 +4,7 @@ env_list = []
 
 def register(
     id,
+    num_agents,
     entry_point,
     reward_threshold=0.95
 ):
@@ -14,6 +15,7 @@ def register(
     gym_register(
         id=id,
         entry_point=entry_point,
+        kwargs={'num_agents' : num_agents},
         reward_threshold=reward_threshold
     )
 
