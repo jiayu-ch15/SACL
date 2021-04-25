@@ -6,11 +6,17 @@ class GridWorldEnv(object):
     def __init__(self, args):
 
         self.num_agents = args.num_agents
+        self.num_preies = args.num_preies
+        self.num_obstacles = args.num_obstacles
         self.scenario_name = args.scenario_name
+        self.direction_alpha = args.direction_alpha
         register(
-            id=self.scenario_name,
-            num_agents=self.num_agents,
-            entry_point='onpolicy.envs.gridworld.gym_minigrid.envs:HumanEnv'
+            id = self.scenario_name,
+            num_agents = self.num_agents,
+            num_preies = self.num_preies,
+            num_obstacles = self.num_obstacles,
+            direction_alpha = self.direction_alpha,
+            entry_point = 'onpolicy.envs.gridworld.gym_minigrid.envs:HumanEnv'
         )
         self.env = gym.make(self.scenario_name)
         self.max_steps = self.env.max_steps

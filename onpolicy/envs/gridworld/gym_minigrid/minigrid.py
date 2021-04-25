@@ -1212,12 +1212,16 @@ class MiniGridEnv(gym.Env):
             # Move forward
             elif action[agent_id] == self.actions.forward:
                 if fwd_cell == None or fwd_cell.can_overlap():
+                    ic(self.direction[agent_id])
+                    ic(np.sign(fwd_pos-self.agent_pos[agent_id]))
+                    if np.any(np.sign(fwd_pos-self.agent_pos[agent_id]) == self.direction[agent_id]):
+                        reward = self.direction_alpha
                     self.agent_pos[agent_id] = fwd_pos
                 if fwd_cell != None and fwd_cell.type == 'goal':
                     done = True
-                    reward = self._reward()
+                    reward += self._reward()
                 if fwd_cell != None and fwd_cell.type == 'obstacle':
-                    reward = self._penalty()
+                    reward += self._penalty()
                 if fwd_cell != None and fwd_cell.type == 'lava':
                     done = True
 

@@ -1,5 +1,4 @@
 from onpolicy.envs.gridworld.gym_minigrid.minigrid import *
-import itertools as itt
 from icecream import ic
 
 class HumanEnv(MiniGridEnv):
@@ -11,11 +10,13 @@ class HumanEnv(MiniGridEnv):
     def __init__(
         self,
         num_agents=2,
-        size=9,
-        numObjs=2,
-        num_obstacles=4
+        num_preies=2,
+        num_obstacles=4,
+        direction_alpha=0.5,
+        size=9
     ):
-        self.numObjs = numObjs
+        self.num_preies = num_preies
+        self.direction_alpha = direction_alpha
         # Reduce obstacles if there are too many
         if num_obstacles <= size/2 + 1:
             self.num_obstacles = int(num_obstacles)
@@ -43,7 +44,7 @@ class HumanEnv(MiniGridEnv):
         objPos = []
 
         # Until we have generated all the objects
-        while len(objs) < self.numObjs:
+        while len(objs) < self.num_preies:
             objType = self._rand_elem(types)
             objColor = self._rand_elem(COLOR_NAMES)
 
@@ -75,7 +76,18 @@ class HumanEnv(MiniGridEnv):
         objIdx = self._rand_int(0, len(objs))
         self.targetType, self.target_color = objs[objIdx]
         self.target_pos = objPos[objIdx]
+        
+        # direction
+        array_direction = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
+        self.direction = []
+        self.direction_encoder = []
+        for agent_id in range(self.num_agents):
+            direction = np.sign(self.target_pos - self.agent_pos[agent_id])
+            direction_encoder = np.eye(4)[np.argmax(np.all(np.where(array_direction == direction, True, False), axis=1))]
+            self.direction.append(direction)
+            self.direction_encoder.append(direction_encoder)
 
+        # text
         descStr = '%s %s' % (self.target_color, self.targetType)
         self.mission = 'go to the %s' % descStr
         print(self.mission)
