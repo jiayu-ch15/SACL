@@ -6,9 +6,8 @@ import numpy as np
 from gym import error, spaces, utils
 from gym.utils import seeding
 from .rendering import *
-from icecream import ic
 import matplotlib.pyplot as plt
-
+from icecream import ic
 
 # Size in pixels of a tile in the full-scale human view
 TILE_PIXELS = 32
@@ -47,9 +46,10 @@ OBJECT_TO_IDX = {
     'key'           : 5,
     'ball'          : 6,
     'box'           : 7,
-    'goal'          : 8,
-    'lava'          : 9,
-    'agent'         : 10,
+    'obstacle'      : 8,
+    'goal'          : 9,
+    'lava'          : 10,
+    'agent'         : 11,
 }
 
 IDX_TO_OBJECT = dict(zip(OBJECT_TO_IDX.values(), OBJECT_TO_IDX.keys()))
@@ -139,6 +139,8 @@ class WorldObj:
             v = Key(color)
         elif obj_type == 'box':
             v = Box(color)
+        elif obj_type == 'obstacle':
+            v = Obstacle(color)
         elif obj_type == 'door':
             v = Door(color, is_open, is_locked)
         elif obj_type == 'goal':
@@ -305,6 +307,27 @@ class Ball(WorldObj):
 
     def render(self, img):
         fill_coords(img, point_in_circle(0.5, 0.5, 0.31), COLORS[self.color])
+
+class Obstacle(WorldObj):
+    def __init__(self):
+        super(Obstacle, self).__init__('obstacle','red')
+
+    def can_pickup(self):
+        return True
+
+    def render(self, img):
+        c = (255, 128, 0)
+
+        fill_coords(img, point_in_circle(0.5, 0.5, 0.31), c)
+
+        # Little waves
+        for i in range(3):
+            ylo = 0.3 + 0.2 * i
+            yhi = 0.4 + 0.2 * i
+            fill_coords(img, point_in_line(0.1, ylo, 0.3, yhi, r=0.03), (0,0,0))
+            fill_coords(img, point_in_line(0.3, yhi, 0.5, ylo, r=0.03), (0,0,0))
+            fill_coords(img, point_in_line(0.5, ylo, 0.7, yhi, r=0.03), (0,0,0))
+            fill_coords(img, point_in_line(0.7, yhi, 0.9, ylo, r=0.03), (0,0,0))
 
 class Box(WorldObj):
     def __init__(self, color, contains=None):
@@ -817,6 +840,7 @@ class MiniGridEnv(gym.Env):
             'key'           : 'K',
             'ball'          : 'A',
             'box'           : 'B',
+            'obstacle'      : 'O',
             'goal'          : 'G',
             'lava'          : 'V',
         }
@@ -877,6 +901,9 @@ class MiniGridEnv(gym.Env):
         """
 
         return 1 - 0.9 * (self.step_count / self.max_steps)
+
+    def _penalty(self):
+        return -1.0
 
     def _rand_int(self, low, high):
         """
@@ -1189,6 +1216,8 @@ class MiniGridEnv(gym.Env):
                 if fwd_cell != None and fwd_cell.type == 'goal':
                     done = True
                     reward = self._reward()
+                if fwd_cell != None and fwd_cell.type == 'obstacle':
+                    reward = self._penalty()
                 if fwd_cell != None and fwd_cell.type == 'lava':
                     done = True
 
