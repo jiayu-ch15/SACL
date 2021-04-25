@@ -13,10 +13,12 @@ class HumanEnv(MiniGridEnv):
         num_preies=2,
         num_obstacles=4,
         direction_alpha=0.5,
+        use_human_command=False,
         size=9
     ):
         self.num_preies = num_preies
         self.direction_alpha = direction_alpha
+        self.use_human_command = use_human_command
         # Reduce obstacles if there are too many
         if num_obstacles <= size/2 + 1:
             self.num_obstacles = int(num_obstacles)

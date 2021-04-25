@@ -1212,8 +1212,6 @@ class MiniGridEnv(gym.Env):
             # Move forward
             elif action[agent_id] == self.actions.forward:
                 if fwd_cell == None or fwd_cell.can_overlap():
-                    ic(self.direction[agent_id])
-                    ic(np.sign(fwd_pos-self.agent_pos[agent_id]))
                     if np.any(np.sign(fwd_pos-self.agent_pos[agent_id]) == self.direction[agent_id]):
                         reward = self.direction_alpha
                     self.agent_pos[agent_id] = fwd_pos
@@ -1344,6 +1342,7 @@ class MiniGridEnv(gym.Env):
                 self.window.close()
             return
 
+
         if mode == 'human' and not self.window:
             from onpolicy.envs.gridworld.gym_minigrid.window import Window
             self.window = Window('gym_minigrid')
@@ -1394,7 +1393,18 @@ class MiniGridEnv(gym.Env):
             self.window.set_caption(self.mission)
             self.window.show_img(img)
 
+        if self.use_human_command:
+            self.get_direction_encoder()
+
         return img
+
+    def get_direction_encoder(self):
+        array_direction = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
+        for agent_id in range(self.num_agents):
+            print ("Refer predator {} as the coordinate origin, 0--[1,1] , 1--[1,-1], 2--[-1,1], 3--[-1,-1]".format(i))
+            command = int(input("Enter the command: "))
+            self.direction[agent_id] = array_direction[command]
+            self.direction_encoder[agent_id] = np.eye(4)[command]
 
     def close(self):
         if self.window:
