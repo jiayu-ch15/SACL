@@ -499,10 +499,11 @@ class Grid:
 
             # Rotate the agent based on its direction
             tri_fn = rotate_fn(tri_fn, cx=0.5, cy=0.5, theta=0.5*math.pi*agent_dir)
-            if agent_id == 0:
-                fill_coords(img, tri_fn, (0, 255, 0))
-            else:
-                fill_coords(img, tri_fn, (255, 0, 0))
+
+            for i in range(0,agent_id + 1):
+                fill_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
+                fill_coords(img, tri_fn, fill_colors[i])
+
 
         # Highlight the cell if needed
         if highlight:
@@ -1402,7 +1403,7 @@ class MiniGridEnv(gym.Env):
         self.render(mode='human', close=False)
         array_direction = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
         for agent_id in range(self.num_agents):
-            print ("Refer predator {} as the coordinate origin, 0--[1,1] , 1--[1,-1], 2--[-1,1], 3--[-1,-1]".format(agent_id))
+            print (" Refer predator {} as the coordinate origin.\n Right is the positive direction of the X-axis,\n Below is the positive direction of the Y-axis.\n 0--[1,1] , 1--[1,-1], 2--[-1,1], 3--[-1,-1]".format(agent_id))
             command = int(input("Enter the command: "))
             self.direction[agent_id] = array_direction[command]
             self.direction_encoder[agent_id] = np.eye(4)[command]

@@ -111,7 +111,7 @@ class HumanEnv(MiniGridEnv):
             if action[agent_id] == self.actions.done:
                 if abs(ax - tx) <= 1 and abs(ay - ty) <= 1:
                     reward += self._reward()
-                done = True
+                # done = True
             rewards.append(reward)
 
         dones = [done for agent_id in range(self.num_agents)]
