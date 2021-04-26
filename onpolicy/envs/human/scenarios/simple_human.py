@@ -236,7 +236,7 @@ class Scenario(BaseScenario):
             if other is agent: continue
 
             if not other.adversary:# means good
-		if np.dot(agent.state.p_pos - other_pos, agent.state.p_pos - other_pos) > self.obs_threshold:
+                if np.dot(agent.state.p_pos - other_pos, agent.state.p_pos - other_pos) > self.obs_threshold:
                     other_pos.append(np.array([0,0]))
                     other_vel.append(np.array([0,0]))
                 else:
