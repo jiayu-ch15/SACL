@@ -7,12 +7,17 @@ class Scenario(BaseScenario):
         self.use_distance_reward = args.use_distance_reward
         self.use_direction_reward = args.use_direction_reward
         self.use_pos_four_direction = args.use_pos_four_direction
+        self.use_goal_reward = args.use_goal_reward
+        self.use_all_reach = args.use_all_reach
+        
         self.add_direction_encoder = args.add_direction_encoder
         self.direction_alpha = args.direction_alpha
+        self.view_threshold = args.view_threshold
 
         world = World()
         world.world_length = args.episode_length
         world.collaborative = True
+        world.use_human_command = args.use_human_command
         
         # set any world properties first
         world.dim_c = 2
@@ -75,6 +80,7 @@ class Scenario(BaseScenario):
 
         for agent in adversaries:
             agent.goal = agents[choice]
+            agent.goal.color = np.array([0.45, 0.95, 0.45]) #green
             agent.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
             agent.direction = np.sign(agent.goal.state.p_pos - agent.state.p_pos)
             agent.direction_encoder = np.eye(4)[np.argmax(np.all(np.where(array_direction == agent.direction, True, False), axis=1))]
@@ -121,28 +127,31 @@ class Scenario(BaseScenario):
         return main_reward
 
     def info(self, agent, world):  
+        agents  = self.adversaries(world) if agent.adversary else self.good_agents(world)
+
         agent_info = {'landmark_collision': agent.collision, 
-                        'fail': agent.fail, 
+                        'fail': agent.fail,
+                        'sum_fail': np.sum([(a.fail) for a in agents]),
                         'success': agent.success,
+                        'sum_success': np.sum([(a.success) for a in agents]),
                         'com_episode_rewards': agent.success - agent.fail - agent.collision,
+                        'sum_com_episode_rewards': np.sum([(a.success - a.fail - a.collision) for a in agents]),
                         'idv_episode_rewards': agent.idv_reward}
         return agent_info
 
     def agent_reward(self, agent, world):
         # Agents are negatively rewarded if caught by adversaries
         rew = 0
-
-        adversaries = self.adversaries(world)
-
+        predators = self.adversaries(world)
         # distance reward
         if self.use_distance_reward:  # reward can optionally be shaped (increased reward for increased distance from adversary)
-            for adv in adversaries:
-                rew += 0.1 * np.sqrt(np.sum(np.square(agent.state.p_pos - adv.state.p_pos)))
+            for predator in predators:
+                rew += 0.1 * np.sqrt(np.sum(np.square(agent.state.p_pos - predator.state.p_pos)))
         
         if agent.collide:
             # complete reward
-            for a in adversaries:
-                if self.is_collision(a, agent):
+            for predator in predators:
+                if self.is_collision(predator, agent):
                     agent.fail += 1
                     rew -= 1.0
             # collision reward
@@ -170,6 +179,10 @@ class Scenario(BaseScenario):
         # Adversaries are rewarded for collisions with agents
         rew = 0
 
+        # prey
+        preies = self.good_agents(world)
+        predators = self.adversaries(world)
+
         # distance reward
         if self.use_distance_reward:
             rew -= 0.1 * np.sqrt(np.sum(np.square(agent.goal.state.p_pos - agent.state.p_pos)))
@@ -181,9 +194,23 @@ class Scenario(BaseScenario):
         
         if agent.collide:
             # complete reward
-            if self.is_collision(agent.goal, agent):
-                agent.success += 1
-                rew += 1.0
+            if self.use_goal_reward:
+                if self.is_collision(agent.goal, agent):
+                    agent.success += 1
+                    if self.use_all_reach:
+                        reach = 0
+                        for predator in predators:
+                            if predator.success >= 1:
+                                reach += 1
+                        if reach == world.num_adversaries:
+                            rew += 1.0
+                    else:
+                        rew += 1.0
+            else:
+                for prey in preies:
+                    if self.is_collision(prey, agent):
+                        agent.success += 1
+                        rew += 1.0
             # collision reward
             for l in world.landmarks:
                 if self.is_collision(l, agent):
@@ -204,13 +231,23 @@ class Scenario(BaseScenario):
         # communication of all other agents
         other_pos = []
         other_vel = []
+        in_view = 0
         for other in world.agents:
             if other is agent: continue
-            other_pos.append(other.state.p_pos - agent.state.p_pos)
-            if not other.adversary:
-                other_vel.append(other.state.p_vel)
-        
+
+            if not other.adversary:# means good
+		if np.dot(agent.state.p_pos - other_pos, agent.state.p_pos - other_pos) > self.obs_threshold:
+                    other_pos.append(np.array([0,0]))
+                    other_vel.append(np.array([0,0]))
+                else:
+                    other_pos.append(other.state.p_pos - agent.state.p_pos)
+                    other_vel.append(other.state.p_vel)
+                    in_view = 1
+            else:
+                other_pos.append(other.state.p_pos - agent.state.p_pos)
+
+ 
         if agent.adversary and self.add_direction_encoder:
-            return np.concatenate([agent.direction_encoder] + [agent.state.p_vel] + [agent.state.p_pos] + entity_pos + other_pos + other_vel)
+            return np.concatenate([agent.direction_encoder] + [agent.state.p_vel] + [agent.state.p_pos] + entity_pos + other_pos + other_vel + [in_view])
         else:
             return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + entity_pos + other_pos + other_vel)

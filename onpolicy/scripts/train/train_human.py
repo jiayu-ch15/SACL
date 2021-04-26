@@ -66,6 +66,7 @@ def parse_args(args, parser):
     parser.add_argument('--use_distance_reward', action='store_true', default=False)
     parser.add_argument('--add_direction_encoder', action='store_true', default=False)
     parser.add_argument('--direction_alpha', type=float,default=0.1, help="number of players")
+    parser.add_argument('--view_threshold', type=float,default=2.0, help="distance of viewing prey")
 
     all_args = parser.parse_known_args(args)[0]
 
