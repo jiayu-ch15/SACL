@@ -79,7 +79,14 @@ class MultiHabitatEnv(object):
             config_env.DATASET.CONTENT_SCENES = scenes[args.scene_id:args.scene_id+1]
         if args.use_selected_small_scenes:
             #scene_num=[2(block),14,16,20(large),21,28,29,30,37(block),38]##8(80+),12(80+),44(good),56(small),51(good),58(80+),69(good)
-            scene_num=[14,16,21,28,29,30,38,44,51,69]
+            #scene_num=[14,16,21,28,29,30,38,44,51,69]
+            scene_num=[8, 58, 27, 29, 26, 71, 12, 54, 57, 5]
+            config_env.DATASET.CONTENT_SCENES = scenes[scene_num[rank]:scene_num[rank]+1]
+        if args.use_selected_middle_scenes:
+            scene_num=[20, 16, 48, 22, 21, 40, 43, 36, 61, 49]
+            config_env.DATASET.CONTENT_SCENES = scenes[scene_num[rank]:scene_num[rank]+1]
+        if args.use_selected_large_scenes:
+            scene_num=[31, 70, 9, 47, 45, 55]
             config_env.DATASET.CONTENT_SCENES = scenes[scene_num[rank]:scene_num[rank]+1]
             
 

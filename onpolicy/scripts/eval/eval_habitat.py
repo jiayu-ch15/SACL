@@ -64,6 +64,9 @@ def parse_args(args, parser):
     parser.add_argument('--use_same_scene', action='store_true', default=False)
     parser.add_argument("--scene_id", type=int, default=0)
     parser.add_argument('--use_selected_small_scenes', action='store_true', default=False)
+    parser.add_argument('--use_selected_middle_scenes', action='store_true', default=False)
+    parser.add_argument('--use_selected_large_scenes', action='store_true', default=False)
+
 
     # reward params
     parser.add_argument('--reward_decay', type=float, default=0.9)
