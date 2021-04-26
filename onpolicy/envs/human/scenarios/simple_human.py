@@ -231,18 +231,18 @@ class Scenario(BaseScenario):
         # communication of all other agents
         other_pos = []
         other_vel = []
-        in_view = 0
+        in_view = np.zeros(1, dtype=np.float32)
         for other in world.agents:
             if other is agent: continue
 
             if not other.adversary:# means good
-                if np.dot(agent.state.p_pos - other_pos, agent.state.p_pos - other_pos) > self.obs_threshold:
+                if np.sum(np.square(agent.state.p_pos - other.state.p_pos)) > self.view_threshold:
                     other_pos.append(np.array([0,0]))
                     other_vel.append(np.array([0,0]))
                 else:
                     other_pos.append(other.state.p_pos - agent.state.p_pos)
                     other_vel.append(other.state.p_vel)
-                    in_view = 1
+                    in_view[0] = 1.0
             else:
                 other_pos.append(other.state.p_pos - agent.state.p_pos)
 
