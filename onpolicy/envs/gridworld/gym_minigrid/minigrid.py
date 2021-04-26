@@ -800,6 +800,9 @@ class MiniGridEnv(gym.Env):
         # Step count since episode start
         self.step_count = 0
 
+        if self.use_human_command:
+            self.get_direction_encoder()
+
         # Return first observation
         obs = [self.gen_obs(agent_id) for agent_id in range(self.num_agents)]
         return obs
@@ -1393,15 +1396,13 @@ class MiniGridEnv(gym.Env):
             self.window.set_caption(self.mission)
             self.window.show_img(img)
 
-        if self.use_human_command:
-            self.get_direction_encoder()
-
         return img
 
     def get_direction_encoder(self):
+        self.render(mode='human', close=False)
         array_direction = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
         for agent_id in range(self.num_agents):
-            print ("Refer predator {} as the coordinate origin, 0--[1,1] , 1--[1,-1], 2--[-1,1], 3--[-1,-1]".format(i))
+            print ("Refer predator {} as the coordinate origin, 0--[1,1] , 1--[1,-1], 2--[-1,1], 3--[-1,-1]".format(agent_id))
             command = int(input("Enter the command: "))
             self.direction[agent_id] = array_direction[command]
             self.direction_encoder[agent_id] = np.eye(4)[command]
