@@ -210,7 +210,16 @@ class Scenario(BaseScenario):
                 for prey in preies:
                     if self.is_collision(prey, agent):
                         agent.success += 1
-                        rew += 1.0
+                        if self.use_all_reach & world.num_good_agents == 1:
+                            reach = 0
+                            for predator in predators:
+                                if predator.success >= 1:
+                                    reach += 1
+                            if reach == world.num_adversaries:
+                                rew += 1.0
+                        else:
+                            rew += 1.0
+
             # collision reward
             for l in world.landmarks:
                 if self.is_collision(l, agent):
