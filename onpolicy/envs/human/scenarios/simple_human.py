@@ -18,6 +18,7 @@ class Scenario(BaseScenario):
         world.world_length = args.episode_length
         world.collaborative = True
         world.use_human_command = args.use_human_command
+        world.view_threshold = args.view_threshold
         
         # set any world properties first
         world.dim_c = 2
@@ -245,7 +246,7 @@ class Scenario(BaseScenario):
             if other is agent: continue
 
             if not other.adversary:# means good
-                if np.sum(np.square(agent.state.p_pos - other.state.p_pos)) > self.view_threshold:
+                if np.sum(np.square(agent.state.p_pos - other.state.p_pos)) > world.view_threshold:
                     other_pos.append(np.array([0,0]))
                     other_vel.append(np.array([0,0]))
                 else:

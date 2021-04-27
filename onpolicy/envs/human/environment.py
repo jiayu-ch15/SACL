@@ -417,6 +417,9 @@ class MultiAgentEnv(gym.Env):
                         arrow = self.viewers[i].draw_line(start_pos, end_pos) 
                         arrow.set_color(*entity.color, alpha=0.5)
 
+                        # field of vision
+                        field_vision = self.viewer[i].draw_circle(entity.state.p_pos, self.world.view_threshold, 30, False)
+
                     if not entity.silent:
                         for ci in range(self.world.dim_c):
                             color = 1 - entity.state.c[ci]
