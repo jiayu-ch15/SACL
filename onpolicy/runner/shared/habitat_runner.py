@@ -120,8 +120,6 @@ class HabitatRunner(Runner):
                     for key in ['explored_ratio', 'explored_reward', 'merge_explored_ratio', 'merge_explored_reward']:
                         if key in infos[e].keys():
                             self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
-                            if key == 'merge_explored_ratio':
-                                self.sum_merge_ratio[e] += np.array(infos[e][key])
                     if 'merge_explored_ratio_step' in infos[e].keys():
                         self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
                     for agent_id in range(self.num_agents):
@@ -358,7 +356,6 @@ class HabitatRunner(Runner):
         self.env_infos['sum_explored_reward'] = deque(maxlen=length)
         self.env_infos['sum_mer_explored_reward'] = deque(maxlen=length)
         self.env_infos['sum_merge_explored_ratio'] = deque(maxlen=length)
-        self.env_infos['sum_sum_merge_explored_ratio'] = deque(maxlen=length)
         self.env_infos['sum_merge_explored_reward'] = deque(maxlen=length)
         self.env_infos['merge_explored_ratio_step'] = deque(maxlen=length)
         self.env_infos['invalid_merge_explored_ratio_step_num'] = deque(maxlen=length)
@@ -366,6 +363,8 @@ class HabitatRunner(Runner):
         self.env_infos['max_sum_merge_explored_ratio'] = deque(maxlen=length)
         self.env_infos['min_sum_merge_explored_ratio'] = deque(maxlen=length)
         self.env_infos['explored_ratio_step'] = deque(maxlen=length)
+        if self.use_eval:
+            self.env_infos['auc'] = np.zeros((self.all_args.eval_episodes, self.n_rollout_threads, self.max_episode_length), dtype=np.float32)
 
         self.global_input = {}
         self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
@@ -380,7 +379,6 @@ class HabitatRunner(Runner):
         self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
         self.global_goal = np.zeros((self.n_rollout_threads, self.num_agents, 2), dtype=np.float32) 
         self.rewards = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
-        self.sum_merge_ratio = np.zeros((self.n_rollout_threads,), dtype=np.float32)
 
         self.first_compute = True
         if self.visualize_input:
@@ -446,13 +444,13 @@ class HabitatRunner(Runner):
         self.env_info['sum_mer_explored_reward'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
         self.env_info['sum_explored_reward'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
         self.env_info['sum_merge_explored_ratio'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
-        self.env_info['sum_sum_merge_explored_ratio'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
         self.env_info['sum_merge_explored_reward'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
         self.env_info['explored_ratio_step'] = np.ones((self.n_rollout_threads, self.num_agents), dtype=np.float32) * self.max_episode_length
         self.env_info['merge_explored_ratio_step'] = np.ones((self.n_rollout_threads,), dtype=np.float32) * self.max_episode_length
-    
+        if self.use_eval:
+            self.env_info['auc'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
+        
     def convert_info(self):
-        self.env_info['sum_sum_merge_explored_ratio'] = self.sum_merge_ratio
         for k, v in self.env_info.items():
             if k == "explored_ratio_step":
                 self.env_infos[k].append(v)
@@ -474,7 +472,8 @@ class HabitatRunner(Runner):
                 self.env_infos[k].append(v)
                 print('mean valid {}: {}'.format(k, np.nanmean(v_copy)))
             else:
-                self.env_infos[k].append(v)
+                if k != 'auc':
+                    self.env_infos[k].append(v)
                 if k == 'sum_merge_explored_ratio':       
                     self.env_infos['max_sum_merge_explored_ratio'].append(np.max(v))
                     self.env_infos['min_sum_merge_explored_ratio'].append(np.min(v))
@@ -861,9 +860,17 @@ class HabitatRunner(Runner):
         for k, v in env_infos.items():
             if len(v) > 0:
                 if self.use_wandb:
-                    wandb.log({k: np.nanmean(v) if k == "merge_explored_ratio_step" else np.mean(v)}, step=total_num_steps)
+                    if k == 'auc':
+                        for i in range(self.max_episode_length):
+                            wandb.log({k: np.mean(v[:,:,i])}, step=i+1)
+                    else:
+                        wandb.log({k: np.nanmean(v) if k == "merge_explored_ratio_step" else np.mean(v)}, step=total_num_steps)
                 else:
-                    self.writter.add_scalars(k, {k: np.nanmean(v) if k == "merge_explored_ratio_step" else np.mean(v)}, total_num_steps)
+                    if k == 'auc':
+                        for i in range(self.max_episode_length):
+                            self.writter.add_scalars(k, {k: np.mean(v[:,:,i])}, i+1)
+                    else:
+                        self.writter.add_scalars(k, {k: np.nanmean(v) if k == "merge_explored_ratio_step" else np.mean(v)}, total_num_steps)
 
     def log_eval(self, eval_infos, total_num_steps):
         for k, v in eval_infos.items():
@@ -994,7 +1001,8 @@ class HabitatRunner(Runner):
                         if key in infos[e].keys():
                             self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
                             if key == 'merge_explored_ratio':
-                                self.sum_merge_ratio[e] += np.array(infos[e][key])
+                                self.env_info['auc'][e] += np.array(infos[e][key])
+                                self.env_infos['auc'][episode, e, step] = self.env_info['auc'][e]
                     if 'merge_explored_ratio_step' in infos[e].keys():
                         self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
                     for agent_id in range(self.num_agents):
@@ -1002,7 +1010,7 @@ class HabitatRunner(Runner):
                         if agent_k in infos[e].keys():
                             self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
                 
-                if not self.use_render:
+                if not self.use_render and episode == 0 and not self.use_wandb:
                     step_info = {}
                     step_info['explored_ratio'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
                     step_info['explored_reward'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
@@ -1043,6 +1051,8 @@ class HabitatRunner(Runner):
                 self.local_output = np.array(self.local_output, dtype = np.long)
             
             self.convert_info()
+        
+        self.log_env(self.env_infos, 0)
             
         for k, v in self.env_infos.items():
             print("eval average {}: {}".format(k, np.nanmean(v) if k == 'merge_explored_ratio_step' else np.mean(v)))
