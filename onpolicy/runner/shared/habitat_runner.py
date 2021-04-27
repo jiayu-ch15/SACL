@@ -1000,7 +1000,7 @@ class HabitatRunner(Runner):
                     for key in ['explored_ratio', 'explored_reward', 'merge_explored_ratio', 'merge_explored_reward']:
                         if key in infos[e].keys():
                             self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
-                            if key == 'merge_explored_ratio':
+                            if key == 'merge_explored_ratio' and self.use_eval:
                                 self.env_info['auc'][e] += np.array(infos[e][key])
                                 self.env_infos['auc'][episode, e, step] = self.env_info['auc'][e]
                     if 'merge_explored_ratio_step' in infos[e].keys():
@@ -1051,8 +1051,9 @@ class HabitatRunner(Runner):
                 self.local_output = np.array(self.local_output, dtype = np.long)
             
             self.convert_info()
-        
-        self.log_env(self.env_infos, 0)
+            
+        if not self.use_render:
+            self.log_env(self.env_infos, 0)
             
         for k, v in self.env_infos.items():
             print("eval average {}: {}".format(k, np.nanmean(v) if k == 'merge_explored_ratio_step' else np.mean(v)))
