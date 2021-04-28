@@ -14,7 +14,7 @@ class HumanEnv(MiniGridEnv):
         num_obstacles=4,
         direction_alpha=0.5,
         use_human_command=False,
-        size=9
+        size=19
     ):
         self.num_preies = num_preies
         self.direction_alpha = direction_alpha
@@ -34,10 +34,39 @@ class HumanEnv(MiniGridEnv):
         )
 
     def _gen_grid(self, width, height):
+        # Create the grid
         self.grid = Grid(width, height)
 
         # Generate the surrounding walls
-        self.grid.wall_rect(0, 0, width, height)
+        self.grid.horz_wall(0, 0)
+        self.grid.horz_wall(0, height - 1)
+        self.grid.vert_wall(0, 0)
+        self.grid.vert_wall(width - 1, 0)
+
+        room_w = width // 2
+        room_h = height // 2
+
+        # For each row of rooms
+        for j in range(0, 2):
+
+            # For each column
+            for i in range(0, 2):
+                xL = i * room_w
+                yT = j * room_h
+                xR = xL + room_w
+                yB = yT + room_h
+
+                # Bottom wall and door
+                if i + 1 < 2:
+                    self.grid.vert_wall(xR, yT, room_h)
+                    pos = (xR, self._rand_int(yT + 1, yB))
+                    self.grid.set(*pos, None)
+
+                # Bottom wall and door
+                if j + 1 < 2:
+                    self.grid.horz_wall(xL, yB, room_w)
+                    pos = (self._rand_int(xL + 1, xR), yB)
+                    self.grid.set(*pos, None)
 
         # Types and colors of objects we can generate
         types = ['key', 'box', 'ball']
