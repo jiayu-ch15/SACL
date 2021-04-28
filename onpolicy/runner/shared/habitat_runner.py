@@ -1002,7 +1002,7 @@ class HabitatRunner(Runner):
                             self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
                             if key == 'merge_explored_ratio' and self.use_eval:
                                 self.env_info['auc'][e] += np.array(infos[e][key])
-                                self.env_infos['auc'][episode, e, step] = self.env_info['auc'][e]
+                                self.env_infos['auc'][episode, e, step] = self.env_infos['auc'][episode, e, step-1] + self.env_info['auc'][e]
                     if 'merge_explored_ratio_step' in infos[e].keys():
                         self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
                     for agent_id in range(self.num_agents):
