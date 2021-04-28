@@ -103,6 +103,7 @@ class MultiHabitatEnv(object):
         config_env.SIMULATOR.NUM_AGENTS = self.num_agents
         config_env.SIMULATOR.SEED = rank * 5000 + args.seed
         config_env.SIMULATOR.USE_SAME_ROTATION = args.use_same_rotation
+        config_env.SIMULATOR.USE_RANDOM_ROTATION = args.use_random_rotation
         config_env.SIMULATOR.USE_DIFFERENT_START_POS = args.use_different_start_pos
 
         config_env.SIMULATOR.AGENT.SENSORS = ['RGB_SENSOR', 'DEPTH_SENSOR']
