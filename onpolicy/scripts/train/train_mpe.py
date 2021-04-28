@@ -98,13 +98,8 @@ def main(args):
     # wandb
     if all_args.use_wandb:
         run = wandb.init(config=all_args,
-<<<<<<< HEAD
                          project=all_args.env_name,
                          entity=all_args.wandb_name,
-=======
-                         project='relu',
-                         entity='duxuan',
->>>>>>> relu
                          notes=socket.gethostname(),
                          name=str(all_args.algorithm_name) + "_" +
                          str(all_args.experiment_name) +
