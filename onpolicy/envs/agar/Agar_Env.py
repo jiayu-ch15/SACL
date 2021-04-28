@@ -34,6 +34,7 @@ class AgarEnv(gym.Env):
         self.args = args
         self.action_repeat = args.action_repeat
         self.g = args.gamma  # discount rate of RL (gamma)
+        self.obs_size = obs_size
         self.gamemode = gamemode  # We only implemented FFA (gamemode = 0)
         self.reward_settings = reward_settings
         self.total_step = 0
@@ -73,65 +74,63 @@ class AgarEnv(gym.Env):
             self.num_agents) * 0.33 * kill_reward_eps
         self.coop_eps = np.ones(self.num_agents) * coop_eps
         self.eval = eval
-        # if self.share_reward:
-        #self.coop_eps = np.zeros(self.num_agents)
 
     def step(self, actions_):
-        self.curr_step += 1
-        actions = deepcopy(actions_)
-        reward = np.zeros((self.num_agents, ))
-        done = np.zeros((self.num_agents, ))
-        info = [{} for i in range(self.num_agents)]
-        first = True
-        for i in range(self.action_repeat):
-            if not first:
-                for j in range(self.num_agents):
-                    actions[j][2] = 1
-            first = False
-            o, r = self.step_(actions)
-            reward += r
+        if not np.all(actions_ == np.ones((self.num_agents, 1)).astype(np.int) * (-1)):
+            self.curr_step += 1
+            actions = deepcopy(actions_)
+            reward = np.zeros((self.num_agents, 1))
+            done = np.zeros((self.num_agents, ))
+            info = [{} for i in range(self.num_agents)]
+            
+            first = True
+            for i in range(self.action_repeat):
+                if not first:
+                    for j in range(self.num_agents):
+                        actions[j][2] = 1
+                first = False
+                obs, r = self.step_(actions)
+                reward[:,0] += r
 
-        self.m_g *= self.g
-        done = (done != 0)
-        self.total_step += self.args.n_rollout_threads
-        self.killed += (self.t_killed != 0)
+            self.m_g *= self.g
+            done = (done != 0)
+            self.total_step += self.args.n_rollout_threads
+            self.killed += (self.t_killed != 0)
 
-        for i in range(self.num_agents):
-            info[i]['active_masks'] = True
-            info[i]['bad_transition'] = False
-            info[i]['collective_return'] = self.sum_r[i]
-            info[i]['o_r'] = self.o_r[i]
-            info[i]['behavior'] = self.hit[i]
-            if self.killed[i] >= 1:
-                done[i] = True
-                info[i]['active_masks'] = False
-                if self.killed[i] == 1:
-                    info[i]['episode'] = {'r': self.sum_r[i], 'r_g': self.sum_r_g[i],
-                                          'r_g_i': self.sum_r_g_i[i], 'hit': self.hit[i], 'dis': self.sum_dis[i] / self.s_n}
-                else:
-                    info[i]['bad_transition'] = True
-            elif self.s_n >= self.stop_step:
-                done[i] = True
-                info[i]['episode'] = {'r': self.sum_r[i], 'r_g': self.sum_r_g[i],
-                                      'r_g_i': self.sum_r_g_i[i], 'hit': self.hit[i], 'dis': self.sum_dis[i] / self.s_n}
-
-        if np.sum(done) == self.num_agents:
             for i in range(self.num_agents):
                 info[i]['active_masks'] = True
-                if self.killed[i] == 0 and self.s_n >= self.stop_step:
-                    info[i]['bad_transition'] = True
-                elif self.killed[i] == 1:
-                    info[i]['bad_transition'] = False
-                else:
-                    info[i]['bad_transition'] = True
+                info[i]['bad_transition'] = False
+                info[i]['collective_return'] = self.sum_r[i]
+                info[i]['o_r'] = self.o_r[i]
+                info[i]['behavior'] = self.hit[i]
+                if self.killed[i] >= 1:
+                    done[i] = True
+                    info[i]['active_masks'] = False
+                    if self.killed[i] == 1:
+                        info[i]['episode'] = {'r': self.sum_r[i], 'r_g': self.sum_r_g[i],
+                                            'r_g_i': self.sum_r_g_i[i], 'hit': self.hit[i], 'dis': self.sum_dis[i] / self.s_n}
+                    else:
+                        info[i]['bad_transition'] = True
+                elif self.s_n >= self.stop_step:
+                    done[i] = True
+                    info[i]['episode'] = {'r': self.sum_r[i], 'r_g': self.sum_r_g[i],
+                                        'r_g_i': self.sum_r_g_i[i], 'hit': self.hit[i], 'dis': self.sum_dis[i] / self.s_n}
 
-        reward = reward.reshape(-1, 1)
-
-        # global_reward = np.sum(reward)
-        # if self.share_reward:
-            # reward = [[global_reward]] * self.num_agents
-
-        return o, reward, done, info
+            if np.sum(done) == self.num_agents:
+                for i in range(self.num_agents):
+                    info[i]['active_masks'] = True
+                    if self.killed[i] == 0 and self.s_n >= self.stop_step:
+                        info[i]['bad_transition'] = True
+                    elif self.killed[i] == 1:
+                        info[i]['bad_transition'] = False
+                    else:
+                        info[i]['bad_transition'] = True
+        else:
+            obs = np.zeros((self.num_agents, self.obs_size))
+            reward = np.zeros((self.num_agents, 1))
+            done = np.array([None for agent_id in range(self.num_agents)])
+            info = {}
+        return obs, reward, done, info
 
     def step_(self, actions_):
         actions = deepcopy(actions_)
@@ -185,80 +184,82 @@ class AgarEnv(gym.Env):
 
         return observations, rewards
 
-    def reset(self):
-        
-        def getPosOnCircle(pos, radius):
-            randPos = self.server.randomPos2()
-            ratio = max(0, 1 - radius/randPos.dist2(pos))
-            randPos.x = randPos.x - (randPos.x-pos.x)*ratio
-            randPos.y = randPos.y - (randPos.y-pos.y)*ratio
-            return randPos
-        while True:
-            self.num_players = self.num_bots + self.num_agents
-            self.rewards_forced = [0 for i in range(self.num_agents)]
-            self.stop_step = 2000 - \
-                np.random.randint(0, 100) * self.action_repeat
-            self.last_mass = [None for i in range(self.num_agents)]
-            self.killed = np.zeros(self.num_agents)
-            self.t_killed = np.zeros(self.num_agents)
-            self.sum_r = np.zeros((self.num_agents, ))
-            self.sum_r_g = np.zeros((self.num_agents, ))
-            self.o_r = np.zeros((self.num_agents, ))
-            self.sum_r_g_i = np.zeros((self.num_agents, ))
-            self.sum_dis = np.zeros(self.num_agents)
-            self.m_g = 1.
-            self.last_action = [0 for i in range(3 * self.num_players)]
-            self.s_n = 0
-            self.curr_step = 0
+    def reset(self, choose=True):
+        if choose:    
+            def getPosOnCircle(pos, radius):
+                randPos = self.server.randomPos2()
+                ratio = max(0, 1 - radius/randPos.dist2(pos))
+                randPos.x = randPos.x - (randPos.x-pos.x)*ratio
+                randPos.y = randPos.y - (randPos.y-pos.y)*ratio
+                return randPos
+            while True:
+                self.num_players = self.num_bots + self.num_agents
+                self.rewards_forced = [0 for i in range(self.num_agents)]
+                self.stop_step = 2000 - \
+                    np.random.randint(0, 100) * self.action_repeat
+                self.last_mass = [None for i in range(self.num_agents)]
+                self.killed = np.zeros(self.num_agents)
+                self.t_killed = np.zeros(self.num_agents)
+                self.sum_r = np.zeros((self.num_agents, ))
+                self.sum_r_g = np.zeros((self.num_agents, ))
+                self.o_r = np.zeros((self.num_agents, ))
+                self.sum_r_g_i = np.zeros((self.num_agents, ))
+                self.sum_dis = np.zeros(self.num_agents)
+                self.m_g = 1.
+                self.last_action = [0 for i in range(3 * self.num_players)]
+                self.s_n = 0
+                self.curr_step = 0
 
-            self.split = np.zeros(self.num_agents)
-            self.hit = np.zeros((self.num_agents, 4))
-            self.near = [[0]*self.num_agents for _ in range(self.num_agents)]
+                self.split = np.zeros(self.num_agents)
+                self.hit = np.zeros((self.num_agents, 4))
+                self.near = [[0]*self.num_agents for _ in range(self.num_agents)]
 
-            self.server = GameServer(self)
-            self.server.start(self.gamemode)
-            self.agents = [Player(self.server) for _ in range(self.num_agents)]
-            
-            if self.curriculum_learning:
-                # script agent speed & position curriculum is set here.
-                up = min(
-                    1.0, max(0.0, (self.total_step - self.up_step) / self.up_step))
-                low = min(
-                    1.0, max(0.0, (self.total_step - self.low_step) / self.up_step))
-                self.bot_speed = rand(low, up)
-                self.bots = [Bot(self.server) for _ in range(self.num_bots)]
-                """difficulty = 2 + rand(low, up)*30
+                self.server = GameServer(self)
+                self.server.start(self.gamemode)
+                self.agents = [Player(self.server) for _ in range(self.num_agents)]
+                
+                if self.curriculum_learning:
+                    # script agent speed & position curriculum is set here.
+                    up = min(
+                        1.0, max(0.0, (self.total_step - self.up_step) / self.up_step))
+                    low = min(
+                        1.0, max(0.0, (self.total_step - self.low_step) / self.up_step))
+                    self.bot_speed = rand(low, up)
+                    self.bots = [Bot(self.server) for _ in range(self.num_bots)]
+                    """difficulty = 2 + rand(low, up)*30
 
-                self.bots = []
-                distance = difficulty*100
-                bots_each_agent = math.floor(self.num_bots/self.num_agents)
+                    self.bots = []
+                    distance = difficulty*100
+                    bots_each_agent = math.floor(self.num_bots/self.num_agents)
 
-                for i in range(self.num_bots):
-                    if i<bots_each_agent*self.num_agents:
-                        pos = getPosOnCircle(self.agents[math.floor(i/bots_each_agent)].centerPos, distance)
-                    else:
-                        pos = getPosOnCircle(self.agents[-1].centerPos, distance)
-                    self.bots.append(Bot(self.server, pos=pos))"""
-            else:
-                self.bots = [Bot(self.server) for _ in range(self.num_bots)]
-                self.bot_speed = 1.0
-            if self.eval:
-                self.bot_speed = 1.0
-            self.players = self.agents + self.bots
-            self.server.addPlayers(self.players)
-            self.viewer = []
-            self.server.Update()
-            observations = [self.parse_obs(self.agents[i], i)
-                            for i in range(self.num_agents)]
-            success = True
-            for i in range(self.num_agents):
-                # sometimes the agent dies just after initialization, we should avoid this.
-                if np.sum(observations[i]) == 0.:
-                    success = False
-            #observations = np.array(observations)
-            #observations = {'agent-'+str(i): observations[i] for i in range(self.num_agents)}
-            if success:
-                break
+                    for i in range(self.num_bots):
+                        if i<bots_each_agent*self.num_agents:
+                            pos = getPosOnCircle(self.agents[math.floor(i/bots_each_agent)].centerPos, distance)
+                        else:
+                            pos = getPosOnCircle(self.agents[-1].centerPos, distance)
+                        self.bots.append(Bot(self.server, pos=pos))"""
+                else:
+                    self.bots = [Bot(self.server) for _ in range(self.num_bots)]
+                    self.bot_speed = 1.0
+                if self.eval:
+                    self.bot_speed = 1.0
+                self.players = self.agents + self.bots
+                self.server.addPlayers(self.players)
+                self.viewer = []
+                self.server.Update()
+                observations = [self.parse_obs(self.agents[i], i)
+                                for i in range(self.num_agents)]
+                success = True
+                for i in range(self.num_agents):
+                    # sometimes the agent dies just after initialization, we should avoid this.
+                    if np.sum(observations[i]) == 0.:
+                        success = False
+                #observations = np.array(observations)
+                #observations = {'agent-'+str(i): observations[i] for i in range(self.num_agents)}
+                if success:
+                    break
+        else:
+            observations = np.zeros((self.num_agents, self.obs_size))
         return observations
 
     def parse_obs(self, player, id, action=None):

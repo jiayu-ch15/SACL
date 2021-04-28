@@ -6,11 +6,11 @@ import numpy as np
 from itertools import chain
 import torch
 import imageio
-
-from onpolicy.utils.util import update_linear_schedule
-from onpolicy.runner.separated.base_runner import Runner
 from icecream import ic
 from collections import defaultdict, deque
+
+from onpolicy.utils.util import update_linear_schedule, get_shape_from_act_space
+from onpolicy.runner.separated.base_runner import Runner
 
 def _t2n(x):
     return x.detach().cpu().numpy()
@@ -68,7 +68,9 @@ class AgarRunner(Runner):
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
                 
-                train_infos[agent_id].update({"average_episode_rewards": np.sum(self.buffer[agent_id].rewards, axis=0).mean()})
+                for agent_id in range(self.num_agents):
+                    train_infos[agent_id].update({"average_episode_rewards": np.sum(self.buffer[agent_id].rewards, axis=0).mean()})
+                
                 self.log_train(train_infos, total_num_steps)
                 self.log_env(self.env_infos, total_num_steps)
                 self.env_infos = [defaultdict(list) for _ in range(self.num_agents)]
@@ -126,7 +128,7 @@ class AgarRunner(Runner):
         obs, rewards, dones, infos, \
         values, actions, action_log_probs, rnn_states, rnn_states_critic = data
 
-        dones_env = np.all(dones, axis=1)
+        dones_env = np.all(dones, axis=-1)
         for done, info in zip(dones_env, infos):
             if done:
                 for agent_id in range(self.num_agents):
@@ -173,21 +175,12 @@ class AgarRunner(Runner):
     def log_env(self, env_infos, total_num_steps):
         for agent_id in range(self.num_agents):
             for k, v in env_infos[agent_id].items():
-                if len(v)>0:
+                if len(v) > 0:
                     agent_k = "agent%i/" % agent_id + k
                     if self.use_wandb:
                         wandb.log({agent_k: np.mean(v)}, step=total_num_steps)
                     else:
-                        self.writter.add_scalars(agent_k, {agent_k: np.mean(v)}, total_num_steps)
-
-    def log_eval(self, eval_infos, total_num_steps):
-        for agent_id in range(self.num_agents):
-            for k, v in eval_infos[agent_id].items():
-                agent_k = "agent%i/" % agent_id + k
-                if self.use_wandb:
-                    wandb.log({agent_k: v}, step=total_num_steps)
-                else:
-                    self.writter.add_scalars(agent_k, {agent_k: v}, total_num_steps)     
+                        self.writter.add_scalars(agent_k, {agent_k: np.mean(v)}, total_num_steps)    
 
     @torch.no_grad()
     def render(self):
@@ -291,56 +284,53 @@ class AgarRunner(Runner):
 
     @torch.no_grad()
     def eval(self, total_num_steps):
-        eval_episode_rewards = []
-        for i in range(self.num_agents):
-            eval_episode_rewards.append([])
+        action_shape = get_shape_from_act_space(self.eval_envs.action_space[0])
+        eval_env_infos = [defaultdict(list) for _ in range(self.num_agents)]
+        eval_reset_choose = np.ones(self.n_eval_rollout_threads) == 1.0
 
-        eval_obs = self.eval_envs.reset()
+        eval_obs = self.eval_envs.reset(eval_reset_choose)
 
         eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
+        eval_dones_env = np.zeros(self.n_eval_rollout_threads, dtype=bool)
 
-        for eval_step in range(self.episode_length):
-            eval_temp_actions_env = []
+        while True:
+            eval_choose = (eval_dones_env==False)
+
+            if ~np.any(eval_choose):
+                break
+            eval_actions = np.ones((self.n_eval_rollout_threads, self.num_agents, action_shape)).astype(np.int) * (-1)
+            
             for agent_id in range(self.num_agents):
                 self.trainer[agent_id].prep_rollout()
-                eval_action, eval_rnn_state = self.trainer[agent_id].policy.act(np.array(list(eval_obs[:, agent_id])),
-                                                                            eval_rnn_states[:, agent_id],
-                                                                            eval_masks[:, agent_id],
+                eval_action, eval_rnn_state = self.trainer[agent_id].policy.act(eval_obs[eval_choose, agent_id],
+                                                                            eval_rnn_states[eval_choose, agent_id],
+                                                                            eval_masks[eval_choose, agent_id],
                                                                             deterministic=True)
 
-                eval_action = eval_action.detach().cpu().numpy()
+                eval_actions[eval_choose, agent_id] = _t2n(eval_action)
+                eval_rnn_states[eval_choose, agent_id] = _t2n(eval_rnn_state)
                 
-                eval_temp_actions_env.append(eval_action)
-                eval_rnn_states[:, agent_id] = _t2n(eval_rnn_state)
-                
-            # [envs, agents, dim]
-            eval_actions_env = []
-            for i in range(self.n_eval_rollout_threads):
-                eval_one_hot_action_env = []
-                for eval_temp_action_env in eval_temp_actions_env:
-                    eval_one_hot_action_env.append(eval_temp_action_env[i])
-                eval_actions_env.append(eval_one_hot_action_env)
-
             # Obser reward and next obs
-            eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions_env)
-            
-            for i in range(self.num_agents):
-                temp = eval_rewards[:, i, :]
-                eval_episode_rewards[i].append(np.mean(temp))           
-            
-            eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
+            eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions)
+
+            eval_dones_env = np.all(eval_dones, axis=-1)
+
+            for eval_done, eval_info in zip(eval_dones_env, eval_infos):
+                if eval_done:
+                    for agent_id in range(self.num_agents):
+                        if 'collective_return' in eval_info[agent_id].keys():
+                            eval_env_infos[agent_id]['eval_collective_return'].append(eval_info[agent_id]['collective_return']) 
+                        if 'behavior' in eval_info[agent_id].keys():
+                            eval_env_infos[agent_id]['eval_split'].append(eval_info[agent_id]['behavior'][0])
+                            eval_env_infos[agent_id]['eval_hunt'].append(eval_info[agent_id]['behavior'][1])
+                            eval_env_infos[agent_id]['eval_attack'].append(eval_info[agent_id]['behavior'][2])
+                            eval_env_infos[agent_id]['eval_cooperate'].append(eval_info[agent_id]['behavior'][3])
+                        if 'o_r' in eval_info[agent_id].keys():
+                            eval_env_infos[agent_id]['eval_original_return'].append(eval_info[agent_id]['o_r'])
+
+            eval_rnn_states[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
-            eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), 1), dtype=np.float32)
+            eval_masks[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
-        #eval_episode_rewards = np.array(eval_episode_rewards) 
-        eval_train_infos = []
-        for i in range(self.num_agents):
-            eval_train_infos.append({})
-
-        for agent_id in range(self.num_agents):
-            eval_train_infos[agent_id]['eval_average_episode_rewards'] = np.mean(eval_episode_rewards[agent_id])*self.episode_length
-            #print("eval average episode rewards of agent%i: " % agent_id + str(eval_average_episode_rewards))
-
-
-        self.log_eval(eval_train_infos, total_num_steps)  
+        self.log_env(eval_env_infos, total_num_steps)  
