@@ -9,6 +9,7 @@ import imageio
 
 from onpolicy.utils.util import update_linear_schedule
 from onpolicy.runner.shared.base_runner import Runner
+from collections import defaultdict, deque
 
 def _t2n(x):
     return x.detach().cpu().numpy()
@@ -177,23 +178,24 @@ class AgarRunner(Runner):
     @torch.no_grad()
     def render(self):
         envs = self.envs
-        f = str(self.run_dir/'log.txt')
+        f = str(self.run_dir / 'log.txt')
 
         all_frames = []
         for episode in range(self.all_args.render_episodes):
+            end = False
+            step = 0
+            episode_rewards = []
+
             obs = envs.reset()
             if self.all_args.save_gifs:
                 for i in range(self.num_agents):
                     image = np.squeeze(envs.render(mode="rgb_array", playeridx=i))
                     all_frames.append(image)
-                    #time.sleep(self.all_args.ifi)
 
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-            
-            episode_rewards = []
-            
-            for step in range(self.episode_length):
+
+            while not end:
                 calc_start = time.time()
 
                 self.trainer.prep_rollout()
@@ -208,15 +210,17 @@ class AgarRunner(Runner):
                 obs, rewards, dones, infos = envs.step(actions)
                 episode_rewards.append(rewards)
 
-                rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
+                dones_env = np.all(dones, axis=1)
+                end = dones_env[0]
+
+                rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
                 masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-                masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
+                masks[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
                 if self.all_args.save_gifs:
                     for i in range(self.num_agents):
                         image = np.squeeze(envs.render(mode="rgb_array", playeridx=i))
                         all_frames.append(image)
-                        #time.sleep(self.all_args.ifi)
 
                     calc_end = time.time()
                     elapsed = calc_end - calc_start
@@ -225,11 +229,11 @@ class AgarRunner(Runner):
 
             render_infos = []
             with open(f,'a') as file:
-                file.write("\n########## episode no."+str(episode)+' ##########\n')
-            print("\n########## episode no."+str(episode)+' ##########')
+                file.write("\n########## episode no." + str(episode) + ' ##########\n')
+            print("\n########## episode no." + str(episode) + ' ##########')
+            print("\nrender step is {}.\n".format(step))
             for agent_id in range(self.num_agents):
                 env_info = {}
-
                 env_info['collective_return'] = []
                 env_info['split'] = []
                 env_info['hunt'] = []
@@ -250,11 +254,11 @@ class AgarRunner(Runner):
                         
                 env_info['average_episode_reward'] = np.mean(np.sum(np.array(episode_rewards), axis=0))
                 with open(f,'a') as file:
-                    file.write("\n@@@@ agent no."+str(agent_id)+' @@@@\n')
-                print("\n@@@@ agent no."+str(agent_id)+' @@@@')
-                with open(f,'a') as file:
+                    file.write("\n@@@@ agent no." + str(agent_id) + ' @@@@\n')
+                print("\n@@@@ agent no." + str(agent_id) + ' @@@@')
+                with open(f, 'a') as file:
                     for k,v in env_info.items():
-                        file.write('\n'+str(k)+' : '+str(v)+'\n')
+                        file.write('\n' + str(k) + ' : ' + str(v) + '\n')
                 print(env_info)
                 render_infos.append(env_info)
 

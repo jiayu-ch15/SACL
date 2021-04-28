@@ -229,20 +229,10 @@ def get_config():
                         help="Dimension of hidden layers for actor/critic networks") # TODO @zoeyuchao. The same comment might in need of change.
     parser.add_argument("--layer_N", type=int, default=1,
                         help="Number of layers for actor/critic networks")
-<<<<<<< HEAD
     parser.add_argument("--activation_id", type=int,
                         default=1, help="choose 0 to use tanh, 1 to use relu, 2 to use leaky relu, 3 to use elu")
     parser.add_argument("--use_popart", action='store_true', default=False, help="by default False, use PopArt to normalize rewards.")
     parser.add_argument("--use_valuenorm", action='store_false', default=True, help="by default True, use running mean and std to normalize rewards.")
-=======
-    '''parser.add_argument("--use_ReLU", action='store_false',
-                        default=True, help="Whether to use ReLU")'''
-    parser.add_argument("--use_ReLU", type=int,
-                        default=1, help="choose 0 to use tanh, 1 to use relu, 2 to use leaky relu, 3 to use elu")                        
-    parser.add_argument("--use_popart", action='store_false', default=True, help="by default True, use running mean and std to normalize rewards.")
-    parser.add_argument("--use_feature_popart", action='store_true',
-                        default=False, help="Whether to apply popart to the inputs, by default False.")
->>>>>>> relu
     parser.add_argument("--use_feature_normalization", action='store_false',
                         default=True, help="Whether to apply layernorm to the inputs")
     parser.add_argument("--use_orthogonal", action='store_false', default=True,

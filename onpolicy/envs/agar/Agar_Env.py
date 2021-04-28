@@ -10,6 +10,7 @@ from onpolicy.envs.agar.players import Player, Bot
 import numpy as np
 from copy import deepcopy
 import math
+from icecream import ic
 
 def max(a, b):
     if a > b:
@@ -76,6 +77,7 @@ class AgarEnv(gym.Env):
         #self.coop_eps = np.zeros(self.num_agents)
 
     def step(self, actions_):
+        self.curr_step += 1
         actions = deepcopy(actions_)
         reward = np.zeros((self.num_agents, ))
         done = np.zeros((self.num_agents, ))
@@ -124,10 +126,10 @@ class AgarEnv(gym.Env):
                     info[i]['bad_transition'] = True
 
         reward = reward.reshape(-1, 1)
-        global_reward = np.sum(reward)
 
-        """if self.share_reward:
-            reward = [[global_reward]] * self.num_agents"""
+        # global_reward = np.sum(reward)
+        # if self.share_reward:
+            # reward = [[global_reward]] * self.num_agents
 
         return o, reward, done, info
 
@@ -139,12 +141,15 @@ class AgarEnv(gym.Env):
             self.server.players[i].step()
 
         self.server.Update()
+        
         t_rewards, t_rewards2 = [], []
         for i in range(self.num_agents):
             a, b = self.parse_reward(self.agents[i], i)
             t_rewards.append(a)
             t_rewards2.append(b)
+
         t_rewards, t_rewards2 = np.array(t_rewards), np.array(t_rewards2)
+        
         rewards = np.zeros(self.num_agents)
         for i in range(self.num_agents):
             for j in range(self.num_agents):
@@ -181,6 +186,7 @@ class AgarEnv(gym.Env):
         return observations, rewards
 
     def reset(self):
+        
         def getPosOnCircle(pos, radius):
             randPos = self.server.randomPos2()
             ratio = max(0, 1 - radius/randPos.dist2(pos))
@@ -203,6 +209,7 @@ class AgarEnv(gym.Env):
             self.m_g = 1.
             self.last_action = [0 for i in range(3 * self.num_players)]
             self.s_n = 0
+            self.curr_step = 0
 
             self.split = np.zeros(self.num_agents)
             self.hit = np.zeros((self.num_agents, 4))
