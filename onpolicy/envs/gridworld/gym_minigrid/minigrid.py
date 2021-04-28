@@ -1402,11 +1402,19 @@ class MiniGridEnv(gym.Env):
     def get_direction_encoder(self):
         self.render(mode='human', close=False)
         array_direction = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
+        print (" Refer each predator as the coordinate origin, input the direciton of the prey relative to it.\n \
+           Right is the positive direction of the X-axis,\n Below is the positive direction of the Y-axis.\n \
+               0--[1,1] , 1--[1,-1], 2--[-1,1], 3--[-1,-1], i.e. 000")
+        all_command = int(input("Enter the command: "))
+        command = []
+        command.append(all_command // 100)
+        command.append((all_command - command[0] * 100) // 10)
+        command.append(all_command % 10)
+        print(command)
         for agent_id in range(self.num_agents):
-            print (" Refer predator {} as the coordinate origin.\n Right is the positive direction of the X-axis,\n Below is the positive direction of the Y-axis.\n 0--[1,1] , 1--[1,-1], 2--[-1,1], 3--[-1,-1]".format(agent_id))
-            command = int(input("Enter the command: "))
-            self.direction[agent_id] = array_direction[command]
-            self.direction_encoder[agent_id] = np.eye(4)[command]
+                self.direction[agent_id] = array_direction[command[agent_id]]
+                self.direction_encoder[agent_id] = np.eye(4)[command[agent_id]]
+
 
     def close(self):
         if self.window:

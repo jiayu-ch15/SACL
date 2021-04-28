@@ -6,8 +6,10 @@ import numpy as np
 from itertools import chain
 import torch
 import imageio
+from icecream import ic
+from collections import defaultdict, deque
 
-from onpolicy.utils.util import update_linear_schedule
+from onpolicy.utils.util import update_linear_schedule, get_shape_from_act_space
 from onpolicy.runner.separated.base_runner import Runner
 
 def _t2n(x):
@@ -16,6 +18,7 @@ def _t2n(x):
 class AgarRunner(Runner):
     def __init__(self, config):
         super(AgarRunner, self).__init__(config)
+        self.env_infos = [defaultdict(list) for _ in range(self.num_agents)]
 
     def run(self):
         self.warmup()   
@@ -65,35 +68,12 @@ class AgarRunner(Runner):
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
                 
-                if self.env_name == "Agar":
-                    env_infos = []
-                    for agent_id in range(self.num_agents):
-                        env_info = {}
-
-                        env_info['collective_return'] = []
-                        env_info['split'] = []
-                        env_info['hunt'] = []
-                        env_info['attack'] = []
-                        env_info['cooperate'] = []
-                        env_info['original_return'] = []
-
-                        for info in infos:                    
-                            if 'collective_return' in info[agent_id].keys():
-                                env_info['collective_return'].append(info[agent_id]['collective_return']) 
-                            if 'behavior' in info[agent_id].keys():
-                                env_info['split'].append(info[agent_id]['behavior'][0])
-                                env_info['hunt'].append(info[agent_id]['behavior'][1])
-                                env_info['attack'].append(info[agent_id]['behavior'][2])
-                                env_info['cooperate'].append(info[agent_id]['behavior'][3])
-                            if 'o_r' in info[agent_id].keys():
-                                env_info['original_return'].append(info[agent_id]['o_r']) 
-                        
-                        env_infos.append(env_info)
-
-                        train_infos[agent_id].update({"average_episode_rewards": np.mean(self.buffer[agent_id].rewards)*self.episode_length})
+                for agent_id in range(self.num_agents):
+                    train_infos[agent_id].update({"average_episode_rewards": np.sum(self.buffer[agent_id].rewards, axis=0).mean()})
                 
                 self.log_train(train_infos, total_num_steps)
-                self.log_env(env_infos, total_num_steps)
+                self.log_env(self.env_infos, total_num_steps)
+                self.env_infos = [defaultdict(list) for _ in range(self.num_agents)]
 
             # eval
             if episode % self.eval_interval == 0 and self.use_eval:
@@ -139,7 +119,7 @@ class AgarRunner(Runner):
         values = np.array(values).transpose(1, 0, 2)
         actions = np.array(actions).transpose(1, 0, 2)
         action_log_probs = np.array(action_log_probs).transpose(1, 0, 2)
-        rnn_states = np.array(rnn_states).transpose(1, 0, 2, 3) #[rollout_threads, agents,...]
+        rnn_states = np.array(rnn_states).transpose(1, 0, 2, 3) # [rollout_threads, agents,...]
         rnn_states_critic = np.array(rnn_states_critic).transpose(1, 0, 2, 3)
 
         return values, actions, action_log_probs, rnn_states, rnn_states_critic
@@ -148,7 +128,19 @@ class AgarRunner(Runner):
         obs, rewards, dones, infos, \
         values, actions, action_log_probs, rnn_states, rnn_states_critic = data
 
-        dones_env = np.all(dones, axis=1)
+        dones_env = np.all(dones, axis=-1)
+        for done, info in zip(dones_env, infos):
+            if done:
+                for agent_id in range(self.num_agents):
+                    if 'collective_return' in info[agent_id].keys():
+                        self.env_infos[agent_id]['collective_return'].append(info[agent_id]['collective_return']) 
+                    if 'behavior' in info[agent_id].keys():
+                        self.env_infos[agent_id]['split'].append(info[agent_id]['behavior'][0])
+                        self.env_infos[agent_id]['hunt'].append(info[agent_id]['behavior'][1])
+                        self.env_infos[agent_id]['attack'].append(info[agent_id]['behavior'][2])
+                        self.env_infos[agent_id]['cooperate'].append(info[agent_id]['behavior'][3])
+                    if 'o_r' in info[agent_id].keys():
+                        self.env_infos[agent_id]['original_return'].append(info[agent_id]['o_r']) 
 
         rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
@@ -183,21 +175,12 @@ class AgarRunner(Runner):
     def log_env(self, env_infos, total_num_steps):
         for agent_id in range(self.num_agents):
             for k, v in env_infos[agent_id].items():
-                if len(v)>0:
+                if len(v) > 0:
                     agent_k = "agent%i/" % agent_id + k
                     if self.use_wandb:
                         wandb.log({agent_k: np.mean(v)}, step=total_num_steps)
                     else:
-                        self.writter.add_scalars(agent_k, {agent_k: np.mean(v)}, total_num_steps)
-
-    def log_eval(self, eval_infos, total_num_steps):
-        for agent_id in range(self.num_agents):
-            for k, v in eval_infos[agent_id].items():
-                agent_k = "agent%i/" % agent_id + k
-                if self.use_wandb:
-                    wandb.log({agent_k: v}, step=total_num_steps)
-                else:
-                    self.writter.add_scalars(agent_k, {agent_k: v}, total_num_steps)     
+                        self.writter.add_scalars(agent_k, {agent_k: np.mean(v)}, total_num_steps)    
 
     @torch.no_grad()
     def render(self):
@@ -206,24 +189,24 @@ class AgarRunner(Runner):
 
         all_frames = []
         for episode in range(self.all_args.render_episodes):
+            end = False
+            step = 0
+            episode_rewards = []
+
             obs = envs.reset()
             if self.all_args.save_gifs:
                 for i in range(self.num_agents):
                     image = np.squeeze(envs.render(mode="rgb_array", playeridx=i))
                     all_frames.append(image)
-                    #time.sleep(self.all_args.ifi)
 
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-            
-            episode_rewards = []
-            
-            for step in range(self.episode_length):
+
+            while not end:
+                step += 1
                 calc_start = time.time()
                 temp_actions_env = []
                 for agent_id in range(self.num_agents):
-                    if not self.use_centralized_V:
-                        share_obs = np.array(list(obs[:, agent_id]))
                     self.trainer[agent_id].prep_rollout()
                     action, rnn_state = self.trainer[agent_id].policy.act(np.array(list(obs[:, agent_id])),
                                                                         rnn_states[:, agent_id],
@@ -235,19 +218,22 @@ class AgarRunner(Runner):
                     rnn_states[:, agent_id] = _t2n(rnn_state)
                    
                 # Obser reward and next obs
-                actions = np.transpose(np.array(temp_actions_env),(1,0,2))
+                actions = np.transpose(np.array(temp_actions_env), (1, 0, 2))
                 obs, rewards, dones, infos = self.envs.step(actions)
+
+                dones_env = np.all(dones, axis=1)
+                end = dones_env[0]
+
                 episode_rewards.append(rewards)
 
-                rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
+                rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
                 masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-                masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
+                masks[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
                 if self.all_args.save_gifs:
                     for i in range(self.num_agents):
                         image = np.squeeze(envs.render(mode="rgb_array", playeridx=i))
                         all_frames.append(image)
-                        #time.sleep(self.all_args.ifi)
 
                     calc_end = time.time()
                     elapsed = calc_end - calc_start
@@ -256,8 +242,10 @@ class AgarRunner(Runner):
 
             render_infos = []
             with open(f,'w') as file:
-                file.write("\n########## episode no."+str(episode)+' ##########\n')
-            print("\n########## episode no."+str(episode)+' ##########')
+                file.write("\n########## episode no."+ str(episode) +' ##########\n')
+            print("\n########## episode no."+ str(episode) +' ##########')
+            print("\nrender step is {}.\n".format(step))
+            
             for agent_id in range(self.num_agents):
                 env_info = {}
 
@@ -279,10 +267,10 @@ class AgarRunner(Runner):
                     if 'o_r' in info[agent_id].keys():
                         env_info['original_return'].append(info[agent_id]['o_r']) 
                         
-                env_info['average_episode_reward'] = np.mean(np.sum(episode_rewards[:, :, agent_id], axis=0))
+                env_info['average_episode_reward'] = np.mean(np.sum(np.array(episode_rewards)[:, :, agent_id], axis=0))
                 with open(f,'w') as file:
                     file.write("\n@@@@ agent no."+str(agent_id)+' @@@@\n')
-                print("\n@@@@ agent no."+str(agent_id)+' @@@@')
+                print("\n@@@@ agent no."+ str(agent_id) +' @@@@')
                 with open(f,'w') as file:
                     for k,v in env_info.items():
                         file.write('\n'+str(k)+' : '+str(v)+'\n')
@@ -296,55 +284,53 @@ class AgarRunner(Runner):
 
     @torch.no_grad()
     def eval(self, total_num_steps):
-        eval_episode_rewards = []
-        for i in range(self.num_agents):
-            eval_episode_rewards.append([])
-        eval_obs = self.eval_envs.reset()
+        action_shape = get_shape_from_act_space(self.eval_envs.action_space[0])
+        eval_env_infos = [defaultdict(list) for _ in range(self.num_agents)]
+        eval_reset_choose = np.ones(self.n_eval_rollout_threads) == 1.0
+
+        eval_obs = self.eval_envs.reset(eval_reset_choose)
 
         eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
+        eval_dones_env = np.zeros(self.n_eval_rollout_threads, dtype=bool)
 
-        for eval_step in range(self.episode_length):
-            eval_temp_actions_env = []
+        while True:
+            eval_choose = (eval_dones_env==False)
+
+            if ~np.any(eval_choose):
+                break
+            eval_actions = np.ones((self.n_eval_rollout_threads, self.num_agents, action_shape)).astype(np.int) * (-1)
+            
             for agent_id in range(self.num_agents):
                 self.trainer[agent_id].prep_rollout()
-                eval_action, eval_rnn_state = self.trainer[agent_id].policy.act(np.array(list(eval_obs[:, agent_id])),
-                                                                            eval_rnn_states[:, agent_id],
-                                                                            eval_masks[:, agent_id],
+                eval_action, eval_rnn_state = self.trainer[agent_id].policy.act(eval_obs[eval_choose, agent_id],
+                                                                            eval_rnn_states[eval_choose, agent_id],
+                                                                            eval_masks[eval_choose, agent_id],
                                                                             deterministic=True)
 
-                eval_action = eval_action.detach().cpu().numpy()
+                eval_actions[eval_choose, agent_id] = _t2n(eval_action)
+                eval_rnn_states[eval_choose, agent_id] = _t2n(eval_rnn_state)
                 
-                eval_temp_actions_env.append(eval_action)
-                eval_rnn_states[:, agent_id] = _t2n(eval_rnn_state)
-                
-            # [envs, agents, dim]
-            eval_actions_env = []
-            for i in range(self.n_eval_rollout_threads):
-                eval_one_hot_action_env = []
-                for eval_temp_action_env in eval_temp_actions_env:
-                    eval_one_hot_action_env.append(eval_temp_action_env[i])
-                eval_actions_env.append(eval_one_hot_action_env)
-
             # Obser reward and next obs
-            eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions_env)
-            
-            for i in range(self.num_agents):
-                temp = eval_rewards[:, i, :]
-                eval_episode_rewards[i].append(np.mean(temp))           
-            
-            eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
+            eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions)
+
+            eval_dones_env = np.all(eval_dones, axis=-1)
+
+            for eval_done, eval_info in zip(eval_dones_env, eval_infos):
+                if eval_done:
+                    for agent_id in range(self.num_agents):
+                        if 'collective_return' in eval_info[agent_id].keys():
+                            eval_env_infos[agent_id]['eval_collective_return'].append(eval_info[agent_id]['collective_return']) 
+                        if 'behavior' in eval_info[agent_id].keys():
+                            eval_env_infos[agent_id]['eval_split'].append(eval_info[agent_id]['behavior'][0])
+                            eval_env_infos[agent_id]['eval_hunt'].append(eval_info[agent_id]['behavior'][1])
+                            eval_env_infos[agent_id]['eval_attack'].append(eval_info[agent_id]['behavior'][2])
+                            eval_env_infos[agent_id]['eval_cooperate'].append(eval_info[agent_id]['behavior'][3])
+                        if 'o_r' in eval_info[agent_id].keys():
+                            eval_env_infos[agent_id]['eval_original_return'].append(eval_info[agent_id]['o_r'])
+
+            eval_rnn_states[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
-            eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), 1), dtype=np.float32)
+            eval_masks[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
-        #eval_episode_rewards = np.array(eval_episode_rewards) 
-        eval_train_infos = []
-        for i in range(self.num_agents):
-            eval_train_infos.append({})
-
-        for agent_id in range(self.num_agents):
-            eval_train_infos[agent_id]['eval_average_episode_rewards'] = np.mean(eval_episode_rewards[agent_id])*self.episode_length
-            #print("eval average episode rewards of agent%i: " % agent_id + str(eval_average_episode_rewards))
-
-
-        self.log_eval(eval_train_infos, total_num_steps)  
+        self.log_env(eval_env_infos, total_num_steps)  
