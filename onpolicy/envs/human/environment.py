@@ -152,12 +152,18 @@ class MultiAgentEnv(gym.Env):
         self.render(mode='human',close=False)
 
         array_direction = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
+        print ("Refer each predator as the coordinate origin, input the direciton of the prey relative to it.\n0--[1,1] , 1--[1,-1], 2--[-1,1], 3--[-1,-1], i.e. 000")
+        all_command = int(input("Enter the command: "))
+        command = []
+        command.append(all_command // 100)
+        command.append((all_command - command[0] * 100) // 10)
+        command.append(all_command % 10)
+        print(command)
         for i, agent in enumerate(self.agents):
             if agent.adversary:
-                print ("Refer predator {} as the coordinate origin, 0--[1,1] , 1--[1,-1], 2--[-1,1], 3--[-1,-1]".format(i))
-                command = int(input("Enter the command: "))
-                agent.direction = array_direction[command]
-                agent.direction_encoder = np.eye(4)[command]
+                agent.direction = array_direction[command[i]]
+                agent.direction_encoder = np.eye(4)[command[i]]
+
 
     def reset(self, reset_choose=True):
         self.current_step = 0
