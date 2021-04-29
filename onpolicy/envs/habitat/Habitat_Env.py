@@ -86,7 +86,7 @@ class MultiHabitatEnv(object):
             scene_num=[20, 16, 48, 22, 21, 40, 43, 36, 61, 49]
             config_env.DATASET.CONTENT_SCENES = scenes[scene_num[rank]:scene_num[rank]+1]
         if args.use_selected_large_scenes:
-            scene_num=[31, 9]
+            scene_num=[31, 70, 9, 47, 45]
             config_env.DATASET.CONTENT_SCENES = scenes[scene_num[rank]:scene_num[rank]+1]
             
 
