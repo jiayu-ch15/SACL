@@ -23,7 +23,7 @@ class GridWorldEnv(object):
         )
         self.env = gym.make(self.scenario_name)
         self.max_steps = self.env.max_steps
-        print("max step is {}".format(self.max_steps))
+        # print("max step is {}".format(self.max_steps))
 
         self.observation_space = self.env.observation_space
         self.share_observation_space = self.env.observation_space

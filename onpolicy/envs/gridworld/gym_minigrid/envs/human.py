@@ -28,7 +28,7 @@ class HumanEnv(MiniGridEnv):
         super().__init__(
             num_agents=num_agents,
             grid_size=size,
-            max_steps=5*size**2,
+            max_steps=(size-2)**2,
             # Set this to True for maximum speed
             see_through_walls=True
         )
@@ -69,7 +69,7 @@ class HumanEnv(MiniGridEnv):
                     self.grid.set(*pos, None)
 
         # Types and colors of objects we can generate
-        types = ['key', 'box', 'ball']
+        types = ['key']
 
         objs = []
         objPos = []
@@ -121,7 +121,7 @@ class HumanEnv(MiniGridEnv):
         # text
         descStr = '%s %s' % (self.target_color, self.targetType)
         self.mission = 'go to the %s' % descStr
-        print(self.mission)
+        # print(self.mission)
 
     def step(self, action):
         obs, reward, done, info = MiniGridEnv.step(self, action)
@@ -132,15 +132,16 @@ class HumanEnv(MiniGridEnv):
             tx, ty = self.target_pos
 
             # Toggle/pickup action terminates the episode
-            if action[agent_id] == self.actions.toggle:
-                pass
+            # if action[agent_id] == self.actions.toggle:
+                # pass
                 # done = True
 
             # Reward performing the done action next to the target object
-            if action[agent_id] == self.actions.done:
-                if abs(ax - tx) <= 1 and abs(ay - ty) <= 1:
-                    reward += self._reward()
-                # done = True
+            # if action[agent_id] == self.actions.done:
+            if abs(ax - tx) < 1 and abs(ay - ty) < 1:
+                reward += 1.0 #self._reward()
+                print(reward)
+                done = True
             rewards.append([reward])
 
         dones = [done for agent_id in range(self.num_agents)]
