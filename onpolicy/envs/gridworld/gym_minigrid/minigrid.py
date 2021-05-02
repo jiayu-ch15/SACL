@@ -567,6 +567,52 @@ class Grid:
                 img[ymin:ymax, xmin:xmax, :] = tile_img.copy()
 
         return img
+    def render_multi_agent(
+        self,
+        tile_size,
+        agent_pos=None,
+        agent_dir=None,
+        highlight_mask=None,
+        num_agents=None
+    ):
+        """
+        Render this grid at a given scale
+        :param r: target renderer object
+        :param tile_size: tile size in pixels
+        """
+
+        if highlight_mask is None:
+            highlight_mask = np.zeros(shape=(self.width, self.height), dtype=np.bool)
+
+        # Compute the total grid size
+        width_px = self.width * tile_size
+        height_px = self.height * tile_size
+
+        img = np.zeros(shape=(height_px, width_px, 3), dtype=np.uint8)
+
+        # Render the grid
+        for j in range(0, self.height):
+            for i in range(0, self.width):
+                cell = self.get(i, j)
+
+                for n in range(num_agents):
+                    agent_here = np.array_equal(agent_pos[n], (i, j))
+                    tile_img = Grid.render_tile(
+                        cell,
+                        agent_dir=agent_dir[n] if agent_here else None,
+                        highlight=highlight_mask[i, j],
+                        tile_size=tile_size
+                    )
+                    if agent_here:
+                        break
+                
+                ymin = j * tile_size
+                ymax = (j+1) * tile_size
+                xmin = i * tile_size
+                xmax = (i+1) * tile_size
+                img[ymin:ymax, xmin:xmax, :] = tile_img
+
+        return img
 
     def render_single(
         self,
@@ -658,7 +704,7 @@ class Grid:
                 vis_mask[i, j] = (type_idx != OBJECT_TO_IDX['unseen'])
 
         return grid, vis_mask
-
+    
     def process_vis(grid, agent_pos):
         mask = np.zeros(shape=(grid.width, grid.height), dtype=np.bool)
 
@@ -695,8 +741,61 @@ class Grid:
             for i in range(0, grid.width):
                 if not mask[i, j]:
                     grid.set(i, j, None)
-
+        local_map = grid.encode()[:,:,0]
+        for i in range(agent_pos[0]-1, 0, -1):
+            if local_map[i, agent_pos[1]] != 1:
+                mask[:i, agent_pos[1]] = False
+                break
+        for i in range(agent_pos[0]+1,grid.width):
+            if local_map[i, agent_pos[1]] != 1:
+                mask[i+1:, agent_pos[1]] = False
+                break
+        for i in range(grid.width):
+            for j in range(agent_pos[1]-1, 0, -1):
+                if local_map[i, j] != 1:
+                    mask[i, :j]=False
+                    break            
+        #import pdb; pdb.set_trace()
         return mask
+
+    '''def process_vis(grid, agent_pos):
+        mask = np.zeros(shape=(grid.width, grid.height), dtype=np.bool)
+
+        mask[agent_pos[0], agent_pos[1]] = True
+
+        for j in reversed(range(0, grid.height)):
+            for i in range(0, grid.width-1):
+                if not mask[i, j]:
+                    continue
+
+                cell = grid.get(i, j)
+                if cell and not cell.see_behind():
+                    continue
+
+                mask[i+1, j] = True
+                if j > 0:
+                    mask[i+1, j-1] = True
+                    mask[i, j-1] = True
+
+            for i in reversed(range(1, grid.width)):
+                if not mask[i, j]:
+                    continue
+
+                cell = grid.get(i, j)
+                if cell and not cell.see_behind():
+                    continue
+
+                mask[i-1, j] = True
+                if j > 0:
+                    mask[i-1, j-1] = True
+                    mask[i, j-1] = True
+
+        for j in range(0, grid.height):
+            for i in range(0, grid.width):
+                if not mask[i, j]:
+                    grid.set(i, j, None)
+
+        return mask'''
 
 class MiniGridEnv(gym.Env):
     """
@@ -704,7 +803,7 @@ class MiniGridEnv(gym.Env):
     """
 
     metadata = {
-        'render.modes': ['human', 'rgb_array'],
+        'render.modes': ['multiexploration', 'rgb_array'],
         'video.frames_per_second' : 10
     }
 
@@ -753,20 +852,33 @@ class MiniGridEnv(gym.Env):
         assert agent_view_size % 2 == 1
         assert agent_view_size >= 3
         self.agent_view_size = agent_view_size
+        self.full_w = grid_size + 2*self.agent_view_size
+        self.full_h = grid_size + 2*self.agent_view_size
+
 
         # Observations are dictionaries containing an
         # encoding of the grid and a textual 'mission' string
-        self.observation_space = spaces.Box(
-            low=0,
-            high=255,
-            shape=(self.agent_view_size, self.agent_view_size, 3),
-            dtype='uint8'
-        )
-        self.observation_space = [spaces.Dict({
-            'image': self.observation_space,
-            'direction': gym.spaces.Box(low=-1, high=1, shape=(4,), dtype='int')
-        }) for _ in range(self.num_agents)]
+        global_observation_space = {}
+        global_observation_space['global_obs'] = gym.spaces.Box(
+            low=0, high=1, shape=(4, self.full_w, self.full_h), dtype='uint8')
+        global_observation_space['global_merge_obs'] = gym.spaces.Box(
+            low=0, high=1, shape=(4, self.full_w, self.full_h), dtype='uint8')
+        global_observation_space['vector'] = gym.spaces.Box(
+            low=-1, high=1, shape=(self.num_agents,), dtype='float')
+        share_global_observation_space = global_observation_space.copy()
+        share_global_observation_space['gt_map'] = gym.spaces.Box(
+            low=0, high=1, shape=(1, self.full_w, self.full_h), dtype='uint8')
+        
+        global_observation_space = gym.spaces.Dict(global_observation_space)
+        share_global_observation_space = gym.spaces.Dict(share_global_observation_space)
 
+        self.observation_space = []
+        self.share_observation_space = []
+
+        for agent_id in range(self.num_agents):
+            self.observation_space.append(global_observation_space)
+            self.share_observation_space.append(share_global_observation_space)
+            
         # Range of possible rewards
         self.reward_range = (0, 1)
 
@@ -804,8 +916,8 @@ class MiniGridEnv(gym.Env):
         # Step count since episode start
         self.step_count = 0
 
-        if self.use_human_command:
-            self.get_direction_encoder()
+        #if self.use_human_command:
+            #self.get_direction_encoder()
 
         # Return first observation
         obs = [self.gen_obs(agent_id) for agent_id in range(self.num_agents)]
@@ -1208,19 +1320,22 @@ class MiniGridEnv(gym.Env):
 
             # Rotate left
             if action[agent_id] == self.actions.left:
+                #print("left")
                 self.agent_dir[agent_id] -= 1
                 if self.agent_dir[agent_id] < 0:
                     self.agent_dir[agent_id] += 4
 
             # Rotate right
             elif action[agent_id] == self.actions.right:
+                #print("right")
                 self.agent_dir[agent_id] = (self.agent_dir[agent_id] + 1) % 4
 
             # Move forward
             elif action[agent_id] == self.actions.forward:
+                #print("forward")
                 if fwd_cell == None or fwd_cell.can_overlap():
-                    if np.any(np.sign(fwd_pos-self.agent_pos[agent_id]) == self.direction[agent_id]):
-                        reward = self.direction_alpha
+                    #if np.any(np.sign(fwd_pos-self.agent_pos[agent_id]) == self.direction[agent_id]):
+                        #reward = self.direction_alpha
                     self.agent_pos[agent_id] = fwd_pos
                 if fwd_cell != None and fwd_cell.type == 'goal':
                     done = True

@@ -17,6 +17,7 @@ def _t2n(x):
 class GridWorldRunner(Runner):
     def __init__(self, config):
         super(GridWorldRunner, self).__init__(config)
+        self.init_map_variables() 
 
     def run(self):
         self.warmup()   
@@ -25,6 +26,7 @@ class GridWorldRunner(Runner):
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
 
         for episode in range(episodes):
+
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
 
@@ -34,11 +36,14 @@ class GridWorldRunner(Runner):
                     
                 # Obser reward and next obs
                 dict_obs, rewards, dones, infos = self.envs.step(actions)
+
                 
                 data = dict_obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
 
                 # insert data into buffer
                 self.insert(data)
+                if step == self.episode_length-1:
+                    self.init_map_variables() 
 
             # compute return and update network
             self.compute()
@@ -68,7 +73,12 @@ class GridWorldRunner(Runner):
                     pass
 
                 train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
+                merge_ratio = np.zeros((self.n_rollout_threads))
+                for e in range(self.n_rollout_threads):
+                    merge_ratio[e] = infos[e]['merge_explored_ratio']
+                train_infos["average_episode_ratio"] = np.mean(merge_ratio)
                 print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
+                print("average episode ratio is {}".format(train_infos["average_episode_ratio"]))
                 self.log_train(train_infos, total_num_steps)
                 # self.log_env(env_infos, total_num_steps)
 
@@ -76,27 +86,64 @@ class GridWorldRunner(Runner):
             if episode % self.eval_interval == 0 and self.use_eval:
                 self.eval(total_num_steps)
     
-    def _convert(self, dict_obs):
+    def _convert(self, dict_obs, infos):
         obs = {}
-        obs['image'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['image'].shape), dtype=np.float32)
-        obs['direction'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['direction'].shape), dtype=np.float32)
-        for i, o in enumerate(dict_obs):
+        obs['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents), dtype=np.float32)
+        obs['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
+        obs['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
+        agent_pos_map = np.zeros((self.n_rollout_threads, self.num_agents, self.full_w, self.full_h), dtype=np.float32)
+        merge_pos_map = np.zeros((self.n_rollout_threads, self.full_w, self.full_h), dtype=np.float32)
+        for e in range(self.n_rollout_threads):
             for agent_id in range(self.num_agents):
-                obs['image'][i, agent_id] = o[agent_id]['image']
-                obs['direction'][i, agent_id] = np.eye(4)[o[agent_id]['direction']]
+                agent_pos_map[e , agent_id, int(infos[e]['current_agent_pos'][agent_id][0]), int(infos[e]['current_agent_pos'][agent_id][1])] = agent_id + 1
+                merge_pos_map[e , int(infos[e]['current_agent_pos'][agent_id][0]), int(infos[e]['current_agent_pos'][agent_id][1])] = agent_id + 1
+                self.all_agent_pos_map[e , agent_id, int(infos[e]['current_agent_pos'][agent_id][0]), int(infos[e]['current_agent_pos'][agent_id][1])] = agent_id + 1
+                self.all_merge_pos_map[e , int(infos[e]['current_agent_pos'][agent_id][0]), int(infos[e]['current_agent_pos'][agent_id][1])] = agent_id + 1
+       
+        for e in range(self.n_rollout_threads):
+            for agent_id in range(self.num_agents):
+                obs['global_obs'][e, agent_id, 0] = infos[e]['explored_each_map'][agent_id]
+                obs['global_obs'][e, agent_id, 1] = infos[e]['obstacle_each_map'][agent_id]
+                obs['global_obs'][e, agent_id, 2] = agent_pos_map[e, agent_id]
+                obs['global_obs'][e, agent_id, 3] = self.all_agent_pos_map[e, agent_id]
+
+                obs['global_merge_obs'][e, agent_id, 0] = infos[e]['explored_all_map']
+                obs['global_merge_obs'][e, agent_id, 1] = infos[e]['obstacle_all_map']
+                obs['global_merge_obs'][e, agent_id, 2] = merge_pos_map[e]
+                obs['global_merge_obs'][e, agent_id, 3] = self.all_merge_pos_map[e]
+
+                obs['vector'][e, agent_id] = np.eye(self.num_agents)[agent_id]
+
         return obs
 
     def warmup(self):
         # reset env
-        dict_obs = self.envs.reset()
-        obs = self._convert(dict_obs)
-        share_obs = self._convert(dict_obs)
+        dict_obs, info = self.envs.reset()
+        obs = self._convert(dict_obs, info)
+        share_obs = self._convert(dict_obs, info)
 
         for key in obs.keys():
             self.buffer.obs[key][0] = obs[key].copy()
 
         for key in share_obs.keys():
             self.buffer.share_obs[key][0] = share_obs[key].copy()
+    
+    def init_map_variables(self):
+        ### Full map consists of 4 channels containing the following:
+        ### 1. Obstacle Map
+        ### 2. Exploread Area
+        ### 3. Current Agent Location
+        ### 4. Past Agent Locations
+
+        # Calculating full and local map sizes
+        map_size = self.all_args.grid_size
+        agent_view_size = self.all_args.agent_view_size
+        self.full_w, self.full_h = map_size + 2*agent_view_size, map_size + 2*agent_view_size
+    
+        # Initializing full, merge and local map
+        self.all_merge_pos_map = np.zeros((self.n_rollout_threads, self.full_w, self.full_h), dtype=np.float32)
+        self.all_agent_pos_map = np.zeros((self.n_rollout_threads, self.num_agents, self.full_w, self.full_h), dtype=np.float32)
+        
 
     @torch.no_grad()
     def collect(self, step):
@@ -142,13 +189,13 @@ class GridWorldRunner(Runner):
     def insert(self, data):
         dict_obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
 
-        rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
-        rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
+        rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+        rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
         masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-        masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
+        masks[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, 1), dtype=np.float32)
 
-        obs = self._convert(dict_obs)
-        share_obs = self._convert(dict_obs)
+        obs = self._convert(dict_obs, infos)
+        share_obs = self._convert(dict_obs, infos)
 
         self.buffer.insert(share_obs, obs, rnn_states, rnn_states_critic, actions, action_log_probs, values, rewards, masks)
 
