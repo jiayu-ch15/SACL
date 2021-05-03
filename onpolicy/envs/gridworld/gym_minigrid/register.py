@@ -7,8 +7,10 @@ def register(
     num_agents,
     num_preies,
     num_obstacles,
+    use_direction_reward,
     direction_alpha,
     use_human_command,
+    coverage_discounter,
     entry_point,
     reward_threshold=0.95
 ):
@@ -22,8 +24,10 @@ def register(
         kwargs={'num_agents': num_agents, \
         'num_preies': num_preies, \
         'num_obstacles': num_obstacles, \
-        'direction_alpha': direction_alpha,\
-        'use_human_command': use_human_command},
+        'use_direction_reward': use_direction_reward, \
+        'direction_alpha': direction_alpha, \
+        'use_human_command': use_human_command, \
+        'coverage_discounter': coverage_discounter},
         reward_threshold=reward_threshold
     )
 

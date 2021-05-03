@@ -1,5 +1,7 @@
 from onpolicy.envs.gridworld.gym_minigrid.minigrid import *
 from icecream import ic
+import collections
+import math
 
 class HumanEnv(MiniGridEnv):
     """
@@ -13,12 +15,18 @@ class HumanEnv(MiniGridEnv):
         num_preies=2,
         num_obstacles=4,
         direction_alpha=0.5,
+        use_direction_reward = False,
         use_human_command=False,
+        coverage_discounter=0.1,
         size=19
     ):
         self.num_preies = num_preies
+        self.use_direction_reward = use_direction_reward
         self.direction_alpha = direction_alpha
         self.use_human_command = use_human_command
+        self.coverage_discounter = coverage_discounter
+        # initial the covering rate
+        self.covering_rate = 0
         # Reduce obstacles if there are too many
         if num_obstacles <= size/2 + 1:
             self.num_obstacles = int(num_obstacles)
@@ -28,7 +36,7 @@ class HumanEnv(MiniGridEnv):
         super().__init__(
             num_agents=num_agents,
             grid_size=size,
-            max_steps=(size-2)**2,
+            max_steps=math.floor(((size-2)**2) / num_agents),
             # Set this to True for maximum speed
             see_through_walls=True
         )
@@ -67,6 +75,15 @@ class HumanEnv(MiniGridEnv):
                     self.grid.horz_wall(xL, yB, room_w)
                     pos = (self._rand_int(xL + 1, xR), yB)
                     self.grid.set(*pos, None)
+
+        # initial the cover_grid
+        self.cover_grid = np.zeros([width,height])
+        for j in range(0, height):
+            for i in range(0, width):
+                if self.grid.get(i,j) != None and self.grid.get(i,j).type == 'wall':
+                    self.cover_grid[j,i] = 1.0
+        self.cover_grid_initial = self.cover_grid
+        self.num_none = collections.Counter(self.cover_grid_initial.flatten())[0.]
 
         # Types and colors of objects we can generate
         types = ['key']
@@ -127,9 +144,15 @@ class HumanEnv(MiniGridEnv):
         obs, reward, done, info = MiniGridEnv.step(self, action)
         
         rewards = []
+
         for agent_id in range(self.num_agents):
             ax, ay = self.agent_pos[agent_id]
             tx, ty = self.target_pos
+            if self.cover_grid[ax,ay] == 0:
+                reward += self.coverage_discounter
+                self.cover_grid[ax, ay] = 1.0
+                self.covering_rate = collections.Counter((self.cover_grid - self.cover_grid_initial).flatten())[0] / self.num_none
+
 
             # Toggle/pickup action terminates the episode
             # if action[agent_id] == self.actions.toggle:
@@ -140,11 +163,21 @@ class HumanEnv(MiniGridEnv):
             # if action[agent_id] == self.actions.done:
             if abs(ax - tx) < 1 and abs(ay - ty) < 1:
                 reward += 1.0 #self._reward()
-                print(reward)
+                self.num_reach_goal += 1
                 done = True
+            
+            fwd_pos = self.front_pos(agent_id)
+            fwd_cell = self.grid.get(*fwd_pos)
+            if self.use_direction_reward:
+                if fwd_cell == None or fwd_cell.can_overlap():
+                    if np.any(np.sign(fwd_pos-self.agent_pos[agent_id]) == self.direction[agent_id]):
+                        reward += self.direction_alpha
+                    self.agent_pos[agent_id] = fwd_pos
             rewards.append([reward])
 
         dones = [done for agent_id in range(self.num_agents)]
+        
+        info['num_reach_goal'] = self.num_reach_goal
 
         return obs, rewards, dones, info
 

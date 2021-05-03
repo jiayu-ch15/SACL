@@ -40,8 +40,10 @@ def parse_args(args, parser):
                         default=1, help="number of players")
     parser.add_argument('--num_obstacles', type=int,
                         default=1, help="number of players")
-    parser.add_argument('--direction_alpha', type=float,default=0.1, help="number of players")
+    parser.add_argument('--use_direction_reward', action='store_true', default=False)
+    parser.add_argument('--direction_alpha', type=float,default=0.1, help="coefficient of direction_reward")
     parser.add_argument('--use_human_command', action='store_true', default=False)
+    parser.add_argument('--coverage_discounter', type=float,default=0.1, help="coefficient of coverage_reward")
 
     all_args = parser.parse_known_args(args)[0]
 

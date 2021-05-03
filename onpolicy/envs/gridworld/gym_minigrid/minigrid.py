@@ -50,6 +50,8 @@ OBJECT_TO_IDX = {
     'goal'          : 9,
     'lava'          : 10,
     'agent'         : 11,
+    'arrow'         : 12,
+    'mark'          : 13,
 }
 
 IDX_TO_OBJECT = dict(zip(OBJECT_TO_IDX.values(), OBJECT_TO_IDX.keys()))
@@ -72,6 +74,10 @@ DIR_TO_VEC = [
     # Up (negative Y)
     np.array((0, -1)),
 ]
+
+
+        
+
 
 class WorldObj:
     """
@@ -181,7 +187,6 @@ class Floor(WorldObj):
         # Give the floor a pale color
         color = COLORS[self.color] / 2
         fill_coords(img, point_in_rect(0.031, 1, 0.031, 1), color)
-
 
 class Lava(WorldObj):
     def __init__(self):
@@ -355,6 +360,36 @@ class Box(WorldObj):
         env.grid.set(*pos, self.contains)
         return True
 
+class Mark(WorldObj):
+    def __init__(self):
+        super(Mark, self).__init__('mark','red')
+
+    def can_pickup(self):
+        return False
+
+    def can_overlap(self):
+        return True
+
+    def render(self, img, agent_id):
+        fill_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
+        signal_lamp_pos = [(0.031, 1, 0.031, 0.354), (0.031, 1, 0.354, 0.677), (0.031, 1, 0.677, 1.000)]
+        fill_coords(img,point_in_rect(signal_lamp_pos[agent_id]),fill_colors[agent_id]) #agent0
+
+# class Arrow(RenderObj):
+#     def __init__(self):
+#         super(Arrow, self).__init__('arrow','red')
+
+#     def can_pickup(self):
+#         return True
+
+#     def can_overlap(self):
+#         return True
+
+#     def render(self, img, agent_id):
+#         line_fn = point_in_line(0.5, 0.5, 1, 0, 0.2)
+#         line_fn = rotate_fn(line_fn, cx=0.5, cy=0.5, theta=0.5*math.pi*theta_encoder)
+#         fill_coords(img, line_fn, (255, 0, 0))
+
 class Grid:
     """
     Represent a grid and operations on it
@@ -490,10 +525,11 @@ class Grid:
         fill_coords(img, point_in_rect(0, 1, 0, 0.031), (100, 100, 100))
 
         if obj != None:
-            obj.render(img)
+            obj.render(img)  # ! change this to agent id or else!!! 
 
         # Overlay the agent on top
         if agent_dir is not None:
+            import pdb; pdb.set_trace()
             tri_fn = point_in_triangle(
                 (0.12, 0.19),
                 (0.87, 0.50),
@@ -503,9 +539,8 @@ class Grid:
             # Rotate the agent based on its direction
             tri_fn = rotate_fn(tri_fn, cx=0.5, cy=0.5, theta=0.5*math.pi*agent_dir)
 
-            for i in range(0,agent_id + 1):
-                fill_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
-                fill_coords(img, tri_fn, fill_colors[i])
+            fill_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
+            fill_coords(img, tri_fn, fill_colors[agent_id])
 
 
         # Highlight the cell if needed
@@ -548,7 +583,7 @@ class Grid:
             for i in range(0, self.width):
                 cell = self.get(i, j)
 
-                for agent_id in range(num_agents):
+                for agent_id in range(num_agents):                    
                     agent_here = np.array_equal(agent_pos[agent_id], (i, j))
                     tile_img = Grid.render_tile(
                         cell,
@@ -783,6 +818,9 @@ class MiniGridEnv(gym.Env):
         # Current position and direction of the agent
         self.agent_pos = []
         self.agent_dir = []
+
+        # clear the num_reach_goal
+        self.num_reach_goal = 0
 
         # Generate a new random grid at the start of each episode
         # To keep the same grid for each episode, call env.seed() with
@@ -1066,6 +1104,8 @@ class MiniGridEnv(gym.Env):
         pos = []
         for agent_id in range(self.num_agents):
             p = self.place_obj(None, top, size, max_tries=max_tries)
+            obj = Mark()
+            self.grid.set(*p, obj)
             self.agent_pos.append(p)
             pos.append(p)
 
@@ -1199,7 +1239,8 @@ class MiniGridEnv(gym.Env):
         reward = 0
         done = False
         obs = []
-        for agent_id in range(self.num_agents):
+        info = {}
+        for agent_id in range(self.num_agents):           
             # Get the position in front of the agent
             fwd_pos = self.front_pos(agent_id)
 
@@ -1218,10 +1259,6 @@ class MiniGridEnv(gym.Env):
 
             # Move forward
             elif action[agent_id] == self.actions.forward:
-                if fwd_cell == None or fwd_cell.can_overlap():
-                    if np.any(np.sign(fwd_pos-self.agent_pos[agent_id]) == self.direction[agent_id]):
-                        reward = self.direction_alpha
-                    self.agent_pos[agent_id] = fwd_pos
                 if fwd_cell != None and fwd_cell.type == 'goal':
                     done = True
                     reward += self._reward()
@@ -1229,6 +1266,10 @@ class MiniGridEnv(gym.Env):
                     reward += self._penalty()
                 if fwd_cell != None and fwd_cell.type == 'lava':
                     done = True
+                # obj = Mark()
+                # self.grid.set(*fwd_pos, obj)
+                obj = Arrow()
+                self.grid.set(*fwd_pos, obj)
 
             # Pick up an object
             elif action[agent_id] == self.actions.pickup:
@@ -1262,7 +1303,7 @@ class MiniGridEnv(gym.Env):
 
             obs.append(self.gen_obs(agent_id))
 
-        return obs, reward, done, {}
+        return obs, reward, done, info
 
     def gen_obs_grid(self, agent_id):
         """

@@ -9,8 +9,10 @@ class GridWorldEnv(object):
         self.num_preies = args.num_preies
         self.num_obstacles = args.num_obstacles
         self.scenario_name = args.scenario_name
+        self.use_direction_reward = args.use_direction_reward
         self.direction_alpha = args.direction_alpha
         self.use_human_command = args.use_human_command
+        self.coverage_discounter = args.coverage_discounter
 
         register(
             id = self.scenario_name,
@@ -19,6 +21,8 @@ class GridWorldEnv(object):
             num_obstacles = self.num_obstacles,
             direction_alpha = self.direction_alpha,
             use_human_command = self.use_human_command,
+            coverage_discounter = self.coverage_discounter, 
+            use_direction_reward = self.use_direction_reward,
             entry_point = 'onpolicy.envs.gridworld.gym_minigrid.envs:HumanEnv'
         )
         self.env = gym.make(self.scenario_name)
