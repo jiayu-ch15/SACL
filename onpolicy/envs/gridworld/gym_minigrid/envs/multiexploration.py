@@ -29,6 +29,10 @@ class MultiExplorationEnv(MiniGridEnv):
         self._goal_default_pos = goal_pos
         self.door_size = 3
         self.max_steps = max_steps
+        if num_obstacles <= grid_size/2 + 1:
+            self.num_obstacles = int(num_obstacles)
+        else:
+            self.num_obstacles = int(grid_size/2)
         self.num_episode = 0
         super().__init__(grid_size = grid_size, max_steps = max_steps, num_agents = num_agents, agent_view_size = agent_view_size)
 
@@ -84,6 +88,13 @@ class MultiExplorationEnv(MiniGridEnv):
                 self.agent_dir = [self._rand_int(0, 4) for i in range(self.num_agents)]  # assuming random start direction
         else:
             self.place_agent()
+
+        self.obstacles = []
+        for i_obst in range(self.num_obstacles):
+            self.obstacles.append(Obstacle())
+            pos = self.place_obj(self.obstacles[i_obst], max_tries=100)
+        
+        
         '''
         if self._goal_default_pos is not None:
             goal = Goal()

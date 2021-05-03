@@ -89,8 +89,8 @@ class GridWorldRunner(Runner):
     def _convert(self, dict_obs, infos):
         obs = {}
         obs['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents), dtype=np.float32)
-        obs['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
-        obs['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
+        obs['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size), dtype=np.float32)
+        obs['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size), dtype=np.float32)
         agent_pos_map = np.zeros((self.n_rollout_threads, self.num_agents, self.full_w, self.full_h), dtype=np.float32)
         merge_pos_map = np.zeros((self.n_rollout_threads, self.full_w, self.full_h), dtype=np.float32)
         for e in range(self.n_rollout_threads):
@@ -102,15 +102,16 @@ class GridWorldRunner(Runner):
        
         for e in range(self.n_rollout_threads):
             for agent_id in range(self.num_agents):
-                obs['global_obs'][e, agent_id, 0] = infos[e]['explored_each_map'][agent_id]
-                obs['global_obs'][e, agent_id, 1] = infos[e]['obstacle_each_map'][agent_id]
-                obs['global_obs'][e, agent_id, 2] = agent_pos_map[e, agent_id]
-                obs['global_obs'][e, agent_id, 3] = self.all_agent_pos_map[e, agent_id]
+                #import pdb;pdb.set_trace()
+                obs['global_obs'][e, agent_id, 0] = infos[e]['explored_each_map'][agent_id][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
+                obs['global_obs'][e, agent_id, 1] = infos[e]['obstacle_each_map'][agent_id][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
+                obs['global_obs'][e, agent_id, 2] = agent_pos_map[e, agent_id][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
+                obs['global_obs'][e, agent_id, 3] = self.all_agent_pos_map[e, agent_id][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
 
-                obs['global_merge_obs'][e, agent_id, 0] = infos[e]['explored_all_map']
-                obs['global_merge_obs'][e, agent_id, 1] = infos[e]['obstacle_all_map']
-                obs['global_merge_obs'][e, agent_id, 2] = merge_pos_map[e]
-                obs['global_merge_obs'][e, agent_id, 3] = self.all_merge_pos_map[e]
+                obs['global_merge_obs'][e, agent_id, 0] = infos[e]['explored_all_map'][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
+                obs['global_merge_obs'][e, agent_id, 1] = infos[e]['obstacle_all_map'][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
+                obs['global_merge_obs'][e, agent_id, 2] = merge_pos_map[e][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
+                obs['global_merge_obs'][e, agent_id, 3] = self.all_merge_pos_map[e][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
 
                 obs['vector'][e, agent_id] = np.eye(self.num_agents)[agent_id]
 
@@ -137,8 +138,8 @@ class GridWorldRunner(Runner):
 
         # Calculating full and local map sizes
         map_size = self.all_args.grid_size
-        agent_view_size = self.all_args.agent_view_size
-        self.full_w, self.full_h = map_size + 2*agent_view_size, map_size + 2*agent_view_size
+        self.agent_view_size = self.all_args.agent_view_size
+        self.full_w, self.full_h = map_size + 2*self.agent_view_size, map_size + 2*self.agent_view_size
     
         # Initializing full, merge and local map
         self.all_merge_pos_map = np.zeros((self.n_rollout_threads, self.full_w, self.full_h), dtype=np.float32)

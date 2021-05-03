@@ -852,8 +852,8 @@ class MiniGridEnv(gym.Env):
         assert agent_view_size % 2 == 1
         assert agent_view_size >= 3
         self.agent_view_size = agent_view_size
-        self.full_w = grid_size + 2*self.agent_view_size
-        self.full_h = grid_size + 2*self.agent_view_size
+        self.full_w = grid_size #+ 2*self.agent_view_size
+        self.full_h = grid_size #+ 2*self.agent_view_size
 
 
         # Observations are dictionaries containing an
