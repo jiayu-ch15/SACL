@@ -20,6 +20,7 @@ class HumanEnv(MiniGridEnv):
         coverage_discounter=0.1,
         size=19
     ):
+        self.size = size
         self.num_preies = num_preies
         self.use_direction_reward = use_direction_reward
         self.direction_alpha = direction_alpha
@@ -126,12 +127,19 @@ class HumanEnv(MiniGridEnv):
         self.target_pos = objPos[objIdx]
         
         # direction
-        array_direction = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
+        array_direction = np.array([[0,1], [0,-1], [1,0], [-1,0], [1,1], [1,-1], [-1,1], [-1,-1]])
         self.direction = []
         self.direction_encoder = []
+        self.direction_index = []
         for agent_id in range(self.num_agents):
-            direction = np.sign(self.target_pos - self.agent_pos[agent_id])
-            direction_encoder = np.eye(4)[np.argmax(np.all(np.where(array_direction == direction, True, False), axis=1))]
+            center_pos = np.array([int((self.size-1)/2),int((self.size-1)/2)])
+            direction = np.sign(center_pos - self.agent_pos[agent_id])
+            ic(self.agent_pos[agent_id])
+            ic(direction)
+            # ! debug@ruixin
+            direction_index = np.argmax(np.all(np.where(array_direction == direction, True, False), axis=1))
+            direction_encoder = np.eye(8)[direction_index]
+            self.direction_index.append(direction_index)
             self.direction.append(direction)
             self.direction_encoder.append(direction_encoder)
 

@@ -83,7 +83,7 @@ class GridWorldRunner(Runner):
         for i, o in enumerate(dict_obs):
             for agent_id in range(self.num_agents):
                 obs['image'][i, agent_id] = o[agent_id]['image']
-                obs['direction'][i, agent_id] = np.eye(4)[o[agent_id]['direction']]
+                obs['direction'][i, agent_id] = np.eye(8)[o[agent_id]['direction']]
         return obs
 
     def warmup(self):
