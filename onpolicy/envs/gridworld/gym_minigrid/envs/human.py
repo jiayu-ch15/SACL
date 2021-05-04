@@ -2,6 +2,7 @@ from onpolicy.envs.gridworld.gym_minigrid.minigrid import *
 from icecream import ic
 import collections
 import math
+from copy import deepcopy
 
 class HumanEnv(MiniGridEnv):
     """
@@ -118,6 +119,7 @@ class HumanEnv(MiniGridEnv):
             self.obstacles.append(Obstacle())
             pos = self.place_obj(self.obstacles[i_obst], max_tries=100)
 
+        self.occupy_grid = self.grid.copy()
         # Randomize the agent start position and orientation
         self.place_agent()
 
@@ -134,9 +136,6 @@ class HumanEnv(MiniGridEnv):
         for agent_id in range(self.num_agents):
             center_pos = np.array([int((self.size-1)/2),int((self.size-1)/2)])
             direction = np.sign(center_pos - self.agent_pos[agent_id])
-            ic(self.agent_pos[agent_id])
-            ic(direction)
-            # ! debug@ruixin
             direction_index = np.argmax(np.all(np.where(array_direction == direction, True, False), axis=1))
             direction_encoder = np.eye(8)[direction_index]
             self.direction_index.append(direction_index)

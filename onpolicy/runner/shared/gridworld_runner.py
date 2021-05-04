@@ -198,6 +198,7 @@ class GridWorldRunner(Runner):
         envs = self.envs
         
         all_frames = []
+        all_occupy_frames = []
         for episode in range(self.all_args.render_episodes):
             ic(episode)
             reset_choose = np.ones(self.n_rollout_threads) == 1.0
@@ -205,8 +206,9 @@ class GridWorldRunner(Runner):
             obs = self._convert(dict_obs)
 
             if self.all_args.save_gifs:
-                image = envs.render('rgb_array')[0]
+                image, occupy_image = envs.render('rgb_array')[0]
                 all_frames.append(image)
+                all_occupy_frames.append(occupy_image)
             else:
                 envs.render('human')
 
@@ -242,8 +244,9 @@ class GridWorldRunner(Runner):
                 masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
                 if self.all_args.save_gifs:
-                    image = envs.render('rgb_array')[0]
+                    image, occupy_image = envs.render('rgb_array')[0]
                     all_frames.append(image)
+                    all_occupy_frames.append(occupy_image)
                     calc_end = time.time()
                     elapsed = calc_end - calc_start
                     if elapsed < self.all_args.ifi:
@@ -259,3 +262,4 @@ class GridWorldRunner(Runner):
 
         if self.all_args.save_gifs:
             imageio.mimsave(str(self.gif_dir) + '/render.gif', all_frames, duration=self.all_args.ifi)
+            imageio.mimsave(str(self.gif_dir) + '/render_occupy.gif', all_occupy_frames, duration=self.all_args.ifi)

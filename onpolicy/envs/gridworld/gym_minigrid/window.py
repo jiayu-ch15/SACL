@@ -18,18 +18,20 @@ class Window:
         self.fig = None
 
         self.imshow_obj = None
+        self.imshow_occupy_obj = None
 
         # Create the figure and axes
-        self.fig, self.ax = plt.subplots()
+        self.fig, self.ax = plt.subplots(1,2)
 
         # Show the env name in the window title
         self.fig.canvas.set_window_title(title)
 
         # Turn off x/y axis numbering/ticks
-        self.ax.xaxis.set_ticks_position('none')
-        self.ax.yaxis.set_ticks_position('none')
-        _ = self.ax.set_xticklabels([])
-        _ = self.ax.set_yticklabels([])
+        for ax in self.ax:
+            ax.xaxis.set_ticks_position('none')
+            ax.yaxis.set_ticks_position('none')
+            _ = ax.set_xticklabels([])
+            _ = ax.set_yticklabels([])
 
         # Flag indicating the window was closed
         self.closed = False
@@ -39,16 +41,19 @@ class Window:
 
         self.fig.canvas.mpl_connect('close_event', close_handler)
 
-    def show_img(self, img):
+    def show_img(self, img, occupy_img):
         """
         Show an image or update the image being shown
         """
 
         # Show the first image of the environment
         if self.imshow_obj is None:
-            self.imshow_obj = self.ax.imshow(img, interpolation='bilinear')
+            self.imshow_obj = self.ax[0].imshow(img, interpolation='bilinear')
+            self.imshow_occupy_obj = self.ax[1].imshow(occupy_img, interpolation='bilinear')
 
         self.imshow_obj.set_data(img)
+        self.imshow_occupy_obj.set_data(occupy_img)
+
         self.fig.canvas.draw()
 
         # Let matplotlib process UI events

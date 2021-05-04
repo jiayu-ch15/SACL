@@ -57,6 +57,7 @@ RENDER_TO_IDX = {
 }
 
 IDX_TO_OBJECT = dict(zip(OBJECT_TO_IDX.values(), OBJECT_TO_IDX.keys()))
+IDX_TO_RENDER = dict(zip(RENDER_TO_IDX.values(), RENDER_TO_IDX.keys()))
 
 # Map of state names to integers
 STATE_TO_IDX = {
@@ -365,9 +366,41 @@ class RenderObj:
     Base class for grid world objects
     """
 
-    def __init__(self, type):
+    def __init__(self, type, num_agents):
         assert type in RENDER_TO_IDX, type
         self.type = type
+        self.agent_list = np.zeros(num_agents,)
+        self.contains = None
+
+        # Initial position of the object
+        self.init_pos = None
+
+        # Current position of the object
+        self.cur_pos = None
+
+    def can_overlap(self):
+        """Can the agent overlap with this?"""
+        return False
+
+    def can_pickup(self):
+        """Can the agent pick this up?"""
+        return False
+
+    def can_contain(self):
+        """Can this contain another object?"""
+        return False
+
+    def see_behind(self):
+        """Can the agent see behind this object?"""
+        return True
+
+    def toggle(self, env, pos):
+        """Method to trigger/toggle an action this object performs"""
+        return False
+
+    def encode(self):
+        """Encode the a description of this object as a 3-tuple of integers"""
+        return (RENDER_TO_IDX[self.type], *self.agent_list)
 
     def render(self, r):
         """Draw this object with the given renderer"""
@@ -375,13 +408,16 @@ class RenderObj:
 
 
 class Mark(RenderObj):
-    def __init__(self):
-        super(Mark, self).__init__('mark')
+    def __init__(self, num_agents, agent_id):
+        super(Mark, self).__init__('mark', num_agents)
+        self.agent_list[agent_id] = 1
 
-    def render(self, img, agent_id=0):
-        fill_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
-        signal_lamp_pos = [(0.031, 1, 0.031, 0.354), (0.031, 1, 0.354, 0.677), (0.031, 1, 0.677, 1.000)]
-        fill_coords(img,point_in_rect(*signal_lamp_pos[agent_id]),fill_colors[agent_id]) #agent0
+    def render(self, img):
+        for agent_id, occupy in enumerate(self.agent_list):
+            if occupy == 1: 
+                fill_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
+                signal_lamp_pos = [(0.031, 1, 0.031, 0.354), (0.031, 1, 0.354, 0.677), (0.031, 1, 0.677, 1.000)]
+                fill_coords(img, point_in_rect(*signal_lamp_pos[agent_id]),fill_colors[agent_id])
 
 class Grid:
     """
@@ -519,8 +555,7 @@ class Grid:
         fill_coords(img, point_in_rect(0, 1, 0, 0.031), (100, 100, 100))
 
         if obj != None:
-            ic(obj)
-            obj.render(img)  # ! change this to agent id or else!!! 
+            obj.render(img) 
 
         # Overlay the agent on top
         if agent_dir is not None:
@@ -1107,8 +1142,15 @@ class MiniGridEnv(gym.Env):
         pos = []
         for agent_id in range(self.num_agents):
             p = self.place_obj(None, top, size, max_tries=max_tries)
-            # R_obj = Mark()
-            # self.occupy_grid.set(*p, R_obj)
+            
+            v = self.occupy_grid.get(*p)
+
+            if v != None and v.type == "mark":
+                v.agent_list[agent_id] = 1
+            else:
+                R_obj = Mark(self.num_agents, agent_id)
+                self.occupy_grid.set(*p, R_obj)
+
             self.agent_pos.append(p)
             pos.append(p)
 
@@ -1264,8 +1306,13 @@ class MiniGridEnv(gym.Env):
             elif action[agent_id] == self.actions.forward:
                 if fwd_cell == None or fwd_cell.can_overlap():
                     self.agent_pos[agent_id] = fwd_pos
-                    # R_obj = Mark()
-                    # self.occupy_grid.set(*fwd_pos, R_obj)
+                    v = self.occupy_grid.get(*fwd_pos)
+                    if v != None and v.type == "mark":
+                        v.agent_list[agent_id] = 1
+                    else:
+                        R_obj = Mark(self.num_agents, agent_id)
+                        self.occupy_grid.set(*fwd_pos, R_obj)
+
                 if fwd_cell != None and fwd_cell.type == 'goal':
                     done = True
                     reward += self._reward()
@@ -1394,7 +1441,7 @@ class MiniGridEnv(gym.Env):
             return
 
 
-        if mode == 'human' and not self.window:
+        if not self.window:
             from onpolicy.envs.gridworld.gym_minigrid.window import Window
             self.window = Window('gym_minigrid')
             self.window.show(block=False)
@@ -1430,7 +1477,7 @@ class MiniGridEnv(gym.Env):
 
                     # Mark this cell to be highlighted
                     highlight_mask[abs_i, abs_j] = True
-
+        
         # Render the whole grid
         img = self.grid.render(
             self.num_agents,
@@ -1441,11 +1488,19 @@ class MiniGridEnv(gym.Env):
             highlight_mask=highlight_mask if highlight else None
         )
 
-        if mode == 'human':
-            self.window.set_caption(self.mission)
-            self.window.show_img(img)
+        occupy_img = self.occupy_grid.render(
+            self.num_agents,
+            tile_size,
+            self.agent_pos,
+            self.agent_dir,
+            self.direction_index,
+            highlight_mask=highlight_mask if highlight else None
+        )
 
-        return img
+        self.window.set_caption(self.mission)
+        self.window.show_img(img, occupy_img)
+
+        return img, occupy_img
 
     def get_direction_encoder(self):
         self.render(mode='human', close=False)
