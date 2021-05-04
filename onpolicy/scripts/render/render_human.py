@@ -12,7 +12,7 @@ import torch
 from onpolicy.config import get_config
 
 from onpolicy.envs.human.Human_env import HumanEnv
-from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
+from onpolicy.envs.env_wrappers import ChooseSimpleSubprocVecEnv, ChooseSimpleDummyVecEnv
 
 def make_render_env(all_args):
     def get_env_fn(rank):
@@ -27,13 +27,13 @@ def make_render_env(all_args):
             return env
         return init_env
     if all_args.n_rollout_threads == 1:
-        return DummyVecEnv([get_env_fn(0)])
+        return ChooseSimpleDummyVecEnv([get_env_fn(0)])
     else:
-        return SubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
+        return ChooseSimpleSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
 def parse_args(args, parser):
     parser.add_argument('--scenario_name', type=str,
-                        default='simple_spread', help="Which scenario to run on")
+                        default='simple_tag', help="Which scenario to run on")
     parser.add_argument("--num_landmarks", type=int, default=2)
     parser.add_argument('--num_good_agents', type=int,
                         default=1, help="number of players")
@@ -45,8 +45,12 @@ def parse_args(args, parser):
     parser.add_argument('--use_pos_four_direction', action='store_true', default=False)
     parser.add_argument('--use_direction_reward', action='store_true', default=False)
     parser.add_argument('--use_distance_reward', action='store_true', default=False)
+    parser.add_argument('--use_goal_reward', action='store_true', default=False)
+    parser.add_argument('--use_human_command', action='store_true', default=False)
+    parser.add_argument('--use_all_reach', action='store_true', default=False)
     parser.add_argument('--add_direction_encoder', action='store_true', default=False)
     parser.add_argument('--direction_alpha', type=float,default=0.1, help="number of players")
+    parser.add_argument('--view_threshold', type=float,default=2.0, help="distance of viewing prey")
 
     all_args = parser.parse_known_args(args)[0]
 

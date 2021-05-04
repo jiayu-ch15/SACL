@@ -1,6 +1,6 @@
 #!/bin/sh
 env="Human"
-scenario="simple_tag"
+scenario="simple_human"
 num_landmarks=2
 num_good_agents=1
 num_adversaries=3

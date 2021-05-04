@@ -24,6 +24,7 @@
 - [Habitat](https://github.com/facebookresearch/habitat-sim)
 - [Gibson](https://github.com/StanfordVL/GibsonEnv)
 - [Gibson2](https://github.com/StanfordVL/iGibson)
+- [Mini-GridWorld](https://github.com/maximecb/gym-minigrid)
 
 ## TODOs:
 - [ ] multi-agent FLOW
@@ -265,7 +266,13 @@ python examples/sumo/sugiyama.py
 1. training script: `./train_highway.sh`
 1. rendering script `./render_highway.sh`
 
-## 9. Gibson2
+## 9.human
+
+1. training script: `./train_human.sh`
+2. rendering script: `./render_human.sh`
+   When you type `--use_human_command` in the script `render_human.sh`, You can tell the predator the location of the prey by inputting command. When you press 0, it means the prey is on the top right of the predator. Similarly, 1 means lower right, 2 means top left and 3 means lower left. In addition, the brighter the predator, the bigger the id.
+
+## 10. Gibson2
 
 ```
 cd onpolicy
@@ -314,7 +321,7 @@ git submodule foreach git checkout master
 git submodule foreach git submodule update
 ```
 
-## 10. habitat
+## 11. habitat
 
 
 ``` 
@@ -344,8 +351,11 @@ wget https://dl.fbaipublicfiles.com/habitat/data/datasets/pointnav/gibson/v1/poi
 unzip pointnav_gibson_v1.zip
 ln -s /mnt/disk2/nav/habitat_data/scene_datasets
 ```
+## 12.Human-Robot
 
-## 11. Docs：
+## 13.Mini-GridWorld
+
+## 14. Docs：
 
 ```
 pip install sphinx sphinxcontrib-apidoc sphinx_rtd_theme recommonmark
@@ -354,7 +364,7 @@ sphinx-quickstart
 make html
 ```
 
-## 12. submodules
+## 15. submodules
 
 here we give an example on how to add your repo as a submodule of on-policy repo
 ```

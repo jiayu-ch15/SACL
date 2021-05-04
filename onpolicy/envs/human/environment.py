@@ -1,3 +1,4 @@
+import math
 import gym
 from gym import spaces
 from gym.envs.registration import EnvSpec
@@ -147,12 +148,33 @@ class MultiAgentEnv(gym.Env):
 
         return obs_n, reward_n, done_n['predator'], info_n
 
-    def reset(self):
+    def get_direction_encoder(self):
+        self.render(mode='human',close=False)
+
+        array_direction = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
+        print ("Refer each predator as the coordinate origin, input the direciton of the prey relative to it.\n0--[1,1] , 1--[1,-1], 2--[-1,1], 3--[-1,-1], i.e. 000")
+        all_command = int(input("Enter the command: "))
+        command = []
+        command.append(all_command // 100)
+        command.append((all_command - command[0] * 100) // 10)
+        command.append(all_command % 10)
+        print(command)
+        for i, agent in enumerate(self.agents):
+            if agent.adversary:
+                agent.direction = array_direction[command[i]]
+                agent.direction_encoder = np.eye(4)[command[i]]
+
+
+    def reset(self, reset_choose=True):
         self.current_step = 0
         # reset world
-        self.reset_callback(self.world)
+        self.reset_callback(self.world) # reset_world()
         # reset renderer
         self._reset_render()
+
+        if self.world.use_human_command:
+            self.get_direction_encoder()      
+
         # record observations for each agent
         obs_n = defaultdict(list)
 
@@ -287,7 +309,6 @@ class MultiAgentEnv(gym.Env):
                         word = alphabet[np.argmax(other.state.c)]
                     message += (other.name + ' to ' +
                                 agent.name + ': ' + word + '   ')
-            print(message)
 
         for i in range(len(self.viewers)):
             # create viewers (if necessary)
@@ -303,9 +324,9 @@ class MultiAgentEnv(gym.Env):
             # import rendering only if we need it (and don't import for headless machines)
             #from gym.envs.classic_control import rendering
             from . import rendering
+
             self.render_geoms = []
             self.render_geoms_xform = []
-
             self.comm_geoms = []
 
             for entity in self.world.entities:
@@ -347,9 +368,11 @@ class MultiAgentEnv(gym.Env):
                             comm.add_attr(offset)
                             entity_comm_geoms.append(comm)
                 geom.add_attr(xform)
+
                 self.render_geoms.append(geom)
                 self.render_geoms_xform.append(xform)
                 self.comm_geoms.append(entity_comm_geoms)
+                
             for wall in self.world.walls:
                 corners = ((wall.axis_pos - 0.5 * wall.width, wall.endpoints[0]),
                            (wall.axis_pos - 0.5 *
@@ -365,12 +388,6 @@ class MultiAgentEnv(gym.Env):
                 else:
                     geom.set_color(*wall.color, alpha=0.5)
                 self.render_geoms.append(geom)
-
-            # add geoms to viewer
-            # for viewer in self.viewers:
-            #     viewer.geoms = []
-            #     for geom in self.render_geoms:
-            #         viewer.add_geom(geom)
 
             for viewer in self.viewers:
                 viewer.geoms = []
@@ -388,13 +405,26 @@ class MultiAgentEnv(gym.Env):
                 pos = np.zeros(self.world.dim_p)
             else:
                 pos = self.agents[i].state.p_pos
+            
             self.viewers[i].set_bounds(
                 pos[0]-cam_range, pos[0]+cam_range, pos[1]-cam_range, pos[1]+cam_range)
+            
             # update geometry positions
             for e, entity in enumerate(self.world.entities):
                 self.render_geoms_xform[e].set_translation(*entity.state.p_pos)
+                
                 if 'agent' in entity.name:
                     self.render_geoms[e].set_color(*entity.color, alpha=0.5)
+
+                    # add arrow for adversaries
+                    if entity.adversary:
+                        start_pos = entity.state.p_pos
+                        end_pos = start_pos + entity.direction * math.sqrt(2) * entity.size
+                        arrow = self.viewers[i].draw_line(start_pos, end_pos) 
+                        arrow.set_color(*entity.color, alpha=0.5)
+
+                        # field of vision
+                        field_vision = self.viewers[i].draw_circle(entity.state.p_pos, self.world.view_threshold, 30, False)
 
                     if not entity.silent:
                         for ci in range(self.world.dim_c):

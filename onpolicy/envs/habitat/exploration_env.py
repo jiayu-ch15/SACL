@@ -187,9 +187,9 @@ class Exploration_Env(habitat.RLEnv):
         self.agent_st = []
 
         obs = super().reset()
-        full_map_size = self.map_size_cm//self.map_resolution
+        self.full_map_size = self.map_size_cm//self.map_resolution
         for agent_id in range(self.num_agents):
-            mapp, n_rot, n_trans, init_theta = self._get_gt_map(full_map_size, agent_id)
+            mapp, n_rot, n_trans, init_theta = self._get_gt_map(self.full_map_size, agent_id)
             self.explorable_map.append(mapp)
             self.n_rot.append(n_rot)
             self.n_trans.append(n_trans)
@@ -198,7 +198,7 @@ class Exploration_Env(habitat.RLEnv):
             for a in range(self.num_agents):
                 delta_st = self.agent_st[a] - self.agent_st[aa]
                 delta_rot_mat, delta_trans_mat, delta_n_rot_mat, delta_n_trans_mat =\
-                get_grid_full(delta_st, (1, 1, self.grid_size, self.grid_size), (1, 1, full_map_size, full_map_size), torch.device("cpu"))
+                get_grid_full(delta_st, (1, 1, self.grid_size, self.grid_size), (1, 1, self.full_map_size, self.full_map_size), torch.device("cpu"))
 
                 self.agent_n_rot[aa].append(delta_n_rot_mat.numpy())
                 self.agent_n_trans[aa].append(delta_n_trans_mat.numpy())
@@ -1085,9 +1085,9 @@ class Exploration_Env(habitat.RLEnv):
             pos_gt_map = np.zeros_like(self.explored_map[0])
             goal_map = np.zeros_like(self.explored_map[0])
 
-            pos_map[int(start_y * 100.0/5.0), int(start_x * 100.0/5.0)] = 1
-            pos_gt_map[int(start_y_gt * 100.0/5.0), int(start_x_gt * 100.0/5.0)] = 1
-            goal_map[int(goal[0] + gx1), int(goal[1] + gy1)] = 1
+            pos_map[self.full_map_size-1 if int(start_y * 100.0/5.0) >= self.full_map_size else int(start_y * 100.0/5.0), self.full_map_size-1 if int(start_x * 100.0/5.0) >= self.full_map_size else int(start_x * 100.0/5.0)] = 1
+            pos_gt_map[self.full_map_size-1 if int(start_y_gt * 100.0/5.0) >= self.full_map_size else int(start_y_gt * 100.0/5.0), self.full_map_size-1 if int(start_x_gt * 100.0/5.0) >= self.full_map_size else int(start_x_gt * 100.0/5.0)] = 1
+            goal_map[self.full_map_size-1 if int(goal[0] + gx1) >= self.full_map_size else int(goal[0] + gx1), self.full_map_size-1 if int(goal[1] + gy1) >= self.full_map_size else int(goal[1] + gy1)] = 1
 
             pos_map = self.transform(pos_map, agent_id)
             pos_gt_map = self.transform(pos_gt_map, agent_id)

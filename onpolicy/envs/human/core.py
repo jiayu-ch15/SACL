@@ -200,7 +200,9 @@ class World(object):
         # r g b
         dummy_colors = [(0.25, 0.75, 0.25)] * n_dummies
         # sns.color_palette("OrRd_d", n_adversaries)
-        adv_colors = [(0.75, 0.25, 0.25)] * n_adversaries
+        adv_colors = []
+        for i in range(n_adversaries):
+            adv_colors.append((0.25 * (i+1), 0.25, 0.25))
         # sns.color_palette("GnBu_d", n_good_agents)
         good_colors = [(0.25, 0.25, 0.75)] * n_good_agents
         colors = dummy_colors + adv_colors + good_colors

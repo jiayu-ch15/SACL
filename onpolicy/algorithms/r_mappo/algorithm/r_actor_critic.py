@@ -162,7 +162,7 @@ class R_Critic(nn.Module):
 
         if 'Dict' in share_obs_shape.__class__.__name__:
             self._mixed_obs = True
-            self.base = MIXBase(args, share_obs_shape, cnn_layers_params=None)
+            self.base = MIXBase(args, share_obs_shape, cnn_layers_params=args.cnn_layers_params)
         else:
             self._mixed_obs = False
             self.base = CNNBase(args, share_obs_shape) if len(share_obs_shape)==3 else MLPBase(args, share_obs_shape, use_attn_internal=True, use_cat_self=args.use_cat_self)

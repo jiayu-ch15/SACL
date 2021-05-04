@@ -88,6 +88,8 @@ def parse_args(args, parser):
     parser.add_argument('--use_same_scene', action='store_true', default=False)
     parser.add_argument("--scene_id", type=int, default=0)
     parser.add_argument('--use_selected_small_scenes', action='store_true', default=False)
+    parser.add_argument('--use_selected_middle_scenes', action='store_true', default=False)
+    parser.add_argument('--use_selected_large_scenes', action='store_true', default=False)
 
     # reward params
     parser.add_argument('--reward_decay', type=float, default=0.9)
@@ -127,7 +129,9 @@ def parse_args(args, parser):
     parser.add_argument('--use_different_start_pos', action='store_true',
                         default=False, help="by default True, use random agent position at the initialization")
     parser.add_argument('--use_same_rotation', action='store_true',
-                        default=False, help="by default True, use fixed agent position at the initialization")
+                        default=False, help="by default True, use fixed agent rotation at the initialization")
+    parser.add_argument('--use_random_rotation', action='store_true',
+                        default=False, help="by default True, use random agent rotation at the initialization")
 
     # Local Policy
     parser.add_argument('--local_lr', type=float, default=0.0001)
