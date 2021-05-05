@@ -68,8 +68,6 @@ class GridWorldRunner(Runner):
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
 
-
-
                 train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
                 print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
                 self.log_train(train_infos, total_num_steps)
@@ -147,8 +145,10 @@ class GridWorldRunner(Runner):
     def insert(self, data):
         dict_obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
 
-        for info, done in zip(infos, dones):
-            if done:
+        dones_env = np.all(dones, axis=-1)
+
+        for info, done_env in zip(infos, dones_env):
+            if done_env:
                 for key in info.keys():
                     self.env_infos[key].append(info[key])
 

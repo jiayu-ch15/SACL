@@ -160,17 +160,11 @@ class HumanEnv(MiniGridEnv):
                 reward += self.coverage_discounter
                 self.cover_grid[ay, ax] = 1.0
                 self.covering_rate = collections.Counter((self.cover_grid - self.cover_grid_initial).flatten())[1] / self.num_none
-            # Toggle/pickup action terminates the episode
-            # if action[agent_id] == self.actions.toggle:
-                # pass
-                # done = True
 
-            # Reward performing the done action next to the target object
-            # if action[agent_id] == self.actions.done:
             if abs(ax - tx) < 1 and abs(ay - ty) < 1:
-                reward += 1.0 #self._reward()
+                reward += 1.0 
                 self.num_reach_goal += 1
-                done = True
+                # done = True
             
             fwd_pos = self.front_pos(agent_id)
             fwd_cell = self.grid.get(*fwd_pos)
@@ -179,13 +173,14 @@ class HumanEnv(MiniGridEnv):
                     if np.any(np.sign(fwd_pos-self.agent_pos[agent_id]) == self.direction[agent_id]):
                         reward += self.direction_alpha
                     self.agent_pos[agent_id] = fwd_pos
-            rewards.append([reward])
+            rewards.append(reward)
+
+        rewards = [[np.sum(rewards)]] * self.num_agents
 
         dones = [done for agent_id in range(self.num_agents)]
         
         info['num_reach_goal'] = self.num_reach_goal
         info['covering_rate'] = self.covering_rate
-        
 
         return obs, rewards, dones, info
 
