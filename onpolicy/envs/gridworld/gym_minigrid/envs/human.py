@@ -84,8 +84,9 @@ class HumanEnv(MiniGridEnv):
             for i in range(0, width):
                 if self.grid.get(i,j) != None and self.grid.get(i,j).type == 'wall':
                     self.cover_grid[j,i] = 1.0
-        self.cover_grid_initial = self.cover_grid
+        self.cover_grid_initial = self.cover_grid.copy()
         self.num_none = collections.Counter(self.cover_grid_initial.flatten())[0.]
+        # import pdb; pdb.set_trace()
 
         # Types and colors of objects we can generate
         types = ['key']
@@ -155,12 +156,10 @@ class HumanEnv(MiniGridEnv):
         for agent_id in range(self.num_agents):
             ax, ay = self.agent_pos[agent_id]
             tx, ty = self.target_pos
-            if self.cover_grid[ax,ay] == 0:
+            if self.cover_grid[ay,ax] == 0:
                 reward += self.coverage_discounter
-                self.cover_grid[ax, ay] = 1.0
-                self.covering_rate = collections.Counter((self.cover_grid - self.cover_grid_initial).flatten())[0] / self.num_none
-
-
+                self.cover_grid[ay, ax] = 1.0
+                self.covering_rate = collections.Counter((self.cover_grid - self.cover_grid_initial).flatten())[1] / self.num_none
             # Toggle/pickup action terminates the episode
             # if action[agent_id] == self.actions.toggle:
                 # pass
@@ -185,6 +184,8 @@ class HumanEnv(MiniGridEnv):
         dones = [done for agent_id in range(self.num_agents)]
         
         info['num_reach_goal'] = self.num_reach_goal
+        info['covering_rate'] = self.covering_rate
+        
 
         return obs, rewards, dones, info
 

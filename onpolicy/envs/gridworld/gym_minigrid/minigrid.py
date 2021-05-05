@@ -8,6 +8,7 @@ from gym.utils import seeding
 from .rendering import *
 import matplotlib.pyplot as plt
 from icecream import ic
+from functools import reduce
 
 # Size in pixels of a tile in the full-scale human view
 TILE_PIXELS = 32
@@ -54,6 +55,7 @@ OBJECT_TO_IDX = {
 
 RENDER_TO_IDX = {
     'mark'          : 0,
+    'not_mark'      : 1,
 }
 
 IDX_TO_OBJECT = dict(zip(OBJECT_TO_IDX.values(), OBJECT_TO_IDX.keys()))
@@ -711,6 +713,34 @@ class Grid:
 
         return array
 
+    def Mark_encode(self, num_agents, vis_mask=None):
+        """
+        Produce a compact numpy encoding of the grid, for the Mark
+        """
+
+        if vis_mask is None:
+            vis_mask = np.ones((self.width, self.height), dtype=bool)
+
+        array = np.zeros((self.width, self.height, 1+num_agents), dtype='uint8')
+
+
+        
+        
+        for i in range(self.width):
+            for j in range(self.height):
+                if vis_mask[i, j]:
+                    v = self.get(i, j)
+                    # see if v is Mark?
+                    condition = False
+                    for agent_id in range(num_agents):
+                        condition = condition or (v != None and v.type == "mark")
+                    if condition:
+                        array[i, j, :] = v.encode()
+                    else:
+                        array[i, j, 0] = RENDER_TO_IDX['not_mark']
+
+        return array
+
     @staticmethod
     def decode(array):
         """
@@ -829,14 +859,21 @@ class MiniGridEnv(gym.Env):
 
         # Observations are dictionaries containing an
         # encoding of the grid and a textual 'mission' string
-        self.observation_space = spaces.Box(
+        observation_space = spaces.Box(
             low=0,
             high=255,
             shape=(self.agent_view_size, self.agent_view_size, 3),
             dtype='uint8'
         )
+        occupy_observation_space = spaces.Box(
+            low=0,
+            high=255,
+            shape=(self.agent_view_size, self.agent_view_size, 1+self.num_agents),
+            dtype='uint8'
+        )
         self.observation_space = [spaces.Dict({
-            'image': self.observation_space,
+            'image': observation_space,
+            'occupy_image': occupy_observation_space,
             'direction': gym.spaces.Box(low=-1, high=1, shape=(8,), dtype='int')
         }) for _ in range(self.num_agents)]
 
@@ -1365,9 +1402,11 @@ class MiniGridEnv(gym.Env):
         topX, topY, botX, botY = self.get_view_exts(agent_id)
 
         grid = self.grid.slice(topX, topY, self.agent_view_size, self.agent_view_size)
+        occupy_grid = self.occupy_grid.slice(topX, topY, self.agent_view_size, self.agent_view_size)
 
         for i in range(self.agent_dir[agent_id] + 1):
             grid = grid.rotate_left()
+            occupy_grid = occupy_grid.rotate_left()
 
         # Process occluders and visibility
         # Note that this incurs some performance cost
@@ -1385,17 +1424,17 @@ class MiniGridEnv(gym.Env):
         else:
             grid.set(*agent_pos, None)
 
-        return grid, vis_mask
+        return grid, occupy_grid, vis_mask
 
     def gen_obs(self, agent_id):
         """
         Generate the agent's view (partially observable, low-resolution encoding)
         """
 
-        grid, vis_mask = self.gen_obs_grid(agent_id)
-
+        grid, occupy_grid, vis_mask = self.gen_obs_grid(agent_id)
         # Encode the partially observable view into a numpy array
         image = grid.encode(vis_mask)
+        occupy_image = occupy_grid.Mark_encode(self.num_agents, vis_mask)
 
         assert hasattr(self, 'mission'), "environments must define a textual mission string"
 
@@ -1405,6 +1444,7 @@ class MiniGridEnv(gym.Env):
         # - a textual mission string (instructions for the agent)
         obs = {
             'image': image,
+            'occupy_image': occupy_image,
             'direction': self.agent_dir[agent_id],
             'mission': self.mission
         }
@@ -1451,7 +1491,7 @@ class MiniGridEnv(gym.Env):
 
         for agent_id in range(self.num_agents):
             # Compute which cells are visible to the agent
-            _, vis_mask = self.gen_obs_grid(agent_id)
+            _, _, vis_mask = self.gen_obs_grid(agent_id)
 
             # Compute the world coordinates of the bottom-left corner
             # of the agent's view area
@@ -1503,17 +1543,43 @@ class MiniGridEnv(gym.Env):
         return img, occupy_img
 
     def get_direction_encoder(self):
+
+        def str2int(s):
+            def fn(x,y):
+                return x*10+y
+            def char2num(s):
+                return {'0':0, '1':1, '2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9}[s]
+            return reduce(fn,map(char2num,s))
+
         self.render(mode='human', close=False)
         array_direction = np.array([[0,1], [0,-1], [1,0], [-1,0], [1,1], [1,-1], [-1,1], [-1,-1]])
         print (" Refer each predator as the coordinate origin, input the direciton of the prey relative to it.\n \
            Right is the positive direction of the X-axis,\n Below is the positive direction of the Y-axis.\n \
-               0--[1,1] , 1--[1,-1], 2--[-1,1], 3--[-1,-1], i.e. 000")
-        all_command = int(input("Enter the command: "))
-        command = []
-        command.append(all_command // 100)
-        command.append((all_command - command[0] * 100) // 10)
-        command.append(all_command % 10)
-        print(command)
+               0--[0,1] , 1--[0,-1], 2--[1,0], 3--[-1,0], 4--[1,1], 5--[1,-1], 6--[-1,1], 7--[-1,-1], i.e. 000")
+        while True:
+            all_command = input("Enter the command: ")
+            if all_command.isdigit():
+                all_command = str2int(all_command)
+                command = []
+                command.append(all_command // 100)
+                command.append((all_command - command[0] * 100) // 10)
+                command.append(all_command % 10)
+                indicator = False
+                for i in command:
+                    if i in range(0,8):
+                        pass
+                    else:
+                        indicator = True
+                        break
+                if indicator:
+                    print("CommandError, please try again")
+                    continue
+                else:
+                    print(command)
+                    break
+            else:
+                print("CommandError, please try again")
+                continue
         for agent_id in range(self.num_agents):
             self.direction_index[agent_id] = command[agent_id]
             self.direction[agent_id] = array_direction[command[agent_id]]
