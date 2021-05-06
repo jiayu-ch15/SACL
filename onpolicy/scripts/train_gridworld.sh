@@ -5,7 +5,7 @@ num_agents=3
 num_preies=1
 num_obstacles=0
 algo="rmappo"
-exp="dirrew_encoder_3predator_1prey_0cobstacle_alpha0.1_discounter0.1_maxstep150"
+exp="debug"#"dirrew_encoder_3predator_1prey_0cobstacle_alpha0.1_discounter0.1_maxstep150"
 seed_max=1
 
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
@@ -17,6 +17,6 @@ do
     --env_name ${env} --algorithm_name ${algo} --experiment_name ${exp} --scenario_name ${scenario} \
     --log_interval 1 --wandb_name "human" --user_name "huangruixin" --num_agents ${num_agents} --num_preies ${num_preies} \
     --num_obstacles ${num_obstacles} --cnn_layers_params '32,3,1,1' --seed 1 --n_training_threads 1 \
-    --n_rollout_threads 128 --num_mini_batch 1 --num_env_steps 20000000 --ppo_epoch 10 --gain 0.01 \
-    --lr 7e-4 --critic_lr 7e-4  
+    --n_rollout_threads 1 --num_mini_batch 1 --num_env_steps 20000000 --ppo_epoch 10 --gain 0.01 \
+    --lr 7e-4 --critic_lr 7e-4 --use_wandb  
 done

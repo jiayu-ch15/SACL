@@ -871,10 +871,13 @@ class MiniGridEnv(gym.Env):
             shape=(self.agent_view_size, self.agent_view_size, 1+self.num_agents),
             dtype='uint8'
         )
+        vector_observation_space = spaces.Box(
+            low=-1, high=1, shape=(self.num_agents + 8,), dtype='int')
+
         self.observation_space = [spaces.Dict({
             'image': observation_space,
             'occupy_image': occupy_observation_space,
-            'direction': gym.spaces.Box(low=-1, high=1, shape=(8,), dtype='int')
+            'vector': vector_observation_space,
         }) for _ in range(self.num_agents)]
 
         # Range of possible rewards
@@ -1447,7 +1450,7 @@ class MiniGridEnv(gym.Env):
         obs = {
             'image': image,
             'occupy_image': occupy_image,
-            'direction': self.agent_dir[agent_id],
+            'vector':np.concatenate([self.direction_encoder[agent_id], np.eye(self.num_agents)[agent_id]]),
             'mission': self.mission
         }
 

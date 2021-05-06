@@ -79,14 +79,16 @@ class GridWorldRunner(Runner):
     
     def _convert(self, dict_obs):
         obs = {}
-        obs['image'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['image'].shape), dtype=np.float32)
-        obs['occupy_image'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['occupy_image'].shape), dtype=np.float32)
-        obs['direction'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['direction'].shape), dtype=np.float32)
+        for key in self.envs.observation_space[0].spaces.keys():
+            obs[key] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0][key].shape), dtype=np.float32)
+        # obs['image'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['image'].shape), dtype=np.float32)
+        # obs['occupy_image'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['occupy_image'].shape), dtype=np.float32)
+        # obs['vector'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['vector'].shape), dtype=np.float32)
+        # obs['direction'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['direction'].shape), dtype=np.float32)
         for i, o in enumerate(dict_obs):
             for agent_id in range(self.num_agents):
-                obs['image'][i, agent_id] = o[agent_id]['image']
-                obs['occupy_image'][i, agent_id] = o[agent_id]['occupy_image']
-                obs['direction'][i, agent_id] = np.eye(8)[o[agent_id]['direction']]
+                for key in obs.keys():
+                    obs[key][i, agent_id] = o[agent_id][key]
         return obs
 
     def warmup(self):
