@@ -38,7 +38,7 @@ class HumanEnv(MiniGridEnv):
         super().__init__(
             num_agents=num_agents,
             grid_size=size,
-            max_steps=math.floor(((size-2)**2) / num_agents),
+            max_steps=math.floor(((size-2)**2) / num_agents * 1.5),
             # Set this to True for maximum speed
             see_through_walls=True
         )
@@ -161,10 +161,10 @@ class HumanEnv(MiniGridEnv):
                 self.cover_grid[ay, ax] = 1.0
                 self.covering_rate = collections.Counter((self.cover_grid - self.cover_grid_initial).flatten())[1] / self.num_none
 
-            if abs(ax - tx) < 1 and abs(ay - ty) < 1:
-                reward += 1.0 
-                self.num_reach_goal += 1
-                # done = True
+            # if abs(ax - tx) < 1 and abs(ay - ty) < 1:
+            #     reward += 1.0 
+            #     self.num_reach_goal += 1
+            #     # done = True
                     
             rewards.append(reward)
 

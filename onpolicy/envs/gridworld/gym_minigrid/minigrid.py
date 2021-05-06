@@ -121,7 +121,7 @@ class WorldObj:
 
     def encode(self):
         """Encode the a description of this object as a 3-tuple of integers"""
-        return (OBJECT_TO_IDX[self.type], COLOR_TO_IDX[self.color], 0)
+        return (OBJECT_TO_IDX[self.type]*20, COLOR_TO_IDX[self.color]*40, 0)
 
     @staticmethod
     def decode(type_idx, color_idx, state):
@@ -402,7 +402,7 @@ class RenderObj:
 
     def encode(self):
         """Encode the a description of this object as a 3-tuple of integers"""
-        return (RENDER_TO_IDX[self.type], *self.agent_list)
+        return (RENDER_TO_IDX[self.type]*100, *self.agent_list)
 
     def render(self, r):
         """Draw this object with the given renderer"""
@@ -412,11 +412,11 @@ class RenderObj:
 class Mark(RenderObj):
     def __init__(self, num_agents, agent_id):
         super(Mark, self).__init__('mark', num_agents)
-        self.agent_list[agent_id] = 1
+        self.agent_list[agent_id] = 255
 
     def render(self, img):
         for agent_id, occupy in enumerate(self.agent_list):
-            if occupy == 1: 
+            if occupy == 255: 
                 fill_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
                 signal_lamp_pos = [(0.031, 1, 0.031, 0.354), (0.031, 1, 0.354, 0.677), (0.031, 1, 0.677, 1.000)]
                 fill_coords(img, point_in_rect(*signal_lamp_pos[agent_id]),fill_colors[agent_id])
@@ -1183,7 +1183,7 @@ class MiniGridEnv(gym.Env):
             v = self.occupy_grid.get(*p)
 
             if v != None and v.type == "mark":
-                v.agent_list[agent_id] = 1
+                v.agent_list[agent_id] = 255
             else:
                 R_obj = Mark(self.num_agents, agent_id)
                 self.occupy_grid.set(*p, R_obj)
@@ -1347,7 +1347,7 @@ class MiniGridEnv(gym.Env):
                     self.agent_pos[agent_id] = fwd_pos
                     v = self.occupy_grid.get(*fwd_pos)
                     if v != None and v.type == "mark":
-                        v.agent_list[agent_id] = 1
+                        v.agent_list[agent_id] = 255
                     else:
                         R_obj = Mark(self.num_agents, agent_id)
                         self.occupy_grid.set(*fwd_pos, R_obj)
