@@ -872,7 +872,7 @@ class MiniGridEnv(gym.Env):
             dtype='uint8'
         )
         vector_observation_space = spaces.Box(
-            low=-1, high=1, shape=(self.num_agents + 8,), dtype='int')
+            low=-1, high=1, shape=(self.num_agents + 8 + 4,), dtype='int')
 
         self.observation_space = [spaces.Dict({
             'image': observation_space,
@@ -899,6 +899,7 @@ class MiniGridEnv(gym.Env):
 
         # clear the num_reach_goal
         self.num_reach_goal = 0
+        self.num_same_direction = 0
 
         # Generate a new random grid at the start of each episode
         # To keep the same grid for each episode, call env.seed() with
@@ -1347,6 +1348,7 @@ class MiniGridEnv(gym.Env):
                 if fwd_cell == None or fwd_cell.can_overlap():
                     if np.any(np.sign(fwd_pos-self.agent_pos[agent_id]) == self.direction[agent_id]):
                         reward += self.direction_alpha
+                        self.num_same_direction += 1
                     self.agent_pos[agent_id] = fwd_pos
                     v = self.occupy_grid.get(*fwd_pos)
                     if v != None and v.type == "mark":
@@ -1450,7 +1452,7 @@ class MiniGridEnv(gym.Env):
         obs = {
             'image': image,
             'occupy_image': occupy_image,
-            'vector':np.concatenate([self.direction_encoder[agent_id], np.eye(self.num_agents)[agent_id]]),
+            'vector':np.concatenate([self.direction_encoder[agent_id], np.eye(4)[self.agent_dir[agent_id]], np.eye(self.num_agents)[agent_id]]),
             'mission': self.mission
         }
 

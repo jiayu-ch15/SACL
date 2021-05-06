@@ -38,7 +38,7 @@ class HumanEnv(MiniGridEnv):
         super().__init__(
             num_agents=num_agents,
             grid_size=size,
-            max_steps=math.floor(((size-2)**2) / num_agents * 1.5),
+            max_steps=math.floor(((size-2)**2) / num_agents * 2),
             # Set this to True for maximum speed
             see_through_walls=True
         )
@@ -174,6 +174,7 @@ class HumanEnv(MiniGridEnv):
         
         info['num_reach_goal'] = self.num_reach_goal
         info['covering_rate'] = self.covering_rate
+        info['num_same_direction'] = self.num_same_direction
 
         return obs, rewards, dones, info
 
