@@ -165,14 +165,7 @@ class HumanEnv(MiniGridEnv):
                 reward += 1.0 
                 self.num_reach_goal += 1
                 # done = True
-            
-            fwd_pos = self.front_pos(agent_id)
-            fwd_cell = self.grid.get(*fwd_pos)
-            if self.use_direction_reward:
-                if fwd_cell == None or fwd_cell.can_overlap():
-                    if np.any(np.sign(fwd_pos-self.agent_pos[agent_id]) == self.direction[agent_id]):
-                        reward += self.direction_alpha
-                    self.agent_pos[agent_id] = fwd_pos
+                    
             rewards.append(reward)
 
         rewards = [[np.sum(rewards)]] * self.num_agents

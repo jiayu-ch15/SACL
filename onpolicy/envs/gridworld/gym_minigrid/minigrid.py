@@ -1342,6 +1342,8 @@ class MiniGridEnv(gym.Env):
             # Move forward
             elif action[agent_id] == self.actions.forward:
                 if fwd_cell == None or fwd_cell.can_overlap():
+                    if np.any(np.sign(fwd_pos-self.agent_pos[agent_id]) == self.direction[agent_id]):
+                        reward += self.direction_alpha
                     self.agent_pos[agent_id] = fwd_pos
                     v = self.occupy_grid.get(*fwd_pos)
                     if v != None and v.type == "mark":
