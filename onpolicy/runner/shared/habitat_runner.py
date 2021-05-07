@@ -275,6 +275,7 @@ class HabitatRunner(Runner):
         self.visualize_input = self.all_args.visualize_input
         self.use_intrinsic_reward = self.all_args.use_intrinsic_reward
         self.use_delta_reward = self.all_args.use_delta_reward
+        self.use_abs_orientation = self.all_args.use_abs_orientation
 
     def init_map_variables(self):
         ### Full map consists of 4 channels containing the following:
@@ -373,7 +374,7 @@ class HabitatRunner(Runner):
         self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
         self.global_input['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.local_w, self.local_h), dtype=np.float32)
         self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
-        self.global_input['other_global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
+        self.global_input['other_global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents-1), dtype=np.long)
         self.global_input['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents), dtype=np.float32)
         # self.global_input['global_merge_goal'] = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.local_w, self.local_h), dtype=np.float32)
         self.share_global_input = self.global_input.copy()
@@ -585,9 +586,14 @@ class HabitatRunner(Runner):
             _, self.trans_point[:,a] =self.point_transform(self.global_goal, np.array(self.agent_trans)[:, a], np.array(self.agent_rotation)[:,a])
         for e in range(self.n_rollout_threads):
             for a in range(self.num_agents):
+                i = 0
                 for l in range(self.num_agents):
                     if l!= a:   
-                        self.global_input['other_global_orientation'][e, a, 0] = int(((self.other_agent_rotation[e, l, 0] - self.other_agent_rotation[e, a, 0] + 360.0 + 180.0) % 360) / 5.)
+                        if self.use_abs_orientation:
+                            self.global_input['other_global_orientation'][e, a, i] = int((self.other_agent_rotation[e, l, 0] + 180.0) / 5.)
+                        else:
+                            self.global_input['other_global_orientation'][e, a, i] = int(((self.other_agent_rotation[e, l, 0] - self.other_agent_rotation[e, a, 0] + 360.0 + 180.0) % 360) / 5.)
+                        i += 1
 
         for a in range(self.num_agents): # TODO @CHAO
             self.global_input['global_merge_obs'][:, a, 0:4] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
@@ -654,9 +660,14 @@ class HabitatRunner(Runner):
         
         for e in range(self.n_rollout_threads):
             for a in range(self.num_agents):
+                i = 0
                 for l in range(self.num_agents):
                     if l!= a:   
-                        self.global_input['other_global_orientation'][e, a, 0] = int(((self.other_agent_rotation[e, l, 0] - self.other_agent_rotation[e, a, 0] + 360.0 + 180.0) % 360) / 5.)
+                        if self.use_abs_orientation:
+                            self.global_input['other_global_orientation'][e, a, i] = int((self.other_agent_rotation[e, l, 0] + 180.0) / 5.)
+                        else:
+                            self.global_input['other_global_orientation'][e, a, i] = int(((self.other_agent_rotation[e, l, 0] - self.other_agent_rotation[e, a, 0] + 360.0 + 180.0) % 360) / 5.)
+                        i += 1 
         
         for a in range(self.num_agents):
             self.global_input['global_merge_obs'][:, a, 0:4] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
