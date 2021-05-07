@@ -113,7 +113,7 @@ class WorldObj:
 
     def encode(self):
         """Encode the a description of this object as a 3-tuple of integers"""
-        return (OBJECT_TO_IDX[self.type], COLOR_TO_IDX[self.color], 0)
+        return (OBJECT_TO_IDX[self.type] * 20, COLOR_TO_IDX[self.color] * 20, 0)
 
     @staticmethod
     def decode(type_idx, color_idx, state):
