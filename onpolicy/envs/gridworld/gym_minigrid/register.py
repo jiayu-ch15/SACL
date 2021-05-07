@@ -29,7 +29,7 @@ def register(
         'num_obstacles': num_obstacles,
         'agent_pos': agent_pos,
         'use_merge': use_merge,
-        'use_same_location' : use_same_location,
+        'use_same_location': use_same_location,
         },
         reward_threshold=reward_threshold
     )

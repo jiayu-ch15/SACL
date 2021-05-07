@@ -39,13 +39,22 @@ class GridWorldRunner(Runner):
                 # Obser reward and next obs
                 dict_obs, rewards, dones, infos = self.envs.step(actions)
 
-                
+                for e in range(self.n_rollout_threads):
+                    if 'merge_ratio_step' in infos[e].keys():
+                        self.merge_explored_ratio_step[e] = infos[e]['merge_ratio_step']
+                    for agent_id in range(self.num_agents):
+                        agent_k = "agent{}_ratio_step".format(agent_id)
+                        if agent_k in infos[e].keys():
+                            self.agent_explored_ratio_step[e][agent_id] = infos[e][agent_k]
+
                 data = dict_obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
 
                 # insert data into buffer
                 self.insert(data)
                 if step == self.episode_length-1:
-                    self.init_map_variables() 
+                    merge_explored_ratio_step = np.mean(self.merge_explored_ratio_step) 
+                    agent_explored_ratio_step = np.mean(self.agent_explored_ratio_step, axis=0)
+                    self.init_map_variables()
 
             # compute return and update network
             self.compute()
@@ -79,6 +88,9 @@ class GridWorldRunner(Runner):
                 for e in range(self.n_rollout_threads):
                     merge_ratio[e] = infos[e]['merge_explored_ratio']
                 train_infos["average_episode_ratio"] = np.mean(merge_ratio)
+                train_infos["merge_explored_ratio_step"] = merge_explored_ratio_step
+                for agent_id in range(self.num_agents):
+                    train_infos["agent{}_ratio_step".format(agent_id)] = agent_explored_ratio_step[agent_id]
                 print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
                 print("average episode ratio is {}".format(train_infos["average_episode_ratio"]))
                 self.log_train(train_infos, total_num_steps)
@@ -91,8 +103,9 @@ class GridWorldRunner(Runner):
     def _convert(self, dict_obs, infos):
         obs = {}
         obs['image'] = np.zeros((len(dict_obs), self.num_agents, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size, 3), dtype=np.float32)
-        obs['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents+4), dtype=np.float32)
+        obs['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents), dtype=np.float32)
         obs['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size), dtype=np.float32)
+        obs['global_direction'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents, 4), dtype=np.float32)
         agent_pos_map = np.zeros((self.n_rollout_threads, self.num_agents, self.full_w, self.full_h), dtype=np.float32)
         if self.use_merge:
             obs['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size), dtype=np.float32)
@@ -123,7 +136,14 @@ class GridWorldRunner(Runner):
                     obs['global_merge_obs'][e, agent_id, 2] = merge_pos_map[e][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
                     obs['global_merge_obs'][e, agent_id, 3] = self.all_merge_pos_map[e][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
 
-                obs['vector'][e, agent_id] = np.concatenate([np.eye(self.num_agents)[agent_id], np.eye(4)[infos[e]['agent_direction'][agent_id]]])
+                obs['vector'][e, agent_id] = np.eye(self.num_agents)[agent_id]
+
+                i = 0
+                obs['global_direction'][e, agent_id, i] = np.eye(4)[infos[e]['agent_direction'][agent_id]]
+                for l in range(self.num_agents):
+                    if l!= a: 
+                        i += 1 
+                        obs['global_direction'][e, agent_id, i] = np.eye(4)[infos[e]['agent_direction'][l]]                  
 
         
         if self.visualize_input:
@@ -162,6 +182,8 @@ class GridWorldRunner(Runner):
     
         # Initializing full, merge and local map
         self.all_agent_pos_map = np.zeros((self.n_rollout_threads, self.num_agents, self.full_w, self.full_h), dtype=np.float32)
+        self.merge_explored_ratio_step = np.ones((self.n_rollout_threads,), dtype=np.float32) * self.episode_length
+        self.agent_explored_ratio_step = np.ones((self.n_rollout_threads, self.num_agents), dtype=np.float32) * self.episode_length
         if self.use_merge:
             self.all_merge_pos_map = np.zeros((self.n_rollout_threads, self.full_w, self.full_h), dtype=np.float32)
         

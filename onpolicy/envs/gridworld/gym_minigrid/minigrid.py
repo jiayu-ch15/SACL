@@ -847,8 +847,9 @@ class MiniGridEnv(gym.Env):
         global_observation_space['image'] = gym.spaces.Box(
             low=0, high=255, shape=(self.full_w, self.full_h, 3), dtype='uint8')
         global_observation_space['vector'] = gym.spaces.Box(
-            low=-1, high=1, shape=(self.num_agents + 4,), dtype='float')
-        
+            low=-1, high=1, shape=(self.num_agents,), dtype='float')
+        global_observation_space['global_direction'] = gym.spaces.Box(
+            low=-1, high=1, shape=(self.num_agents, 4), dtype='float')
         share_global_observation_space = global_observation_space.copy()
         share_global_observation_space['gt_map'] = gym.spaces.Box(
             low=0, high=1, shape=(1, self.full_w, self.full_h), dtype='uint8')

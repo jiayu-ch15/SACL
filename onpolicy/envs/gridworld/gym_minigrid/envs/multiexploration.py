@@ -111,17 +111,20 @@ class MultiExplorationEnv(MiniGridEnv):
         self.num_episode += 1
         obs = MiniGridEnv.reset(self, choose=True)
         self.num_step = 0
+        self.target_ratio = 0.9
         self.gt_map = self.grid.encode()[:,:,0].T
         self.agent_local_map = np.zeros((self.num_agents, self.agent_view_size, self.agent_view_size, 3))
         self.pad_gt_map = np.pad(self.gt_map,((self.agent_view_size, self.agent_view_size), (self.agent_view_size,self.agent_view_size)) , constant_values=(0,0))
         # init local map
         self.explored_each_map = []
         self.obstacle_each_map = []
+        self.previous_explored_each_map = []
         current_agent_pos = []
         
         for i in range(self.num_agents):
             self.explored_each_map.append(np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size)))
             self.obstacle_each_map.append(np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size)))
+            self.previous_explored_each_map.append(np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size)))
         '''
         for i in range(self.num_agents):
             local_map = np.rot90(obs[i]['image'][:,:,0].T,3)
@@ -163,7 +166,7 @@ class MultiExplorationEnv(MiniGridEnv):
                             continue
                         else:
                             self.explored_each_map[i][x+pos[0]-self.agent_view_size//2][y+pos[1]] = 1
-                            if local_map[x][y] != 1:
+                            if local_map[x][y] != 20:
                                 self.obstacle_each_map[i][x+pos[0]-self.agent_view_size//2][y+pos[1]] = 1
             if direction == 1:# Facing down
                 for x in range(self.agent_view_size):
@@ -172,7 +175,7 @@ class MultiExplorationEnv(MiniGridEnv):
                             continue
                         else:
                             self.explored_each_map[i][x+pos[0]][y+pos[1]-self.agent_view_size//2] = 1
-                            if local_map[x][y] != 1:
+                            if local_map[x][y] != 20:
                                 self.obstacle_each_map[i][x+pos[0]][y+pos[1]-self.agent_view_size//2] = 1
             if direction == 2:# Facing left
                 for x in range(self.agent_view_size):
@@ -181,7 +184,7 @@ class MultiExplorationEnv(MiniGridEnv):
                             continue
                         else:
                             self.explored_each_map[i][x+pos[0]-self.agent_view_size//2][y+pos[1]-self.agent_view_size+1] = 1
-                            if local_map[x][y] != 1:
+                            if local_map[x][y] != 20:
                                 self.obstacle_each_map[i][x+pos[0]-self.agent_view_size//2][y+pos[1]-self.agent_view_size+1] = 1
             if direction == 3:# Facing up
                 for x in range(self.agent_view_size):
@@ -190,7 +193,7 @@ class MultiExplorationEnv(MiniGridEnv):
                             continue
                         else:
                             self.explored_each_map[i][x+pos[0]-self.agent_view_size+1][y+pos[1]-self.agent_view_size//2] = 1
-                            if local_map[x][y] != 1:
+                            if local_map[x][y] != 20:
                                 self.obstacle_each_map[i][x+pos[0]-self.agent_view_size+1][y+pos[1]-self.agent_view_size//2] = 1
             for j in range(3):
                 mmap = np.rot90(obs[i]['image'][:,:,j].T,3)
@@ -213,7 +216,7 @@ class MultiExplorationEnv(MiniGridEnv):
         info['obstacle_each_map'] = np.array(self.obstacle_each_map).astype(int)
         info['agent_direction'] = np.array(self.agent_dir)
         info['agent_local_map'] = self.agent_local_map
-
+        
         if self.num_episode > 1:
             info['merge_explored_ratio'] = self.merge_ratio
     
@@ -224,6 +227,7 @@ class MultiExplorationEnv(MiniGridEnv):
         self.explored_each_map_t = []
         self.obstacle_each_map_t = []
         current_agent_pos = []
+        each_agent_rewards = []
         self.num_step += 1
         for i in range(self.num_agents):
             self.explored_each_map_t.append(np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size)))
@@ -280,6 +284,9 @@ class MultiExplorationEnv(MiniGridEnv):
         for i in range(self.num_agents):
             self.explored_each_map[i] = np.logical_or(self.explored_each_map[i], self.explored_each_map_t[i])
             self.obstacle_each_map[i] = np.logical_or(self.obstacle_each_map[i], self.obstacle_each_map_t[i])
+            each_agent_rewards.append((np.array(self.explored_each_map[i]).astype(int) - np.array(self.previous_explored_each_map[i]).astype(int)).sum())
+            self.previous_explored_each_map[i] = self.explored_each_map[i]
+        
         for i in range(self.num_agents):
             self.explored_all_map = np.logical_or(self.explored_all_map, self.explored_each_map[i])
             self.obstacle_all_map = np.logical_or(self.obstacle_all_map, self.obstacle_each_map[i])
@@ -297,7 +304,18 @@ class MultiExplorationEnv(MiniGridEnv):
         info['obstacle_each_map'] = np.array(self.obstacle_each_map).astype(int)
         info['agent_direction'] = np.array(self.agent_dir)
         info['agent_local_map'] = self.agent_local_map
+        info['agent_explored_reward'] = np.array(each_agent_rewards) * 0.02
         info['merge_explored_reward'] = merge_explored_reward * 0.02
+        
+
+        if info['explored_all_map'].sum()/(self.width * self.height) >= self.target_ratio:
+            info['merge_ratio_step'] = self.num_step
+
+        for i in range(self.num_agents):
+            if info['explored_each_map'][i].sum()/(self.width * self.height) >= self.target_ratio:
+                info["agent{}_ratio_step".format(i)] = self.num_step
+
+        
         if self.num_step == self.max_steps:
             info['merge_explored_ratio'] = info['explored_all_map'].sum()/(self.width * self.height)
             self.merge_ratio = info['merge_explored_ratio']

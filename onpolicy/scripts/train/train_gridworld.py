@@ -62,6 +62,8 @@ def parse_args(args, parser):
                         help="use merge information")
     parser.add_argument("--use_same_location", action='store_true', default=False,
                         help="use merge information")
+    parser.add_argument("--use_single_reward", action='store_true', default=False,
+                        help="use single reward")
     parser.add_argument("--visualize_input", action='store_true', default=False,
                         help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
     all_args = parser.parse_known_args(args)[0]
