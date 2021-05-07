@@ -675,7 +675,7 @@ class Grid:
                     v = self.get(i, j)
 
                     if v is None:
-                        array[i, j, 0] = OBJECT_TO_IDX['empty']
+                        array[i, j, 0] = OBJECT_TO_IDX['empty'] * 20
                         array[i, j, 1] = 0
                         array[i, j, 2] = 0
 

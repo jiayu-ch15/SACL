@@ -116,8 +116,6 @@ class GridWorldRunner(Runner):
                 obs['global_obs'][e, agent_id, 3] = self.all_agent_pos_map[e, agent_id][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
                 obs['image'][e, agent_id] = cv2.resize(infos[e]['agent_local_map'][agent_id], (self.full_w - 2*self.agent_view_size, self.full_h - 2*self.agent_view_size))
                 
-                
-
                 obs['global_merge_obs'][e, agent_id, 0] = infos[e]['explored_all_map'][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
                 obs['global_merge_obs'][e, agent_id, 1] = infos[e]['obstacle_all_map'][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
                 obs['global_merge_obs'][e, agent_id, 2] = merge_pos_map[e][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
@@ -157,7 +155,7 @@ class GridWorldRunner(Runner):
         self.visualize_input = self.all_args.visualize_input
         if self.visualize_input:
             plt.ion()
-            self.fig, self.ax = plt.subplots(self.num_agents*2+2, 4, figsize=(10, 2.5), facecolor="whitesmoke")
+            self.fig, self.ax = plt.subplots(self.num_agents*3, 4, figsize=(10, 2.5), facecolor="whitesmoke")
     
         # Initializing full, merge and local map
         self.all_merge_pos_map = np.zeros((self.n_rollout_threads, self.full_w, self.full_h), dtype=np.float32)
@@ -220,7 +218,7 @@ class GridWorldRunner(Runner):
     
     def visualize_obs(self, fig, ax, obs):
         # individual
-        for agent_id in range(self.num_agents * 2+2):
+        for agent_id in range(self.num_agents * 3):
             sub_ax = ax[agent_id]
             for i in range(4):
                 sub_ax[i].clear()
@@ -232,7 +230,7 @@ class GridWorldRunner(Runner):
                     sub_ax[i].imshow(obs['global_obs'][0, agent_id, i])
                 elif agent_id < self.num_agents*2:
                     sub_ax[i].imshow(obs['global_merge_obs'][0, agent_id-self.num_agents, i])
-                elif i<3: sub_ax[i].imshow(obs['image'][0, agent_id-self.num_agents-3, :,:,i])
+                elif i<3: sub_ax[i].imshow(obs['image'][0, agent_id-self.num_agents*2, :,:,i])
                 #elif i < 5:
                     #sub_ax[i].imshow(obs['global_merge_goal'][0, agent_id-self.num_agents, i-4])
                     #sub_ax[i].imshow(obs['gt_map'][0, agent_id - self.num_agents, i-4])
