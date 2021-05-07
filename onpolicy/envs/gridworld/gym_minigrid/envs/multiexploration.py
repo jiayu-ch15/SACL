@@ -180,7 +180,7 @@ class MultiExplorationEnv(MiniGridEnv):
                             continue
                         else:
                             self.explored_each_map[i][x+pos[0]-self.agent_view_size//2][y+pos[1]] = 1
-                            if local_map[x][y] != 1:
+                            if local_map[x][y] != 20:
                                 self.obstacle_each_map[i][x+pos[0]-self.agent_view_size//2][y+pos[1]] = 1
             if direction == 1:# Facing down
                 for x in range(self.agent_view_size):
@@ -189,7 +189,7 @@ class MultiExplorationEnv(MiniGridEnv):
                             continue
                         else:
                             self.explored_each_map[i][x+pos[0]][y+pos[1]-self.agent_view_size//2] = 1
-                            if local_map[x][y] != 1:
+                            if local_map[x][y] != 20:
                                 self.obstacle_each_map[i][x+pos[0]][y+pos[1]-self.agent_view_size//2] = 1
             if direction == 2:# Facing left
                 for x in range(self.agent_view_size):
@@ -198,7 +198,7 @@ class MultiExplorationEnv(MiniGridEnv):
                             continue
                         else:
                             self.explored_each_map[i][x+pos[0]-self.agent_view_size//2][y+pos[1]-self.agent_view_size+1] = 1
-                            if local_map[x][y] != 1:
+                            if local_map[x][y] != 20:
                                 self.obstacle_each_map[i][x+pos[0]-self.agent_view_size//2][y+pos[1]-self.agent_view_size+1] = 1
             if direction == 3:# Facing up
                 for x in range(self.agent_view_size):
@@ -293,7 +293,7 @@ class MultiExplorationEnv(MiniGridEnv):
                                 self.obstacle_each_map_t[i][x+pos[0]-self.agent_view_size+1][y+pos[1]-self.agent_view_size//2] = 1
             for j in range(3):
                 mmap = np.rot90(obs[i]['image'][:,:,j].T,3)
-                mmap = np.rot90(mmap, 4-direction)
+                mmap = np.rot90(mmap, 4 - direction)
                 self.agent_local_map[i,:,:, j] = mmap
         for i in range(self.num_agents):
             self.explored_each_map[i] = np.logical_or(self.explored_each_map[i], self.explored_each_map_t[i])
