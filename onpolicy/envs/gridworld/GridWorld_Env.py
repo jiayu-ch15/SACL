@@ -18,7 +18,9 @@ class GridWorldEnv(object):
             max_steps = args.max_steps,
             agent_view_size = args.agent_view_size,
             num_obstacles = self.num_obstacles,
-            agent_pos = self.agent_pos,    
+            agent_pos = self.agent_pos,
+            use_merge = args.use_merge,
+            use_same_location = args.use_same_location,
             entry_point = 'onpolicy.envs.gridworld.gym_minigrid.envs:MultiExplorationEnv'
         )
 

@@ -812,8 +812,10 @@ class MiniGridEnv(gym.Env):
         seed=1337,
         agent_view_size=7,
         use_merge = True,
+        use_same_location = True,
     ):  
         self.num_agents = num_agents
+        self.use_same_location = use_same_location
         # Can't set both grid_size and width/height
         if grid_size:
             assert width == None and height == None
@@ -1158,8 +1160,11 @@ class MiniGridEnv(gym.Env):
         self.agent_pos = []
         self.agent_dir = []
         pos = []
-        for agent_id in range(self.num_agents):
+        if self.use_same_location:
             p = self.place_obj(None, top, size, max_tries=max_tries)
+        for agent_id in range(self.num_agents):
+            if not self.use_same_location:
+                p = self.place_obj(None, top, size, max_tries=max_tries)
             self.agent_pos.append(p)
             pos.append(p)
 

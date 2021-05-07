@@ -319,7 +319,7 @@ class GridWorldRunner(Runner):
                 action, rnn_states = self.trainer.policy.act(concat_obs,
                                                     np.concatenate(rnn_states),
                                                     np.concatenate(masks),
-                                                    deterministic=False)
+                                                    deterministic=True)
                 actions = np.array(np.split(_t2n(action), self.n_rollout_threads))
                 rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
 

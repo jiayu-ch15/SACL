@@ -23,7 +23,9 @@ class MultiExplorationEnv(MiniGridEnv):
         num_obstacles,
         agent_pos=None, 
         goal_pos=None, 
-        num_agents=2
+        num_agents=2,
+        use_merge = True,
+        use_same_location = True,
     ):
         self._agent_default_pos = agent_pos
         self._goal_default_pos = goal_pos
@@ -34,7 +36,7 @@ class MultiExplorationEnv(MiniGridEnv):
         else:
             self.num_obstacles = int(grid_size/2)
         self.num_episode = 0
-        super().__init__(grid_size = grid_size, max_steps = max_steps, num_agents = num_agents, agent_view_size = agent_view_size)
+        super().__init__(grid_size = grid_size, max_steps = max_steps, num_agents = num_agents, agent_view_size = agent_view_size, use_merge = use_merge, use_same_location = use_same_location)
 
 
     def _gen_grid(self, width, height):
