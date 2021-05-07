@@ -834,7 +834,8 @@ class MiniGridEnv(gym.Env):
         max_steps=100,
         see_through_walls=False,
         seed=1337,
-        agent_view_size=7
+        agent_view_size=7,
+        use_merge = True,
     ):  
         self.num_agents = num_agents
         # Can't set both grid_size and width/height
@@ -862,8 +863,9 @@ class MiniGridEnv(gym.Env):
         global_observation_space = {}
         global_observation_space['global_obs'] = gym.spaces.Box(
             low=0, high=1, shape=(4, self.full_w, self.full_h), dtype='uint8')
-        global_observation_space['global_merge_obs'] = gym.spaces.Box(
-            low=0, high=1, shape=(4, self.full_w, self.full_h), dtype='uint8')
+        if use_merge:
+            global_observation_space['global_merge_obs'] = gym.spaces.Box(
+                low=0, high=1, shape=(4, self.full_w, self.full_h), dtype='uint8')
         global_observation_space['image'] = gym.spaces.Box(
             low=0, high=255, shape=(self.full_w, self.full_h, 3), dtype='uint8')
         global_observation_space['vector'] = gym.spaces.Box(

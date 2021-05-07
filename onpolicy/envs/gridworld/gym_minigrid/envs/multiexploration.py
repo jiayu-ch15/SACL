@@ -296,7 +296,6 @@ class MultiExplorationEnv(MiniGridEnv):
         info['agent_direction'] = np.array(self.agent_dir)
         info['agent_local_map'] = self.agent_local_map
         info['merge_explored_reward'] = merge_explored_reward * 0.02
-        ic(merge_explored_reward)
         if self.num_step == self.max_steps:
             info['merge_explored_ratio'] = info['explored_all_map'].sum()/(self.width * self.height)
             self.merge_ratio = info['merge_explored_ratio']
