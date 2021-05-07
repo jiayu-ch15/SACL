@@ -137,10 +137,11 @@ class MIXBase(nn.Module):
         return nn.Sequential(*cnn_layers)
 
     def _build_embed_model(self, obs_shape):
+        self.embed_dim = 0
         for key in self.embed_keys:
             self.n_embed_input = 72
             self.n_embed_output = 8
-            self.embed_dim = np.prod(obs_shape[key].shape)
+            self.embed_dim += np.prod(obs_shape[key].shape)
 
         return nn.Embedding(self.n_embed_input, self.n_embed_output)
 

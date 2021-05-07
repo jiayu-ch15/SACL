@@ -307,6 +307,9 @@ class HabitatRunner(Runner):
         ### 1-3 store continuous global agent location
         ### 4-7 store local map boundaries
         self.planner_pose_inputs = np.zeros((self.n_rollout_threads, self.num_agents, 7), dtype=np.float32)
+        
+        # each agent rotation
+        self.other_agent_rotation = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                
     def init_map_and_pose(self):
         self.full_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
@@ -370,6 +373,7 @@ class HabitatRunner(Runner):
         self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
         self.global_input['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.local_w, self.local_h), dtype=np.float32)
         self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
+        self.global_input['other_global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
         self.global_input['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents), dtype=np.float32)
         # self.global_input['global_merge_goal'] = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.local_w, self.local_h), dtype=np.float32)
         self.share_global_input = self.global_input.copy()
@@ -570,6 +574,7 @@ class HabitatRunner(Runner):
 
                 self.local_map[e, a, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = a + 1
                 self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
+                self.other_agent_rotation[e, a, 0] = locs[e, a, 2]
                 self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
             
             self.merge_map[:, a] = self.transform(self.full_map, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
@@ -578,7 +583,12 @@ class HabitatRunner(Runner):
             self.global_input['global_obs'][:, a, 4:8] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a]))).numpy()
             # global_goal_map[:, a], self.trans_point = self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
             _, self.trans_point[:,a] =self.point_transform(self.global_goal, np.array(self.agent_trans)[:, a], np.array(self.agent_rotation)[:,a])
-        
+        for e in range(self.n_rollout_threads):
+            for a in range(self.num_agents):
+                for l in range(self.num_agents):
+                    if l!= a:   
+                        self.global_input['other_global_orientation'][e, a, 0] = int(((self.other_agent_rotation[e, l, 0] - self.other_agent_rotation[e, a, 0] + 360.0 + 180.0) % 360) / 5.)
+
         for a in range(self.num_agents): # TODO @CHAO
             self.global_input['global_merge_obs'][:, a, 0:4] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
             # self.global_input['global_merge_goal'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
@@ -633,6 +643,7 @@ class HabitatRunner(Runner):
             for e in range(self.n_rollout_threads):
                 self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
                 self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
+                self.other_agent_rotation[e, a, 0] = locs[e, a, 2]
 
             self.merge_map[:, a] = self.transform(self.full_map, np.array(self.agent_trans)[:, a], np.array(self.agent_rotation)[:, a])
             self.global_input['global_obs'][:, a, 0:4] = self.local_map[:, a]
@@ -640,6 +651,13 @@ class HabitatRunner(Runner):
         
             # global_goal_map[:, a], self.trans_point =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])
             _, self.trans_point[:, a] =self.point_transform(self.global_goal, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:, a])
+        
+        for e in range(self.n_rollout_threads):
+            for a in range(self.num_agents):
+                for l in range(self.num_agents):
+                    if l!= a:   
+                        self.global_input['other_global_orientation'][e, a, 0] = int(((self.other_agent_rotation[e, l, 0] - self.other_agent_rotation[e, a, 0] + 360.0 + 180.0) % 360) / 5.)
+        
         for a in range(self.num_agents):
             self.global_input['global_merge_obs'][:, a, 0:4] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
             # self.global_input['global_merge_goal'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
