@@ -469,6 +469,7 @@ class Grid:
         obj,
         agent_id=None,
         agent_dir=None,
+        direction=None,
         highlight=False,
         tile_size=TILE_PIXELS,
         subdivs=3
@@ -477,7 +478,7 @@ class Grid:
         Render a tile and cache the result
         """
         # Hash map lookup key for the cache
-        key = (agent_id, agent_dir, highlight, tile_size)
+        key = (agent_id, direction, agent_dir, highlight, tile_size)
         key = obj.encode() + key if obj else key
         
         if key in cls.tile_cache:
@@ -490,7 +491,7 @@ class Grid:
         fill_coords(img, point_in_rect(0, 1, 0, 0.031), (100, 100, 100))
 
         if obj != None:
-            obj.render(img)
+            obj.render(img) 
 
         # Overlay the agent on top
         if agent_dir is not None:
@@ -500,12 +501,13 @@ class Grid:
                 (0.12, 0.81),
             )
 
+            x1y1_array = [(0.5,1), (0.5,0), (1,0.5), (0,0.5), (1,1), (1,0), (0,1), (0,0)]
+            arrow_fn = point_in_line(x0=0.5, y0=0.5, x1=x1y1_array[direction][0],y1=x1y1_array[direction][1], r=0.03)
+            fill_coords(img, arrow_fn, (255,255,255))
             # Rotate the agent based on its direction
             tri_fn = rotate_fn(tri_fn, cx=0.5, cy=0.5, theta=0.5*math.pi*agent_dir)
-
-            for i in range(0,agent_id + 1):
-                fill_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
-                fill_coords(img, tri_fn, fill_colors[i])
+            fill_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
+            fill_coords(img, tri_fn, fill_colors[agent_id])
 
 
         # Highlight the cell if needed
@@ -554,6 +556,7 @@ class Grid:
                         cell,
                         agent_id=agent_id if agent_here else None,
                         agent_dir=agent_dir[agent_id] if agent_here else None,
+                        direction=direction[agent_id] if agent_here else None,
                         highlight=highlight_mask[i, j],
                         tile_size=tile_size
                     )
@@ -565,52 +568,6 @@ class Grid:
                 xmin = i * tile_size
                 xmax = (i+1) * tile_size
                 img[ymin:ymax, xmin:xmax, :] = tile_img.copy()
-
-        return img
-    def render_multi_agent(
-        self,
-        tile_size,
-        agent_pos=None,
-        agent_dir=None,
-        highlight_mask=None,
-        num_agents=None
-    ):
-        """
-        Render this grid at a given scale
-        :param r: target renderer object
-        :param tile_size: tile size in pixels
-        """
-
-        if highlight_mask is None:
-            highlight_mask = np.zeros(shape=(self.width, self.height), dtype=np.bool)
-
-        # Compute the total grid size
-        width_px = self.width * tile_size
-        height_px = self.height * tile_size
-
-        img = np.zeros(shape=(height_px, width_px, 3), dtype=np.uint8)
-
-        # Render the grid
-        for j in range(0, self.height):
-            for i in range(0, self.width):
-                cell = self.get(i, j)
-
-                for n in range(num_agents):
-                    agent_here = np.array_equal(agent_pos[n], (i, j))
-                    tile_img = Grid.render_tile(
-                        cell,
-                        agent_dir=agent_dir[n] if agent_here else None,
-                        highlight=highlight_mask[i, j],
-                        tile_size=tile_size
-                    )
-                    if agent_here:
-                        break
-                
-                ymin = j * tile_size
-                ymax = (j+1) * tile_size
-                xmin = i * tile_size
-                xmax = (i+1) * tile_size
-                img[ymin:ymax, xmin:xmax, :] = tile_img
 
         return img
 
@@ -864,7 +821,7 @@ class MiniGridEnv(gym.Env):
         global_observation_space['global_merge_obs'] = gym.spaces.Box(
             low=0, high=1, shape=(4, self.full_w, self.full_h), dtype='uint8')
         global_observation_space['vector'] = gym.spaces.Box(
-            low=-1, high=1, shape=(self.num_agents,), dtype='float')
+            low=-1, high=1, shape=(self.num_agents + 8 + 4,), dtype='float')
         share_global_observation_space = global_observation_space.copy()
         share_global_observation_space['gt_map'] = gym.spaces.Box(
             low=0, high=1, shape=(1, self.full_w, self.full_h), dtype='uint8')
@@ -916,8 +873,8 @@ class MiniGridEnv(gym.Env):
         # Step count since episode start
         self.step_count = 0
 
-        #if self.use_human_command:
-            #self.get_direction_encoder()
+        if self.use_human_command:
+            self.get_direction_encoder()
 
         # Return first observation
         obs = [self.gen_obs(agent_id) for agent_id in range(self.num_agents)]
@@ -1334,8 +1291,8 @@ class MiniGridEnv(gym.Env):
             elif action[agent_id] == self.actions.forward:
                 #print("forward")
                 if fwd_cell == None or fwd_cell.can_overlap():
-                    #if np.any(np.sign(fwd_pos-self.agent_pos[agent_id]) == self.direction[agent_id]):
-                        #reward = self.direction_alpha
+                    if np.any(np.sign(fwd_pos-self.agent_pos[agent_id]) == self.direction[agent_id]):
+                        reward += self.direction_alpha
                     self.agent_pos[agent_id] = fwd_pos
                 if fwd_cell != None and fwd_cell.type == 'goal':
                     done = True
@@ -1518,20 +1475,47 @@ class MiniGridEnv(gym.Env):
         return img
 
     def get_direction_encoder(self):
+
+        def str2int(s):
+            def fn(x,y):
+                return x*10+y
+            def char2num(s):
+                return {'0':0, '1':1, '2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9}[s]
+            return reduce(fn,map(char2num,s))
+
         self.render(mode='human', close=False)
-        array_direction = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
+        array_direction = np.array([[0,1], [0,-1], [1,0], [-1,0], [1,1], [1,-1], [-1,1], [-1,-1]])
         print (" Refer each predator as the coordinate origin, input the direciton of the prey relative to it.\n \
            Right is the positive direction of the X-axis,\n Below is the positive direction of the Y-axis.\n \
-               0--[1,1] , 1--[1,-1], 2--[-1,1], 3--[-1,-1], i.e. 000")
-        all_command = int(input("Enter the command: "))
-        command = []
-        command.append(all_command // 100)
-        command.append((all_command - command[0] * 100) // 10)
-        command.append(all_command % 10)
-        print(command)
+               0--[0,1] , 1--[0,-1], 2--[1,0], 3--[-1,0], 4--[1,1], 5--[1,-1], 6--[-1,1], 7--[-1,-1], i.e. 000")
+        while True:
+            all_command = input("Enter the command: ")
+            if all_command.isdigit():
+                all_command = str2int(all_command)
+                command = []
+                command.append(all_command // 100)
+                command.append((all_command - command[0] * 100) // 10)
+                command.append(all_command % 10)
+                indicator = False
+                for i in command:
+                    if i in range(0,8):
+                        pass
+                    else:
+                        indicator = True
+                        break
+                if indicator:
+                    print("CommandError, please try again")
+                    continue
+                else:
+                    print(command)
+                    break
+            else:
+                print("CommandError, please try again")
+                continue
         for agent_id in range(self.num_agents):
-                self.direction[agent_id] = array_direction[command[agent_id]]
-                self.direction_encoder[agent_id] = np.eye(4)[command[agent_id]]
+            self.direction_index[agent_id] = command[agent_id]
+            self.direction[agent_id] = array_direction[command[agent_id]]
+            self.direction_encoder[agent_id] = np.eye(8)[command[agent_id]]
 
 
     def close(self):

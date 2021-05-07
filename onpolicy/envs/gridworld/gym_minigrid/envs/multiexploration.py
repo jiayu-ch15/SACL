@@ -23,12 +23,16 @@ class MultiExplorationEnv(MiniGridEnv):
         num_obstacles,
         agent_pos=None, 
         goal_pos=None, 
+        direction_alpha=0.5,
+        use_human_command=False,
         num_agents=2
     ):
         self._agent_default_pos = agent_pos
         self._goal_default_pos = goal_pos
         self.door_size = 3
         self.max_steps = max_steps
+        self.direction_alpha = direction_alpha
+        self.use_human_command = use_human_command
         if num_obstacles <= grid_size/2 + 1:
             self.num_obstacles = int(num_obstacles)
         else:
@@ -93,6 +97,20 @@ class MultiExplorationEnv(MiniGridEnv):
         for i_obst in range(self.num_obstacles):
             self.obstacles.append(Obstacle())
             pos = self.place_obj(self.obstacles[i_obst], max_tries=100)
+
+        # direction
+        array_direction = np.array([[0,1], [0,-1], [1,0], [-1,0], [1,1], [1,-1], [-1,1], [-1,-1]])
+        self.direction = []
+        self.direction_encoder = []
+        self.direction_index = []
+        for agent_id in range(self.num_agents):
+            center_pos = np.array([int((self.size-1)/2),int((self.size-1)/2)])
+            direction = np.sign(center_pos - self.agent_pos[agent_id])
+            direction_index = np.argmax(np.all(np.where(array_direction == direction, True, False), axis=1))
+            direction_encoder = np.eye(8)[direction_index]
+            self.direction_index.append(direction_index)
+            self.direction.append(direction)
+            self.direction_encoder.append(direction_encoder)
         
         
         '''
@@ -268,7 +286,7 @@ class MultiExplorationEnv(MiniGridEnv):
             self.obstacle_all_map = np.logical_or(self.obstacle_all_map, self.obstacle_each_map[i])
         
         merge_explored_reward = (np.array(self.explored_all_map).astype(int) - np.array(self.previous_all_map).astype(int)).sum()
-        self.previous_all_map = self.explored_all_map
+        self.previous_all_map = self.explored_all_map.copy()
         #self.explored_all_map[7:-7,7:-7].astype(np.int8)
         
         info = {}

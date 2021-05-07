@@ -58,6 +58,8 @@ def parse_args(args, parser):
     parser.add_argument('--grid_size', type=int, default=19, help="map size")
     parser.add_argument('--agent_view_size', type=int, default=7, help="depth the agent can view")
     parser.add_argument('--max_steps', type=int, default=100, help="depth the agent can view")
+    parser.add_argument('--direction_alpha', type=float,default=0.1, help="number of players")
+    parser.add_argument('--use_human_command', action='store_true', default=False)
     
     all_args = parser.parse_known_args(args)[0]
 
