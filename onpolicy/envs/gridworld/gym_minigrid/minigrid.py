@@ -251,7 +251,7 @@ class Door(WorldObj):
         elif not self.is_open:
             state = 1
 
-        return (OBJECT_TO_IDX[self.type], COLOR_TO_IDX[self.color], state)
+        return (OBJECT_TO_IDX[self.type] * 20, COLOR_TO_IDX[self.color] * 20, state * 100)
 
     def render(self, img):
         c = COLORS[self.color]
@@ -662,7 +662,7 @@ class Grid:
                 vis_mask[i, j] = (type_idx != OBJECT_TO_IDX['unseen'])
 
         return grid, vis_mask
-    
+        
     def process_vis(grid, agent_pos):
         mask = np.zeros(shape=(grid.width, grid.height), dtype=np.bool)
 
@@ -700,62 +700,38 @@ class Grid:
                 if not mask[i, j]:
                     grid.set(i, j, None)
 
-        '''local_map = grid.encode()[:,:,0]
-        for i in range(agent_pos[0]-1, 0, -1):
-            if local_map[i, agent_pos[1]] != 1:
+
+        local_map = grid.encode()[:,:,0]
+        
+        '''for i in range(agent_pos[0]-1, 0, -1):
+            if local_map[i, agent_pos[1]] != 20:
                 mask[:i, agent_pos[1]] = False
                 break
-        for i in range(agent_pos[0]+1,grid.width):
-            if local_map[i, agent_pos[1]] != 1:
+        for i in range(agent_pos[0]+1, grid.width):
+            if local_map[i, agent_pos[1]] != 20:
                 mask[i+1:, agent_pos[1]] = False
                 break
         for i in range(grid.width):
-            for j in range(agent_pos[1]-1, 0, -1):
-                if local_map[i, j] != 1:
+            for j in range(agent_pos[1], 0, -1):
+                if local_map[i, j] != 20:
                     mask[i, :j]=False
-                    break'''            
+                    break'''
+
+        for j in range(grid.height):
+            for i in range(agent_pos[0]-1,0,-1):
+                if local_map[i, j] != 20:
+                    mask[:i, j]=False
+                    break
+
+        for i in range(grid.width):
+            for j in range(agent_pos[1]-1, 0, -1):
+                if local_map[i, j] != 20:
+                    mask[i, :j] = False
+                    break
+        
         #import pdb; pdb.set_trace()
         return mask
-
-    '''def process_vis(grid, agent_pos):
-        mask = np.zeros(shape=(grid.width, grid.height), dtype=np.bool)
-
-        mask[agent_pos[0], agent_pos[1]] = True
-
-        for j in reversed(range(0, grid.height)):
-            for i in range(0, grid.width-1):
-                if not mask[i, j]:
-                    continue
-
-                cell = grid.get(i, j)
-                if cell and not cell.see_behind():
-                    continue
-
-                mask[i+1, j] = True
-                if j > 0:
-                    mask[i+1, j-1] = True
-                    mask[i, j-1] = True
-
-            for i in reversed(range(1, grid.width)):
-                if not mask[i, j]:
-                    continue
-
-                cell = grid.get(i, j)
-                if cell and not cell.see_behind():
-                    continue
-
-                mask[i-1, j] = True
-                if j > 0:
-                    mask[i-1, j-1] = True
-                    mask[i, j-1] = True
-
-        for j in range(0, grid.height):
-            for i in range(0, grid.width):
-                if not mask[i, j]:
-                    grid.set(i, j, None)
-
-        return mask'''
-
+        
 class MiniGridEnv(gym.Env):
     """
     2D grid world game environment
@@ -1060,7 +1036,6 @@ class MiniGridEnv(gym.Env):
     ):
         """
         Place an object at an empty position in the grid
-
         :param top: top-left position of the rectangle where to place
         :param size: size of the rectangle where to place
         :param reject_fn: function to filter out potential positions

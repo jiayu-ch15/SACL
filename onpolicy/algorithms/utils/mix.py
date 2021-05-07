@@ -84,7 +84,7 @@ class MIXBase(nn.Module):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
 
         for key in self.cnn_keys:
-            if key in ['rgb','depth','image']:
+            if key in ['rgb','depth','image','occupy_image']:
                 self.n_cnn_input += obs_shape[key].shape[2] 
                 cnn_dims = np.array(obs_shape[key].shape[:2], dtype=np.float32)
             elif key in ['global_map','local_map','global_obs','global_merge_obs','global_merge_goal','gt_map']:
@@ -137,10 +137,11 @@ class MIXBase(nn.Module):
         return nn.Sequential(*cnn_layers)
 
     def _build_embed_model(self, obs_shape):
+        self.embed_dim = 0
         for key in self.embed_keys:
             self.n_embed_input = 72
             self.n_embed_output = 8
-            self.embed_dim = np.prod(obs_shape[key].shape)
+            self.embed_dim += np.prod(obs_shape[key].shape)
 
         return nn.Embedding(self.n_embed_input, self.n_embed_output)
 
@@ -193,7 +194,7 @@ class MIXBase(nn.Module):
         cnn_input = []
 
         for key in self.cnn_keys:
-            if key in ['rgb','depth','image']:
+            if key in ['rgb','depth','image','occupy_image']:
                 cnn_input.append(obs[key].permute(0, 3, 1, 2) / 255.0)
             elif key in ['global_map', 'local_map', 'global_obs', 'global_merge_obs', 'global_merge_goal','gt_map']:
                 cnn_input.append(obs[key])

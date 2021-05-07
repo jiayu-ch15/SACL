@@ -57,3 +57,4 @@ class GridWorldEnv(object):
             self.env.render(mode=mode)
         else:
             return self.env.render(mode=mode)
+            
