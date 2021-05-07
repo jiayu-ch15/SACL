@@ -6,7 +6,6 @@ import time
 render = True
 num_agents = 2
 
-
 class Args():
 
     def __init__(self):
@@ -17,7 +16,10 @@ class Args():
         self.total_step = 1e8
         self.gamma = 0.99
         self.eval = True
-
+        self.num_agents = num_agents
+        self.use_curriculum_learning = 1
+        self.n_rollout_threads = 1#?
+        self.share_reward = 1
 
 env = AgarEnv(Args())
 env.seed(0)
@@ -35,13 +37,13 @@ def on_mouse_motion(x, y, dx, dy):
 def on_key_press(k, modifiers):
 
     if k == key.SPACE:
-        action[0][2] = 1
-    else:
         action[0][2] = 0
+    else:
+        action[0][2] = 1
 
 
 start = time.time()
-ca = 100
+ca = 1000
 for episode in range(1):
     observation = env.reset()
     while ca:
@@ -51,14 +53,14 @@ for episode in range(1):
             print('step', step)
             print(step / (time.time() - start))
         if render:
-            env.render(0)
+            env.render(playeridx=0)
             if not window:
-                window = env.viewer.window
+                window = env.viewer[0].window
                 window.on_key_press = on_key_press
                 window.on_mouse_motion = on_mouse_motion
-        a = action.reshape(-1)
-        observations, rewards, done, info = env.step(a)
+        #a = action.reshape(-1)
+        observations, rewards, done, info = env.step(action)
         #print(step, rewards)
-        action[0][2] = 0
+        action[0][2] = 1
         step += 1
 env.close()

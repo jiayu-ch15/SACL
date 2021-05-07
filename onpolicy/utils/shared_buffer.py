@@ -392,6 +392,11 @@ class SharedReplayBuffer(object):
         data_chunks = batch_size // data_chunk_length  # [C=r*T*M/L]
         mini_batch_size = data_chunks // num_mini_batch
 
+        assert n_rollout_threads * episode_length * num_agents >= data_chunk_length, (
+            "PPO requires the number of processes ({})* number of agents ({}) * episode length ({}) "
+            "to be greater than or equal to the number of "
+            "data chunk length ({}).".format(n_rollout_threads, num_agents, episode_length ,data_chunk_length))
+
         rand = torch.randperm(data_chunks).numpy()
         sampler = [rand[i*mini_batch_size:(i+1)*mini_batch_size] for i in range(num_mini_batch)]
 

@@ -36,7 +36,7 @@ def make_eval_env(all_args):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "Agar":
-                env = AgarEnv(all_args, eval = True)
+                env = AgarEnv(all_args, eval=True)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
