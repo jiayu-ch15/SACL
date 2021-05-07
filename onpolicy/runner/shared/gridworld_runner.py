@@ -7,6 +7,7 @@ from itertools import chain
 import torch
 import imageio
 from icecream import ic
+from collections import defaultdict, deque
 
 from onpolicy.utils.util import update_linear_schedule
 from onpolicy.runner.shared.base_runner import Runner
@@ -25,6 +26,9 @@ class GridWorldRunner(Runner):
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
 
         for episode in range(episodes):
+
+            self.env_infos = defaultdict(list)
+
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
 
@@ -64,13 +68,10 @@ class GridWorldRunner(Runner):
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
 
-                if self.env_name == "GridWorld":
-                    pass
-
                 train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
                 print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
                 self.log_train(train_infos, total_num_steps)
-                # self.log_env(env_infos, total_num_steps)
+                self.log_env(self.env_infos, total_num_steps)
 
             # eval
             if episode % self.eval_interval == 0 and self.use_eval:
@@ -78,12 +79,16 @@ class GridWorldRunner(Runner):
     
     def _convert(self, dict_obs):
         obs = {}
-        obs['image'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['image'].shape), dtype=np.float32)
-        obs['direction'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['direction'].shape), dtype=np.float32)
+        for key in self.envs.observation_space[0].spaces.keys():
+            obs[key] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0][key].shape), dtype=np.float32)
+        # obs['image'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['image'].shape), dtype=np.float32)
+        # obs['occupy_image'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['occupy_image'].shape), dtype=np.float32)
+        # obs['vector'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['vector'].shape), dtype=np.float32)
+        # obs['direction'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['direction'].shape), dtype=np.float32)
         for i, o in enumerate(dict_obs):
             for agent_id in range(self.num_agents):
-                obs['image'][i, agent_id] = o[agent_id]['image']
-                obs['direction'][i, agent_id] = np.eye(8)[o[agent_id]['direction']]
+                for key in obs.keys():
+                    obs[key][i, agent_id] = o[agent_id][key]
         return obs
 
     def warmup(self):
@@ -141,6 +146,13 @@ class GridWorldRunner(Runner):
 
     def insert(self, data):
         dict_obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
+
+        dones_env = np.all(dones, axis=-1)
+
+        for info, done_env in zip(infos, dones_env):
+            if done_env:
+                for key in info.keys():
+                    self.env_infos[key].append(info[key])
 
         rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)

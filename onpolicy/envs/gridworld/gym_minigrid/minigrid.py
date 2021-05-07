@@ -8,6 +8,7 @@ from gym.utils import seeding
 from .rendering import *
 import matplotlib.pyplot as plt
 from icecream import ic
+from functools import reduce
 
 # Size in pixels of a tile in the full-scale human view
 TILE_PIXELS = 32
@@ -54,6 +55,7 @@ OBJECT_TO_IDX = {
 
 RENDER_TO_IDX = {
     'mark'          : 0,
+    'not_mark'      : 1,
 }
 
 IDX_TO_OBJECT = dict(zip(OBJECT_TO_IDX.values(), OBJECT_TO_IDX.keys()))
@@ -119,7 +121,7 @@ class WorldObj:
 
     def encode(self):
         """Encode the a description of this object as a 3-tuple of integers"""
-        return (OBJECT_TO_IDX[self.type], COLOR_TO_IDX[self.color], 0)
+        return (OBJECT_TO_IDX[self.type]*20, COLOR_TO_IDX[self.color]*40, 0)
 
     @staticmethod
     def decode(type_idx, color_idx, state):
@@ -400,7 +402,7 @@ class RenderObj:
 
     def encode(self):
         """Encode the a description of this object as a 3-tuple of integers"""
-        return (RENDER_TO_IDX[self.type], *self.agent_list)
+        return (RENDER_TO_IDX[self.type]*100, *self.agent_list)
 
     def render(self, r):
         """Draw this object with the given renderer"""
@@ -410,11 +412,11 @@ class RenderObj:
 class Mark(RenderObj):
     def __init__(self, num_agents, agent_id):
         super(Mark, self).__init__('mark', num_agents)
-        self.agent_list[agent_id] = 1
+        self.agent_list[agent_id] = 255
 
     def render(self, img):
         for agent_id, occupy in enumerate(self.agent_list):
-            if occupy == 1: 
+            if occupy == 255: 
                 fill_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
                 signal_lamp_pos = [(0.031, 1, 0.031, 0.354), (0.031, 1, 0.354, 0.677), (0.031, 1, 0.677, 1.000)]
                 fill_coords(img, point_in_rect(*signal_lamp_pos[agent_id]),fill_colors[agent_id])
@@ -509,7 +511,6 @@ class Grid:
         """
         Get a subset of the grid
         """
-
         grid = Grid(width, height)
 
         for j in range(0, height):
@@ -700,7 +701,6 @@ class Grid:
             for j in range(self.height):
                 if vis_mask[i, j]:
                     v = self.get(i, j)
-
                     if v is None:
                         array[i, j, 0] = OBJECT_TO_IDX['empty']
                         array[i, j, 1] = 0
@@ -708,6 +708,27 @@ class Grid:
 
                     else:
                         array[i, j, :] = v.encode()
+
+        return array
+
+    def Mark_encode(self, num_agents, vis_mask=None):
+        """
+        Produce a compact numpy encoding of the grid, for the Mark
+        """
+
+        if vis_mask is None:
+            vis_mask = np.ones((self.width, self.height), dtype=bool)
+
+        array = np.zeros((self.width, self.height, 1+num_agents), dtype='uint8')
+
+        for i in range(self.width):
+            for j in range(self.height):
+                if vis_mask[i, j]:
+                    v = self.get(i, j)
+                    if v != None and v.type == "mark":
+                        array[i, j, :] = v.encode()
+                    else:
+                        array[i, j, 0] = RENDER_TO_IDX['not_mark']
 
         return array
 
@@ -829,15 +850,25 @@ class MiniGridEnv(gym.Env):
 
         # Observations are dictionaries containing an
         # encoding of the grid and a textual 'mission' string
-        self.observation_space = spaces.Box(
+        observation_space = spaces.Box(
             low=0,
             high=255,
             shape=(self.agent_view_size, self.agent_view_size, 3),
             dtype='uint8'
         )
+        occupy_observation_space = spaces.Box(
+            low=0,
+            high=255,
+            shape=(self.agent_view_size, self.agent_view_size, 1+self.num_agents),
+            dtype='uint8'
+        )
+        vector_observation_space = spaces.Box(
+            low=-1, high=1, shape=(self.num_agents + 8 + 4,), dtype='int')
+
         self.observation_space = [spaces.Dict({
-            'image': self.observation_space,
-            'direction': gym.spaces.Box(low=-1, high=1, shape=(8,), dtype='int')
+            'image': observation_space,
+            'occupy_image': occupy_observation_space,
+            'vector': vector_observation_space,
         }) for _ in range(self.num_agents)]
 
         # Range of possible rewards
@@ -852,6 +883,12 @@ class MiniGridEnv(gym.Env):
         self.max_steps = max_steps
         self.see_through_walls = see_through_walls
 
+        # Create the figure and axes
+        self.fig, self.ax = plt.subplots(2, self.num_agents)
+
+        # Show the env name in the window title
+        self.fig.canvas.set_window_title("occupy")
+
     def reset(self, choose=True):
         # Current position and direction of the agent
         self.agent_pos = []
@@ -859,6 +896,7 @@ class MiniGridEnv(gym.Env):
 
         # clear the num_reach_goal
         self.num_reach_goal = 0
+        self.num_same_direction = 0
 
         # Generate a new random grid at the start of each episode
         # To keep the same grid for each episode, call env.seed() with
@@ -1146,7 +1184,7 @@ class MiniGridEnv(gym.Env):
             v = self.occupy_grid.get(*p)
 
             if v != None and v.type == "mark":
-                v.agent_list[agent_id] = 1
+                v.agent_list[agent_id] = 255
             else:
                 R_obj = Mark(self.num_agents, agent_id)
                 self.occupy_grid.set(*p, R_obj)
@@ -1305,10 +1343,13 @@ class MiniGridEnv(gym.Env):
             # Move forward
             elif action[agent_id] == self.actions.forward:
                 if fwd_cell == None or fwd_cell.can_overlap():
+                    if np.any(np.sign(fwd_pos-self.agent_pos[agent_id]) == self.direction[agent_id]):
+                        reward += self.direction_alpha
+                        self.num_same_direction += 1
                     self.agent_pos[agent_id] = fwd_pos
                     v = self.occupy_grid.get(*fwd_pos)
                     if v != None and v.type == "mark":
-                        v.agent_list[agent_id] = 1
+                        v.agent_list[agent_id] = 255
                     else:
                         R_obj = Mark(self.num_agents, agent_id)
                         self.occupy_grid.set(*fwd_pos, R_obj)
@@ -1365,9 +1406,11 @@ class MiniGridEnv(gym.Env):
         topX, topY, botX, botY = self.get_view_exts(agent_id)
 
         grid = self.grid.slice(topX, topY, self.agent_view_size, self.agent_view_size)
+        occupy_grid = self.occupy_grid.slice(topX, topY, self.agent_view_size, self.agent_view_size)
 
         for i in range(self.agent_dir[agent_id] + 1):
             grid = grid.rotate_left()
+            occupy_grid = occupy_grid.rotate_left()
 
         # Process occluders and visibility
         # Note that this incurs some performance cost
@@ -1385,17 +1428,18 @@ class MiniGridEnv(gym.Env):
         else:
             grid.set(*agent_pos, None)
 
-        return grid, vis_mask
+        return grid, occupy_grid, vis_mask
 
     def gen_obs(self, agent_id):
         """
         Generate the agent's view (partially observable, low-resolution encoding)
         """
 
-        grid, vis_mask = self.gen_obs_grid(agent_id)
+        grid, occupy_grid, vis_mask = self.gen_obs_grid(agent_id)
 
         # Encode the partially observable view into a numpy array
         image = grid.encode(vis_mask)
+        occupy_image = occupy_grid.Mark_encode(self.num_agents, vis_mask)
 
         assert hasattr(self, 'mission'), "environments must define a textual mission string"
 
@@ -1405,7 +1449,8 @@ class MiniGridEnv(gym.Env):
         # - a textual mission string (instructions for the agent)
         obs = {
             'image': image,
-            'direction': self.agent_dir[agent_id],
+            'occupy_image': occupy_image,
+            'vector':np.concatenate([self.direction_encoder[agent_id], np.eye(4)[self.agent_dir[agent_id]], np.eye(self.num_agents)[agent_id]]),
             'mission': self.mission
         }
 
@@ -1427,7 +1472,7 @@ class MiniGridEnv(gym.Env):
                 agent_dir=3,
                 highlight_mask=vis_mask
             ))
-
+        
         return img
 
     def render(self, mode='human', close=False, highlight=True, tile_size=TILE_PIXELS):
@@ -1451,14 +1496,24 @@ class MiniGridEnv(gym.Env):
 
         for agent_id in range(self.num_agents):
             # Compute which cells are visible to the agent
-            _, vis_mask = self.gen_obs_grid(agent_id)
+            grid, occupy_grid, vis_mask = self.gen_obs_grid(agent_id)
 
+            image = grid.encode(vis_mask)
+            occupy_image = occupy_grid.Mark_encode(self.num_agents, vis_mask)
+
+            for i in range(image.shape[-1]):
+                image[:,:,i] = image[:,:,i].T
+            for i in range(occupy_image.shape[-1]):
+                occupy_image[:,:,i] = occupy_image[:,:,i].T
+
+            self.ax[0, agent_id].imshow(image/255.0)
+            self.ax[1, agent_id].imshow(occupy_image/255.0)
+            
             # Compute the world coordinates of the bottom-left corner
             # of the agent's view area
             f_vec = self.dir_vec(agent_id)
             r_vec = self.right_vec(agent_id)
             top_left = self.agent_pos[agent_id] + f_vec * (self.agent_view_size-1) - r_vec * (self.agent_view_size // 2)
-
             
             # For each cell in the visibility mask
             for vis_j in range(0, self.agent_view_size):
@@ -1503,17 +1558,43 @@ class MiniGridEnv(gym.Env):
         return img, occupy_img
 
     def get_direction_encoder(self):
+
+        def str2int(s):
+            def fn(x,y):
+                return x*10+y
+            def char2num(s):
+                return {'0':0, '1':1, '2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9}[s]
+            return reduce(fn,map(char2num,s))
+
         self.render(mode='human', close=False)
         array_direction = np.array([[0,1], [0,-1], [1,0], [-1,0], [1,1], [1,-1], [-1,1], [-1,-1]])
         print (" Refer each predator as the coordinate origin, input the direciton of the prey relative to it.\n \
            Right is the positive direction of the X-axis,\n Below is the positive direction of the Y-axis.\n \
-               0--[1,1] , 1--[1,-1], 2--[-1,1], 3--[-1,-1], i.e. 000")
-        all_command = int(input("Enter the command: "))
-        command = []
-        command.append(all_command // 100)
-        command.append((all_command - command[0] * 100) // 10)
-        command.append(all_command % 10)
-        print(command)
+               0--[0,1] , 1--[0,-1], 2--[1,0], 3--[-1,0], 4--[1,1], 5--[1,-1], 6--[-1,1], 7--[-1,-1], i.e. 000")
+        while True:
+            all_command = input("Enter the command: ")
+            if all_command.isdigit():
+                all_command = str2int(all_command)
+                command = []
+                command.append(all_command // 100)
+                command.append((all_command - command[0] * 100) // 10)
+                command.append(all_command % 10)
+                indicator = False
+                for i in command:
+                    if i in range(0,8):
+                        pass
+                    else:
+                        indicator = True
+                        break
+                if indicator:
+                    print("CommandError, please try again")
+                    continue
+                else:
+                    print(command)
+                    break
+            else:
+                print("CommandError, please try again")
+                continue
         for agent_id in range(self.num_agents):
             self.direction_index[agent_id] = command[agent_id]
             self.direction[agent_id] = array_direction[command[agent_id]]
