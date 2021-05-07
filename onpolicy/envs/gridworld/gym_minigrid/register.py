@@ -10,6 +10,8 @@ def register(
     agent_view_size,
     num_obstacles,
     agent_pos,
+    direction_alpha,
+    use_human_command,   
     entry_point,
     reward_threshold=0.95
 ):
@@ -25,7 +27,9 @@ def register(
         'max_steps': max_steps,
         'agent_view_size': agent_view_size,
         'num_obstacles': num_obstacles,
-        'agent_pos': agent_pos
+        'agent_pos': agent_pos,
+        'direction_alpha': direction_alpha,
+        'use_human_command': use_human_command,   
         },
         reward_threshold=reward_threshold
     )

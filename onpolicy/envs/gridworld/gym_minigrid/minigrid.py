@@ -113,7 +113,7 @@ class WorldObj:
 
     def encode(self):
         """Encode the a description of this object as a 3-tuple of integers"""
-        return (OBJECT_TO_IDX[self.type], COLOR_TO_IDX[self.color], 0)
+        return (OBJECT_TO_IDX[self.type] * 20, COLOR_TO_IDX[self.color] * 20, 0)
 
     @staticmethod
     def decode(type_idx, color_idx, state):
@@ -528,6 +528,7 @@ class Grid:
         tile_size,
         agent_pos=None,
         agent_dir=None,
+        direction=None,
         highlight_mask=None
     ):
         """
@@ -632,7 +633,7 @@ class Grid:
                     v = self.get(i, j)
 
                     if v is None:
-                        array[i, j, 0] = OBJECT_TO_IDX['empty']
+                        array[i, j, 0] = OBJECT_TO_IDX['empty'] * 20
                         array[i, j, 1] = 0
                         array[i, j, 2] = 0
 
@@ -698,7 +699,8 @@ class Grid:
             for i in range(0, grid.width):
                 if not mask[i, j]:
                     grid.set(i, j, None)
-        local_map = grid.encode()[:,:,0]
+
+        '''local_map = grid.encode()[:,:,0]
         for i in range(agent_pos[0]-1, 0, -1):
             if local_map[i, agent_pos[1]] != 1:
                 mask[:i, agent_pos[1]] = False
@@ -711,7 +713,7 @@ class Grid:
             for j in range(agent_pos[1]-1, 0, -1):
                 if local_map[i, j] != 1:
                     mask[i, :j]=False
-                    break            
+                    break'''            
         #import pdb; pdb.set_trace()
         return mask
 
@@ -820,6 +822,8 @@ class MiniGridEnv(gym.Env):
             low=0, high=1, shape=(4, self.full_w, self.full_h), dtype='uint8')
         global_observation_space['global_merge_obs'] = gym.spaces.Box(
             low=0, high=1, shape=(4, self.full_w, self.full_h), dtype='uint8')
+        global_observation_space['image'] = gym.spaces.Box(
+            low=0, high=255, shape=(self.full_w, self.full_h, 3), dtype='uint8')
         global_observation_space['vector'] = gym.spaces.Box(
             low=-1, high=1, shape=(self.num_agents + 8 + 4,), dtype='float')
         share_global_observation_space = global_observation_space.copy()
@@ -1411,7 +1415,7 @@ class MiniGridEnv(gym.Env):
 
         return img
 
-    def render(self, mode='human', close=False, highlight=True, tile_size=TILE_PIXELS):
+    def render(self, mode='multi_exploration', close=False, highlight=True, tile_size=TILE_PIXELS):
         """
         Render the whole-grid human view
         """
@@ -1421,8 +1425,7 @@ class MiniGridEnv(gym.Env):
                 self.window.close()
             return
 
-
-        if mode == 'human' and not self.window:
+        if mode == 'multi_exploration' and not self.window:
             from onpolicy.envs.gridworld.gym_minigrid.window import Window
             self.window = Window('gym_minigrid')
             self.window.show(block=False)
@@ -1465,10 +1468,11 @@ class MiniGridEnv(gym.Env):
             tile_size,
             self.agent_pos,
             self.agent_dir,
-            highlight_mask=highlight_mask if highlight else None
+            self.direction_index,
+            highlight_mask = self.explored_map.T if highlight else None #highlight_mask 
         )
 
-        if mode == 'human':
+        if mode == 'multi_exploration':
             self.window.set_caption(self.mission)
             self.window.show_img(img)
 
