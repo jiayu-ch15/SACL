@@ -511,7 +511,6 @@ class Grid:
         """
         Get a subset of the grid
         """
-
         grid = Grid(width, height)
 
         for j in range(0, height):
@@ -702,7 +701,6 @@ class Grid:
             for j in range(self.height):
                 if vis_mask[i, j]:
                     v = self.get(i, j)
-
                     if v is None:
                         array[i, j, 0] = OBJECT_TO_IDX['empty']
                         array[i, j, 1] = 0
@@ -723,18 +721,11 @@ class Grid:
 
         array = np.zeros((self.width, self.height, 1+num_agents), dtype='uint8')
 
-
-        
-        
         for i in range(self.width):
             for j in range(self.height):
                 if vis_mask[i, j]:
                     v = self.get(i, j)
-                    # see if v is Mark?
-                    condition = False
-                    for agent_id in range(num_agents):
-                        condition = condition or (v != None and v.type == "mark")
-                    if condition:
+                    if v != None and v.type == "mark":
                         array[i, j, :] = v.encode()
                     else:
                         array[i, j, 0] = RENDER_TO_IDX['not_mark']
@@ -891,6 +882,12 @@ class MiniGridEnv(gym.Env):
         self.height = height
         self.max_steps = max_steps
         self.see_through_walls = see_through_walls
+
+        # Create the figure and axes
+        self.fig, self.ax = plt.subplots(2, self.num_agents)
+
+        # Show the env name in the window title
+        self.fig.canvas.set_window_title("occupy")
 
     def reset(self, choose=True):
         # Current position and direction of the agent
@@ -1439,6 +1436,7 @@ class MiniGridEnv(gym.Env):
         """
 
         grid, occupy_grid, vis_mask = self.gen_obs_grid(agent_id)
+
         # Encode the partially observable view into a numpy array
         image = grid.encode(vis_mask)
         occupy_image = occupy_grid.Mark_encode(self.num_agents, vis_mask)
@@ -1474,7 +1472,7 @@ class MiniGridEnv(gym.Env):
                 agent_dir=3,
                 highlight_mask=vis_mask
             ))
-
+        
         return img
 
     def render(self, mode='human', close=False, highlight=True, tile_size=TILE_PIXELS):
@@ -1498,14 +1496,24 @@ class MiniGridEnv(gym.Env):
 
         for agent_id in range(self.num_agents):
             # Compute which cells are visible to the agent
-            _, _, vis_mask = self.gen_obs_grid(agent_id)
+            grid, occupy_grid, vis_mask = self.gen_obs_grid(agent_id)
 
+            image = grid.encode(vis_mask)
+            occupy_image = occupy_grid.Mark_encode(self.num_agents, vis_mask)
+
+            for i in range(image.shape[-1]):
+                image[:,:,i] = image[:,:,i].T
+            for i in range(occupy_image.shape[-1]):
+                occupy_image[:,:,i] = occupy_image[:,:,i].T
+
+            self.ax[0, agent_id].imshow(image/255.0)
+            self.ax[1, agent_id].imshow(occupy_image/255.0)
+            
             # Compute the world coordinates of the bottom-left corner
             # of the agent's view area
             f_vec = self.dir_vec(agent_id)
             r_vec = self.right_vec(agent_id)
             top_left = self.agent_pos[agent_id] + f_vec * (self.agent_view_size-1) - r_vec * (self.agent_view_size // 2)
-
             
             # For each cell in the visibility mask
             for vis_j in range(0, self.agent_view_size):
