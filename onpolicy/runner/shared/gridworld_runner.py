@@ -7,6 +7,8 @@ from itertools import chain
 import torch
 import imageio
 from icecream import ic
+import matplotlib.pyplot as plt
+import cv2
 from collections import defaultdict, deque
 
 from onpolicy.utils.util import update_linear_schedule
@@ -18,6 +20,7 @@ def _t2n(x):
 class GridWorldRunner(Runner):
     def __init__(self, config):
         super(GridWorldRunner, self).__init__(config)
+        self.init_map_variables() 
 
     def run(self):
         self.warmup()   
@@ -26,8 +29,6 @@ class GridWorldRunner(Runner):
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
 
         for episode in range(episodes):
-
-            self.env_infos = defaultdict(list)
 
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
@@ -38,11 +39,14 @@ class GridWorldRunner(Runner):
                     
                 # Obser reward and next obs
                 dict_obs, rewards, dones, infos = self.envs.step(actions)
+
                 
                 data = dict_obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
 
                 # insert data into buffer
                 self.insert(data)
+                if step == self.episode_length-1:
+                    self.init_map_variables() 
 
             # compute return and update network
             self.compute()
@@ -68,40 +72,98 @@ class GridWorldRunner(Runner):
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
 
+                if self.env_name == "GridWorld":
+                    env_infos = defaultdict(list)
+                    for info in infos:
+                        env_infos['merge_explored_ratio'].append(info['merge_explored_ratio'])
+                        env_infos['num_same_direction'].append(info['num_same_direction'])
+
                 train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
                 print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
+                print("average episode ratio is {}".format(np.mean(env_infos["merge_explored_ratio"])))
                 self.log_train(train_infos, total_num_steps)
-                self.log_env(self.env_infos, total_num_steps)
+                self.log_env(env_infos, total_num_steps)
 
             # eval
             if episode % self.eval_interval == 0 and self.use_eval:
                 self.eval(total_num_steps)
     
-    def _convert(self, dict_obs):
+    def _convert(self, dict_obs, infos):
         obs = {}
-        for key in self.envs.observation_space[0].spaces.keys():
-            obs[key] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0][key].shape), dtype=np.float32)
-        # obs['image'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['image'].shape), dtype=np.float32)
-        # obs['occupy_image'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['occupy_image'].shape), dtype=np.float32)
-        # obs['vector'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['vector'].shape), dtype=np.float32)
-        # obs['direction'] = np.zeros((len(dict_obs), self.num_agents, *self.envs.observation_space[0]['direction'].shape), dtype=np.float32)
-        for i, o in enumerate(dict_obs):
+        obs['image'] = np.zeros((len(dict_obs), self.num_agents, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size, 3), dtype=np.float32)
+        obs['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents+4+8), dtype=np.float32)
+        obs['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size), dtype=np.float32)
+        agent_pos_map = np.zeros((self.n_rollout_threads, self.num_agents, self.full_w, self.full_h), dtype=np.float32)
+        if self.use_merge:
+            obs['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size), dtype=np.float32)
+            merge_pos_map = np.zeros((self.n_rollout_threads, self.full_w, self.full_h), dtype=np.float32)
+        for e in range(self.n_rollout_threads):
             for agent_id in range(self.num_agents):
-                for key in obs.keys():
-                    obs[key][i, agent_id] = o[agent_id][key]
+                index_a_1 = infos[e]['current_agent_pos'][agent_id][0]-1 if infos[e]['current_agent_pos'][agent_id][0]-1 > 0 else 0
+                index_a_2 = infos[e]['current_agent_pos'][agent_id][0]+1 if infos[e]['current_agent_pos'][agent_id][0]+1 < self.full_w else self.full_w 
+                index_b_1 = infos[e]['current_agent_pos'][agent_id][1]-1 if infos[e]['current_agent_pos'][agent_id][1]-1 > 0 else 0
+                index_b_2 = infos[e]['current_agent_pos'][agent_id][1]+1 if infos[e]['current_agent_pos'][agent_id][1]+1 < self.full_h else self.full_h
+                agent_pos_map[e , agent_id, int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] = agent_id + 1
+                self.all_agent_pos_map[e , agent_id, int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] = agent_id + 1
+                if self.use_merge:
+                    merge_pos_map[e , int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] = agent_id + 1
+                    self.all_merge_pos_map[e , int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] = agent_id + 1
+
+        for e in range(self.n_rollout_threads):
+            for agent_id in range(self.num_agents):
+                #import pdb;pdb.set_trace()
+                obs['global_obs'][e, agent_id, 0] = infos[e]['explored_each_map'][agent_id][self.agent_view_size : self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
+                obs['global_obs'][e, agent_id, 1] = infos[e]['obstacle_each_map'][agent_id][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
+                obs['global_obs'][e, agent_id, 2] = agent_pos_map[e, agent_id][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
+                obs['global_obs'][e, agent_id, 3] = self.all_agent_pos_map[e, agent_id][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
+                obs['image'][e, agent_id] = cv2.resize(infos[e]['agent_local_map'][agent_id], (self.full_w - 2*self.agent_view_size, self.full_h - 2*self.agent_view_size))
+                if self.use_merge:
+                    obs['global_merge_obs'][e, agent_id, 0] = infos[e]['explored_all_map'][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
+                    obs['global_merge_obs'][e, agent_id, 1] = infos[e]['obstacle_all_map'][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
+                    obs['global_merge_obs'][e, agent_id, 2] = merge_pos_map[e][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
+                    obs['global_merge_obs'][e, agent_id, 3] = self.all_merge_pos_map[e][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
+
+                obs['vector'][e, agent_id] = np.concatenate([np.eye(self.num_agents)[agent_id], np.eye(4)[infos[e]['agent_direction'][agent_id]], np.eye(8)[infos[e]['human_direction'][agent_id]]])
+
+        if self.visualize_input:
+            self.visualize_obs(self.fig, self.ax, obs)
+
         return obs
 
     def warmup(self):
         # reset env
-        dict_obs = self.envs.reset()
-        obs = self._convert(dict_obs)
-        share_obs = self._convert(dict_obs)
+        dict_obs, info = self.envs.reset()
+        obs = self._convert(dict_obs, info)
+        share_obs = self._convert(dict_obs, info)
 
         for key in obs.keys():
             self.buffer.obs[key][0] = obs[key].copy()
 
         for key in share_obs.keys():
             self.buffer.share_obs[key][0] = share_obs[key].copy()
+    
+    def init_map_variables(self):
+        ### Full map consists of 4 channels containing the following:
+        ### 1. Obstacle Map
+        ### 2. Exploread Area
+        ### 3. Current Agent Location
+        ### 4. Past Agent Locations
+
+        # Calculating full and local map sizes
+        map_size = self.all_args.grid_size
+        self.use_merge = self.all_args.use_merge
+        self.agent_view_size = self.all_args.agent_view_size
+        self.full_w, self.full_h = map_size + 2*self.agent_view_size, map_size + 2*self.agent_view_size
+        self.visualize_input = self.all_args.visualize_input
+        if self.visualize_input:
+            plt.ion()
+            self.fig, self.ax = plt.subplots(self.num_agents*3, 4, figsize=(10, 2.5), facecolor="whitesmoke")
+    
+        # Initializing full, merge and local map
+        self.all_agent_pos_map = np.zeros((self.n_rollout_threads, self.num_agents, self.full_w, self.full_h), dtype=np.float32)
+        if self.use_merge:
+            self.all_merge_pos_map = np.zeros((self.n_rollout_threads, self.full_w, self.full_h), dtype=np.float32)
+        
 
     @torch.no_grad()
     def collect(self, step):
@@ -147,30 +209,46 @@ class GridWorldRunner(Runner):
     def insert(self, data):
         dict_obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
 
-        dones_env = np.all(dones, axis=-1)
-
-        for info, done_env in zip(infos, dones_env):
-            if done_env:
-                for key in info.keys():
-                    self.env_infos[key].append(info[key])
-
-        rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
-        rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
+        rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+        rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
         masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-        masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
+        masks[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, 1), dtype=np.float32)
 
-        obs = self._convert(dict_obs)
-        share_obs = self._convert(dict_obs)
+        obs = self._convert(dict_obs, infos)
+        share_obs = self._convert(dict_obs, infos)
 
         self.buffer.insert(share_obs, obs, rnn_states, rnn_states_critic, actions, action_log_probs, values, rewards, masks)
+    
+    def visualize_obs(self, fig, ax, obs):
+        # individual
+        for agent_id in range(self.num_agents * 3):
+            sub_ax = ax[agent_id]
+            for i in range(4):
+                sub_ax[i].clear()
+                sub_ax[i].set_yticks([])
+                sub_ax[i].set_xticks([])
+                sub_ax[i].set_yticklabels([])
+                sub_ax[i].set_xticklabels([])
+                if agent_id < self.num_agents:
+                    sub_ax[i].imshow(obs['global_obs'][0, agent_id, i])
+                elif agent_id < self.num_agents*2 and self.use_merge:
+                    sub_ax[i].imshow(obs['global_merge_obs'][0, agent_id-self.num_agents, i])
+                elif i<3: sub_ax[i].imshow(obs['image'][0, agent_id-self.num_agents*2, :,:,i])
+                #elif i < 5:
+                    #sub_ax[i].imshow(obs['global_merge_goal'][0, agent_id-self.num_agents, i-4])
+                    #sub_ax[i].imshow(obs['gt_map'][0, agent_id - self.num_agents, i-4])
+        plt.gcf().canvas.flush_events()
+        # plt.pause(0.1)
+        fig.canvas.start_event_loop(0.001)
+        plt.gcf().canvas.flush_events()
 
     @torch.no_grad()
     def eval(self, total_num_steps):
         eval_episode_rewards = []
 
         reset_choose = np.ones(self.n_eval_rollout_threads) == 1.0
-        eval_dict_obs = self.eval_envs.reset(reset_choose)
-        eval_obs = self._convert(eval_dict_obs)
+        eval_dict_obs, eval_infos = self.eval_envs.reset()
+        eval_obs = self._convert(eval_dict_obs, eval_infos)
 
         eval_rnn_states = np.zeros((self.n_eval_rollout_threads, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
@@ -191,7 +269,7 @@ class GridWorldRunner(Runner):
             
             # Obser reward and next obs
             eval_dict_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions)
-            eval_obs = self._convert(eval_dict_obs)
+            eval_obs = self._convert(eval_dict_obs, eval_infos)
 
             eval_episode_rewards.append(eval_rewards)
 
@@ -207,20 +285,22 @@ class GridWorldRunner(Runner):
 
     @torch.no_grad()
     def render(self):
+        env_infos = defaultdict(list)
+
         envs = self.envs
         
         all_frames = []
-        all_occupy_frames = []
+        all_local_frames = []
         for episode in range(self.all_args.render_episodes):
             ic(episode)
             reset_choose = np.ones(self.n_rollout_threads) == 1.0
-            dict_obs = envs.reset(reset_choose)
-            obs = self._convert(dict_obs)
+            dict_obs, infos = envs.reset()
+            obs = self._convert(dict_obs, infos)
 
             if self.all_args.save_gifs:
-                image, occupy_image = envs.render('rgb_array')[0]
+                image, local_image = envs.render('rgb_array')[0]
                 all_frames.append(image)
-                all_occupy_frames.append(occupy_image)
+                all_local_frames.append(local_image)
             else:
                 envs.render('human')
 
@@ -248,17 +328,17 @@ class GridWorldRunner(Runner):
 
                 # Obser reward and next obs
                 dict_obs, rewards, dones, infos = envs.step(actions)
-                obs = self._convert(dict_obs)
+                obs = self._convert(dict_obs, infos)
                 episode_rewards.append(rewards)
 
-                rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
+                rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
                 masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-                masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
+                masks[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, 1), dtype=np.float32)
 
                 if self.all_args.save_gifs:
-                    image, occupy_image = envs.render('rgb_array')[0]
+                    image, local_image = envs.render('rgb_array')[0]
                     all_frames.append(image)
-                    all_occupy_frames.append(occupy_image)
+                    all_local_frames.append(local_image)
                     calc_end = time.time()
                     elapsed = calc_end - calc_start
                     if elapsed < self.all_args.ifi:
@@ -269,9 +349,15 @@ class GridWorldRunner(Runner):
                 if np.all(dones[0]):
                     ic("end")
                     break
+   
+            for info in infos:
+                env_infos['merge_explored_ratio'].append(info['merge_explored_ratio'])
+                env_infos['num_same_direction'].append(info['num_same_direction'])
 
             print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
-
+            print("average merge explored ratio is: " + str(np.mean(env_infos['merge_explored_ratio'])))
+            print("average num same direction is: " + str(np.mean(env_infos['num_same_direction'])))
+            
         if self.all_args.save_gifs:
-            imageio.mimsave(str(self.gif_dir) + '/render.gif', all_frames, duration=self.all_args.ifi)
-            imageio.mimsave(str(self.gif_dir) + '/render_occupy.gif', all_occupy_frames, duration=self.all_args.ifi)
+            imageio.mimsave(str(self.gif_dir) + '/merge.gif', all_frames, duration=self.all_args.ifi)
+            imageio.mimsave(str(self.gif_dir) + '/local.gif', all_local_frames, duration=self.all_args.ifi)

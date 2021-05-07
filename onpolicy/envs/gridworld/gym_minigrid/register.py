@@ -5,12 +5,14 @@ env_list = []
 def register(
     id,
     num_agents,
-    num_preies,
+    grid_size,
+    max_steps,
+    agent_view_size,
     num_obstacles,
-    use_direction_reward,
+    agent_pos,
     direction_alpha,
     use_human_command,
-    coverage_discounter,
+    use_merge,   
     entry_point,
     reward_threshold=0.95
 ):
@@ -21,13 +23,16 @@ def register(
     gym_register(
         id=id,
         entry_point=entry_point,
-        kwargs={'num_agents': num_agents, \
-        'num_preies': num_preies, \
-        'num_obstacles': num_obstacles, \
-        'use_direction_reward': use_direction_reward, \
-        'direction_alpha': direction_alpha, \
-        'use_human_command': use_human_command, \
-        'coverage_discounter': coverage_discounter},
+        kwargs={'num_agents': num_agents,
+        'grid_size': grid_size,
+        'max_steps': max_steps,
+        'agent_view_size': agent_view_size,
+        'num_obstacles': num_obstacles,
+        'agent_pos': agent_pos,
+        'direction_alpha': direction_alpha,
+        'use_human_command': use_human_command, 
+        'use_merge': use_merge  
+        },
         reward_threshold=reward_threshold
     )
 
