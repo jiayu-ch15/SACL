@@ -180,7 +180,7 @@ class MultiExplorationEnv(MiniGridEnv):
                             continue
                         else:
                             self.explored_each_map[i][x+pos[0]-self.agent_view_size//2][y+pos[1]] = 1
-                            if local_map[x][y] != 1:
+                            if local_map[x][y] != 20:
                                 self.obstacle_each_map[i][x+pos[0]-self.agent_view_size//2][y+pos[1]] = 1
             if direction == 1:# Facing down
                 for x in range(self.agent_view_size):
@@ -189,7 +189,7 @@ class MultiExplorationEnv(MiniGridEnv):
                             continue
                         else:
                             self.explored_each_map[i][x+pos[0]][y+pos[1]-self.agent_view_size//2] = 1
-                            if local_map[x][y] != 1:
+                            if local_map[x][y] != 20:
                                 self.obstacle_each_map[i][x+pos[0]][y+pos[1]-self.agent_view_size//2] = 1
             if direction == 2:# Facing left
                 for x in range(self.agent_view_size):
@@ -207,7 +207,7 @@ class MultiExplorationEnv(MiniGridEnv):
                             continue
                         else:
                             self.explored_each_map[i][x+pos[0]-self.agent_view_size+1][y+pos[1]-self.agent_view_size//2] = 1
-                            if local_map[x][y] != 1:
+                            if local_map[x][y] != 20:
                                 self.obstacle_each_map[i][x+pos[0]-self.agent_view_size+1][y+pos[1]-self.agent_view_size//2] = 1
             for j in range(3):
                 mmap = np.rot90(obs[i]['image'][:,:,j].T,3)
