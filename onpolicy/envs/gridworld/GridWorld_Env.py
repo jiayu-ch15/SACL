@@ -8,7 +8,8 @@ class GridWorldEnv(object):
 
         self.num_agents = args.num_agents
         self.scenario_name = args.scenario_name
-        self.agent_pos = args.agent_pos
+        self.use_random_pos = args.use_random_pos
+        self.agent_pos = None if self.use_random_pos else args.agent_pos
         self.num_obstacles = args.num_obstacles
 
         register(
@@ -20,7 +21,8 @@ class GridWorldEnv(object):
             num_obstacles = self.num_obstacles,
             agent_pos = self.agent_pos, 
             direction_alpha = args.direction_alpha,
-            use_human_command = args.use_human_command,    
+            use_human_command = args.use_human_command,  
+            use_merge = args.use_merge,  
             entry_point = 'onpolicy.envs.gridworld.gym_minigrid.envs:MultiExplorationEnv'
         )
 
@@ -44,7 +46,7 @@ class GridWorldEnv(object):
 
     def step(self, actions):
         obs, rewards, dones, infos = self.env.step(actions)
-        rewards = np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+        rewards = np.expand_dims(np.array([infos['merge_explored_reward']+rewards for _ in range(self.num_agents)]), axis=1)
         return obs, rewards, dones, infos
 
     def close(self):

@@ -1014,10 +1014,10 @@ class InfoDummyVecEnv(ShareVecEnv):
         for env in self.envs:
             env.close()
     
-    def render(self, mode="multi_exploration"):
+    def render(self, mode="human"):
         if mode == "rgb_array":
             return np.array([env.render(mode=mode) for env in self.envs])
-        elif mode == "multi_exploration":
+        elif mode == "human":
             for env in self.envs:
                 env.render(mode=mode)
         else:
@@ -1054,10 +1054,10 @@ class ChooseDummyVecEnv(ShareVecEnv):
         for env in self.envs:
             env.close()
 
-    def render(self, mode="multi_exploration"):
+    def render(self, mode="human"):
         if mode == "rgb_array":
             return np.array([env.render(mode=mode) for env in self.envs])
-        elif mode == "multi_exploration":
+        elif mode == "human":
             for env in self.envs:
                 env.render(mode=mode)
         else:

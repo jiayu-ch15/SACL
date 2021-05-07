@@ -792,7 +792,8 @@ class MiniGridEnv(gym.Env):
         max_steps=100,
         see_through_walls=False,
         seed=1337,
-        agent_view_size=7
+        agent_view_size=7,
+        use_merge = True,
     ):  
         self.num_agents = num_agents
         # Can't set both grid_size and width/height
@@ -820,8 +821,9 @@ class MiniGridEnv(gym.Env):
         global_observation_space = {}
         global_observation_space['global_obs'] = gym.spaces.Box(
             low=0, high=1, shape=(4, self.full_w, self.full_h), dtype='uint8')
-        global_observation_space['global_merge_obs'] = gym.spaces.Box(
-            low=0, high=1, shape=(4, self.full_w, self.full_h), dtype='uint8')
+        if use_merge:
+            global_observation_space['global_merge_obs'] = gym.spaces.Box(
+                low=0, high=1, shape=(4, self.full_w, self.full_h), dtype='uint8')
         global_observation_space['image'] = gym.spaces.Box(
             low=0, high=255, shape=(self.full_w, self.full_h, 3), dtype='uint8')
         global_observation_space['vector'] = gym.spaces.Box(
@@ -1297,6 +1299,7 @@ class MiniGridEnv(gym.Env):
                 if fwd_cell == None or fwd_cell.can_overlap():
                     if np.any(np.sign(fwd_pos-self.agent_pos[agent_id]) == self.direction[agent_id]):
                         reward += self.direction_alpha
+                        self.num_same_direction += 1
                     self.agent_pos[agent_id] = fwd_pos
                 if fwd_cell != None and fwd_cell.type == 'goal':
                     done = True
@@ -1415,7 +1418,7 @@ class MiniGridEnv(gym.Env):
 
         return img
 
-    def render(self, mode='multi_exploration', close=False, highlight=True, tile_size=TILE_PIXELS):
+    def render(self, mode='human', close=False, highlight=True, tile_size=TILE_PIXELS):
         """
         Render the whole-grid human view
         """
@@ -1425,7 +1428,7 @@ class MiniGridEnv(gym.Env):
                 self.window.close()
             return
 
-        if mode == 'multi_exploration' and not self.window:
+        if mode == 'human' and not self.window:
             from onpolicy.envs.gridworld.gym_minigrid.window import Window
             self.window = Window('gym_minigrid')
             self.window.show(block=False)
@@ -1472,11 +1475,20 @@ class MiniGridEnv(gym.Env):
             highlight_mask = self.explored_map.T if highlight else None #highlight_mask 
         )
 
-        if mode == 'multi_exploration':
-            self.window.set_caption(self.mission)
-            self.window.show_img(img)
+        local_img = self.grid.render(
+            self.num_agents,
+            tile_size,
+            self.agent_pos,
+            self.agent_dir,
+            self.direction_index,
+            highlight_mask = highlight_mask if highlight else None #
+        )
 
-        return img
+        if mode == 'human':
+            self.window.set_caption(self.mission)
+            self.window.show_img(img, local_img)
+
+        return img, local_img
 
     def get_direction_encoder(self):
 

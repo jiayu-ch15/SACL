@@ -11,7 +11,8 @@ def register(
     num_obstacles,
     agent_pos,
     direction_alpha,
-    use_human_command,   
+    use_human_command,
+    use_merge,   
     entry_point,
     reward_threshold=0.95
 ):
@@ -29,7 +30,8 @@ def register(
         'num_obstacles': num_obstacles,
         'agent_pos': agent_pos,
         'direction_alpha': direction_alpha,
-        'use_human_command': use_human_command,   
+        'use_human_command': use_human_command, 
+        'use_merge': use_merge  
         },
         reward_threshold=reward_threshold
     )
