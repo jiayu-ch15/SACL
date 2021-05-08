@@ -12,7 +12,7 @@ import torch
 from onpolicy.config import get_config
 
 from onpolicy.envs.gridworld.GridWorld_Env import GridWorldEnv
-from onpolicy.envs.env_wrappers import InfoSubprocVecEnv, InfoDummyVecEnv
+from onpolicy.envs.env_wrappers import ChooseInfoSubprocVecEnv, ChooseInfoDummyVecEnv
 
 def make_render_env(all_args):
     def get_env_fn(rank):
@@ -27,9 +27,9 @@ def make_render_env(all_args):
             return env
         return init_env
     if all_args.n_rollout_threads == 1:
-        return InfoDummyVecEnv([get_env_fn(0)])
+        return ChooseInfoDummyVecEnv([get_env_fn(0)])
     else:
-        return InfoSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
+        return ChooseInfoSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
 def parse_args(args, parser):
     parser.add_argument('--scenario_name', type=str, default='simple_spread', help="Which scenario to run on")
@@ -43,10 +43,16 @@ def parse_args(args, parser):
     parser.add_argument('--max_steps', type=int, default=100, help="depth the agent can view")
     parser.add_argument("--use_merge", action='store_false', default=True,
                         help="use merge information")
-    parser.add_argument("--visualize_input", action='store_true', default=True,
+    parser.add_argument("--visualize_input", action='store_true', default=False,
                         help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
     parser.add_argument('--direction_alpha', type=float,default=0.1, help="number of players")
     parser.add_argument('--use_human_command', action='store_true', default=False)
+    parser.add_argument("--use_same_location", action='store_true', default=False,
+                        help="use merge information")
+    parser.add_argument("--use_single_reward", action='store_true', default=False,
+                        help="use single reward")
+    parser.add_argument("--use_complete_reward", action='store_true', default=False,
+                        help="use complete reward")            
     
     all_args = parser.parse_known_args(args)[0]
 

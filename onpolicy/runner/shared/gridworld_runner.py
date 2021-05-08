@@ -20,6 +20,7 @@ def _t2n(x):
 class GridWorldRunner(Runner):
     def __init__(self, config):
         super(GridWorldRunner, self).__init__(config)
+        self.init_hyperparameters()
         self.init_map_variables() 
 
     def run(self):
@@ -29,6 +30,8 @@ class GridWorldRunner(Runner):
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
 
         for episode in range(episodes):
+
+            self.init_map_variables() 
 
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
@@ -40,7 +43,14 @@ class GridWorldRunner(Runner):
                 # Obser reward and next obs
                 dict_obs, rewards, dones, infos = self.envs.step(actions)
 
-                
+                for e in range(self.n_rollout_threads):
+                    if 'merge_ratio_step' in infos[e].keys():
+                        self.merge_explored_ratio_step[e] = infos[e]['merge_ratio_step']
+                    for agent_id in range(self.num_agents):
+                        agent_k = "agent{}_ratio_step".format(agent_id)
+                        if agent_k in infos[e].keys():
+                            self.agent_explored_ratio_step[e][agent_id] = infos[e][agent_k]
+
                 data = dict_obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
 
                 # insert data into buffer
@@ -78,9 +88,16 @@ class GridWorldRunner(Runner):
                         env_infos['merge_explored_ratio'].append(info['merge_explored_ratio'])
                         env_infos['num_same_direction'].append(info['num_same_direction'])
 
+                    print("average episode ratio is {}".format(np.mean(env_infos["merge_explored_ratio"])))
+
+                    train_infos["merge_explored_ratio_step"] = np.mean(self.merge_explored_ratio_step)
+                    
+                    for agent_id in range(self.num_agents):
+                        train_infos["agent{}_ratio_step".format(agent_id)] = np.mean(self.agent_explored_ratio_step[:,agent_id])
+                        
                 train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
                 print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
-                print("average episode ratio is {}".format(np.mean(env_infos["merge_explored_ratio"])))
+                
                 self.log_train(train_infos, total_num_steps)
                 self.log_env(env_infos, total_num_steps)
 
@@ -142,7 +159,7 @@ class GridWorldRunner(Runner):
         for key in share_obs.keys():
             self.buffer.share_obs[key][0] = share_obs[key].copy()
     
-    def init_map_variables(self):
+    def init_hyperparameters(self):
         ### Full map consists of 4 channels containing the following:
         ### 1. Obstacle Map
         ### 2. Exploread Area
@@ -159,12 +176,14 @@ class GridWorldRunner(Runner):
             plt.ion()
             self.fig, self.ax = plt.subplots(self.num_agents*3, 4, figsize=(10, 2.5), facecolor="whitesmoke")
     
+    def init_map_variables(self):
         # Initializing full, merge and local map
+        self.merge_explored_ratio_step = np.ones((self.n_rollout_threads,), dtype=np.float32) * self.episode_length
+        self.agent_explored_ratio_step = np.ones((self.n_rollout_threads, self.num_agents), dtype=np.float32) * self.episode_length
         self.all_agent_pos_map = np.zeros((self.n_rollout_threads, self.num_agents, self.full_w, self.full_h), dtype=np.float32)
         if self.use_merge:
             self.all_merge_pos_map = np.zeros((self.n_rollout_threads, self.full_w, self.full_h), dtype=np.float32)
         
-
     @torch.no_grad()
     def collect(self, step):
         self.trainer.prep_rollout()
@@ -359,5 +378,7 @@ class GridWorldRunner(Runner):
             print("average num same direction is: " + str(np.mean(env_infos['num_same_direction'])))
             
         if self.all_args.save_gifs:
+            ic("rendering....")
             imageio.mimsave(str(self.gif_dir) + '/merge.gif', all_frames, duration=self.all_args.ifi)
             imageio.mimsave(str(self.gif_dir) + '/local.gif', all_local_frames, duration=self.all_args.ifi)
+            ic("done")

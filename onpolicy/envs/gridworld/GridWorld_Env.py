@@ -11,18 +11,21 @@ class GridWorldEnv(object):
         self.use_random_pos = args.use_random_pos
         self.agent_pos = None if self.use_random_pos else args.agent_pos
         self.num_obstacles = args.num_obstacles
+        self.use_single_reward = args.use_single_reward
 
         register(
             id = self.scenario_name,
-            num_agents = self.num_agents,
             grid_size = args.grid_size,
             max_steps = args.max_steps,
             agent_view_size = args.agent_view_size,
+            num_agents = self.num_agents,
             num_obstacles = self.num_obstacles,
             agent_pos = self.agent_pos, 
             direction_alpha = args.direction_alpha,
             use_human_command = args.use_human_command,  
-            use_merge = args.use_merge,  
+            use_merge = args.use_merge, 
+            use_same_location = args.use_same_location,
+            use_complete_reward = args.use_complete_reward, 
             entry_point = 'onpolicy.envs.gridworld.gym_minigrid.envs:MultiExplorationEnv'
         )
 
@@ -46,7 +49,10 @@ class GridWorldEnv(object):
 
     def step(self, actions):
         obs, rewards, dones, infos = self.env.step(actions)
-        rewards = np.expand_dims(np.array([infos['merge_explored_reward']+rewards for _ in range(self.num_agents)]), axis=1)
+        if self.use_single_reward:
+            rewards = 0.3 * np.expand_dims(infos['agent_explored_reward'], axis=1) + 0.7 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+        else:
+            rewards = np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         return obs, rewards, dones, infos
 
     def close(self):

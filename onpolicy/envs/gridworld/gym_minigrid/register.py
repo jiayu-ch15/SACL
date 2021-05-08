@@ -4,17 +4,19 @@ env_list = []
 
 def register(
     id,
-    num_agents,
     grid_size,
     max_steps,
     agent_view_size,
     num_obstacles,
+    num_agents,
     agent_pos,
-    direction_alpha,
-    use_human_command,
-    use_merge,   
     entry_point,
-    reward_threshold=0.95
+    reward_threshold = 0.95,
+    direction_alpha = 0.1,
+    use_merge = True,
+    use_same_location = True,
+    use_complete_reward = True, 
+    use_human_command = False,
 ):
     assert id.startswith("MiniGrid-")
     assert id not in env_list
@@ -23,15 +25,18 @@ def register(
     gym_register(
         id=id,
         entry_point=entry_point,
-        kwargs={'num_agents': num_agents,
+        kwargs={
         'grid_size': grid_size,
         'max_steps': max_steps,
         'agent_view_size': agent_view_size,
         'num_obstacles': num_obstacles,
+        'num_agents': num_agents,
         'agent_pos': agent_pos,
         'direction_alpha': direction_alpha,
+        'use_merge': use_merge,
+        'use_same_location': use_same_location,
+        'use_complete_reward': use_complete_reward,
         'use_human_command': use_human_command, 
-        'use_merge': use_merge  
         },
         reward_threshold=reward_threshold
     )
