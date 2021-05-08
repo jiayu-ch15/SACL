@@ -8,6 +8,7 @@ from gym.utils import seeding
 from .rendering import *
 import matplotlib.pyplot as plt
 from icecream import ic
+from functools import reduce
 
 # Size in pixels of a tile in the full-scale human view
 TILE_PIXELS = 32
@@ -1392,7 +1393,7 @@ class MiniGridEnv(gym.Env):
 
         return img
 
-    def render(self, mode='human', close=False, highlight=True, tile_size=TILE_PIXELS):
+    def render(self, mode='human', close=False, highlight=True, tile_size=TILE_PIXELS, first=True):
         """
         Render the whole-grid human view
         """
@@ -1440,13 +1441,14 @@ class MiniGridEnv(gym.Env):
                     highlight_mask[abs_i, abs_j] = True
 
         # Render the whole grid
+        explore_mask = highlight_mask if first else self.explored_map.T 
         img = self.grid.render(
             self.num_agents,
             tile_size,
             self.agent_pos,
             self.agent_dir,
             self.direction_index,
-            highlight_mask = self.explored_map.T if highlight else None #highlight_mask 
+            highlight_mask = explore_mask if highlight else None #highlight_mask 
         )
 
         local_img = self.grid.render(
@@ -1473,7 +1475,7 @@ class MiniGridEnv(gym.Env):
                 return {'0':0, '1':1, '2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9}[s]
             return reduce(fn,map(char2num,s))
 
-        self.render(mode='human', close=False)
+        self.render(mode='human', close=False, first=True)
         array_direction = np.array([[0,1], [0,-1], [1,0], [-1,0], [1,1], [1,-1], [-1,1], [-1,-1]])
         print (" Refer each predator as the coordinate origin, input the direciton of the prey relative to it.\n \
            Right is the positive direction of the X-axis,\n Below is the positive direction of the Y-axis.\n \
