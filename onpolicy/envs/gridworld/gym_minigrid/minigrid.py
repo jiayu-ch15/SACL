@@ -843,7 +843,7 @@ class MiniGridEnv(gym.Env):
             low=0, high=255, shape=(self.full_w, self.full_h, 3), dtype='uint8')
         global_observation_space['vector'] = gym.spaces.Box(
             low=-1, high=1, shape=(self.num_agents,), dtype='float')
-       if use_merge:
+        if use_merge:
             global_observation_space['global_merge_obs'] = gym.spaces.Box(
                 low=0, high=1, shape=(4, self.full_w, self.full_h), dtype='uint8')
             global_observation_space['global_direction'] = gym.spaces.Box(
