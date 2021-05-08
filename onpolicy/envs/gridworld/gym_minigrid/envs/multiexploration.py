@@ -126,7 +126,9 @@ class MultiExplorationEnv(MiniGridEnv):
 
     def reset(self, choose = True):
         self.num_episode += 1
+        
         obs = MiniGridEnv.reset(self, choose=True)
+
         self.num_step = 0
         self.gt_map = self.grid.encode()[:,:,0].T
         self.agent_local_map = np.zeros((self.num_agents, self.agent_view_size, self.agent_view_size, 3))
@@ -139,33 +141,7 @@ class MultiExplorationEnv(MiniGridEnv):
         for i in range(self.num_agents):
             self.explored_each_map.append(np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size)))
             self.obstacle_each_map.append(np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size)))
-        '''
-        for i in range(self.num_agents):
-            local_map = np.rot90(obs[i]['image'][:,:,0].T,3)
-            pos = [self.agent_pos[i][1], self.agent_pos[i][0]]
-            direction = self.agent_dir[i]
-            if direction == 0:
-                topx = max(0, pos[0]-self.agent_view_size // 2)
-                topy = pos[1] 
-                botx = min(self.width - 1, pos[0] + self.agent_view_size // 2 + 1)
-                boty = min(self.height - 1, pos[1] + self.agent_view_size  + 1)
-            if direction == 1:
-                topx = pos[0]
-                topy = max(0, pos[1] - self.agent_view_size // 2) 
-                botx = min(self.width - 1, pos[0] + self.agent_view_size  + 1)
-                boty = min(self.height - 1, pos[1] + self.agent_view_size // 2  + 1)
-            if direction == 2:
-                topx = max(0, pos[0] - self.agent_view_size // 1)
-                topy = max(0, pos[1] - self.agent_view_size) 
-                botx = min(self.width - 1, pos[0] + self.agent_view_size // 2 + 1)
-                boty = pos[1]
-            if direction == 3:
-                topx = max(0, pos[0] - self.agent_view_size)
-                topy = max(0, pos[1] - self.agent_view_size // 2) 
-                botx = pos[0]
-                boty = min(self.height - 1, pos[1] + self.agent_view_size // 2  + 1)
-        import pdb; pdb.set_trace()
-        '''
+
         for i in range(self.num_agents):
             local_map = np.rot90(obs[i]['image'][:,:,0].T,3)
             pos = [self.agent_pos[i][1] + self.agent_view_size, self.agent_pos[i][0] + self.agent_view_size]
