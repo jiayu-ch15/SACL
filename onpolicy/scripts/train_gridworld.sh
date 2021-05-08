@@ -17,5 +17,5 @@ do
     --log_interval 1 --wandb_name "human" --user_name "zoeyuchao" --num_agents ${num_agents}\
     --num_obstacles ${num_obstacles} --cnn_layers_params '32,3,1,1' --seed 1 --n_training_threads 1 \
     --n_rollout_threads 50 --num_mini_batch 1 --num_env_steps 10000000 --ppo_epoch 5 --gain 0.01 \
-    --lr 1e-3 --critic_lr 1e-3 --direction_alpha 0.05 --max_steps 60 --use_eval --use_complete_reward
+    --lr 1e-3 --critic_lr 1e-3 --direction_alpha 0.05 --max_steps 60 --use_eval --n_eval_rollout_threads 20 --use_complete_reward
 done
