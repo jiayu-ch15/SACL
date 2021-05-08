@@ -179,6 +179,9 @@ class AgarRunner(Runner):
                 for i in range(self.num_agents):
                     image = np.squeeze(envs.render(mode="rgb_array", playeridx=i))
                     all_frames.append(image)
+            else:
+                for i in range(self.num_agents):
+                    envs.render(mode="human", playeridx=i)
 
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
@@ -214,6 +217,9 @@ class AgarRunner(Runner):
                     elapsed = calc_end - calc_start
                     if elapsed < self.all_args.ifi:
                         time.sleep(self.all_args.ifi - elapsed)
+                else:
+                    for i in range(self.num_agents):
+                        envs.render(mode="human", playeridx=i)
 
             render_infos = []
             with open(f,'a') as file:
@@ -273,7 +279,7 @@ class AgarRunner(Runner):
 
             if ~np.any(eval_choose):
                 break
-            eval_actions = np.ones((self.n_eval_rollout_threads, self.num_agents, action_shape)).astype(np.int) * (-1)
+            eval_actions = np.ones((self.n_eval_rollout_threads, self.num_agents, action_shape)).astype(np.float32) * (-1.0)
             
             self.trainer.prep_rollout()
             eval_action, eval_rnn_state = self.trainer.policy.act(np.concatenate(eval_obs[eval_choose]),
