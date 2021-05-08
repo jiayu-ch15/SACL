@@ -24,6 +24,7 @@ class GridWorldEnv(object):
             agent_pos = self.agent_pos,
             use_merge = args.use_merge,
             use_same_location = args.use_same_location,
+            use_complete_reward = args.use_complete_reward,
             entry_point = 'onpolicy.envs.gridworld.gym_minigrid.envs:MultiExplorationEnv'
         )
 

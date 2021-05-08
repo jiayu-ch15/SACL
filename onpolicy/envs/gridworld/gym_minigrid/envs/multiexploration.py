@@ -26,11 +26,13 @@ class MultiExplorationEnv(MiniGridEnv):
         num_agents=2,
         use_merge = True,
         use_same_location = True,
+        use_complete_reward = True,
     ):
         self._agent_default_pos = agent_pos
         self._goal_default_pos = goal_pos
         self.door_size = 3
         self.max_steps = max_steps
+        self.use_complete_reward = use_complete_reward
         if num_obstacles <= grid_size/2 + 1:
             self.num_obstacles = int(num_obstacles)
         else:
@@ -111,10 +113,12 @@ class MultiExplorationEnv(MiniGridEnv):
         self.num_episode += 1
         obs = MiniGridEnv.reset(self, choose=True)
         self.num_step = 0
-        self.target_ratio = 0.9
+        self.get_ratio = 0
+        self.target_ratio = 0.98
         self.gt_map = self.grid.encode()[:,:,0].T
         self.agent_local_map = np.zeros((self.num_agents, self.agent_view_size, self.agent_view_size, 3))
         self.pad_gt_map = np.pad(self.gt_map,((self.agent_view_size, self.agent_view_size), (self.agent_view_size,self.agent_view_size)) , constant_values=(0,0))
+        self.get_agent_ratio = np.zeros((self.num_agents,))
         # init local map
         self.explored_each_map = []
         self.obstacle_each_map = []
@@ -309,18 +313,28 @@ class MultiExplorationEnv(MiniGridEnv):
         
 
         if info['explored_all_map'].sum()/(self.width * self.height) >= self.target_ratio:
-            info['merge_ratio_step'] = self.num_step
+            if self.use_complete_reward:
+                info['merge_explored_reward'] += 0.1*(info['explored_all_map'].sum()/(self.width * self.height))
+            '''if info['explored_all_map'].sum()/(self.width * self.height) == 1:
+                done = [True for _ in range(self.num_agents)]'''
+            if self.get_ratio == 0:
+                info['merge_ratio_step'] = self.num_step
+                self.get_ratio = 1
 
         for i in range(self.num_agents):
             if info['explored_each_map'][i].sum()/(self.width * self.height) >= self.target_ratio:
-                info["agent{}_ratio_step".format(i)] = self.num_step
+                if self.use_complete_reward:
+                    info['agent_explored_reward'][i] += 0.1*(info['explored_each_map'][i].sum()/(self.width * self.height))
+                if self.get_agent_ratio[i] == 0:
+                    info["agent{}_ratio_step".format(i)] = self.num_step
+                    self.get_agent_ratio[i] = 1
 
-        
         if self.num_step == self.max_steps:
             info['merge_explored_ratio'] = info['explored_all_map'].sum()/(self.width * self.height)
             self.merge_ratio = info['merge_explored_ratio']
         
         #import pdb; pdb.set_trace()
+
         return obs, reward, done, info
 
     def get_short_term_action(self, inputs):
