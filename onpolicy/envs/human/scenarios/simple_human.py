@@ -18,6 +18,7 @@ class Scenario(BaseScenario):
         world.world_length = args.episode_length
         world.collaborative = True
         world.use_human_command = args.use_human_command
+        world.view_threshold = args.view_threshold
         
         # set any world properties first
         world.dim_c = 2
@@ -210,7 +211,16 @@ class Scenario(BaseScenario):
                 for prey in preies:
                     if self.is_collision(prey, agent):
                         agent.success += 1
-                        rew += 1.0
+                        if self.use_all_reach & world.num_good_agents == 1:
+                            reach = 0
+                            for predator in predators:
+                                if predator.success >= 1:
+                                    reach += 1
+                            if reach == world.num_adversaries:
+                                rew += 1.0
+                        else:
+                            rew += 1.0
+
             # collision reward
             for l in world.landmarks:
                 if self.is_collision(l, agent):
@@ -231,18 +241,18 @@ class Scenario(BaseScenario):
         # communication of all other agents
         other_pos = []
         other_vel = []
-        in_view = 0
+        in_view = np.zeros(1, dtype=np.float32)
         for other in world.agents:
             if other is agent: continue
 
             if not other.adversary:# means good
-                if np.dot(agent.state.p_pos - other_pos, agent.state.p_pos - other_pos) > self.obs_threshold:
+                if np.sum(np.square(agent.state.p_pos - other.state.p_pos)) > world.view_threshold:
                     other_pos.append(np.array([0,0]))
                     other_vel.append(np.array([0,0]))
                 else:
                     other_pos.append(other.state.p_pos - agent.state.p_pos)
                     other_vel.append(other.state.p_vel)
-                    in_view = 1
+                    in_view[0] = 1.0
             else:
                 other_pos.append(other.state.p_pos - agent.state.p_pos)
 

@@ -113,7 +113,7 @@ class WorldObj:
 
     def encode(self):
         """Encode the a description of this object as a 3-tuple of integers"""
-        return (OBJECT_TO_IDX[self.type], COLOR_TO_IDX[self.color], 0)
+        return (OBJECT_TO_IDX[self.type] * 20, COLOR_TO_IDX[self.color] * 20, 0)
 
     @staticmethod
     def decode(type_idx, color_idx, state):
@@ -251,7 +251,7 @@ class Door(WorldObj):
         elif not self.is_open:
             state = 1
 
-        return (OBJECT_TO_IDX[self.type], COLOR_TO_IDX[self.color], state)
+        return (OBJECT_TO_IDX[self.type] * 20, COLOR_TO_IDX[self.color] * 20, state * 100)
 
     def render(self, img):
         c = COLORS[self.color]
@@ -282,6 +282,9 @@ class Key(WorldObj):
         super(Key, self).__init__('key', color)
 
     def can_pickup(self):
+        return True
+
+    def can_overlap(self):
         return True
 
     def render(self, img):
@@ -466,6 +469,7 @@ class Grid:
         obj,
         agent_id=None,
         agent_dir=None,
+        direction=None,
         highlight=False,
         tile_size=TILE_PIXELS,
         subdivs=3
@@ -474,7 +478,7 @@ class Grid:
         Render a tile and cache the result
         """
         # Hash map lookup key for the cache
-        key = (agent_id, agent_dir, highlight, tile_size)
+        key = (agent_id, direction, agent_dir, highlight, tile_size)
         key = obj.encode() + key if obj else key
         
         if key in cls.tile_cache:
@@ -487,7 +491,7 @@ class Grid:
         fill_coords(img, point_in_rect(0, 1, 0, 0.031), (100, 100, 100))
 
         if obj != None:
-            obj.render(img)
+            obj.render(img) 
 
         # Overlay the agent on top
         if agent_dir is not None:
@@ -497,12 +501,13 @@ class Grid:
                 (0.12, 0.81),
             )
 
+            x1y1_array = [(0.5,1), (0.5,0), (1,0.5), (0,0.5), (1,1), (1,0), (0,1), (0,0)]
+            arrow_fn = point_in_line(x0=0.5, y0=0.5, x1=x1y1_array[direction][0],y1=x1y1_array[direction][1], r=0.03)
+            fill_coords(img, arrow_fn, (255,255,255))
             # Rotate the agent based on its direction
             tri_fn = rotate_fn(tri_fn, cx=0.5, cy=0.5, theta=0.5*math.pi*agent_dir)
-
-            for i in range(0,agent_id + 1):
-                fill_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
-                fill_coords(img, tri_fn, fill_colors[i])
+            fill_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
+            fill_coords(img, tri_fn, fill_colors[agent_id])
 
 
         # Highlight the cell if needed
@@ -523,6 +528,7 @@ class Grid:
         tile_size,
         agent_pos=None,
         agent_dir=None,
+        direction=None,
         highlight_mask=None
     ):
         """
@@ -551,6 +557,7 @@ class Grid:
                         cell,
                         agent_id=agent_id if agent_here else None,
                         agent_dir=agent_dir[agent_id] if agent_here else None,
+                        direction=direction[agent_id] if agent_here else None,
                         highlight=highlight_mask[i, j],
                         tile_size=tile_size
                     )
@@ -626,7 +633,7 @@ class Grid:
                     v = self.get(i, j)
 
                     if v is None:
-                        array[i, j, 0] = OBJECT_TO_IDX['empty']
+                        array[i, j, 0] = OBJECT_TO_IDX['empty'] * 20
                         array[i, j, 1] = 0
                         array[i, j, 2] = 0
 
@@ -655,7 +662,7 @@ class Grid:
                 vis_mask[i, j] = (type_idx != OBJECT_TO_IDX['unseen'])
 
         return grid, vis_mask
-
+        
     def process_vis(grid, agent_pos):
         mask = np.zeros(shape=(grid.width, grid.height), dtype=np.bool)
 
@@ -693,15 +700,44 @@ class Grid:
                 if not mask[i, j]:
                     grid.set(i, j, None)
 
-        return mask
 
+        local_map = grid.encode()[:,:,0]
+        
+        '''for i in range(agent_pos[0]-1, 0, -1):
+            if local_map[i, agent_pos[1]] != 20:
+                mask[:i, agent_pos[1]] = False
+                break
+        for i in range(agent_pos[0]+1, grid.width):
+            if local_map[i, agent_pos[1]] != 20:
+                mask[i+1:, agent_pos[1]] = False
+                break
+        for i in range(grid.width):
+            for j in range(agent_pos[1], 0, -1):
+                if local_map[i, j] != 20:
+                    mask[i, :j]=False
+                    break'''
+
+        for j in range(grid.height):
+            for i in range(agent_pos[0]-1,0,-1):
+                if local_map[i, j] != 20:
+                    mask[:i, j]=False
+                    break
+
+        for i in range(grid.width):
+            for j in range(agent_pos[1]-1, 0, -1):
+                if local_map[i, j] != 20:
+                    mask[i, :j] = False
+                    break
+        
+        #import pdb; pdb.set_trace()
+        return mask
 class MiniGridEnv(gym.Env):
     """
     2D grid world game environment
     """
 
     metadata = {
-        'render.modes': ['human', 'rgb_array'],
+        'render.modes': ['multiexploration', 'rgb_array'],
         'video.frames_per_second' : 10
     }
 
@@ -712,15 +748,15 @@ class MiniGridEnv(gym.Env):
         right = 1
         forward = 2
 
-        # Pick up an object
-        pickup = 3
-        # Drop an object
-        drop = 4
-        # Toggle/activate an object
-        toggle = 5
+        # # Pick up an object
+        # pickup = 3
+        # # Drop an object
+        # drop = 4
+        # # Toggle/activate an object
+        # toggle = 5
 
-        # Done completing task
-        done = 6
+        # # Done completing task
+        # done = 6
 
     def __init__(
         self,
@@ -731,7 +767,8 @@ class MiniGridEnv(gym.Env):
         max_steps=100,
         see_through_walls=False,
         seed=1337,
-        agent_view_size=7
+        agent_view_size=7,
+        use_merge = True,
     ):  
         self.num_agents = num_agents
         # Can't set both grid_size and width/height
@@ -750,20 +787,36 @@ class MiniGridEnv(gym.Env):
         assert agent_view_size % 2 == 1
         assert agent_view_size >= 3
         self.agent_view_size = agent_view_size
+        self.full_w = grid_size #+ 2*self.agent_view_size
+        self.full_h = grid_size #+ 2*self.agent_view_size
+
 
         # Observations are dictionaries containing an
         # encoding of the grid and a textual 'mission' string
-        self.observation_space = spaces.Box(
-            low=0,
-            high=255,
-            shape=(self.agent_view_size, self.agent_view_size, 3),
-            dtype='uint8'
-        )
-        self.observation_space = [spaces.Dict({
-            'image': self.observation_space,
-            'direction': gym.spaces.Box(low=-1, high=1, shape=(4,), dtype='int')
-        }) for _ in range(self.num_agents)]
+        global_observation_space = {}
+        global_observation_space['global_obs'] = gym.spaces.Box(
+            low=0, high=1, shape=(4, self.full_w, self.full_h), dtype='uint8')
+        if use_merge:
+            global_observation_space['global_merge_obs'] = gym.spaces.Box(
+                low=0, high=1, shape=(4, self.full_w, self.full_h), dtype='uint8')
+        global_observation_space['image'] = gym.spaces.Box(
+            low=0, high=255, shape=(self.full_w, self.full_h, 3), dtype='uint8')
+        global_observation_space['vector'] = gym.spaces.Box(
+            low=-1, high=1, shape=(self.num_agents + 8 + 4,), dtype='float')
+        share_global_observation_space = global_observation_space.copy()
+        share_global_observation_space['gt_map'] = gym.spaces.Box(
+            low=0, high=1, shape=(1, self.full_w, self.full_h), dtype='uint8')
+        
+        global_observation_space = gym.spaces.Dict(global_observation_space)
+        share_global_observation_space = gym.spaces.Dict(share_global_observation_space)
 
+        self.observation_space = []
+        self.share_observation_space = []
+
+        for agent_id in range(self.num_agents):
+            self.observation_space.append(global_observation_space)
+            self.share_observation_space.append(share_global_observation_space)
+            
         # Range of possible rewards
         self.reward_range = (0, 1)
 
@@ -982,7 +1035,6 @@ class MiniGridEnv(gym.Env):
     ):
         """
         Place an object at an empty position in the grid
-
         :param top: top-left position of the rectangle where to place
         :param size: size of the rectangle where to place
         :param reject_fn: function to filter out potential positions
@@ -1205,19 +1257,23 @@ class MiniGridEnv(gym.Env):
 
             # Rotate left
             if action[agent_id] == self.actions.left:
+                #print("left")
                 self.agent_dir[agent_id] -= 1
                 if self.agent_dir[agent_id] < 0:
                     self.agent_dir[agent_id] += 4
 
             # Rotate right
             elif action[agent_id] == self.actions.right:
+                #print("right")
                 self.agent_dir[agent_id] = (self.agent_dir[agent_id] + 1) % 4
 
             # Move forward
             elif action[agent_id] == self.actions.forward:
+                #print("forward")
                 if fwd_cell == None or fwd_cell.can_overlap():
                     if np.any(np.sign(fwd_pos-self.agent_pos[agent_id]) == self.direction[agent_id]):
-                        reward = self.direction_alpha
+                        reward += self.direction_alpha
+                        self.num_same_direction += 1
                     self.agent_pos[agent_id] = fwd_pos
                 if fwd_cell != None and fwd_cell.type == 'goal':
                     done = True
@@ -1346,7 +1402,6 @@ class MiniGridEnv(gym.Env):
                 self.window.close()
             return
 
-
         if mode == 'human' and not self.window:
             from onpolicy.envs.gridworld.gym_minigrid.window import Window
             self.window = Window('gym_minigrid')
@@ -1390,23 +1445,68 @@ class MiniGridEnv(gym.Env):
             tile_size,
             self.agent_pos,
             self.agent_dir,
-            highlight_mask=highlight_mask if highlight else None
+            self.direction_index,
+            highlight_mask = self.explored_map.T if highlight else None #highlight_mask 
+        )
+
+        local_img = self.grid.render(
+            self.num_agents,
+            tile_size,
+            self.agent_pos,
+            self.agent_dir,
+            self.direction_index,
+            highlight_mask = highlight_mask if highlight else None #
         )
 
         if mode == 'human':
             self.window.set_caption(self.mission)
-            self.window.show_img(img)
+            self.window.show_img(img, local_img)
 
-        return img
+        return img, local_img
 
     def get_direction_encoder(self):
+
+        def str2int(s):
+            def fn(x,y):
+                return x*10+y
+            def char2num(s):
+                return {'0':0, '1':1, '2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9}[s]
+            return reduce(fn,map(char2num,s))
+
         self.render(mode='human', close=False)
-        array_direction = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
+        array_direction = np.array([[0,1], [0,-1], [1,0], [-1,0], [1,1], [1,-1], [-1,1], [-1,-1]])
+        print (" Refer each predator as the coordinate origin, input the direciton of the prey relative to it.\n \
+           Right is the positive direction of the X-axis,\n Below is the positive direction of the Y-axis.\n \
+               0--[0,1] , 1--[0,-1], 2--[1,0], 3--[-1,0], 4--[1,1], 5--[1,-1], 6--[-1,1], 7--[-1,-1], i.e. 000")
+        while True:
+            all_command = input("Enter the command: ")
+            if all_command.isdigit():
+                all_command = str2int(all_command)
+                command = []
+                command.append(all_command // 100)
+                command.append((all_command - command[0] * 100) // 10)
+                command.append(all_command % 10)
+                indicator = False
+                for i in command:
+                    if i in range(0,8):
+                        pass
+                    else:
+                        indicator = True
+                        break
+                if indicator:
+                    print("CommandError, please try again")
+                    continue
+                else:
+                    print(command)
+                    break
+            else:
+                print("CommandError, please try again")
+                continue
         for agent_id in range(self.num_agents):
-            print (" Refer predator {} as the coordinate origin.\n Right is the positive direction of the X-axis,\n Below is the positive direction of the Y-axis.\n 0--[1,1] , 1--[1,-1], 2--[-1,1], 3--[-1,-1]".format(agent_id))
-            command = int(input("Enter the command: "))
-            self.direction[agent_id] = array_direction[command]
-            self.direction_encoder[agent_id] = np.eye(4)[command]
+            self.direction_index[agent_id] = command[agent_id]
+            self.direction[agent_id] = array_direction[command[agent_id]]
+            self.direction_encoder[agent_id] = np.eye(8)[command[agent_id]]
+
 
     def close(self):
         if self.window:

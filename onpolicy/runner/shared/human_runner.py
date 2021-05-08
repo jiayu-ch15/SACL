@@ -6,11 +6,11 @@ import numpy as np
 from itertools import chain
 import torch
 import imageio
-from icecream import ic
 
 from onpolicy.utils.util import update_linear_schedule
 from onpolicy.runner.shared.base_runner import Runner
 from collections import defaultdict
+from icecream import ic
 
 def _t2n(x):
     return x.detach().cpu().numpy()
@@ -30,7 +30,7 @@ class HumanRunner(Runner):
                             self.envs.observation_space[-1],
                             self.envs.action_space[-1],
                             device = self.device)
-        prey_state_dict = torch.load(str(self.all_args.prey_model_dir) + '/prey.pt')#, map_location='cpu')
+        prey_state_dict = torch.load(str(self.all_args.prey_model_dir) + '/prey.pt', map_location=self.device)
         self.prey_policy.actor.load_state_dict(prey_state_dict)
         self.prey_policy.actor.eval()
 
@@ -89,9 +89,13 @@ class HumanRunner(Runner):
                 if self.env_name == "Human":
                     env_infos = defaultdict(list)
                     for info in infos:
-                        for agent_id in range(self.all_args.num_good_agents + self.all_args.num_adversaries):
+                        for agent_id in range(self.all_args.num_adversaries):
                             for key in info[agent_id].keys():
-                                agent_key = 'agent{}/{}'.format(agent_id, key)
+                                agent_key = 'predator{}/{}'.format(agent_id, key)
+                                env_infos[agent_key].append(info[agent_id][key])
+                        for agent_id in range(self.all_args.num_adversaries, self.all_args.num_adversaries+self.all_args.num_good_agents):
+                            for key in info[agent_id].keys():
+                                agent_key = 'prey{}/{}'.format(agent_id, key)
                                 env_infos[agent_key].append(info[agent_id][key])
 
                 train_infos["average_episode_rewards"] = np.mean(np.sum(self.buffer.rewards, axis=0))
@@ -252,10 +256,15 @@ class HumanRunner(Runner):
         eval_episode_rewards = np.array(eval_episode_rewards)
         eval_env_infos = defaultdict(list)
         for eval_info in eval_infos:
-            for agent_id in range(self.all_args.num_good_agents + self.all_args.num_adversaries):
+            for agent_id in range(self.all_args.num_adversaries):
                 for key in eval_info[agent_id].keys():
-                    agent_key = 'agent{}/eval_{}'.format(agent_id, key)
+                    agent_key = 'predator{}/{}'.format(agent_id, key)
                     eval_env_infos[agent_key].append(eval_info[agent_id][key])
+            for agent_id in range(self.all_args.num_adversaries, self.all_args.num_adversaries+self.all_args.num_good_agents):
+                for key in eval_info[agent_id].keys():
+                    agent_key = 'prey{}/{}'.format(agent_id, key)
+                    eval_env_infos[agent_key].append(eval_info[agent_id][key])
+
         eval_env_infos['eval_average_episode_rewards'] = np.sum(np.array(eval_episode_rewards), axis=0)
         print("eval average episode rewards of agent: " + str(np.mean(eval_env_infos['eval_average_episode_rewards'])))
         self.log_env(eval_env_infos, total_num_steps)
@@ -263,17 +272,18 @@ class HumanRunner(Runner):
     @torch.no_grad()
     def render(self):
         envs = self.envs
+        reset_choose = np.ones(self.n_rollout_threads) == 1.0
         
         all_frames = []
         for episode in range(self.all_args.render_episodes):
-            dict_obs = envs.reset()
+            ic(episode)
+            dict_obs = envs.reset(reset_choose)
+
             obs, prey_obs = self._convert_obs(dict_obs)
 
             if self.all_args.save_gifs:
                 image = envs.render('rgb_array')[0][0]
                 all_frames.append(image)
-            else:
-                envs.render('human')
 
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
@@ -284,6 +294,7 @@ class HumanRunner(Runner):
             episode_rewards = []
             
             for step in range(self.episode_length):
+                ic(step)
                 calc_start = time.time()
 
                 self.trainer.prep_rollout()
@@ -333,9 +344,6 @@ class HumanRunner(Runner):
                     elapsed = calc_end - calc_start
                     if elapsed < self.all_args.ifi:
                         time.sleep(self.all_args.ifi - elapsed)
-                else:
-                    envs.render('human')
-
             print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
 
         if self.all_args.save_gifs:

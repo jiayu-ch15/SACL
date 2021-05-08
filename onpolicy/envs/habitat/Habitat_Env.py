@@ -30,6 +30,8 @@ class MultiHabitatEnv(object):
             low=0, high=1, shape=(4, local_w, local_h), dtype='uint8')
         global_observation_space['global_orientation'] = gym.spaces.Box(
             low=-1, high=1, shape=(1,), dtype='long')
+        global_observation_space['other_global_orientation'] = gym.spaces.Box(
+            low=-1, high=1, shape=(self.num_agents-1,), dtype='long')
         global_observation_space['vector'] = gym.spaces.Box(
             low=-1, high=1, shape=(self.num_agents,), dtype='float')
         # global_observation_space['global_merge_goal'] = gym.spaces.Box(
@@ -86,7 +88,7 @@ class MultiHabitatEnv(object):
             scene_num=[20, 16, 48, 22, 21, 40, 43, 36, 61, 49]
             config_env.DATASET.CONTENT_SCENES = scenes[scene_num[rank]:scene_num[rank]+1]
         if args.use_selected_large_scenes:
-            scene_num=[31, 9]
+            scene_num=[31, 70, 9, 47, 45]
             config_env.DATASET.CONTENT_SCENES = scenes[scene_num[rank]:scene_num[rank]+1]
             
 
@@ -103,6 +105,7 @@ class MultiHabitatEnv(object):
         config_env.SIMULATOR.NUM_AGENTS = self.num_agents
         config_env.SIMULATOR.SEED = rank * 5000 + args.seed
         config_env.SIMULATOR.USE_SAME_ROTATION = args.use_same_rotation
+        config_env.SIMULATOR.USE_RANDOM_ROTATION = args.use_random_rotation
         config_env.SIMULATOR.USE_DIFFERENT_START_POS = args.use_different_start_pos
 
         config_env.SIMULATOR.AGENT.SENSORS = ['RGB_SENSOR', 'DEPTH_SENSOR']

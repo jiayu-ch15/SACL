@@ -20,3 +20,4 @@
 # from onpolicy.envs.gridworld.gym_minigrid.envs.dynamicobstacles import *
 # from onpolicy.envs.gridworld.gym_minigrid.envs.distshift import *
 from onpolicy.envs.gridworld.gym_minigrid.envs.human import *
+from onpolicy.envs.gridworld.gym_minigrid.envs.multiexploration import *

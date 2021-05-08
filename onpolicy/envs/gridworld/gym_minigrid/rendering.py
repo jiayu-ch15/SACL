@@ -41,7 +41,7 @@ def rotate_fn(fin, cx, cy, theta):
 
     return fout
 
-def point_in_line(x0, y0, x1, y1, r):
+def point_in_line(x0, y0, x1, y1, r):  #rounded rectangle
     p0 = np.array([x0, y0])
     p1 = np.array([x1, y1])
     dir = p1 - p0

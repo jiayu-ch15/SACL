@@ -96,8 +96,8 @@ class Runner(object):
                             self.envs.action_space[0],
                             device = self.device)
 
-        # if self.model_dir is not None:
-        #     self.restore()
+        if self.model_dir is not None:
+            self.restore()
 
         # algorithm
         self.trainer = TrainAlgo(self.all_args, self.policy, device = self.device)
@@ -148,13 +148,13 @@ class Runner(object):
 
     def restore(self):
         if self.use_single_network:
-            policy_model_state_dict = torch.load(str(self.model_dir) + '/model.pt')#, map_location='cpu')
+            policy_model_state_dict = torch.load(str(self.model_dir) + '/model.pt', map_location=self.device)
             self.policy.model.load_state_dict(policy_model_state_dict)
         else:
-            policy_actor_state_dict = torch.load(str(self.model_dir) + '/actor.pt')#, map_location='cpu')
+            policy_actor_state_dict = torch.load(str(self.model_dir) + '/actor.pt', map_location=self.device)
             self.policy.actor.load_state_dict(policy_actor_state_dict)
             if not self.all_args.use_render:
-                policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic.pt')
+                policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic.pt', map_location=self.device)
                 self.policy.critic.load_state_dict(policy_critic_state_dict)
  
     def log_train(self, train_infos, total_num_steps):
