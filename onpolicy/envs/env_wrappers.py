@@ -36,7 +36,7 @@ class ShareVecEnv(ABC):
     viewer = None
 
     metadata = {
-        'render.modes': ['multi_exploration', 'rgb_array']
+        'render.modes': ['human', 'rgb_array']
     }
 
     def __init__(self, num_envs, observation_space, share_observation_space, action_space):
@@ -107,10 +107,10 @@ class ShareVecEnv(ABC):
         self.step_async(actions)
         return self.step_wait()
 
-    def render(self, mode='multi_exploration'):
+    def render(self, mode='human'):
         imgs = self.get_images()
         bigimg = tile_images(imgs)
-        if mode == 'multi_exploration':
+        if mode == 'human':
             self.get_viewer().imshow(bigimg)
             return self.get_viewer().isopen
         elif mode == 'rgb_array':
@@ -161,7 +161,7 @@ def worker(remote, parent_remote, env_fn_wrapper):
             if data == "rgb_array":
                 fr = env.render(mode=data)
                 remote.send(fr)
-            elif data == "multi_exploration":
+            elif data == "human":
                 env.render(mode=data)
         elif cmd == 'reset_task':
             ob = env.reset_task()
@@ -330,7 +330,7 @@ def shareworker(remote, parent_remote, env_fn_wrapper):
             if data == "rgb_array":
                 fr = env.render(mode=data)
                 remote.send(fr)
-            elif data == "multi_exploration":
+            elif data == "human":
                 env.render(mode=data)
         elif cmd == 'close':
             env.close()
@@ -428,7 +428,7 @@ def infoworker(remote, parent_remote, env_fn_wrapper):
             if data == "rgb_array":
                 fr = env.render(mode=data)
                 remote.send(fr)
-            elif data == "multi_exploration":
+            elif data == "human":
                 env.render(mode=data)
         elif cmd == 'close':
             env.close()
@@ -449,6 +449,8 @@ class InfoSubprocVecEnv(ShareVecEnv):
         """
         envs: list of gym environments to run in subprocesses
         """
+        #self.envs = [fn() for fn in env_fns]
+
         self.waiting = False
         self.closed = False
         nenvs = len(env_fns)
@@ -510,6 +512,99 @@ class InfoSubprocVecEnv(ShareVecEnv):
             p.join()
         self.closed = True
 
+    def render(self, mode="human"):
+        for remote in self.remotes:
+            remote.send(('render', mode))
+        if mode == "rgb_array":
+            results = [remote.recv() for remote in self.remotes]
+            image, local_image = zip(*results)
+            return np.stack(image), np.stack(local_image)
+        
+class ChooseInfoSubprocVecEnv(ShareVecEnv):
+    def __init__(self, env_fns, spaces=None):
+        """
+        envs: list of gym environments to run in subprocesses
+        """
+        self.waiting = False
+        self.closed = False
+        nenvs = len(env_fns)
+        self._mp_ctx = mp.get_context("forkserver")
+        self.remotes, self.work_remotes = zip(*[self._mp_ctx.Pipe(duplex=True) for _ in range(nenvs)])
+        
+        self.ps = [self._mp_ctx.Process(target=infoworker, args=(work_remote, remote, CloudpickleWrapper(env_fn)))
+                   for (work_remote, remote, env_fn) in zip(self.work_remotes, self.remotes, env_fns)]
+        
+        for p in self.ps:
+            p.daemon = True  # if the main process crashes, we should not cause things to hang
+            p.start()
+        for remote in self.work_remotes:
+            remote.close()
+
+        self.remotes[0].send(('get_spaces', None))
+        observation_space, share_observation_space, action_space = self.remotes[0].recv(
+        )
+        ShareVecEnv.__init__(self, len(env_fns), observation_space,
+                             share_observation_space, action_space)
+
+    def step_async(self, actions):
+        for remote, action in zip(self.remotes, actions):
+            remote.send(('step', action))
+        self.waiting = True
+
+    def step_wait(self):
+        results = [remote.recv() for remote in self.remotes]
+        self.waiting = False
+        obs, rews, dones, infos = zip(*results)
+       
+        for done, remote in zip(dones, self.remotes):
+            if 'bool' in done.__class__.__name__:
+                if done:  
+                    remote.send(('reset', None))
+            else:
+                if np.all(done):
+                    remote.send(('reset', None))
+        results = [remote.recv() for remote in self.remotes]
+        obs, infos = zip(*results)
+
+        return np.stack(obs), np.stack(rews), np.stack(dones), infos
+
+    def reset(self):
+        for remote in self.remotes:
+            remote.send(('reset', None))
+        results = [remote.recv() for remote in self.remotes]
+        obs, infos = zip(*results)
+        return np.stack(obs), np.stack(infos)
+
+    def get_short_term_goal(self, data):
+        for remote, da in zip(self.remotes, data):
+            remote.send(('get_short_term_goal', da))
+        return np.stack([remote.recv() for remote in self.remotes])
+
+    def reset_task(self):
+        for remote in self.remotes:
+            remote.send(('reset_task', None))
+        return np.stack([remote.recv() for remote in self.remotes])
+
+    def close(self):
+        if self.closed:
+            return
+        if self.waiting:
+            for remote in self.remotes:
+                remote.recv()
+        for remote in self.remotes:
+            remote.send(('close', None))
+        for p in self.ps:
+            p.join()
+        self.closed = True
+    
+    def render(self, mode="human"):
+        for remote in self.remotes:
+            remote.send(('render', mode))
+        if mode == "rgb_array":
+            results = [remote.recv() for remote in self.remotes]
+            image, local_image = zip(*results)
+            return np.stack(image), np.stack(local_image)
+
 
 def choosesimpleworker(remote, parent_remote, env_fn_wrapper):
     parent_remote.close()
@@ -533,7 +628,7 @@ def choosesimpleworker(remote, parent_remote, env_fn_wrapper):
             if data == "rgb_array":
                 fr = env.render(mode=data)
                 remote.send(fr)
-            elif data == "multi_exploration":
+            elif data == "human":
                 env.render(mode=data)
         elif cmd == 'get_spaces':
             remote.send(
@@ -797,7 +892,7 @@ def chooseinfoworker(remote, parent_remote, env_fn_wrapper):
             if data == "rgb_array":
                 fr = env.render(mode=data)
                 remote.send(fr)
-            elif data == "multi_exploration":
+            elif data == "human":
                 env.render(mode=data)
         elif cmd == 'close':
             env.close()
@@ -918,13 +1013,13 @@ class DummyVecEnv(ShareVecEnv):
         for env in self.envs:
             env.close()
 
-    def render(self, mode="multi_exploration", playeridx=None):
+    def render(self, mode="human", playeridx=None):
         if mode == "rgb_array":
             if playeridx == None:
                 return np.array([env.render(mode=mode) for env in self.envs])
             else:
                 return np.array([env.render(mode=mode,playeridx=playeridx) for env in self.envs])
-        elif mode == "multi_exploration":
+        elif mode == "human":
             for env in self.envs:
                 if playeridx == None:
                     env.render(mode=mode)
@@ -969,10 +1064,10 @@ class ShareDummyVecEnv(ShareVecEnv):
         for env in self.envs:
             env.close()
     
-    def render(self, mode="multi_exploration"):
+    def render(self, mode="human"):
         if mode == "rgb_array":
             return np.array([env.render(mode=mode) for env in self.envs])
-        elif mode == "multi_exploration":
+        elif mode == "human":
             for env in self.envs:
                 env.render(mode=mode)
         else:
@@ -1014,10 +1109,10 @@ class InfoDummyVecEnv(ShareVecEnv):
         for env in self.envs:
             env.close()
     
-    def render(self, mode="multi_exploration"):
+    def render(self, mode="human"):
         if mode == "rgb_array":
             return np.array([env.render(mode=mode) for env in self.envs])
-        elif mode == "multi_exploration":
+        elif mode == "human":
             for env in self.envs:
                 env.render(mode=mode)
         else:
@@ -1054,10 +1149,10 @@ class ChooseDummyVecEnv(ShareVecEnv):
         for env in self.envs:
             env.close()
 
-    def render(self, mode="multi_exploration"):
+    def render(self, mode="human"):
         if mode == "rgb_array":
             return np.array([env.render(mode=mode) for env in self.envs])
-        elif mode == "multi_exploration":
+        elif mode == "human":
             for env in self.envs:
                 env.render(mode=mode)
         else:
@@ -1092,10 +1187,10 @@ class ChooseSimpleDummyVecEnv(ShareVecEnv):
     def get_max_step(self):
         return [env.max_steps for env in self.envs]
 
-    def render(self, mode="multi_exploration"):
+    def render(self, mode="human"):
         if mode == "rgb_array":
             return np.array([env.render(mode=mode) for env in self.envs])
-        elif mode == "multi_exploration":
+        elif mode == "human":
             for env in self.envs:
                 env.render(mode=mode)
         else:
@@ -1114,6 +1209,13 @@ class ChooseInfoDummyVecEnv(ShareVecEnv):
     def step_wait(self):
         results = [env.step(a) for (a, env) in zip(self.actions, self.envs)]
         obs, rews, dones, infos = map(np.array, zip(*results))
+        for (i, done) in enumerate(dones):
+            if 'bool' in done.__class__.__name__:
+                if done:
+                    obs[i], infos[i] = self.envs[i].reset()
+            else:
+                if np.all(done):
+                    obs[i], infos[i] = self.envs[i].reset()
         self.actions = None
         return obs, rews, dones, infos
 
@@ -1126,10 +1228,10 @@ class ChooseInfoDummyVecEnv(ShareVecEnv):
         for env in self.envs:
             env.close()
     
-    def render(self, mode="multi_exploration"):
+    def render(self, mode="human"):
         if mode == "rgb_array":
             return np.array([env.render(mode=mode) for env in self.envs])
-        elif mode == "multi_exploration":
+        elif mode == "human":
             for env in self.envs:
                 env.render(mode=mode)
         else:

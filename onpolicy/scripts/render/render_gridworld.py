@@ -12,7 +12,7 @@ import torch
 from onpolicy.config import get_config
 
 from onpolicy.envs.gridworld.GridWorld_Env import GridWorldEnv
-from onpolicy.envs.env_wrappers import InfoSubprocVecEnv, InfoDummyVecEnv
+from onpolicy.envs.env_wrappers import InfoDummyVecEnv, InfoSubprocVecEnv
 
 def make_render_env(all_args):
     def get_env_fn(rank):
@@ -69,7 +69,7 @@ def main(args):
 
     assert all_args.use_render, ("u need to set use_render be True")
     assert not (all_args.model_dir == None or all_args.model_dir == ""), ("set model_dir first")
-    assert all_args.n_rollout_threads==1, ("only support to use 1 env to render.")
+    #assert all_args.n_rollout_threads==1, ("only support to use 1 env to render.")
     
     # cuda
     if all_args.cuda and torch.cuda.is_available():

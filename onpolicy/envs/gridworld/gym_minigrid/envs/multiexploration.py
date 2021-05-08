@@ -5,11 +5,12 @@ import matplotlib.pyplot as plt
 import time
 import pyastar
 from onpolicy.envs.gridworld.gym_minigrid.minigrid import *
+from .multiroom import *
 from icecream import ic
 import cv2
 
 
-class MultiExplorationEnv(MiniGridEnv):
+class MultiExplorationEnv(MultiRoomEnv):
     """
     Classic 4 rooms gridworld environment.
     Can specify agent and goal position, if not it set at random.
@@ -28,20 +29,32 @@ class MultiExplorationEnv(MiniGridEnv):
         use_same_location = True,
         use_complete_reward = True,
     ):
+        self.grid_size = grid_size
         self._agent_default_pos = agent_pos
         self._goal_default_pos = goal_pos
         self.door_size = 3
         self.max_steps = max_steps
+        self.use_same_location = use_same_location
         self.use_complete_reward = use_complete_reward
+
         if num_obstacles <= grid_size/2 + 1:
             self.num_obstacles = int(num_obstacles)
         else:
             self.num_obstacles = int(grid_size/2)
         self.num_episode = 0
-        super().__init__(grid_size = grid_size, max_steps = max_steps, num_agents = num_agents, agent_view_size = agent_view_size, use_merge = use_merge, use_same_location = use_same_location)
+        self.merge_ratio = 0
+        super().__init__(minNumRooms = 4,
+                        maxNumRooms = 8,
+                        maxRoomSize = 10,
+                        grid_size = grid_size, 
+                        max_steps = max_steps, 
+                        num_agents = num_agents, 
+                        agent_view_size = agent_view_size, 
+                        use_merge = use_merge
+                        )
 
 
-    def _gen_grid(self, width, height):
+    '''def _gen_grid(self, width, height):
         # Create the grid
         self.grid = Grid(width, height)
         
@@ -62,22 +75,40 @@ class MultiExplorationEnv(MiniGridEnv):
                 yT = j * room_h
                 xR = xL + room_w
                 yB = yT + room_h
+                if self.scene_id = 1:
+                    # Bottom wall and door
+                    if i + 1 < 2:
 
-                # Bottom wall and door
-                if i + 1 < 2:
+                        self.grid.vert_wall(xR, yT, room_h)
+                        #pos = (xR, self._rand_int(yT + 1, yB))
+                        pos = (xR, self._rand_int(yT + 1, yB - 2))
+                        for s in range(self.door_size):
+                            self.grid.set(*pos, None)
+                            pos = (pos[0], pos[1] + 1)
 
-                    self.grid.vert_wall(xR, yT, room_h)
-                    #pos = (xR, self._rand_int(yT + 1, yB))
-                    pos = (xR, self._rand_int(yT + 1, yB - 2))
-                    for s in range(self.door_size):
+                    # Bottom wall and door
+                    if j + 1 < 2:
+                        self.grid.horz_wall(xL, yB, room_w)
+                        pos = (self._rand_int(xL + 1, xR), yB)
                         self.grid.set(*pos, None)
-                        pos = (pos[0], pos[1] + 1)
 
-                # Bottom wall and door
-                if j + 1 < 2:
-                    self.grid.horz_wall(xL, yB, room_w)
-                    pos = (self._rand_int(xL + 1, xR), yB)
-                    self.grid.set(*pos, None)
+
+                if self.scene_id = 2:
+                    # Bottom wall and door
+                    if i + 1 < 2:
+                        self.grid.vert_wall(xR, yT, room_h)
+                        pos = (xR, self._rand_int(yT + 1, yB))
+                        self.grid.set(*pos, None)
+
+                    # Bottom wall and door
+                    if j + 1 < 2:
+                        self.grid.horz_wall(xL, yB, room_w)
+                        pos = (self._rand_int(xL + 1, xR), yB)
+                        self.grid.set(*pos, None)
+
+
+
+                    
         # Randomize the player start position and orientation
         if self._agent_default_pos is not None:
             self.agent_pos = self._agent_default_pos
@@ -91,27 +122,30 @@ class MultiExplorationEnv(MiniGridEnv):
             else:
                 self.agent_dir = [self._rand_int(0, 4) for i in range(self.num_agents)]  # assuming random start direction
         else:
-            self.place_agent()
-
+            self.place_agent(use_same_location = self.use_same_location)
+        
+        #place object
         self.obstacles = []
         for i_obst in range(self.num_obstacles):
             self.obstacles.append(Obstacle())
             pos = self.place_obj(self.obstacles[i_obst], max_tries=100)
         
         
-        '''
+        
         if self._goal_default_pos is not None:
             goal = Goal()
             self.put_obj(goal, *self._goal_default_pos)
             goal.init_pos, goal.cur_pos = self._goal_default_pos
         else:
             self.place_obj(Goal())
-        '''
-        self.mission = 'Reach the goal'
+        
+        self.mission = 'Reach the goal'''
 
     def reset(self, choose = True):
         self.num_episode += 1
+        self.explorable_size = 0
         obs = MiniGridEnv.reset(self, choose=True)
+        
         self.num_step = 0
         self.get_ratio = 0
         self.target_ratio = 0.98
@@ -220,9 +254,8 @@ class MultiExplorationEnv(MiniGridEnv):
         info['obstacle_each_map'] = np.array(self.obstacle_each_map).astype(int)
         info['agent_direction'] = np.array(self.agent_dir)
         info['agent_local_map'] = self.agent_local_map
-        
-        if self.num_episode > 1:
-            info['merge_explored_ratio'] = self.merge_ratio
+        info['merge_explored_ratio'] = self.merge_ratio
+        self.merge_ratio = 0
     
         return obs, info
 
@@ -233,12 +266,13 @@ class MultiExplorationEnv(MiniGridEnv):
         current_agent_pos = []
         each_agent_rewards = []
         self.num_step += 1
+
         for i in range(self.num_agents):
             self.explored_each_map_t.append(np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size)))
             self.obstacle_each_map_t.append(np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size)))
         for i in range(self.num_agents):     
             local_map = np.rot90(obs[i]['image'][:,:,0].T,3)
-            #local_map = obs[i]['image'][:,:,0]
+            
             pos = [self.agent_pos[i][1] + self.agent_view_size, self.agent_pos[i][0] + self.agent_view_size]
             current_agent_pos.append(pos)
             direction = self.agent_dir[i]
@@ -312,29 +346,27 @@ class MultiExplorationEnv(MiniGridEnv):
         info['merge_explored_reward'] = merge_explored_reward * 0.02
         
 
-        if info['explored_all_map'].sum()/(self.width * self.height) >= self.target_ratio:
+        if info['explored_all_map'].sum()/self.explorable_size >= self.target_ratio:#(self.width * self.height)
             if self.use_complete_reward:
                 info['merge_explored_reward'] += 0.1*(info['explored_all_map'].sum()/(self.width * self.height))
             '''if info['explored_all_map'].sum()/(self.width * self.height) == 1:
-                done = [True for _ in range(self.num_agents)]'''
+                done = True'''
             if self.get_ratio == 0:
                 info['merge_ratio_step'] = self.num_step
                 self.get_ratio = 1
 
         for i in range(self.num_agents):
-            if info['explored_each_map'][i].sum()/(self.width * self.height) >= self.target_ratio:
+            if info['explored_each_map'][i].sum()/self.explorable_size >= self.target_ratio:#(self.width * self.height)
                 if self.use_complete_reward:
                     info['agent_explored_reward'][i] += 0.1*(info['explored_each_map'][i].sum()/(self.width * self.height))
                 if self.get_agent_ratio[i] == 0:
                     info["agent{}_ratio_step".format(i)] = self.num_step
                     self.get_agent_ratio[i] = 1
 
-        if self.num_step == self.max_steps:
-            info['merge_explored_ratio'] = info['explored_all_map'].sum()/(self.width * self.height)
-            self.merge_ratio = info['merge_explored_ratio']
+        self.merge_ratio = info['explored_all_map'].sum()/self.explorable_size #(self.width * self.height)
+        info['merge_explored_ratio'] = self.merge_ratio
         
         #import pdb; pdb.set_trace()
-
         return obs, reward, done, info
 
     def get_short_term_action(self, inputs):

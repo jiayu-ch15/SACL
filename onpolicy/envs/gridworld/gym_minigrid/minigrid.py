@@ -812,10 +812,8 @@ class MiniGridEnv(gym.Env):
         seed=1337,
         agent_view_size=7,
         use_merge = True,
-        use_same_location = True,
     ):  
         self.num_agents = num_agents
-        self.use_same_location = use_same_location
         # Can't set both grid_size and width/height
         if grid_size:
             assert width == None and height == None
@@ -1152,7 +1150,8 @@ class MiniGridEnv(gym.Env):
         top=None,
         size=None,
         rand_dir=True,
-        max_tries=math.inf
+        max_tries=math.inf,
+        use_same_location = False,
     ):
         """
         Set the agent's starting point at an empty position in the grid
@@ -1161,16 +1160,20 @@ class MiniGridEnv(gym.Env):
         self.agent_pos = []
         self.agent_dir = []
         pos = []
-        if self.use_same_location:
+        if use_same_location:
             p = self.place_obj(None, top, size, max_tries=max_tries)
-        for agent_id in range(self.num_agents):
-            if not self.use_same_location:
+            for agent_id in range(self.num_agents):
+                self.agent_pos.append(p)
+                pos.append(p)
+                if rand_dir:
+                    self.agent_dir.append(self._rand_int(0, 4))
+        else:
+            for agent_id in range(self.num_agents):
                 p = self.place_obj(None, top, size, max_tries=max_tries)
-            self.agent_pos.append(p)
-            pos.append(p)
-
-            if rand_dir:
-                self.agent_dir.append(self._rand_int(0, 4))
+                self.agent_pos.append(p)
+                pos.append(p)
+                if rand_dir:
+                    self.agent_dir.append(self._rand_int(0, 4))
         return pos
 
     def dir_vec(self, agent_id):
@@ -1326,12 +1329,15 @@ class MiniGridEnv(gym.Env):
                         #reward = self.direction_alpha
                     self.agent_pos[agent_id] = fwd_pos
                 if fwd_cell != None and fwd_cell.type == 'goal':
-                    done = True
-                    reward += self._reward()
+                    pass
+                    #done = True
+                    #reward += self._reward()
                 if fwd_cell != None and fwd_cell.type == 'obstacle':
-                    reward += self._penalty()
+                    pass
+                    #reward += self._penalty()
                 if fwd_cell != None and fwd_cell.type == 'lava':
-                    done = True
+                    pass
+                    #done = True
 
             # Pick up an object
             elif action[agent_id] == self.actions.pickup:
@@ -1442,7 +1448,7 @@ class MiniGridEnv(gym.Env):
 
         return img
 
-    def render(self, mode='multi_exploration', close=False, highlight=True, tile_size=TILE_PIXELS):
+    def render(self, mode='human', close=False, highlight=True, tile_size=TILE_PIXELS, first=False):
         """
         Render the whole-grid human view
         """
@@ -1452,8 +1458,7 @@ class MiniGridEnv(gym.Env):
                 self.window.close()
             return
 
-
-        if mode == 'multi_exploration' and not self.window:
+        if not self.window:
             from onpolicy.envs.gridworld.gym_minigrid.window import Window
             self.window = Window('gym_minigrid')
             self.window.show(block=False)
@@ -1490,20 +1495,28 @@ class MiniGridEnv(gym.Env):
                     # Mark this cell to be highlighted
                     highlight_mask[abs_i, abs_j] = True
 
+        explore_mask = highlight_mask if first else self.explored_map.T 
         # Render the whole grid
         img = self.grid.render(
             self.num_agents,
             tile_size,
             self.agent_pos,
             self.agent_dir,
-            highlight_mask = self.explored_map.T if highlight else None #highlight_mask 
+            highlight_mask = explore_mask if highlight else None
         )
 
-        if mode == 'multi_exploration':
-            self.window.set_caption(self.mission)
-            self.window.show_img(img)
+        local_img = self.grid.render(
+            self.num_agents,
+            tile_size,
+            self.agent_pos,
+            self.agent_dir,
+            highlight_mask = highlight_mask if highlight else None #
+        )
 
-        return img
+        self.window.set_caption(self.mission)
+        self.window.show_img(img)
+        #, local_img
+        return img, local_img
 
     def get_direction_encoder(self):
         self.render(mode='multi_exploration', close=False)

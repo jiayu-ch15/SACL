@@ -19,9 +19,14 @@ class MultiRoomEnv(MiniGridEnv):
     """
 
     def __init__(self,
+        grid_size, 
+        max_steps, 
+        num_agents, 
+        agent_view_size, 
+        use_merge,
         minNumRooms,
         maxNumRooms,
-        maxRoomSize=10
+        maxRoomSize=10     
     ):
         assert minNumRooms > 0
         assert maxNumRooms >= minNumRooms
@@ -30,12 +35,15 @@ class MultiRoomEnv(MiniGridEnv):
         self.minNumRooms = minNumRooms
         self.maxNumRooms = maxNumRooms
         self.maxRoomSize = maxRoomSize
-
+        self.explorable_size = 0
         self.rooms = []
 
         super(MultiRoomEnv, self).__init__(
-            grid_size=25,
-            max_steps=self.maxNumRooms * 20
+            grid_size = grid_size, 
+            max_steps = max_steps, 
+            num_agents = num_agents, 
+            agent_view_size = agent_view_size, 
+            use_merge = use_merge
         )
 
     def _gen_grid(self, width, height):
@@ -102,18 +110,19 @@ class MultiRoomEnv(MiniGridEnv):
                 doorColor = self._rand_elem(sorted(doorColors))
 
                 entryDoor = Door(doorColor)
-                self.grid.set(*room.entryDoorPos, entryDoor)
+                self.grid.set(*room.entryDoorPos, None)
                 prevDoorColor = doorColor
 
                 prevRoom = roomList[idx-1]
                 prevRoom.exitDoorPos = room.entryDoorPos
 
         # Randomize the starting agent position and direction
-        self.place_agent(roomList[0].top, roomList[0].size)
+        self.place_agent(roomList[0].top, roomList[0].size, use_same_location = self.use_same_location)
 
         # Place the final goal in the last room
-        self.goal_pos = self.place_obj(Goal(), roomList[-1].top, roomList[-1].size)
-
+        #self.goal_pos = self.place_obj(Goal(), roomList[-1].top, roomList[-1].size)
+        for i in range(numRooms):
+            self.explorable_size += roomList[i].size[0] * roomList[i].size[1]
         self.mission = 'traverse the rooms to get to the goal'
 
     def _placeRoom(
@@ -259,7 +268,7 @@ class MultiRoomEnvN6(MultiRoomEnv):
             maxNumRooms=6
         )
 
-register(
+'''register(
     id='MiniGrid-MultiRoom-N2-S4-v0',
     entry_point='onpolicy.envs.gridworld.gym_minigrid.envs:MultiRoomEnvN2S4'
 )
@@ -272,4 +281,4 @@ register(
 register(
     id='MiniGrid-MultiRoom-N6-v0',
     entry_point='onpolicy.envs.gridworld.gym_minigrid.envs:MultiRoomEnvN6'
-)
+)'''
