@@ -100,6 +100,7 @@ def parse_args(args, parser):
     parser.add_argument('--use_intrinsic_reward', action='store_true', default=False)
     parser.add_argument('--use_delta_reward', action='store_true', default=False)
     parser.add_argument('--use_partial_reward', action='store_true', default=False)
+
     
     # Environment, dataset and episode specifications
     parser.add_argument('-efw', '--env_frame_width', type=int, default=256,
@@ -132,6 +133,9 @@ def parse_args(args, parser):
                         default=False, help="by default True, use fixed agent rotation at the initialization")
     parser.add_argument('--use_random_rotation', action='store_true',
                         default=False, help="by default True, use random agent rotation at the initialization")
+    parser.add_argument('--use_abs_orientation', action='store_true',
+                        default=False, help="by default True, use abs orientation at the initialization")
+
 
     # Local Policy
     parser.add_argument('--local_lr', type=float, default=0.0001)

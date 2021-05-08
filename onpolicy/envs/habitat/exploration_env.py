@@ -451,7 +451,7 @@ class Exploration_Env(habitat.RLEnv):
             'fp_explored': [],
             'sensor_pose': [],
             'pose_err': [],
-            'explored_reward': [],
+            'explored_reward': [0.0, 0.0],
             'explored_ratio': [],
             'merge_explored_reward': 0.0,
             'merge_explored_ratio': 0.0,
@@ -470,15 +470,21 @@ class Exploration_Env(habitat.RLEnv):
       
         # log step
         self.merge_ratio += merge_explored_ratio
-        if self.merge_ratio >= self.explored_ratio_threshold and self.merge_explored_ratio_step == -1.0:
-            self.merge_explored_ratio_step = self.timestep
-            self.info['merge_explored_ratio_step'] = self.timestep
+        if self.merge_ratio >= self.explored_ratio_threshold:
+            if self.use_complete_reward:
+                self.info['merge_explored_reward'] += 1.0 * self.merge_ratio
+            if self.merge_explored_ratio_step == -1.0:
+                self.merge_explored_ratio_step = self.timestep
+                self.info['merge_explored_ratio_step'] = self.timestep
 
         for agent_id in range(self.num_agents):
             self.ratio[agent_id] += agent_explored_ratio[agent_id]
-            if self.ratio[agent_id] >= self.explored_ratio_threshold and self.explored_ratio_step[agent_id] == -1.0:
-                self.explored_ratio_step[agent_id] = self.timestep
-                self.info["agent{}_explored_ratio_step".format(agent_id)] = self.timestep
+            if self.ratio[agent_id] >= self.explored_ratio_threshold:
+                if self.use_complete_reward:
+                    self.info['explored_reward'][agent_id] += 1.0 * self.ratio[agent_id]
+                if self.explored_ratio_step[agent_id] == -1.0:
+                    self.explored_ratio_step[agent_id] = self.timestep
+                    self.info["agent{}_explored_ratio_step".format(agent_id)] = self.timestep
 
         agents_explored_map = np.zeros_like(self.explored_map[0])
         
@@ -486,7 +492,7 @@ class Exploration_Env(habitat.RLEnv):
         self.info['merge_explored_ratio'] = merge_explored_ratio
 
         for agent_id in range(self.num_agents):
-            self.info['explored_reward'].append(agent_explored_area[agent_id])
+            self.info['explored_reward'][agent_id] += agent_explored_area[agent_id]
             self.info['explored_ratio'].append(agent_explored_ratio[agent_id])
             if self.timestep % self.args.num_local_steps == 0:
                 agents_explored_map = np.maximum(agents_explored_map, self.transform(self.current_explored_gt[agent_id]*self.explorable_map[agent_id], agent_id))
@@ -499,8 +505,6 @@ class Exploration_Env(habitat.RLEnv):
 
         if self.info['time'][0] >= self.args.max_episode_length:
             done = [True for _ in range(self.num_agents)]
-            if self.merge_ratio >= self.explored_ratio_threshold and self.use_complete_reward:
-                self.info['merge_explored_reward'] += 1.0 
             if self.args.save_trajectory_data:
                 self.save_trajectory_data()
         else:

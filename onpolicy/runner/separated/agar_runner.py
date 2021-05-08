@@ -127,7 +127,6 @@ class AgarRunner(Runner):
     def insert(self, data):
         obs, rewards, dones, infos, \
         values, actions, action_log_probs, rnn_states, rnn_states_critic = data
-
         dones_env = np.all(dones, axis=-1)
         for done, info in zip(dones_env, infos):
             if done:
@@ -185,6 +184,7 @@ class AgarRunner(Runner):
     @torch.no_grad()
     def render(self):
         envs = self.envs
+        action_shape = get_shape_from_act_space(envs.action_space[0])
         f = str(self.run_dir/'log.txt')
 
         all_frames = []
@@ -194,34 +194,37 @@ class AgarRunner(Runner):
             episode_rewards = []
 
             obs = envs.reset()
+
             if self.all_args.save_gifs:
                 for i in range(self.num_agents):
                     image = np.squeeze(envs.render(mode="rgb_array", playeridx=i))
                     all_frames.append(image)
+            else:
+                for i in range(self.num_agents):
+                    envs.render(mode="human", playeridx=i)
 
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+            actions = np.zeros((self.n_rollout_threads, self.num_agents, action_shape), dtype=np.float32)
 
             while not end:
                 step += 1
                 calc_start = time.time()
-                temp_actions_env = []
+
                 for agent_id in range(self.num_agents):
                     self.trainer[agent_id].prep_rollout()
-                    action, rnn_state = self.trainer[agent_id].policy.act(np.array(list(obs[:, agent_id])),
+                    action, rnn_state = self.trainer[agent_id].policy.act(obs[:, agent_id],
                                                                         rnn_states[:, agent_id],
                                                                         masks[:, agent_id],
                                                                         deterministic=True)
 
-                    action = action.detach().cpu().numpy()
-                    temp_actions_env.append(action)
+                    actions[:, agent_id] = _t2n(action)
                     rnn_states[:, agent_id] = _t2n(rnn_state)
                    
                 # Obser reward and next obs
-                actions = np.transpose(np.array(temp_actions_env), (1, 0, 2))
                 obs, rewards, dones, infos = self.envs.step(actions)
 
-                dones_env = np.all(dones, axis=1)
+                dones_env = np.all(dones, axis=-1)
                 end = dones_env[0]
 
                 episode_rewards.append(rewards)
@@ -239,6 +242,9 @@ class AgarRunner(Runner):
                     elapsed = calc_end - calc_start
                     if elapsed < self.all_args.ifi:
                         time.sleep(self.all_args.ifi - elapsed)
+                else:
+                    for i in range(self.num_agents):
+                        envs.render(mode="human", playeridx=i)
 
             render_infos = []
             with open(f,'w') as file:
@@ -299,7 +305,7 @@ class AgarRunner(Runner):
 
             if ~np.any(eval_choose):
                 break
-            eval_actions = np.ones((self.n_eval_rollout_threads, self.num_agents, action_shape)).astype(np.int) * (-1)
+            eval_actions = np.ones((self.n_eval_rollout_threads, self.num_agents, action_shape)).astype(np.float) * (-1.0)
             
             for agent_id in range(self.num_agents):
                 self.trainer[agent_id].prep_rollout()
@@ -332,5 +338,5 @@ class AgarRunner(Runner):
             eval_rnn_states[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
             eval_masks[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
-
+                
         self.log_env(eval_env_infos, total_num_steps)  

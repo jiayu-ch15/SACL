@@ -879,8 +879,6 @@ class ChooseInfoSubprocVecEnv(ShareVecEnv):
             p.join()
         self.closed = True
 
-
-
 # single env
 class DummyVecEnv(ShareVecEnv):
     def __init__(self, env_fns):

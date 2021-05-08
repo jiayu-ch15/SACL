@@ -1,5 +1,6 @@
 from onpolicy.envs.agar.modules import *
 import math
+from icecream import ic
 
 class Player:
     def __init__(self, gameServer, name = 'dummy', id = None, pos = None):
@@ -49,11 +50,11 @@ class Player:
         assert action[0] >= -1 and action[0] <= 1 and action[1] >= -1 and action[1] <= 1
         self.mouse = self.centerPos.add(Vec2(action[0] * self.gameServer.config.serverViewBaseX, action[1] * self.gameServer.config.serverViewBaseY), 1)
         # assert np.sum(action[2:]) == 1
-        if action[2] == 0:
+        if action[2] == 0.:
             self.pressSpace()
-        #elif action[2] == 1:
+        #elif action[2] == 1.:
         #    self.pressW()
-        #elif action[2] == 2:
+        #elif action[2] == 2.:
         else:
             pass
 

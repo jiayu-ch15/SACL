@@ -1,30 +1,34 @@
 import gym
 from .gym_minigrid.envs.human import HumanEnv
 from onpolicy.envs.gridworld.gym_minigrid.register import register
+import numpy as np
 
 class GridWorldEnv(object):
     def __init__(self, args):
 
         self.num_agents = args.num_agents
-        self.num_preies = args.num_preies
-        self.num_obstacles = args.num_obstacles
         self.scenario_name = args.scenario_name
-        self.use_direction_reward = args.use_direction_reward
-        self.direction_alpha = args.direction_alpha
-        self.use_human_command = args.use_human_command
-        self.coverage_discounter = args.coverage_discounter
+        self.use_random_pos = args.use_random_pos
+        self.agent_pos = None if self.use_random_pos else args.agent_pos
+        self.num_obstacles = args.num_obstacles
+        self.use_single_reward = args.use_single_reward
 
         register(
             id = self.scenario_name,
+            grid_size = args.grid_size,
+            max_steps = args.max_steps,
+            agent_view_size = args.agent_view_size,
             num_agents = self.num_agents,
-            num_preies = self.num_preies,
             num_obstacles = self.num_obstacles,
-            direction_alpha = self.direction_alpha,
-            use_human_command = self.use_human_command,
-            coverage_discounter = self.coverage_discounter, 
-            use_direction_reward = self.use_direction_reward,
-            entry_point = 'onpolicy.envs.gridworld.gym_minigrid.envs:HumanEnv'
+            agent_pos = self.agent_pos, 
+            direction_alpha = args.direction_alpha,
+            use_human_command = args.use_human_command,  
+            use_merge = args.use_merge, 
+            use_same_location = args.use_same_location,
+            use_complete_reward = args.use_complete_reward, 
+            entry_point = 'onpolicy.envs.gridworld.gym_minigrid.envs:MultiExplorationEnv'
         )
+
         self.env = gym.make(self.scenario_name)
         self.max_steps = self.env.max_steps
         # print("max step is {}".format(self.max_steps))
@@ -40,18 +44,22 @@ class GridWorldEnv(object):
             self.env.seed(seed)
 
     def reset(self, choose=True):
-        obs = self.env.reset(choose=choose)
-        return obs
+        obs, info = self.env.reset(choose=choose)
+        return obs, info
 
     def step(self, actions):
         obs, rewards, dones, infos = self.env.step(actions)
+        if self.use_single_reward:
+            rewards = 0.3 * np.expand_dims(infos['agent_explored_reward'], axis=1) + 0.7 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+        else:
+            rewards = np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         return obs, rewards, dones, infos
 
     def close(self):
         self.env.close()
 
-    def render(self, mode="human"):
-        if mode == "human":
+    def render(self, mode="multiexploration"):
+        if mode == "multiexploration":
             self.env.render(mode=mode)
         else:
             return self.env.render(mode=mode)

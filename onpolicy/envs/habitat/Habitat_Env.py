@@ -31,7 +31,7 @@ class MultiHabitatEnv(object):
         global_observation_space['global_orientation'] = gym.spaces.Box(
             low=-1, high=1, shape=(1,), dtype='long')
         global_observation_space['other_global_orientation'] = gym.spaces.Box(
-            low=-1, high=1, shape=(1,), dtype='long')
+            low=-1, high=1, shape=(self.num_agents-1,), dtype='long')
         global_observation_space['vector'] = gym.spaces.Box(
             low=-1, high=1, shape=(self.num_agents,), dtype='float')
         # global_observation_space['global_merge_goal'] = gym.spaces.Box(

@@ -29,12 +29,12 @@ def onehot(d, ndim):
 
 
 class AgarEnv(gym.Env):
-    def __init__(self, args, obs_size=578, gamemode=0, kill_reward_eps=0, coop_eps=1, reward_settings="std", eval=False):
+    def __init__(self, args, gamemode=0, kill_reward_eps=0, coop_eps=1, reward_settings="std", eval=False):
+    #def __init__(self, args, gamemode=0, kill_reward_eps=0, coop_eps=0, reward_settings="agg", eval=False):
         super(AgarEnv, self).__init__()
         self.args = args
         self.action_repeat = args.action_repeat
         self.g = args.gamma  # discount rate of RL (gamma)
-        self.obs_size = obs_size
         self.gamemode = gamemode  # We only implemented FFA (gamemode = 0)
         self.reward_settings = reward_settings
         self.total_step = 0
@@ -50,11 +50,14 @@ class AgarEnv(gym.Env):
         self.action_space = []
         self.observation_space = []
         self.share_observation_space = []
+        obs_size = 570 + 2 * self.num_agents
+        self.obs_size = obs_size
+        feature_size = obs_size - 550
         for i in range(self.num_agents):
             self.action_space.append(spaces.Tuple(
                 [spaces.Box(low=-1, high=1, shape=(2,)), spaces.Discrete(2)]))
             self.observation_space.append(
-                [obs_size, [10, 15], [5, 7], [5, 5], [10, 15], [10, 15], [1, 21]])
+                [obs_size, [10, 15], [5, 7], [5, 5], [10, 15], [10, 15], [1, 40], [1, feature_size]])
             self.share_observation_space.append([obs_size * self.num_agents, [self.num_agents, obs_size]])
 
         self.viewer = []
@@ -76,7 +79,7 @@ class AgarEnv(gym.Env):
         self.eval = eval
 
     def step(self, actions_):
-        if not np.all(actions_ == np.ones((self.num_agents, 1)).astype(np.int) * (-1)):
+        if not np.all(actions_ == np.ones((self.num_agents, 1)).astype(np.float) * (-1.0)):
             self.curr_step += 1
             actions = deepcopy(actions_)
             reward = np.zeros((self.num_agents, 1))
@@ -111,6 +114,7 @@ class AgarEnv(gym.Env):
                                             'r_g_i': self.sum_r_g_i[i], 'hit': self.hit[i], 'dis': self.sum_dis[i] / self.s_n}
                     else:
                         info[i]['bad_transition'] = True
+
                 elif self.s_n >= self.stop_step:
                     done[i] = True
                     info[i]['episode'] = {'r': self.sum_r[i], 'r_g': self.sum_r_g[i],
@@ -243,6 +247,7 @@ class AgarEnv(gym.Env):
                     self.bot_speed = 1.0
                 if self.eval:
                     self.bot_speed = 1.0
+
                 self.players = self.agents + self.bots
                 self.server.addPlayers(self.players)
                 self.viewer = []
@@ -270,25 +275,16 @@ class AgarEnv(gym.Env):
 
         '''
         n = [10, 5, 5, 10, 10, 10, 5, 5, 10, 10]
-        s_glo = 28
+        s_glo = 20 + self.num_agents * 2
         s_size_i = [15, 7, 5, 15, 15, 1, 1, 1, 1, 1]
         #for i in range(len(s_size_i)):
         #    s_size_i[i] += self.num_agents
-        s_size = np.sum(np.array(n) * np.array(s_size_i)) + s_glo # 564
+        s_size = np.sum(np.array(n) * np.array(s_size_i)) + s_glo # 550 + s_glo
         if len(player.cells) == 0:return np.zeros(s_size)
         obs = [[], [], [], [], []]
         for cell in player.viewNodes:
             t, feature = self.cell_obs(cell, player, id)
             obs[t].append(feature)
-
-        other_mass = 0
-        other_killed = 0
-        for partner in range(self.num_agents):
-            if partner == id:
-                continue           
-            other_mass += sum([c.mass for c in self.agents[partner].cells]) / 50
-            if self.agents[partner]:
-                other_killed += 1
 
         for i in range(len(obs)):
             obs[i].sort(key = lambda x:x[0] ** 2 + x[1] ** 2)
@@ -308,16 +304,15 @@ class AgarEnv(gym.Env):
         obs_f[-16] = player.mincell().radius / 400
         obs_f[-19:-16] = self.last_action[id * 3 : id * 3 + 3]
         obs_f[-20] = self.bot_speed
-        obs_f[-21] = (self.killed[id] != 0)
+        #obs_f[-21] = (self.killed[id] != 0)
         #obs_f[-22] = (self.killed[1 - id] != 0)
-        obs_f[-22] = other_killed
-        obs_f[-23] = sum([c.mass for c in player.cells]) / 50
+        #obs_f[-23] = sum([c.mass for c in player.cells]) / 50
         #obs_f[-24] = sum([c.mass for c in self.agents[1 - id].cells]) / 50
-        obs_f[-24] = other_mass
-        obs_f[-25] = 0#self.coop_eps[id]
-        obs_f[-26] = 0#self.coop_eps[1 - id]
-        obs_f[-27] = 0#self.kill_reward_eps[id]
-        obs_f[-28] = 0#self.kill_reward_eps[1 - id]
+        for i in range(self.num_agents):
+            obs_f[-21-i] = (self.killed[i] != 0)
+        for i in range(self.num_agents):
+            obs_f[-21- self.num_agents -i] = sum([c.mass for c in self.agents[i].cells]) / 50
+        
         base = 0
         for j in range(10):
             lim = min(len(obs[j % 5]), n[j % 5])
@@ -334,6 +329,7 @@ class AgarEnv(gym.Env):
         '''t_reward = min(1 - np.abs(position_x), 1 - np.abs(position_y))
         if t_reward <= 0.1:self.rewards_forced[id] = - 2 / 1000
         else:self.rewards_forced[id] = 0.'''
+        obs_f[-5] = id # need to change to one-hot coder
         obs_f[-4] = position_x
         obs_f[-3] = position_y
         '''if obs_f[-4] <= -0.99:obs_f[-2] = -1
