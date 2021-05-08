@@ -36,7 +36,7 @@ class ShareVecEnv(ABC):
     viewer = None
 
     metadata = {
-        'render.modes': ['multi_exploration', 'rgb_array']
+        'render.modes': ['human', 'rgb_array']
     }
 
     def __init__(self, num_envs, observation_space, share_observation_space, action_space):
@@ -107,10 +107,10 @@ class ShareVecEnv(ABC):
         self.step_async(actions)
         return self.step_wait()
 
-    def render(self, mode='multi_exploration'):
+    def render(self, mode='human'):
         imgs = self.get_images()
         bigimg = tile_images(imgs)
-        if mode == 'multi_exploration':
+        if mode == 'human':
             self.get_viewer().imshow(bigimg)
             return self.get_viewer().isopen
         elif mode == 'rgb_array':
@@ -161,7 +161,7 @@ def worker(remote, parent_remote, env_fn_wrapper):
             if data == "rgb_array":
                 fr = env.render(mode=data)
                 remote.send(fr)
-            elif data == "multi_exploration":
+            elif data == "human":
                 env.render(mode=data)
         elif cmd == 'reset_task':
             ob = env.reset_task()
@@ -330,7 +330,7 @@ def shareworker(remote, parent_remote, env_fn_wrapper):
             if data == "rgb_array":
                 fr = env.render(mode=data)
                 remote.send(fr)
-            elif data == "multi_exploration":
+            elif data == "human":
                 env.render(mode=data)
         elif cmd == 'close':
             env.close()
@@ -428,7 +428,7 @@ def infoworker(remote, parent_remote, env_fn_wrapper):
             if data == "rgb_array":
                 fr = env.render(mode=data)
                 remote.send(fr)
-            elif data == "multi_exploration":
+            elif data == "human":
                 env.render(mode=data)
         elif cmd == 'close':
             env.close()
@@ -533,7 +533,7 @@ def choosesimpleworker(remote, parent_remote, env_fn_wrapper):
             if data == "rgb_array":
                 fr = env.render(mode=data)
                 remote.send(fr)
-            elif data == "multi_exploration":
+            elif data == "human":
                 env.render(mode=data)
         elif cmd == 'get_spaces':
             remote.send(
@@ -797,7 +797,7 @@ def chooseinfoworker(remote, parent_remote, env_fn_wrapper):
             if data == "rgb_array":
                 fr = env.render(mode=data)
                 remote.send(fr)
-            elif data == "multi_exploration":
+            elif data == "human":
                 env.render(mode=data)
         elif cmd == 'close':
             env.close()
@@ -879,8 +879,6 @@ class ChooseInfoSubprocVecEnv(ShareVecEnv):
             p.join()
         self.closed = True
 
-
-
 # single env
 class DummyVecEnv(ShareVecEnv):
     def __init__(self, env_fns):
@@ -918,13 +916,13 @@ class DummyVecEnv(ShareVecEnv):
         for env in self.envs:
             env.close()
 
-    def render(self, mode="multi_exploration", playeridx=None):
+    def render(self, mode="human", playeridx=None):
         if mode == "rgb_array":
             if playeridx == None:
                 return np.array([env.render(mode=mode) for env in self.envs])
             else:
                 return np.array([env.render(mode=mode,playeridx=playeridx) for env in self.envs])
-        elif mode == "multi_exploration":
+        elif mode == "human":
             for env in self.envs:
                 if playeridx == None:
                     env.render(mode=mode)
@@ -969,10 +967,10 @@ class ShareDummyVecEnv(ShareVecEnv):
         for env in self.envs:
             env.close()
     
-    def render(self, mode="multi_exploration"):
+    def render(self, mode="human"):
         if mode == "rgb_array":
             return np.array([env.render(mode=mode) for env in self.envs])
-        elif mode == "multi_exploration":
+        elif mode == "human":
             for env in self.envs:
                 env.render(mode=mode)
         else:
@@ -1092,10 +1090,10 @@ class ChooseSimpleDummyVecEnv(ShareVecEnv):
     def get_max_step(self):
         return [env.max_steps for env in self.envs]
 
-    def render(self, mode="multi_exploration"):
+    def render(self, mode="human"):
         if mode == "rgb_array":
             return np.array([env.render(mode=mode) for env in self.envs])
-        elif mode == "multi_exploration":
+        elif mode == "human":
             for env in self.envs:
                 env.render(mode=mode)
         else:
@@ -1126,10 +1124,10 @@ class ChooseInfoDummyVecEnv(ShareVecEnv):
         for env in self.envs:
             env.close()
     
-    def render(self, mode="multi_exploration"):
+    def render(self, mode="human"):
         if mode == "rgb_array":
             return np.array([env.render(mode=mode) for env in self.envs])
-        elif mode == "multi_exploration":
+        elif mode == "human":
             for env in self.envs:
                 env.render(mode=mode)
         else:

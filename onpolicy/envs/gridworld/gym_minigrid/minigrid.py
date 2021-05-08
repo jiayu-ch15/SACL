@@ -732,6 +732,7 @@ class Grid:
         
         #import pdb; pdb.set_trace()
         return mask
+        
 class MiniGridEnv(gym.Env):
     """
     2D grid world game environment
@@ -769,7 +770,7 @@ class MiniGridEnv(gym.Env):
         see_through_walls=False,
         seed=1337,
         agent_view_size=7,
-        use_merge = True,
+        use_merge=True,
     ):  
         self.num_agents = num_agents
         # Can't set both grid_size and width/height
@@ -1105,7 +1106,8 @@ class MiniGridEnv(gym.Env):
         top=None,
         size=None,
         rand_dir=True,
-        max_tries=math.inf
+        max_tries=math.inf,
+        use_same_location=False,
     ):
         """
         Set the agent's starting point at an empty position in the grid
@@ -1114,13 +1116,21 @@ class MiniGridEnv(gym.Env):
         self.agent_pos = []
         self.agent_dir = []
         pos = []
-        for agent_id in range(self.num_agents):
-            p = self.place_obj(None, top, size, max_tries=max_tries)
-            self.agent_pos.append(p)
-            pos.append(p)
 
-            if rand_dir:
-                self.agent_dir.append(self._rand_int(0, 4))
+        if use_same_location:
+            p = self.place_obj(None, top, size, max_tries=max_tries)
+            for agent_id in range(self.num_agents):
+                self.agent_pos.append(p)
+                pos.append(p)
+                if rand_dir:
+                    self.agent_dir.append(self._rand_int(0, 4))
+        else:
+            for agent_id in range(self.num_agents):
+                p = self.place_obj(None, top, size, max_tries=max_tries)
+                self.agent_pos.append(p)
+                pos.append(p)
+                if rand_dir:
+                    self.agent_dir.append(self._rand_int(0, 4))
         return pos
 
     def dir_vec(self, agent_id):
@@ -1393,7 +1403,7 @@ class MiniGridEnv(gym.Env):
 
         return img
 
-    def render(self, mode='human', close=False, highlight=True, tile_size=TILE_PIXELS, first=True):
+    def render(self, mode='human', close=False, highlight=True, tile_size=TILE_PIXELS, first=False):
         """
         Render the whole-grid human view
         """
@@ -1403,7 +1413,7 @@ class MiniGridEnv(gym.Env):
                 self.window.close()
             return
 
-        if mode == 'human' and not self.window:
+        if not self.window:
             from onpolicy.envs.gridworld.gym_minigrid.window import Window
             self.window = Window('gym_minigrid')
             self.window.show(block=False)
@@ -1442,6 +1452,7 @@ class MiniGridEnv(gym.Env):
 
         # Render the whole grid
         explore_mask = highlight_mask if first else self.explored_map.T 
+        
         img = self.grid.render(
             self.num_agents,
             tile_size,
@@ -1460,9 +1471,8 @@ class MiniGridEnv(gym.Env):
             highlight_mask = highlight_mask if highlight else None #
         )
 
-        if mode == 'human':
-            self.window.set_caption(self.mission)
-            self.window.show_img(img, local_img)
+        self.window.set_caption(self.mission)
+        self.window.show_img(img, local_img)
 
         return img, local_img
 
