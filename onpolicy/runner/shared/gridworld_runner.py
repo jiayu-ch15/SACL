@@ -55,8 +55,6 @@ class GridWorldRunner(Runner):
 
                 # insert data into buffer
                 self.insert(data)
-                if step == self.episode_length-1:
-                    self.init_map_variables() 
 
             # compute return and update network
             self.compute()
@@ -108,25 +106,25 @@ class GridWorldRunner(Runner):
     def _convert(self, dict_obs, infos):
         obs = {}
         obs['image'] = np.zeros((len(dict_obs), self.num_agents, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size, 3), dtype=np.float32)
-        obs['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents+4+8), dtype=np.float32)
-        obs['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size), dtype=np.float32)
-        agent_pos_map = np.zeros((self.n_rollout_threads, self.num_agents, self.full_w, self.full_h), dtype=np.float32)
+        obs['vector'] = np.zeros((len(dict_obs), self.num_agents, self.num_agents+4+8), dtype=np.float32)
+        obs['global_obs'] = np.zeros((len(dict_obs), self.num_agents, 4, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size), dtype=np.float32)
+        agent_pos_map = np.zeros((len(dict_obs), self.num_agents, self.full_w, self.full_h), dtype=np.float32)
         if self.use_merge:
-            obs['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size), dtype=np.float32)
-            merge_pos_map = np.zeros((self.n_rollout_threads, self.full_w, self.full_h), dtype=np.float32)
-        for e in range(self.n_rollout_threads):
+            obs['global_merge_obs'] = np.zeros((len(dict_obs), self.num_agents, 4, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size), dtype=np.float32)
+            merge_pos_map = np.zeros((len(dict_obs), self.full_w, self.full_h), dtype=np.float32)
+        for e in range(len(dict_obs)):
             for agent_id in range(self.num_agents):
                 index_a_1 = infos[e]['current_agent_pos'][agent_id][0]-1 if infos[e]['current_agent_pos'][agent_id][0]-1 > 0 else 0
                 index_a_2 = infos[e]['current_agent_pos'][agent_id][0]+1 if infos[e]['current_agent_pos'][agent_id][0]+1 < self.full_w else self.full_w 
                 index_b_1 = infos[e]['current_agent_pos'][agent_id][1]-1 if infos[e]['current_agent_pos'][agent_id][1]-1 > 0 else 0
                 index_b_2 = infos[e]['current_agent_pos'][agent_id][1]+1 if infos[e]['current_agent_pos'][agent_id][1]+1 < self.full_h else self.full_h
                 agent_pos_map[e , agent_id, int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] = agent_id + 1
-                self.all_agent_pos_map[e , agent_id, int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] = agent_id + 1
+                self.all_agent_pos_map[e, agent_id, int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] = agent_id + 1
                 if self.use_merge:
                     merge_pos_map[e , int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] = agent_id + 1
                     self.all_merge_pos_map[e , int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] = agent_id + 1
 
-        for e in range(self.n_rollout_threads):
+        for e in range(len(dict_obs)):
             for agent_id in range(self.num_agents):
                 #import pdb;pdb.set_trace()
                 obs['global_obs'][e, agent_id, 0] = infos[e]['explored_each_map'][agent_id][self.agent_view_size : self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
@@ -183,7 +181,16 @@ class GridWorldRunner(Runner):
         self.all_agent_pos_map = np.zeros((self.n_rollout_threads, self.num_agents, self.full_w, self.full_h), dtype=np.float32)
         if self.use_merge:
             self.all_merge_pos_map = np.zeros((self.n_rollout_threads, self.full_w, self.full_h), dtype=np.float32)
-        
+
+    def init_eval_map_variables(self):
+        # Initializing full, merge and local map
+        self.merge_explored_ratio_step = np.ones((self.n_eval_rollout_threads,), dtype=np.float32) * self.episode_length
+        self.agent_explored_ratio_step = np.ones((self.n_eval_rollout_threads, self.num_agents), dtype=np.float32) * self.episode_length
+        self.all_agent_pos_map = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.full_w, self.full_h), dtype=np.float32)
+        if self.use_merge:
+            self.all_merge_pos_map = np.zeros((self.n_eval_rollout_threads, self.full_w, self.full_h), dtype=np.float32)
+
+
     @torch.no_grad()
     def collect(self, step):
         self.trainer.prep_rollout()
@@ -266,6 +273,7 @@ class GridWorldRunner(Runner):
         eval_episode_rewards = []
 
         reset_choose = np.ones(self.n_eval_rollout_threads) == 1.0
+        self.init_eval_map_variables()
         eval_dict_obs, eval_infos = self.eval_envs.reset()
         eval_obs = self._convert(eval_dict_obs, eval_infos)
 
@@ -292,13 +300,20 @@ class GridWorldRunner(Runner):
 
             eval_episode_rewards.append(eval_rewards)
 
-            eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
+            eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
-            eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), 1), dtype=np.float32)
+            eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.num_agents, 1), dtype=np.float32)
 
         eval_episode_rewards = np.array(eval_episode_rewards)
-        eval_env_infos = {}
+        
+        eval_env_infos = defaultdict(list)
         eval_env_infos['eval_average_episode_rewards'] = np.sum(np.array(eval_episode_rewards), axis=0)
+        for eval_info in eval_infos:
+            eval_env_infos['eval_merge_explored_ratio'].append(eval_info['merge_explored_ratio'])
+            eval_env_infos['eval_num_same_direction'].append(eval_info['num_same_direction'])
+
+        print("eval average merge explored ratio is: " + str(np.mean(eval_env_infos['eval_merge_explored_ratio'])))
+        print("eval average num same direction is: " + str(np.mean(eval_env_infos['eval_num_same_direction'])))
         print("eval average episode rewards of agent: " + str(np.mean(eval_env_infos['eval_average_episode_rewards'])))
         self.log_env(eval_env_infos, total_num_steps)
 
