@@ -16,6 +16,6 @@ do
     --ppo_epoch 4 --clip_param 0.1 --num_mini_batch 2 --entropy_coef 0.01 --max_grad_norm 20 \
     --gamma 0.995 --data_chunk_length 32 --eval_interval 1 \
     --n_eval_rollout_threads 10 --use_cat_self --use_centralized_V \
-    --use_attn --share_policy --use_eval #--use_single_network
+    --use_attn --share_policy --use_eval #--use_wandb #--use_single_network
     echo "training is done!"
 done

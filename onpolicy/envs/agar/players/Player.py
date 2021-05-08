@@ -51,7 +51,6 @@ class Player:
         self.mouse = self.centerPos.add(Vec2(action[0] * self.gameServer.config.serverViewBaseX, action[1] * self.gameServer.config.serverViewBaseY), 1)
         # assert np.sum(action[2:]) == 1
         if action[2] == 0.:
-            ic(action[2])
             self.pressSpace()
         #elif action[2] == 1.:
         #    self.pressW()

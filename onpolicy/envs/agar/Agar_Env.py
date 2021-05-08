@@ -30,12 +30,11 @@ def onehot(d, ndim):
 
 class AgarEnv(gym.Env):
     def __init__(self, args, gamemode=0, kill_reward_eps=0, coop_eps=1, reward_settings="std", eval=False):
-    #def __init__(self, args, obs_size=578, gamemode=0, kill_reward_eps=0, coop_eps=0, reward_settings="agg", eval=False):
+    #def __init__(self, args, gamemode=0, kill_reward_eps=0, coop_eps=0, reward_settings="agg", eval=False):
         super(AgarEnv, self).__init__()
         self.args = args
         self.action_repeat = args.action_repeat
         self.g = args.gamma  # discount rate of RL (gamma)
-        self.obs_size = obs_size
         self.gamemode = gamemode  # We only implemented FFA (gamemode = 0)
         self.reward_settings = reward_settings
         self.total_step = 0
@@ -52,6 +51,7 @@ class AgarEnv(gym.Env):
         self.observation_space = []
         self.share_observation_space = []
         obs_size = 570 + 2 * self.num_agents
+        self.obs_size = obs_size
         feature_size = obs_size - 550
         for i in range(self.num_agents):
             self.action_space.append(spaces.Tuple(
