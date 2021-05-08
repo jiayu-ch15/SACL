@@ -141,7 +141,7 @@ class GridWorldRunner(Runner):
                 i = 0
                 obs['global_direction'][e, agent_id, i] = np.eye(4)[infos[e]['agent_direction'][agent_id]]
                 for l in range(self.num_agents):
-                    if l!= a: 
+                    if l!= agent_id: 
                         i += 1 
                         obs['global_direction'][e, agent_id, i] = np.eye(4)[infos[e]['agent_direction'][l]]                  
 
