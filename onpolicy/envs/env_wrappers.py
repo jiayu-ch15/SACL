@@ -516,9 +516,8 @@ class InfoSubprocVecEnv(ShareVecEnv):
         for remote in self.remotes:
             remote.send(('render', mode))
         if mode == "rgb_array":
-            results = [remote.recv() for remote in self.remotes]
-            image, local_image = zip(*results)
-            return np.stack(image), np.stack(local_image)
+            frame = [remote.recv() for remote in self.remotes]
+            return np.stack(frame)
         
 class ChooseInfoSubprocVecEnv(ShareVecEnv):
     def __init__(self, env_fns, spaces=None):
@@ -601,9 +600,8 @@ class ChooseInfoSubprocVecEnv(ShareVecEnv):
         for remote in self.remotes:
             remote.send(('render', mode))
         if mode == "rgb_array":
-            results = [remote.recv() for remote in self.remotes]
-            image, local_image = zip(*results)
-            return np.stack(image), np.stack(local_image)
+            frame = [remote.recv() for remote in self.remotes]
+            return np.stack(frame)
 
 
 def choosesimpleworker(remote, parent_remote, env_fn_wrapper):
@@ -726,7 +724,11 @@ def chooseworker(remote, parent_remote, env_fn_wrapper):
             remote.close()
             break
         elif cmd == 'render':
-            remote.send(env.render(mode='rgb_array'))
+            if data == "rgb_array":
+                fr = env.render(mode=data)
+                remote.send(fr)
+            elif data == "human":
+                env.render(mode=data)
         elif cmd == 'get_spaces':
             remote.send(
                 (env.observation_space, env.share_observation_space, env.action_space))
@@ -810,6 +812,12 @@ def chooseguardworker(remote, parent_remote, env_fn_wrapper):
             env.close()
             remote.close()
             break
+        elif cmd == 'render':
+            if data == "rgb_array":
+                fr = env.render(mode=data)
+                remote.send(fr)
+            elif data == "human":
+                env.render(mode=data)
         elif cmd == 'get_spaces':
             remote.send(
                 (env.observation_space, env.share_observation_space, env.action_space))
@@ -974,6 +982,12 @@ class ChooseInfoSubprocVecEnv(ShareVecEnv):
             p.join()
         self.closed = True
 
+    def render(self, mode="human"):
+        for remote in self.remotes:
+            remote.send(('render', mode))
+        if mode == "rgb_array":
+            frame = [remote.recv() for remote in self.remotes]
+            return np.stack(frame)
 
 
 # single env

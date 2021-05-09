@@ -567,52 +567,6 @@ class Grid:
                 img[ymin:ymax, xmin:xmax, :] = tile_img.copy()
 
         return img
-    def render_multi_agent(
-        self,
-        tile_size,
-        agent_pos=None,
-        agent_dir=None,
-        highlight_mask=None,
-        num_agents=None
-    ):
-        """
-        Render this grid at a given scale
-        :param r: target renderer object
-        :param tile_size: tile size in pixels
-        """
-
-        if highlight_mask is None:
-            highlight_mask = np.zeros(shape=(self.width, self.height), dtype=np.bool)
-
-        # Compute the total grid size
-        width_px = self.width * tile_size
-        height_px = self.height * tile_size
-
-        img = np.zeros(shape=(height_px, width_px, 3), dtype=np.uint8)
-
-        # Render the grid
-        for j in range(0, self.height):
-            for i in range(0, self.width):
-                cell = self.get(i, j)
-
-                for n in range(num_agents):
-                    agent_here = np.array_equal(agent_pos[n], (i, j))
-                    tile_img = Grid.render_tile(
-                        cell,
-                        agent_dir=agent_dir[n] if agent_here else None,
-                        highlight=highlight_mask[i, j],
-                        tile_size=tile_size
-                    )
-                    if agent_here:
-                        break
-                
-                ymin = j * tile_size
-                ymax = (j+1) * tile_size
-                xmin = i * tile_size
-                xmax = (i+1) * tile_size
-                img[ymin:ymax, xmin:xmax, :] = tile_img
-
-        return img
 
     def render_single(
         self,
@@ -1517,12 +1471,12 @@ class MiniGridEnv(gym.Env):
         )
 
         self.window.set_caption(self.mission)
-        self.window.show_img(img)
-        #, local_img
+        self.window.show_img(img, local_img)
+        
         return img, local_img
 
     def get_direction_encoder(self):
-        self.render(mode='multi_exploration', close=False)
+        self.render(mode='human', close=False)
         array_direction = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
         print (" Refer each predator as the coordinate origin, input the direciton of the prey relative to it.\n \
            Right is the positive direction of the X-axis,\n Below is the positive direction of the Y-axis.\n \
