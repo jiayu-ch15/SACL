@@ -47,7 +47,7 @@ class GridWorldRunner(Runner):
                     if 'merge_ratio_step' in infos[e].keys():
                         self.merge_explored_ratio_step[e] = infos[e]['merge_ratio_step']
                     for agent_id in range(self.num_agents):
-                        agent_k = "agent{}_ratio_step".format(agent_id)
+                        agent_k = "agent{}_ratio_step".format(agent_id) 
                         if agent_k in infos[e].keys():
                             self.agent_explored_ratio_step[e][agent_id] = infos[e][agent_k]
 
@@ -58,7 +58,7 @@ class GridWorldRunner(Runner):
 
             # compute return and update network
             self.compute()
-            train_infos = self.traiself.use_direction_encodern()
+            train_infos = self.train()
             
             # post process
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
@@ -76,7 +76,7 @@ class GridWorldRunner(Runner):
                                 self.experiment_name,
                                 episode,
                                 episodes,
-                                totself.use_direction_encoderal_num_steps,
+                                total_num_steps,
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
 
@@ -86,6 +86,7 @@ class GridWorldRunner(Runner):
                         env_infos['merge_explored_ratio'].append(info['merge_explored_ratio'])
                         env_infos['num_same_direction'].append(info['num_same_direction'])
                         env_infos['num_get_goal'].append(info['num_get_goal'])
+                        env_infos['num_get_goal_step'].append(info['num_get_goal_step'])
 
                     print("average episode ratio is {}".format(np.mean(env_infos["merge_explored_ratio"])))
 
@@ -322,6 +323,7 @@ class GridWorldRunner(Runner):
             eval_env_infos['eval_merge_explored_ratio'].append(eval_info['merge_explored_ratio'])
             eval_env_infos['eval_num_same_direction'].append(eval_info['num_same_direction'])
             eval_env_infos['eval_num_get_goal'].append(eval_info['num_get_goal'])
+            eval_env_infos['eval_num_get_goal_step'].append(eval_info['num_get_goal_step'])
 
         print("eval average merge explored ratio is: " + str(np.mean(eval_env_infos['eval_merge_explored_ratio'])))
         print("eval average num same direction is: " + str(np.mean(eval_env_infos['eval_num_same_direction'])))
@@ -400,11 +402,13 @@ class GridWorldRunner(Runner):
                 env_infos['merge_explored_ratio'].append(info['merge_explored_ratio'])
                 env_infos['num_same_direction'].append(info['num_same_direction'])
                 env_infos['num_get_goal'].append(info['num_get_goal'])
+                env_infos['num_get_goal_step'].append(info['num_get_goal_step'])
 
             print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
             print("average merge explored ratio is: " + str(np.mean(env_infos['merge_explored_ratio'])))
             print("average num same direction is: " + str(np.mean(env_infos['num_same_direction'])))
             print("average num get goal is: " + str(np.mean(env_infos['num_get_goal'])))
+            print("average num get goal step is: " + str(np.mean(env_infos['num_get_goal_step'])))
             
         if self.all_args.save_gifs:
             ic("rendering....")

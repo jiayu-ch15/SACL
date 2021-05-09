@@ -49,6 +49,7 @@ class MultiExplorationEnv(MiniGridEnv):
         self.num_same_direction = 0
         self.num_get_goal = 0
         self.merge_ratio = 0
+        self.num_get_goal_step = self.max_steps
         super().__init__(grid_size = grid_size, 
                         max_steps = max_steps, 
                         num_agents = num_agents, 
@@ -227,9 +228,11 @@ class MultiExplorationEnv(MiniGridEnv):
         info['num_same_direction'] = self.num_same_direction
         info['merge_explored_ratio'] = self.merge_ratio
         info['num_get_goal'] = self.num_get_goal
+        info['num_get_goal_step'] = self.num_get_goal_step
         self.num_get_goal = 0
         self.num_same_direction = 0
         self.merge_ratio = 0
+        self.num_get_goal_step = self.max_steps
     
         return obs, info
 
@@ -323,6 +326,7 @@ class MultiExplorationEnv(MiniGridEnv):
         info['human_direction'] = np.array(self.direction_index)
         info['num_same_direction'] = self.num_same_direction
         info['num_get_goal'] = self.num_get_goal
+        info['num_get_goal_step'] = self.num_get_goal_step
         
         if info['explored_all_map'].sum()/(self.width * self.height) >= self.target_ratio:
             if self.use_complete_reward:

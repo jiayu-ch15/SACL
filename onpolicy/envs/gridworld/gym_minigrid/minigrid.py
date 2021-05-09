@@ -1297,9 +1297,13 @@ class MiniGridEnv(gym.Env):
                         self.num_same_direction += 1
                     self.agent_pos[agent_id] = fwd_pos
                 if fwd_cell != None and fwd_cell.type == 'goal':
-                    done = True
+                    # done = True
                     reward += self._reward()
                     self.num_get_goal += 1
+                    
+                    if self.num_get_goal == 1:
+                        self.num_get_goal_step = self.step_count
+
                 if fwd_cell != None and fwd_cell.type == 'obstacle':
                     reward += self._penalty()
                 if fwd_cell != None and fwd_cell.type == 'lava':
