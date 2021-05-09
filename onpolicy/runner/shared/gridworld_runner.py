@@ -135,11 +135,12 @@ class GridWorldRunner(Runner):
                 index_a_2 = infos[e]['current_agent_pos'][agent_id][0]+1 if infos[e]['current_agent_pos'][agent_id][0]+1 < self.full_w else self.full_w 
                 index_b_1 = infos[e]['current_agent_pos'][agent_id][1]-1 if infos[e]['current_agent_pos'][agent_id][1]-1 > 0 else 0
                 index_b_2 = infos[e]['current_agent_pos'][agent_id][1]+1 if infos[e]['current_agent_pos'][agent_id][1]+1 < self.full_h else self.full_h
-                agent_pos_map[e , agent_id, int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] = agent_id + 1
-                self.all_agent_pos_map[e , agent_id, int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] = agent_id + 1
+                agent_pos_map[e , agent_id, int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] = (agent_id + 1) * self.augment
+                self.all_agent_pos_map[e , agent_id, int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] = (agent_id + 1) * self.augment
                 if self.use_merge:
-                    merge_pos_map[e , int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] = agent_id + 1
-                    self.all_merge_pos_map[e , int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] = agent_id + 1
+                    merge_pos_map[e , int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] += (agent_id + 1) * self.augment
+                    self.all_merge_pos_map[e , int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] += (agent_id + 1) * self.augment
+                    self.all_merge_pos_map[self.all_merge_pos_map > 255] = 255 
 
         for e in range(len(dict_obs)):
             for agent_id in range(self.num_agents):
@@ -196,6 +197,7 @@ class GridWorldRunner(Runner):
         self.agent_view_size = self.all_args.agent_view_size
         self.full_w, self.full_h = map_size + 2*self.agent_view_size, map_size + 2*self.agent_view_size
         self.visualize_input = self.all_args.visualize_input
+        self.augment = 255 // (np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum())
         if self.visualize_input:
             plt.ion()
             self.fig, self.ax = plt.subplots(self.num_agents*3, 4, figsize=(10, 2.5), facecolor="whitesmoke")

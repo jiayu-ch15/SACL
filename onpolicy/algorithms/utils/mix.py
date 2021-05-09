@@ -196,7 +196,7 @@ class MIXBase(nn.Module):
             if key in ['rgb','depth','image']:
                 cnn_input.append(obs[key].permute(0, 3, 1, 2) / 255.0)
             elif key in ['global_map', 'local_map', 'global_obs', 'global_merge_obs', 'global_merge_goal','gt_map']:
-                cnn_input.append(obs[key])
+                cnn_input.append(obs[key] / 255.0)
             else:
                 raise NotImplementedError
 
