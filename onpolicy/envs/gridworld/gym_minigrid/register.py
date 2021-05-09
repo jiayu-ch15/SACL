@@ -17,6 +17,8 @@ def register(
     use_same_location = True,
     use_complete_reward = True, 
     use_human_command = False,
+    use_direction_encoder = False,
+    use_fixed_goal_pos = False,
 ):
     assert id.startswith("MiniGrid-")
     assert id not in env_list
@@ -37,6 +39,8 @@ def register(
         'use_same_location': use_same_location,
         'use_complete_reward': use_complete_reward,
         'use_human_command': use_human_command, 
+        'use_direction_encoder': use_direction_encoder, 
+        'use_fixed_goal_pos': use_fixed_goal_pos
         },
         reward_threshold=reward_threshold
     )

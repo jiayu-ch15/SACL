@@ -58,7 +58,7 @@ class GridWorldRunner(Runner):
 
             # compute return and update network
             self.compute()
-            train_infos = self.train()
+            train_infos = self.traiself.use_direction_encodern()
             
             # post process
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
@@ -76,7 +76,7 @@ class GridWorldRunner(Runner):
                                 self.experiment_name,
                                 episode,
                                 episodes,
-                                total_num_steps,
+                                totself.use_direction_encoderal_num_steps,
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
 
@@ -85,6 +85,7 @@ class GridWorldRunner(Runner):
                     for info in infos:
                         env_infos['merge_explored_ratio'].append(info['merge_explored_ratio'])
                         env_infos['num_same_direction'].append(info['num_same_direction'])
+                        env_infos['num_get_goal'].append(info['num_get_goal'])
 
                     print("average episode ratio is {}".format(np.mean(env_infos["merge_explored_ratio"])))
 
@@ -106,7 +107,12 @@ class GridWorldRunner(Runner):
     def _convert(self, dict_obs, infos):
         obs = {}
         obs['image'] = np.zeros((len(dict_obs), self.num_agents, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size, 3), dtype=np.float32)
-        obs['vector'] = np.zeros((len(dict_obs), self.num_agents, self.num_agents+4+8), dtype=np.float32)
+        
+        if self.use_direction_encoder:
+            obs['vector'] = np.zeros((len(dict_obs), self.num_agents, self.num_agents+4+8), dtype=np.float32)
+        else:
+            obs['vector'] = np.zeros((len(dict_obs), self.num_agents, self.num_agents+4), dtype=np.float32)
+
         obs['global_obs'] = np.zeros((len(dict_obs), self.num_agents, 4, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size), dtype=np.float32)
         agent_pos_map = np.zeros((len(dict_obs), self.num_agents, self.full_w, self.full_h), dtype=np.float32)
         if self.use_merge:
@@ -138,8 +144,11 @@ class GridWorldRunner(Runner):
                     obs['global_merge_obs'][e, agent_id, 2] = merge_pos_map[e][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
                     obs['global_merge_obs'][e, agent_id, 3] = self.all_merge_pos_map[e][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
 
-                obs['vector'][e, agent_id] = np.concatenate([np.eye(self.num_agents)[agent_id], np.eye(4)[infos[e]['agent_direction'][agent_id]], np.eye(8)[infos[e]['human_direction'][agent_id]]])
-
+                if self.use_direction_encoder:
+                    obs['vector'][e, agent_id] = np.concatenate([np.eye(self.num_agents)[agent_id], np.eye(4)[infos[e]['agent_direction'][agent_id]], np.eye(8)[infos[e]['human_direction'][agent_id]]])
+                else:
+                    obs['vector'][e, agent_id] = np.concatenate([np.eye(self.num_agents)[agent_id], np.eye(4)[infos[e]['agent_direction'][agent_id]]])
+    
         if self.visualize_input:
             self.visualize_obs(self.fig, self.ax, obs)
 
@@ -166,10 +175,11 @@ class GridWorldRunner(Runner):
 
         # Calculating full and local map sizes
         map_size = self.all_args.grid_size
-        self.use_merge = self.all_args.use_merge
         self.agent_view_size = self.all_args.agent_view_size
         self.full_w, self.full_h = map_size + 2*self.agent_view_size, map_size + 2*self.agent_view_size
+        self.use_merge = self.all_args.use_merge
         self.visualize_input = self.all_args.visualize_input
+        self.use_direction_encoder = self.all_args.use_direction_encoder
         if self.visualize_input:
             plt.ion()
             self.fig, self.ax = plt.subplots(self.num_agents*3, 4, figsize=(10, 2.5), facecolor="whitesmoke")
@@ -311,9 +321,11 @@ class GridWorldRunner(Runner):
         for eval_info in eval_infos:
             eval_env_infos['eval_merge_explored_ratio'].append(eval_info['merge_explored_ratio'])
             eval_env_infos['eval_num_same_direction'].append(eval_info['num_same_direction'])
+            eval_env_infos['eval_num_get_goal'].append(eval_info['num_get_goal'])
 
         print("eval average merge explored ratio is: " + str(np.mean(eval_env_infos['eval_merge_explored_ratio'])))
         print("eval average num same direction is: " + str(np.mean(eval_env_infos['eval_num_same_direction'])))
+        print("eval average num get goal is: " + str(np.mean(eval_env_infos['eval_num_get_goal'])))
         print("eval average episode rewards of agent: " + str(np.mean(eval_env_infos['eval_average_episode_rewards'])))
         self.log_env(eval_env_infos, total_num_steps)
 
@@ -387,10 +399,12 @@ class GridWorldRunner(Runner):
             for info in infos:
                 env_infos['merge_explored_ratio'].append(info['merge_explored_ratio'])
                 env_infos['num_same_direction'].append(info['num_same_direction'])
+                env_infos['num_get_goal'].append(info['num_get_goal'])
 
             print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
             print("average merge explored ratio is: " + str(np.mean(env_infos['merge_explored_ratio'])))
             print("average num same direction is: " + str(np.mean(env_infos['num_same_direction'])))
+            print("average num get goal is: " + str(np.mean(env_infos['num_get_goal'])))
             
         if self.all_args.save_gifs:
             ic("rendering....")

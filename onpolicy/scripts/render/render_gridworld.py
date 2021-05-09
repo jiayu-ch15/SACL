@@ -52,7 +52,11 @@ def parse_args(args, parser):
     parser.add_argument("--use_single_reward", action='store_true', default=False,
                         help="use single reward")
     parser.add_argument("--use_complete_reward", action='store_true', default=False,
-                        help="use complete reward")            
+                        help="use complete reward") 
+    parser.add_argument("--use_direction_encoder", action='store_false', default=True,
+                        help="use complete reward")
+    parser.add_argument("--use_fixed_goal_pos", action='store_false', default=True,
+                        help="use complete reward")           
     
     all_args = parser.parse_known_args(args)[0]
 

@@ -23,19 +23,20 @@ class MultiExplorationEnv(MiniGridEnv):
         num_obstacles,
         num_agents=2,
         agent_pos=None, 
-        goal_pos=None, 
         direction_alpha=0.5,
         use_merge=True,
         use_same_location=True,
         use_complete_reward=True,
         use_human_command=False,
+        use_direction_encoder=True,
+        use_fixed_goal_pos=False,
     ):
         self.grid_size = grid_size
         self._agent_default_pos = agent_pos
-        self._goal_default_pos = goal_pos
         self.door_size = 3
         self.max_steps = max_steps
         self.direction_alpha = direction_alpha
+        self.use_fixed_goal_pos = use_fixed_goal_pos
         self.use_same_location = use_same_location
         self.use_complete_reward = use_complete_reward
         self.use_human_command = use_human_command
@@ -46,12 +47,14 @@ class MultiExplorationEnv(MiniGridEnv):
             self.num_obstacles = int(grid_size/2)
         self.num_episode = 0
         self.num_same_direction = 0
+        self.num_get_goal = 0
         self.merge_ratio = 0
         super().__init__(grid_size = grid_size, 
                         max_steps = max_steps, 
                         num_agents = num_agents, 
                         agent_view_size = agent_view_size,
-                        use_merge = use_merge)
+                        use_merge = use_merge,
+                        use_direction_encoder=use_direction_encoder)
 
 
     def _gen_grid(self, width, height):
@@ -91,6 +94,22 @@ class MultiExplorationEnv(MiniGridEnv):
                     self.grid.horz_wall(xL, yB, room_w)
                     pos = (self._rand_int(xL + 1, xR), yB)
                     self.grid.set(*pos, None)
+
+        # Randomize the goal start position
+        if self.use_fixed_goal_pos:
+            all_pos = np.array(((1, 1), (1, self.height - 2), (self.width - 2, 1), (self.width - 2, self.height - 2)))
+            self.goal_pos = all_pos[self._rand_int(0,3)]
+            goal = Goal()
+            self.put_obj(goal, *self.goal_pos)
+            goal.init_pos, goal.cur_pos = self.goal_pos      
+        else:
+            self.place_obj(Goal())
+
+        self.obstacles = []
+        for i_obst in range(self.num_obstacles):
+            self.obstacles.append(Obstacle())
+            pos = self.place_obj(self.obstacles[i_obst], max_tries=100)
+
         # Randomize the player start position and orientation
         if self._agent_default_pos is not None:
             self.agent_pos = self._agent_default_pos
@@ -100,34 +119,21 @@ class MultiExplorationEnv(MiniGridEnv):
         else:
             self.place_agent(use_same_location=self.use_same_location)
 
-        self.obstacles = []
-        for i_obst in range(self.num_obstacles):
-            self.obstacles.append(Obstacle())
-            pos = self.place_obj(self.obstacles[i_obst], max_tries=100)
-
         # direction
         array_direction = np.array([[0,1], [0,-1], [1,0], [-1,0], [1,1], [1,-1], [-1,1], [-1,-1]])
         self.direction = []
         self.direction_encoder = []
         self.direction_index = []
         for agent_id in range(self.num_agents):
-            center_pos = np.array([int((self.grid_size-1)/2),int((self.grid_size-1)/2)])
-            direction = np.sign(center_pos - self.agent_pos[agent_id])
+            # center_pos = np.array([int((self.grid_size-1)/2),int((self.grid_size-1)/2)])
+            # direction = np.sign(center_pos - self.agent_pos[agent_id])
+            direction = np.sign(self.goal_pos - self.agent_pos[agent_id])
             direction_index = np.argmax(np.all(np.where(array_direction == direction, True, False), axis=1))
             direction_encoder = np.eye(8)[direction_index]
             self.direction_index.append(direction_index)
             self.direction.append(direction)
             self.direction_encoder.append(direction_encoder)
         
-        
-        '''
-        if self._goal_default_pos is not None:
-            goal = Goal()
-            self.put_obj(goal, *self._goal_default_pos)
-            goal.init_pos, goal.cur_pos = self._goal_default_pos
-        else:
-            self.place_obj(Goal())
-        '''
         self.mission = 'Reach the goal'
 
     def reset(self, choose = True):
@@ -220,6 +226,8 @@ class MultiExplorationEnv(MiniGridEnv):
         info['human_direction'] = np.array(self.direction_index)
         info['num_same_direction'] = self.num_same_direction
         info['merge_explored_ratio'] = self.merge_ratio
+        info['num_get_goal'] = self.num_get_goal
+        self.num_get_goal = 0
         self.num_same_direction = 0
         self.merge_ratio = 0
     
@@ -296,6 +304,7 @@ class MultiExplorationEnv(MiniGridEnv):
             self.obstacle_all_map = np.logical_or(self.obstacle_all_map, self.obstacle_each_map[i])
         
         merge_explored_reward = (np.array(self.explored_all_map).astype(int) - np.array(self.previous_all_map).astype(int)).sum()
+
         self.previous_all_map = self.explored_all_map.copy()
         #self.explored_all_map[7:-7,7:-7].astype(np.int8)
         self.explored_map = np.array(self.explored_all_map).astype(int)[self.agent_view_size : self.width + self.agent_view_size, self.agent_view_size : self.width + self.agent_view_size]
@@ -313,6 +322,7 @@ class MultiExplorationEnv(MiniGridEnv):
 
         info['human_direction'] = np.array(self.direction_index)
         info['num_same_direction'] = self.num_same_direction
+        info['num_get_goal'] = self.num_get_goal
         
         if info['explored_all_map'].sum()/(self.width * self.height) >= self.target_ratio:
             if self.use_complete_reward:

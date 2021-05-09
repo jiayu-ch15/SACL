@@ -26,6 +26,8 @@ class GridWorldEnv(object):
             use_merge = args.use_merge, 
             use_same_location = args.use_same_location,
             use_complete_reward = args.use_complete_reward, 
+            use_direction_encoder = args.use_direction_encoder,
+            use_fixed_goal_pos = args.use_fixed_goal_pos, 
             entry_point = 'onpolicy.envs.gridworld.gym_minigrid.envs:MultiExplorationEnv'
         )
 

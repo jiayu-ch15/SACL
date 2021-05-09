@@ -771,6 +771,7 @@ class MiniGridEnv(gym.Env):
         seed=1337,
         agent_view_size=7,
         use_merge=True,
+        use_direction_encoder=True
     ):  
         self.num_agents = num_agents
         # Can't set both grid_size and width/height
@@ -803,8 +804,14 @@ class MiniGridEnv(gym.Env):
                 low=0, high=1, shape=(4, self.full_w, self.full_h), dtype='uint8')
         global_observation_space['image'] = gym.spaces.Box(
             low=0, high=255, shape=(self.full_w, self.full_h, 3), dtype='uint8')
-        global_observation_space['vector'] = gym.spaces.Box(
-            low=-1, high=1, shape=(self.num_agents + 8 + 4,), dtype='float')
+
+        if use_direction_encoder:
+            global_observation_space['vector'] = gym.spaces.Box(
+                low=-1, high=1, shape=(self.num_agents + 8 + 4,), dtype='float')
+        else:
+            global_observation_space['vector'] = gym.spaces.Box(
+                low=-1, high=1, shape=(self.num_agents + 4,), dtype='float')
+
         share_global_observation_space = global_observation_space.copy()
         share_global_observation_space['gt_map'] = gym.spaces.Box(
             low=0, high=1, shape=(1, self.full_w, self.full_h), dtype='uint8')
@@ -1117,6 +1124,8 @@ class MiniGridEnv(gym.Env):
         self.agent_dir = []
         pos = []
 
+        # all_pos = np.array(((1, 1), (1, self.height - 2), (self.width - 2, 1), (self.width - 2, self.height - 2)))
+
         if use_same_location:
             p = self.place_obj(None, top, size, max_tries=max_tries)
             for agent_id in range(self.num_agents):
@@ -1131,6 +1140,7 @@ class MiniGridEnv(gym.Env):
                 pos.append(p)
                 if rand_dir:
                     self.agent_dir.append(self._rand_int(0, 4))
+
         return pos
 
     def dir_vec(self, agent_id):
@@ -1289,6 +1299,7 @@ class MiniGridEnv(gym.Env):
                 if fwd_cell != None and fwd_cell.type == 'goal':
                     done = True
                     reward += self._reward()
+                    self.num_get_goal += 1
                 if fwd_cell != None and fwd_cell.type == 'obstacle':
                     reward += self._penalty()
                 if fwd_cell != None and fwd_cell.type == 'lava':

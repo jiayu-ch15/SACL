@@ -72,6 +72,10 @@ def parse_args(args, parser):
                         help="use merge information")
     parser.add_argument("--visualize_input", action='store_true', default=False,
                         help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
+    parser.add_argument("--use_direction_encoder", action='store_false', default=True,
+                        help="use complete reward")
+    parser.add_argument("--use_fixed_goal_pos", action='store_false', default=True,
+                        help="use complete reward") 
     all_args = parser.parse_known_args(args)[0]
 
     return all_args
