@@ -558,6 +558,19 @@ class Grid:
                         tile_size=tile_size
                     )
                     if agent_here:
+                        tile_img = tile_img.copy()
+                        for other_agent_id in range(agent_id+1, num_agents):
+                            other_agent_here = np.array_equal(agent_pos[other_agent_id], (i, j))
+                            if other_agent_here and agent_dir[other_agent_id] != agent_dir[agent_id]:
+                                other_tile_img = Grid.render_tile(
+                                    cell,
+                                    agent_id=other_agent_id,
+                                    agent_dir=agent_dir[other_agent_id],
+                                    highlight=highlight_mask[i, j],
+                                    tile_size=tile_size
+                                )
+                                tile_img += other_tile_img
+                                tile_img[tile_img>255]=255
                         break
 
                 ymin = j * tile_size
