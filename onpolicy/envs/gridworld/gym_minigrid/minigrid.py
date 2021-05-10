@@ -1489,7 +1489,7 @@ class MiniGridEnv(gym.Env):
         return img, local_img
 
     def get_direction_encoder(self):
-        self.render(mode='human', close=False)
+        self.render(mode='human', close=False, first=True)
         array_direction = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
         print (" Refer each predator as the coordinate origin, input the direciton of the prey relative to it.\n \
            Right is the positive direction of the X-axis,\n Below is the positive direction of the Y-axis.\n \

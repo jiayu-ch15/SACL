@@ -253,6 +253,7 @@ class MultiExplorationEnv(MultiRoomEnv):
         for i in range(self.num_agents):
             explored_all_map += self.explored_each_map[i]
             obstacle_all_map += self.obstacle_each_map[i]
+        self.explored_map = np.array(explored_all_map).astype(int)[self.agent_view_size : self.width+self.agent_view_size, self.agent_view_size : self.width+self.agent_view_size]
         
         info = {}
         info['explored_all_map'] = np.array(explored_all_map)
@@ -359,6 +360,7 @@ class MultiExplorationEnv(MultiRoomEnv):
 
         merge_explored_reward = (np.array(reward_explored_all_map) - np.array(reward_previous_all_map)).sum()
         self.previous_all_map = explored_all_map.copy()
+        self.explored_map = np.array(explored_all_map).astype(int)[self.agent_view_size : self.width + self.agent_view_size, self.agent_view_size : self.width + self.agent_view_size]
         
         info = {}
         info['explored_all_map'] = np.array(explored_all_map)
