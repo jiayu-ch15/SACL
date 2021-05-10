@@ -352,6 +352,7 @@ class GridWorldRunner(Runner):
         all_local_frames = []
         for episode in range(self.all_args.render_episodes):
             ic(episode)
+            self.init_map_variables()
             reset_choose = np.ones(self.n_rollout_threads) == 1.0
             dict_obs, infos = envs.reset()
             obs = self._convert(dict_obs, infos)
