@@ -673,41 +673,35 @@ class Grid:
         return grid, vis_mask
     
     def process_vis(grid, agent_pos):
-        mask = np.zeros(shape=(grid.width, grid.height), dtype=np.bool)
+        mask = np.ones(shape=(grid.width, grid.height), dtype=np.bool)
 
         mask[agent_pos[0], agent_pos[1]] = True
 
-        for j in reversed(range(0, grid.height)):
+        '''for j in reversed(range(0, grid.height)):
             for i in range(0, grid.width-1):
                 if not mask[i, j]:
                     continue
-
                 cell = grid.get(i, j)
                 if cell and not cell.see_behind():
                     continue
-
                 mask[i+1, j] = True
                 if j > 0:
                     mask[i+1, j-1] = True
                     mask[i, j-1] = True
-
             for i in reversed(range(1, grid.width)):
                 if not mask[i, j]:
                     continue
-
                 cell = grid.get(i, j)
                 if cell and not cell.see_behind():
                     continue
-
                 mask[i-1, j] = True
                 if j > 0:
                     mask[i-1, j-1] = True
                     mask[i, j-1] = True
-
         for j in range(0, grid.height):
             for i in range(0, grid.width):
                 if not mask[i, j]:
-                    grid.set(i, j, None)
+                    grid.set(i, j, None)'''
 
 
         local_map = grid.encode()[:,:,0]
@@ -725,19 +719,37 @@ class Grid:
                 if local_map[i, j] != 20:
                     mask[i, :j]=False
                     break'''
+                    
+        for j in range(grid.height):
+            for i in range(agent_pos[0]-1,-1,-1):
+                if local_map[i, j] != 20:
+                    if j==grid.height-1:
+                        mask[:i+1, :j+1]=False
+                    else:
+                        mask[:i+1, :j]=False
+                    for h in range(j+1):
+                        if local_map[i, h] != 0 and local_map[i+1:agent_pos[0]+1, j].all() == 20:
+                            mask[i, h]=True
+                    break   
 
         for j in range(grid.height):
-            for i in range(agent_pos[0]-1,0,-1):
+            for i in range(agent_pos[0]+1, grid.width):
                 if local_map[i, j] != 20:
-                    mask[:i, j]=False
+                    if j==grid.height-1:
+                        mask[i:, :j+1]=False
+                    else:
+                        mask[i:, :j]=False
+                    for h in range(j+1):
+                        if local_map[i, h] != 0 and local_map[agent_pos[0]:i, j].all() == 20:
+                            mask[i, h]=True
                     break
-
-        for i in range(grid.width):
-            for j in range(agent_pos[1]-1, 0, -1):
-                if local_map[i, j] != 20:
-                    mask[i, :j] = False
-                    break
+                    
+        for j in range(agent_pos[1]-1, -1, -1):
+            if local_map[agent_pos[0], j] != 20:
+                mask[agent_pos[0], :j] = False
+                break
         
+
         #import pdb; pdb.set_trace()
         return mask
 

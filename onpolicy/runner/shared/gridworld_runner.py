@@ -75,7 +75,7 @@ class GridWorldRunner(Runner):
                 print("average episode ratio is {}".format(np.mean(self.env_infos["merge_explored_ratio"])))
                                 
                 self.log_train(train_infos, total_num_steps)
-                self.log_env(env_infos, total_num_steps)
+                self.log_env(self.env_infos, total_num_steps)
 
             # eval
             if episode % self.eval_interval == 0 and self.use_eval:
@@ -96,20 +96,16 @@ class GridWorldRunner(Runner):
             merge_pos_map = np.zeros((len(dict_obs), self.full_w, self.full_h), dtype=np.float32)
         for e in range(len(dict_obs)):
             for agent_id in range(self.num_agents):
-                index_a_1 = infos[e]['current_agent_pos'][agent_id][0]-1 if infos[e]['current_agent_pos'][agent_id][0]-1 > 0 else 0
-                index_a_2 = infos[e]['current_agent_pos'][agent_id][0]+1 if infos[e]['current_agent_pos'][agent_id][0]+1 < self.full_w else self.full_w 
-                index_b_1 = infos[e]['current_agent_pos'][agent_id][1]-1 if infos[e]['current_agent_pos'][agent_id][1]-1 > 0 else 0
-                index_b_2 = infos[e]['current_agent_pos'][agent_id][1]+1 if infos[e]['current_agent_pos'][agent_id][1]+1 < self.full_h else self.full_h
-                agent_pos_map[e , agent_id, int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] = (agent_id + 1) * self.augment
-                self.all_agent_pos_map[e , agent_id, int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] = (agent_id + 1) * self.augment
+                agent_pos_map[e , agent_id, infos[e]['current_agent_pos'][agent_id][0], infos[e]['current_agent_pos'][agent_id][1]] = (agent_id + 1) * self.augment
+                self.all_agent_pos_map[e , agent_id, infos[e]['current_agent_pos'][agent_id][0], infos[e]['current_agent_pos'][agent_id][1]] = (agent_id + 1) * self.augment
                 if self.use_merge:
-                    merge_pos_map[e , int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] += (agent_id + 1) * self.augment
-                    self.all_merge_pos_map[e , int(index_a_1): int(index_a_2), int(index_b_1): int(index_b_2)] += (agent_id + 1) * self.augment
-                    self.all_merge_pos_map[self.all_merge_pos_map > 255] = 255 
+                    merge_pos_map[e , infos[e]['current_agent_pos'][agent_id][0], infos[e]['current_agent_pos'][agent_id][1]] += (agent_id + 1) * self.augment
+                    if self.all_merge_pos_map[e, infos[e]['current_agent_pos'][agent_id][0], infos[e]['current_agent_pos'][agent_id][1]] != (agent_id + 1) * self.augment and\
+                    self.all_merge_pos_map[e,  infos[e]['current_agent_pos'][agent_id][0], infos[e]['current_agent_pos'][agent_id][1]] != np.array([agent_id + 1 for agent_id in range(self.num_agents)]).sum() * self.augment:
+                        self.all_merge_pos_map[e, infos[e]['current_agent_pos'][agent_id][0], infos[e]['current_agent_pos'][agent_id][1]] += (agent_id + 1) * self.augment
 
         for e in range(len(dict_obs)):
             for agent_id in range(self.num_agents):
-                #import pdb;pdb.set_trace()
                 obs['global_obs'][e, agent_id, 0] = infos[e]['explored_each_map'][agent_id][self.agent_view_size : self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
                 obs['global_obs'][e, agent_id, 1] = infos[e]['obstacle_each_map'][agent_id][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
                 obs['global_obs'][e, agent_id, 2] = agent_pos_map[e, agent_id][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
@@ -269,35 +265,48 @@ class GridWorldRunner(Runner):
 
         reset_choose = np.ones(self.n_eval_rollout_threads) == 1.0
         self.init_eval_map_variables()
-        eval_dict_obs,  eval_infos = self.eval_envs.reset()
+        eval_dict_obs,  eval_infos = self.eval_envs.reset(reset_choose)
         eval_obs = self._convert(eval_dict_obs, eval_infos)
 
         eval_rnn_states = np.zeros((self.n_eval_rollout_threads, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
+        eval_dones_env = np.zeros(self.n_eval_rollout_threads, dtype=bool)
 
-        for eval_step in range(self.episode_length):
+        while True:
+            eval_choose = (eval_dones_env==False)
+
+            if ~np.any(eval_choose):
+                break
+            eval_actions = np.ones((self.n_eval_rollout_threads, self.num_agents, action_shape)).astype(np.int) * (-1.0)
+            
             self.trainer.prep_rollout()
 
             concat_eval_obs = {}
             for key in eval_obs.keys():
-                concat_eval_obs[key] = np.concatenate(eval_obs[key])
+                concat_eval_obs[key] = np.concatenate(eval_obs[key][eval_choose])
 
             eval_action, eval_rnn_states = self.trainer.policy.act(concat_eval_obs,
-                                                np.concatenate(eval_rnn_states),
-                                                np.concatenate(eval_masks),
+                                                np.concatenate(eval_rnn_states[eval_choose]),
+                                                np.concatenate(eval_masks[eval_choose]),
                                                 deterministic=True)
-            eval_actions = np.array(np.split(_t2n(eval_action), self.n_eval_rollout_threads))
-            eval_rnn_states = np.array(np.split(_t2n(eval_rnn_states), self.n_eval_rollout_threads))
             
+            eval_actions[eval_choose] = np.array(np.split(_t2n(eval_action), (eval_choose == True).sum()))
+            eval_rnn_states[eval_choose] = np.array(np.split(_t2n(eval_rnn_state), (eval_choose == True).sum()))
+
             # Obser reward and next obs
             eval_dict_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions)
+            eval_dones_env = np.all(eval_dones, axis=-1)
             eval_obs = self._convert(eval_dict_obs, eval_infos)
 
             eval_episode_rewards.append(eval_rewards)
 
-            for eval_info in eval_infos:
-                if 'merge_ratio_step' in eval_info.keys():
-                    eval_env_infos['merge_ratio_step'].append(eval_info['merge_ratio_step'])
+            for eval_info, eval_done_env in zip(eval_infos, eval_dones_env):
+                if eval_done_env:
+                    eval_env_infos['eval_merge_ratio_step'].append(eval_info['merge_ratio_step'])
+                    eval_env_infos['eval_merge_explored_ratio'].append(eval_info['merge_explored_ratio'])
+                    for agent_id in range(self.num_agents):
+                        agent_k = "eval_agent{}_ratio_step".format(agent_id)
+                        eval_env_infos[agent_k].append(eval_info[agent_k])
 
             eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
@@ -306,10 +315,7 @@ class GridWorldRunner(Runner):
         eval_episode_rewards = np.array(eval_episode_rewards)
         
         eval_env_infos['eval_average_episode_rewards'] = np.sum(np.array(eval_episode_rewards), axis=0)
-        
-        for eval_info in eval_infos:
-            eval_env_infos['eval_merge_explored_ratio'].append(eval_info['merge_explored_ratio'])
-            
+ 
         print("eval average merge explored ratio is: " + str(np.mean(eval_env_infos['eval_merge_explored_ratio'])))
         print("eval average episode rewards of agent: " + str(np.mean(eval_env_infos['eval_average_episode_rewards'])))
         self.log_env(eval_env_infos, total_num_steps)
@@ -360,12 +366,17 @@ class GridWorldRunner(Runner):
 
                 # Obser reward and next obs
                 dict_obs, rewards, dones, infos = envs.step(actions)
+
                 obs = self._convert(dict_obs, infos)
                 episode_rewards.append(rewards)
                 
-                for info in infos:
-                    if 'merge_ratio_step' in info.keys():
+                for done, info in zip(dones, infos):
+                    if np.all(done):
                         env_infos['merge_ratio_step'].append(info['merge_ratio_step'])
+                        env_infos['merge_explored_ratio'].append(info['merge_explored_ratio'])
+                        for agent_id in range(self.num_agents):
+                            agent_k = "agent{}_ratio_step".format(agent_id)
+                            env_infos[agent_k].append(info[agent_k])
 
                 rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
                 masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
@@ -385,10 +396,7 @@ class GridWorldRunner(Runner):
                 if np.all(dones[0]):
                     ic("end")
                     break
-            
-            for info in infos:
-                env_infos['merge_explored_ratio'].append(info['merge_explored_ratio'])
-                  
+
             print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
             print("average merge explored ratio is: " + str(np.mean(env_infos['merge_explored_ratio'])))
             print("average merge explored step is: " + str(np.mean(env_infos['merge_ratio_step'])))

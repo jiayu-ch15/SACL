@@ -44,9 +44,6 @@ class MultiExplorationEnv(MultiRoomEnv):
         else:
             self.num_obstacles = int(grid_size/2)
 
-        self.merge_ratio = 0
-        self.merge_reward = 0
-        self.agent_reward = np.zeros((num_agents))
         super().__init__(minNumRooms = 4,
                         maxNumRooms = 8,
                         maxRoomSize = 10,
@@ -56,6 +53,13 @@ class MultiExplorationEnv(MultiRoomEnv):
                         agent_view_size = agent_view_size, 
                         use_merge = use_merge
                         )
+        self.augment = 255 // (np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum())
+        self.target_ratio = 0.98
+        self.merge_ratio = 0
+        self.merge_reward = 0
+        self.agent_reward = np.zeros((num_agents))
+        self.agent_ratio_step = np.ones((num_agents)) * max_steps
+        self.merge_ratio_step = max_steps
 
 
     def _gen_grid(self, width, height):
@@ -100,24 +104,7 @@ class MultiExplorationEnv(MultiRoomEnv):
                     self.grid.horz_wall(xL, yB, room_w)
                     pos = (self._rand_int(xL + 1, xR), yB)
                     self.grid.set(*pos, None)
-
-
-                '''if self.scene_id = 2:
-                    # Bottom wall and door
-                    if i + 1 < 2:
-                        self.grid.vert_wall(xR, yT, room_h)
-                        pos = (xR, self._rand_int(yT + 1, yB))
-                        self.grid.set(*pos, None)
-
-                    # Bottom wall and door
-                    if j + 1 < 2:
-                        self.grid.horz_wall(xL, yB, room_w)
-                        pos = (self._rand_int(xL + 1, xR), yB)
-                        self.grid.set(*pos, None)'''
-
-
-
-                    
+      
         # Randomize the player start position and orientation
         if self._agent_default_pos is not None:
             self.agent_pos = self._agent_default_pos
@@ -138,27 +125,14 @@ class MultiExplorationEnv(MultiRoomEnv):
         for i_obst in range(self.num_obstacles):
             self.obstacles.append(Obstacle())
             pos = self.place_obj(self.obstacles[i_obst], max_tries=100)
-        
-        
-        
-        '''if self._goal_default_pos is not None:
-            goal = Goal()
-            self.put_obj(goal, *self._goal_default_pos)
-            goal.init_pos, goal.cur_pos = self._goal_default_pos
-        else:
-            self.place_obj(Goal())'''
-        
+
         self.mission = 'Reach the goal'
 
-    def reset(self, choose = True):
-        self.augment = 255 // (np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum())
-
+    def reset(self):
         self.explorable_size = 0
         obs = MiniGridEnv.reset(self, choose=True)
         
         self.num_step = 0
-
-        self.target_ratio = 0.98
         self.gt_map = self.grid.encode()[:,:,0].T
         self.agent_local_map = np.zeros((self.num_agents, self.agent_view_size, self.agent_view_size, 3))
         self.pad_gt_map = np.pad(self.gt_map,((self.agent_view_size, self.agent_view_size), (self.agent_view_size,self.agent_view_size)) , constant_values=(0,0))
@@ -173,33 +147,7 @@ class MultiExplorationEnv(MultiRoomEnv):
             self.explored_each_map.append(np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size)))
             self.obstacle_each_map.append(np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size)))
             self.previous_explored_each_map.append(np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size)))
-        '''
-        for i in range(self.num_agents):
-            local_map = np.rot90(obs[i]['image'][:,:,0].T,3)
-            pos = [self.agent_pos[i][1], self.agent_pos[i][0]]
-            direction = self.agent_dir[i]
-            if direction == 0:
-                topx = max(0, pos[0]-self.agent_view_size // 2)
-                topy = pos[1] 
-                botx = min(self.width - 1, pos[0] + self.agent_view_size // 2 + 1)
-                boty = min(self.height - 1, pos[1] + self.agent_view_size  + 1)
-            if direction == 1:
-                topx = pos[0]
-                topy = max(0, pos[1] - self.agent_view_size // 2) 
-                botx = min(self.width - 1, pos[0] + self.agent_view_size  + 1)
-                boty = min(self.height - 1, pos[1] + self.agent_view_size // 2  + 1)
-            if direction == 2:
-                topx = max(0, pos[0] - self.agent_view_size // 1)
-                topy = max(0, pos[1] - self.agent_view_size) 
-                botx = min(self.width - 1, pos[0] + self.agent_view_size // 2 + 1)
-                boty = pos[1]
-            if direction == 3:
-                topx = max(0, pos[0] - self.agent_view_size)
-                topy = max(0, pos[1] - self.agent_view_size // 2) 
-                botx = pos[0]
-                boty = min(self.height - 1, pos[1] + self.agent_view_size // 2  + 1)
-        import pdb; pdb.set_trace()
-        '''
+
         for i in range(self.num_agents):
             local_map = np.rot90(obs[i]['image'][:,:,0].T,3)
             pos = [self.agent_pos[i][1] + self.agent_view_size, self.agent_pos[i][0] + self.agent_view_size]
@@ -263,15 +211,19 @@ class MultiExplorationEnv(MultiRoomEnv):
         info['obstacle_each_map'] = np.array(self.obstacle_each_map)
         info['agent_direction'] = np.array(self.agent_dir)
         info['agent_local_map'] = self.agent_local_map
+
         info['merge_explored_ratio'] = self.merge_ratio
         info['merge_explored_reward'] = self.merge_reward
         info['agent_explored_reward'] = self.agent_reward
-        info['merge_ratio_step'] = self.num_step
+        info['merge_ratio_step'] = self.merge_ratio_step
         for i in range(self.num_agents):
-            info["agent{}_ratio_step".format(i)] = self.num_step
+            info["agent{}_ratio_step".format(i)] = self.agent_ratio_step[i]
+
         self.merge_ratio = 0
         self.merge_reward = 0
         self.agent_reward = np.zeros((self.num_agents))
+        self.agent_ratio_step = np.ones((self.num_agents)) * self.max_steps
+        self.merge_ratio_step = self.max_steps
     
         return obs, info
 
@@ -375,24 +327,22 @@ class MultiExplorationEnv(MultiRoomEnv):
         info['agent_local_map'] = self.agent_local_map
         info['agent_explored_reward'] = np.array(each_agent_rewards) * 0.02
         info['merge_explored_reward'] = merge_explored_reward * 0.02
-        info['merge_ratio_step'] = self.num_step
-        self.merge_ratio = reward_explored_all_map.sum() / (self.width * self.height) #(self.width * self.height)
-        info['merge_explored_ratio'] = self.merge_ratio
-        for i in range(self.num_agents):
-            info["agent{}_ratio_step".format(i)] = self.num_step
         
         if reward_explored_all_map.sum() / (self.width * self.height) >= self.target_ratio:#(self.width * self.height)
-            done = True            
+            done = True       
+            self.merge_ratio_step = self.num_step     
             if self.use_complete_reward:
                 info['merge_explored_reward'] += 1.0 # 0.1 * (reward_explored_all_map.sum() / (self.width * self.height))           
                 
-        # for i in range(self.num_agents):
-        #     if reward_explored_each_map[i].sum() / (self.width * self.height) >= self.target_ratio:#(self.width * self.height)
-        #         if self.use_complete_reward:
-        #             info['agent_explored_reward'][i] += 0.1 * (reward_explored_each_map[i].sum() / (self.width * self.height))
+        for i in range(self.num_agents):
+            if reward_explored_each_map[i].sum() / (self.width * self.height) >= self.target_ratio:#(self.width * self.height)
+                self.agent_ratio_step[i] = self.num_step
+                # if self.use_complete_reward:
+                #     info['agent_explored_reward'][i] += 0.1 * (reward_explored_each_map[i].sum() / (self.width * self.height))
         
         self.agent_reward = info['agent_explored_reward']
         self.merge_reward = info['merge_explored_reward']
+        self.merge_ratio = reward_explored_all_map.sum() / (self.width * self.height) #(self.width * self.height)
         
         return obs, reward, done, info
 
