@@ -10,7 +10,7 @@ from icecream import ic
 import matplotlib.pyplot as plt
 import cv2
 from collections import defaultdict, deque
-from onpolicy.utils.util import update_linear_schedule
+from onpolicy.utils.util import update_linear_schedule, get_shape_from_act_space
 from onpolicy.runner.shared.base_runner import Runner
 
 def _t2n(x):
@@ -212,21 +212,22 @@ class GridWorldRunner(Runner):
 
     def insert(self, data):
         dict_obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
+        dones_env = np.all(dones, axis=-1)
 
-        rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
-        rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
+        rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+        rnn_states_critic[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
         masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-        masks[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, 1), dtype=np.float32)
+        masks[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
         obs = self._convert(dict_obs, infos)
         share_obs = self._convert(dict_obs, infos)
 
-        self.all_agent_pos_map[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, self.full_w, self.full_h), dtype=np.float32)
+        self.all_agent_pos_map[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.full_w, self.full_h), dtype=np.float32)
         if self.use_merge:
-            self.all_merge_pos_map[dones == True] = np.zeros(((dones == True).sum(), self.full_w, self.full_h), dtype=np.float32)
+            self.all_merge_pos_map[dones_env == True] = np.zeros(((dones_env == True).sum(), self.full_w, self.full_h), dtype=np.float32)
      
-        for done, info in zip(dones, infos):
-            if np.all(done):
+        for done_env, info in zip(dones_env, infos):
+            if done_env:
                 self.env_infos['merge_ratio_step'].append(info['merge_ratio_step'])
                 self.env_infos['merge_explored_ratio'].append(info['merge_explored_ratio'])
                 for agent_id in range(self.num_agents):
@@ -260,6 +261,7 @@ class GridWorldRunner(Runner):
 
     @torch.no_grad()
     def eval(self, total_num_steps):
+        action_shape = get_shape_from_act_space(self.eval_envs.action_space[0])
         eval_episode_rewards = []
         eval_env_infos = defaultdict(list)
 
@@ -285,7 +287,7 @@ class GridWorldRunner(Runner):
             for key in eval_obs.keys():
                 concat_eval_obs[key] = np.concatenate(eval_obs[key][eval_choose])
 
-            eval_action, eval_rnn_states = self.trainer.policy.act(concat_eval_obs,
+            eval_action, eval_rnn_state = self.trainer.policy.act(concat_eval_obs,
                                                 np.concatenate(eval_rnn_states[eval_choose]),
                                                 np.concatenate(eval_masks[eval_choose]),
                                                 deterministic=True)
@@ -296,6 +298,7 @@ class GridWorldRunner(Runner):
             # Obser reward and next obs
             eval_dict_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions)
             eval_dones_env = np.all(eval_dones, axis=-1)
+
             eval_obs = self._convert(eval_dict_obs, eval_infos)
 
             eval_episode_rewards.append(eval_rewards)
@@ -305,12 +308,12 @@ class GridWorldRunner(Runner):
                     eval_env_infos['eval_merge_ratio_step'].append(eval_info['merge_ratio_step'])
                     eval_env_infos['eval_merge_explored_ratio'].append(eval_info['merge_explored_ratio'])
                     for agent_id in range(self.num_agents):
-                        agent_k = "eval_agent{}_ratio_step".format(agent_id)
-                        eval_env_infos[agent_k].append(eval_info[agent_k])
+                        agent_k = "agent{}_ratio_step".format(agent_id)
+                        eval_env_infos["eval_" + agent_k].append(eval_info[agent_k])
 
-            eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            eval_rnn_states[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
-            eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.num_agents, 1), dtype=np.float32)
+            eval_masks[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
         eval_episode_rewards = np.array(eval_episode_rewards)
         

@@ -330,7 +330,7 @@ class MultiExplorationEnv(MultiRoomEnv):
         
         if reward_explored_all_map.sum() / (self.width * self.height) >= self.target_ratio:#(self.width * self.height)
             done = True       
-            self.merge_ratio_step = self.num_step     
+            self.merge_ratio_step = self.num_step
             if self.use_complete_reward:
                 info['merge_explored_reward'] += 1.0 # 0.1 * (reward_explored_all_map.sum() / (self.width * self.height))           
                 
@@ -343,7 +343,11 @@ class MultiExplorationEnv(MultiRoomEnv):
         self.agent_reward = info['agent_explored_reward']
         self.merge_reward = info['merge_explored_reward']
         self.merge_ratio = reward_explored_all_map.sum() / (self.width * self.height) #(self.width * self.height)
-        
+        info['merge_explored_ratio'] = self.merge_ratio
+        info['merge_ratio_step'] = self.merge_ratio_step
+        for i in range(self.num_agents):
+            info["agent{}_ratio_step".format(i)] = self.agent_ratio_step[i]
+
         return obs, reward, done, info
 
     def get_short_term_action(self, inputs):

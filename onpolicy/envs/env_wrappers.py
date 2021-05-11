@@ -891,7 +891,7 @@ def chooseinfoworker(remote, parent_remote, env_fn_wrapper):
             ob, reward, done, info = env.step(data)
             remote.send((ob, reward, done, info))
         elif cmd == 'reset':
-            ob, info = env.reset()
+            ob, info = env.reset(data)
             remote.send((ob, info))
         elif cmd == 'reset_task':
             ob = env.reset_task()
@@ -953,9 +953,9 @@ class ChooseInfoSubprocVecEnv(ShareVecEnv):
         obs, rews, dones, infos = zip(*results)
         return np.stack(obs), np.stack(rews), np.stack(dones), infos
 
-    def reset(self):
-        for remote in self.remotes:
-            remote.send(('reset', None))
+    def reset(self, reset_choose):
+        for remote, choose in zip(self.remotes, reset_choose):
+            remote.send(('reset', choose))
         results = [remote.recv() for remote in self.remotes]
         obs, infos = zip(*results)
         return np.stack(obs), np.stack(infos)
@@ -1226,8 +1226,9 @@ class ChooseInfoDummyVecEnv(ShareVecEnv):
         self.actions = None
         return obs, rews, dones, infos
 
-    def reset(self):
-        results = [env.reset() for env in self.envs]
+    def reset(self, reset_choose):
+        results = [env.reset(choose)
+                   for (env, choose) in zip(self.envs, reset_choose)]
         obs, infos = map(np.array, zip(*results))
         return obs, infos
 
