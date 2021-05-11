@@ -43,7 +43,7 @@ class MultiExplorationEnv(MultiRoomEnv):
             self.num_obstacles = int(num_obstacles)
         else:
             self.num_obstacles = int(grid_size/2)
-        self.num_episode = 0
+
         self.merge_ratio = 0
         self.merge_reward = 0
         self.agent_reward = np.zeros((num_agents))
@@ -152,17 +152,17 @@ class MultiExplorationEnv(MultiRoomEnv):
 
     def reset(self, choose = True):
         self.augment = 255 // (np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum())
-        self.num_episode += 1
+
         self.explorable_size = 0
         obs = MiniGridEnv.reset(self, choose=True)
         
         self.num_step = 0
-        self.get_ratio = 0
+
         self.target_ratio = 0.98
         self.gt_map = self.grid.encode()[:,:,0].T
         self.agent_local_map = np.zeros((self.num_agents, self.agent_view_size, self.agent_view_size, 3))
         self.pad_gt_map = np.pad(self.gt_map,((self.agent_view_size, self.agent_view_size), (self.agent_view_size,self.agent_view_size)) , constant_values=(0,0))
-        self.get_agent_ratio = np.zeros((self.num_agents,))
+        
         # init local map
         self.explored_each_map = []
         self.obstacle_each_map = []
@@ -266,6 +266,9 @@ class MultiExplorationEnv(MultiRoomEnv):
         info['merge_explored_ratio'] = self.merge_ratio
         info['merge_explored_reward'] = self.merge_reward
         info['agent_explored_reward'] = self.agent_reward
+        info['merge_ratio_step'] = self.num_step
+        for i in range(self.num_agents):
+            info["agent{}_ratio_step".format(i)] = self.num_step
         self.merge_ratio = 0
         self.merge_reward = 0
         self.agent_reward = np.zeros((self.num_agents))
@@ -372,31 +375,25 @@ class MultiExplorationEnv(MultiRoomEnv):
         info['agent_local_map'] = self.agent_local_map
         info['agent_explored_reward'] = np.array(each_agent_rewards) * 0.02
         info['merge_explored_reward'] = merge_explored_reward * 0.02
-        
-
-        if reward_explored_all_map.sum() / (self.width * self.height) >= self.target_ratio:#(self.width * self.height)
-            if self.use_complete_reward:
-                info['merge_explored_reward'] += 0.1 * (reward_explored_all_map.sum() / (self.width * self.height))
-            '''if info['explored_all_map'].sum()/(self.width * self.height) == 1:
-                done = True'''
-            if self.get_ratio == 0:
-                info['merge_ratio_step'] = self.num_step
-                self.get_ratio = 1
-
+        info['merge_ratio_step'] = self.num_step
+        self.merge_ratio = reward_explored_all_map.sum() / (self.width * self.height) #(self.width * self.height)
+        info['merge_explored_ratio'] = self.merge_ratio
         for i in range(self.num_agents):
-            if reward_explored_each_map[i].sum() / (self.width * self.height) >= self.target_ratio:#(self.width * self.height)
-                if self.use_complete_reward:
-                    info['agent_explored_reward'][i] += 0.1*(reward_explored_each_map[i].sum() / (self.width * self.height))
-                if self.get_agent_ratio[i] == 0:
-                    info["agent{}_ratio_step".format(i)] = self.num_step
-                    self.get_agent_ratio[i] = 1
+            info["agent{}_ratio_step".format(i)] = self.num_step
+        
+        if reward_explored_all_map.sum() / (self.width * self.height) >= self.target_ratio:#(self.width * self.height)
+            done = True            
+            if self.use_complete_reward:
+                info['merge_explored_reward'] += 1.0 # 0.1 * (reward_explored_all_map.sum() / (self.width * self.height))           
+                
+        # for i in range(self.num_agents):
+        #     if reward_explored_each_map[i].sum() / (self.width * self.height) >= self.target_ratio:#(self.width * self.height)
+        #         if self.use_complete_reward:
+        #             info['agent_explored_reward'][i] += 0.1 * (reward_explored_each_map[i].sum() / (self.width * self.height))
         
         self.agent_reward = info['agent_explored_reward']
         self.merge_reward = info['merge_explored_reward']
-        self.merge_ratio = reward_explored_all_map.sum() / (self.width * self.height) #(self.width * self.height)
-        info['merge_explored_ratio'] = self.merge_ratio
         
-        #import pdb; pdb.set_trace()
         return obs, reward, done, info
 
     def get_short_term_action(self, inputs):

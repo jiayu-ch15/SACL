@@ -23,16 +23,13 @@ class GridWorldRunner(Runner):
         self.init_map_variables() 
 
     def run(self):
-        '''merge_explored_ratio_step = np.ones((self.n_rollout_threads,), dtype=np.float32) * self.episode_length
-        agent_explored_ratio_step = np.ones((self.n_rollout_threads, self.num_agents), dtype=np.float32) * self.episode_length'''
         self.warmup()   
 
         start = time.time()
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
 
         for episode in range(episodes):
-            'k = 0'
-            self.init_map_variables() 
+            self.env_infos = defaultdict(list)
 
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
@@ -44,30 +41,10 @@ class GridWorldRunner(Runner):
                 # Obser reward and next obs
                 dict_obs, rewards, dones, infos = self.envs.step(actions)
 
-                for e in range(self.n_rollout_threads):
-                    if 'merge_ratio_step' in infos[e].keys():
-                        self.merge_explored_ratio_step[e] = infos[e]['merge_ratio_step']
-                    for agent_id in range(self.num_agents):
-                        agent_k = "agent{}_ratio_step".format(agent_id)
-                        if agent_k in infos[e].keys():
-                            self.agent_explored_ratio_step[e][agent_id] = infos[e][agent_k]
-
                 data = dict_obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
 
                 # insert data into buffer
                 self.insert(data)
-                '''if self.use_different_done:
-                    for e in range(self.n_rollout_threads):
-                        if dones[e]==True:
-                            k += 1
-                            self.all_agent_pos_map[e] = np.zeros((self.num_agents, self.full_w, self.full_h), dtype=np.float32)
-                            merge_explored_ratio_step[e] = self.merge_explored_ratio_step[e]
-                            agent_explored_ratio_step[e] = self.agent_explored_ratio_step[e]
-                            self.merge_explored_ratio_step[e] = self.episode_length
-                            self.agent_explored_ratio_step[e] = np.ones((self.num_agents), dtype=np.float32) * self.episode_length
-                            if self.use_merge:
-                                self.all_merge_pos_map[e] = np.zeros((self.full_w, self.full_h), dtype=np.float32)
-                            if k == self.num_agents:'''
 
             # compute return and update network
             self.compute()
@@ -92,23 +69,11 @@ class GridWorldRunner(Runner):
                                 total_num_steps,
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
-
-                if self.env_name == "GridWorld":
-                    env_infos = defaultdict(list)
-                    for info in infos:
-                        env_infos['merge_explored_ratio'].append(info['merge_explored_ratio'])
-                        
-                    print("average episode ratio is {}".format(np.mean(env_infos["merge_explored_ratio"])))
-                    
-                    train_infos["merge_explored_ratio_step"] = np.mean(self.merge_explored_ratio_step)
-                    
-                    for agent_id in range(self.num_agents):
-                        train_infos["agent{}_ratio_step".format(agent_id)] = np.mean(self.agent_explored_ratio_step[:,agent_id])  
-
+ 
                 train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length             
                 print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
-                
-                
+                print("average episode ratio is {}".format(np.mean(self.env_infos["merge_explored_ratio"])))
+                                
                 self.log_train(train_infos, total_num_steps)
                 self.log_env(env_infos, total_num_steps)
 
@@ -185,12 +150,6 @@ class GridWorldRunner(Runner):
             self.buffer.share_obs[key][0] = share_obs[key].copy()
 
     def init_hyperparameters(self):
-        ### Full map consists of 4 channels containing the following:
-        ### 1. Obstacle Map
-        ### 2. Exploread Area
-        ### 3. Current Agent Location
-        ### 4. Past Agent Locations
-
         # Calculating full and local map sizes
         map_size = self.all_args.grid_size
         self.use_merge = self.all_args.use_merge
@@ -201,23 +160,18 @@ class GridWorldRunner(Runner):
         if self.visualize_input:
             plt.ion()
             self.fig, self.ax = plt.subplots(self.num_agents*3, 4, figsize=(10, 2.5), facecolor="whitesmoke")
-
+ 
     def init_map_variables(self):
         # Initializing full, merge and local map
-
         self.all_agent_pos_map = np.zeros((self.n_rollout_threads, self.num_agents, self.full_w, self.full_h), dtype=np.float32)
-        self.merge_explored_ratio_step = np.ones((self.n_rollout_threads,), dtype=np.float32) * self.episode_length
-        self.agent_explored_ratio_step = np.ones((self.n_rollout_threads, self.num_agents), dtype=np.float32) * self.episode_length
         if self.use_merge:
             self.all_merge_pos_map = np.zeros((self.n_rollout_threads, self.full_w, self.full_h), dtype=np.float32)
-        
+
     def init_eval_map_variables(self):
         # Initializing full, merge and local map
-        self.all_agent_pos_map = np.zeros((self.n_rollout_threads, self.num_agents, self.full_w, self.full_h), dtype=np.float32)
-        self.merge_explored_ratio_step = np.ones((self.n_rollout_threads,), dtype=np.float32) * self.episode_length
-        self.agent_explored_ratio_step = np.ones((self.n_rollout_threads, self.num_agents), dtype=np.float32) * self.episode_length
+        self.all_agent_pos_map = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.full_w, self.full_h), dtype=np.float32)
         if self.use_merge:
-            self.all_merge_pos_map = np.zeros((self.n_rollout_threads, self.full_w, self.full_h), dtype=np.float32)
+            self.all_merge_pos_map = np.zeros((self.n_eval_rollout_threads, self.full_w, self.full_h), dtype=np.float32)
 
     @torch.no_grad()
     def collect(self, step):
@@ -271,6 +225,18 @@ class GridWorldRunner(Runner):
         obs = self._convert(dict_obs, infos)
         share_obs = self._convert(dict_obs, infos)
 
+        self.all_agent_pos_map[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, self.full_w, self.full_h), dtype=np.float32)
+        if self.use_merge:
+            self.all_merge_pos_map[dones == True] = np.zeros(((dones == True).sum(), self.full_w, self.full_h), dtype=np.float32)
+     
+        for done, info in zip(dones, infos):
+            if np.all(done):
+                self.env_infos['merge_ratio_step'].append(info['merge_ratio_step'])
+                self.env_infos['merge_explored_ratio'].append(info['merge_explored_ratio'])
+                for agent_id in range(self.num_agents):
+                    agent_k = "agent{}_ratio_step".format(agent_id)
+                    self.env_infos[agent_k].append(info[agent_k])
+
         self.buffer.insert(share_obs, obs, rnn_states, rnn_states_critic, actions, action_log_probs, values, rewards, masks)
     
     def visualize_obs(self, fig, ax, obs):
@@ -299,6 +265,7 @@ class GridWorldRunner(Runner):
     @torch.no_grad()
     def eval(self, total_num_steps):
         eval_episode_rewards = []
+        eval_env_infos = defaultdict(list)
 
         reset_choose = np.ones(self.n_eval_rollout_threads) == 1.0
         self.init_eval_map_variables()
@@ -328,13 +295,18 @@ class GridWorldRunner(Runner):
 
             eval_episode_rewards.append(eval_rewards)
 
+            for eval_info in eval_infos:
+                if 'merge_ratio_step' in eval_info.keys():
+                    eval_env_infos['merge_ratio_step'].append(eval_info['merge_ratio_step'])
+
             eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
             eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.num_agents, 1), dtype=np.float32)
 
         eval_episode_rewards = np.array(eval_episode_rewards)
-        eval_env_infos = defaultdict(list)
+        
         eval_env_infos['eval_average_episode_rewards'] = np.sum(np.array(eval_episode_rewards), axis=0)
+        
         for eval_info in eval_infos:
             eval_env_infos['eval_merge_explored_ratio'].append(eval_info['merge_explored_ratio'])
             
@@ -390,6 +362,10 @@ class GridWorldRunner(Runner):
                 dict_obs, rewards, dones, infos = envs.step(actions)
                 obs = self._convert(dict_obs, infos)
                 episode_rewards.append(rewards)
+                
+                for info in infos:
+                    if 'merge_ratio_step' in info.keys():
+                        env_infos['merge_ratio_step'].append(info['merge_ratio_step'])
 
                 rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
                 masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
@@ -409,11 +385,13 @@ class GridWorldRunner(Runner):
                 if np.all(dones[0]):
                     ic("end")
                     break
+            
             for info in infos:
                 env_infos['merge_explored_ratio'].append(info['merge_explored_ratio'])
-                
+                  
             print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
             print("average merge explored ratio is: " + str(np.mean(env_infos['merge_explored_ratio'])))
+            print("average merge explored step is: " + str(np.mean(env_infos['merge_ratio_step'])))
 
         if self.all_args.save_gifs:
             ic("rendering....")
