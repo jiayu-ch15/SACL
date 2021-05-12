@@ -46,9 +46,11 @@ class GridWorldEnv(object):
         if choose:
             obs, info = self.env.reset()
         else:
-            obs = {}
-            for key in self.observation_space[0].spaces.keys():
-                obs[key] = np.zeros((self.num_agents, *self.observation_space[0][key].shape), dtype=np.float32)
+            obs = {
+            'image': np.zeros((self.width, self.height, 3), dtype='uint8'),
+            'direction': self.agent_dir[agent_id],
+            'mission': self.mission
+            }
             info = {}
         return obs, info
 
@@ -61,9 +63,11 @@ class GridWorldEnv(object):
             else:
                 rewards = np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         else:
-            obs = {}
-            for key in self.observation_space[0].spaces.keys():
-                obs[key] = np.zeros((self.num_agents, *self.observation_space[0][key].shape), dtype=np.float32)
+            obs = {
+            'image': np.zeros((self.width, self.height, 3), dtype='uint8'),
+            'direction': self.agent_dir[agent_id],
+            'mission': self.mission
+            }
             rewards = np.zeros((self.num_agents, 1))
             dones = np.array([None for agent_id in range(self.num_agents)])
             infos = {}
