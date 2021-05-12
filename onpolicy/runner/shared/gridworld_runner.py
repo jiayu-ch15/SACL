@@ -115,7 +115,7 @@ class GridWorldRunner(Runner):
                     obs['global_merge_obs'][e, agent_id, 0] = infos[e]['explored_all_map'][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
                     obs['global_merge_obs'][e, agent_id, 1] = infos[e]['obstacle_all_map'][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
                     obs['global_merge_obs'][e, agent_id, 2] = merge_pos_map[e][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
-                    obs['global_merge_obs'][e, agent_id, 3] = self.all_merge_pos_map[e][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
+                    obs['global_merge_obs'][e, agent_id, 3] = self.eval_all_merge_pos_map[e][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size]
 
                 obs['vector'][e, agent_id] = np.eye(self.num_agents)[agent_id]
 
@@ -349,6 +349,7 @@ class GridWorldRunner(Runner):
 
             # Obser reward and next obs
             eval_dict_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions)
+            
             eval_dones_env = np.all(eval_dones, axis=-1)
 
             eval_obs = self._eval_convert(eval_dict_obs, eval_infos)

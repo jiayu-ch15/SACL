@@ -7,6 +7,7 @@ import multiprocessing as mp
 from multiprocessing import Process, Pipe
 from abc import ABC, abstractmethod
 from onpolicy.utils.util import tile_images
+from icecream import ic
 
 class CloudpickleWrapper(object):
     """
@@ -951,6 +952,7 @@ class ChooseInfoSubprocVecEnv(ShareVecEnv):
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
         obs, rews, dones, infos = zip(*results)
+        ic(obs, rews, dones, infos)
         return np.stack(obs), np.stack(rews), np.stack(dones), infos
 
     def reset(self, reset_choose):
