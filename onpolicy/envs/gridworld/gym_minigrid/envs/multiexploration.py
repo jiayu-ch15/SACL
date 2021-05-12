@@ -234,6 +234,8 @@ class MultiExplorationEnv(MultiRoomEnv):
         current_agent_pos = []
         each_agent_rewards = []
         self.num_step += 1
+        reward_obstacle_each_map = np.zeros((self.num_agents, self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size))
+        delta_reward_each_map = np.zeros((self.num_agents, self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size))
         reward_explored_each_map = np.zeros((self.num_agents, self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size))
         explored_all_map = np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size))
         obstacle_all_map = np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size))
@@ -299,9 +301,14 @@ class MultiExplorationEnv(MultiRoomEnv):
             
             reward_previous_explored_each_map = self.previous_explored_each_map[i].copy()
             reward_previous_explored_each_map[reward_previous_explored_each_map != 0] = 1
+
+            reward_obstacle_each_map[i] = self.obstacle_each_map[i].copy()
+            reward_obstacle_each_map[i][reward_obstacle_each_map[i] != 0] = 1
+
+            delta_reward_each_map[i] = reward_explored_each_map[i] - reward_obstacle_each_map[i]
             
-            each_agent_rewards.append((np.array(reward_explored_each_map[i]) - np.array(reward_previous_explored_each_map)).sum())
-            self.previous_explored_each_map[i] = self.explored_each_map[i]
+            each_agent_rewards.append((np.array(delta_reward_each_map[i]) - np.array(reward_previous_explored_each_map)).sum())
+            self.previous_explored_each_map[i] = self.explored_each_map[i] - self.obstacle_each_map[i]
         
         for i in range(self.num_agents):
             explored_all_map += self.explored_each_map[i]
@@ -310,11 +317,16 @@ class MultiExplorationEnv(MultiRoomEnv):
         reward_explored_all_map = explored_all_map.copy()
         reward_explored_all_map[reward_explored_all_map != 0] = 1
 
+        reward_obstacle_all_map = obstacle_all_map.copy()
+        reward_obstacle_all_map[reward_obstacle_all_map != 0] = 1
+
+        delta_reward_all_map = reward_explored_all_map - reward_obstacle_all_map
+
         reward_previous_all_map = self.previous_all_map.copy()
         reward_previous_all_map[reward_previous_all_map != 0] = 1
 
-        merge_explored_reward = (np.array(reward_explored_all_map) - np.array(reward_previous_all_map)).sum()
-        self.previous_all_map = explored_all_map.copy()
+        merge_explored_reward = (np.array(delta_reward_all_map) - np.array(reward_previous_all_map)).sum()
+        self.previous_all_map = explored_all_map - obstacle_all_map
         self.explored_map = np.array(explored_all_map).astype(int)[self.agent_view_size : self.width + self.agent_view_size, self.agent_view_size : self.width + self.agent_view_size]
         
         info = {}
@@ -328,21 +340,21 @@ class MultiExplorationEnv(MultiRoomEnv):
         info['agent_explored_reward'] = np.array(each_agent_rewards) * 0.02
         info['merge_explored_reward'] = merge_explored_reward * 0.02
         
-        if reward_explored_all_map.sum() / (self.width * self.height) >= self.target_ratio:#(self.width * self.height)
+        if delta_reward_all_map.sum() / self.no_wall_size >= self.target_ratio:#(self.width * self.height)
             done = True       
             self.merge_ratio_step = self.num_step
             if self.use_complete_reward:
-                info['merge_explored_reward'] += 1.0 # 0.1 * (reward_explored_all_map.sum() / (self.width * self.height))           
+                info['merge_explored_reward'] += 0.1 * (delta_reward_all_map.sum() / self.no_wall_size)     
                 
         for i in range(self.num_agents):
-            if reward_explored_each_map[i].sum() / (self.width * self.height) >= self.target_ratio:#(self.width * self.height)
+            if delta_reward_each_map[i].sum() / self.no_wall_size >= self.target_ratio:#(self.width * self.height)
                 self.agent_ratio_step[i] = self.num_step
                 # if self.use_complete_reward:
                 #     info['agent_explored_reward'][i] += 0.1 * (reward_explored_each_map[i].sum() / (self.width * self.height))
         
         self.agent_reward = info['agent_explored_reward']
         self.merge_reward = info['merge_explored_reward']
-        self.merge_ratio = reward_explored_all_map.sum() / (self.width * self.height) #(self.width * self.height)
+        self.merge_ratio = delta_reward_all_map.sum() / self.no_wall_size #(self.width * self.height)
         info['merge_explored_ratio'] = self.merge_ratio
         info['merge_ratio_step'] = self.merge_ratio_step
         for i in range(self.num_agents):
