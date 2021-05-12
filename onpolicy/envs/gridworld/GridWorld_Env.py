@@ -47,7 +47,7 @@ class GridWorldEnv(object):
             obs, info = self.env.reset()
         else:
             obs = {
-            'image': np.zeros((self.width, self.height, 3), dtype='uint8'),
+            'image': np.zeros((self.env.width, self.env.height, 3), dtype='uint8'),
             'direction': self.agent_dir[agent_id],
             'mission': self.mission
             }
@@ -64,7 +64,7 @@ class GridWorldEnv(object):
                 rewards = np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         else:
             obs = {
-            'image': np.zeros((self.width, self.height, 3), dtype='uint8'),
+            'image': np.zeros((self.env.width, self.env.height, 3), dtype='uint8'),
             'direction': self.agent_dir[agent_id],
             'mission': self.mission
             }
