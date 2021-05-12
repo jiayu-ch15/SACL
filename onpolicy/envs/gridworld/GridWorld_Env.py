@@ -48,8 +48,8 @@ class GridWorldEnv(object):
         else:
             obs = {
             'image': np.zeros((self.env.width, self.env.height, 3), dtype='uint8'),
-            'direction': self.agent_dir[agent_id],
-            'mission': self.mission
+            'direction': 0,
+            'mission': " "
             }
             info = {}
         return obs, info
@@ -65,8 +65,8 @@ class GridWorldEnv(object):
         else:
             obs = {
             'image': np.zeros((self.env.width, self.env.height, 3), dtype='uint8'),
-            'direction': self.agent_dir[agent_id],
-            'mission': self.mission
+            'direction': 0,
+            'mission': " "
             }
             rewards = np.zeros((self.num_agents, 1))
             dones = np.array([None for agent_id in range(self.num_agents)])
