@@ -952,7 +952,6 @@ class ChooseInfoSubprocVecEnv(ShareVecEnv):
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
         obs, rews, dones, infos = zip(*results)
-        ic(obs, rews, dones, infos)
         return np.stack(obs), np.stack(rews), np.stack(dones), infos
 
     def reset(self, reset_choose):
