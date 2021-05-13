@@ -54,13 +54,7 @@ def parse_args(args, parser):
     parser.add_argument('--scenario_name', type=str, default='simple_spread', help="Which scenario to run on")
     parser.add_argument('--num_agents', type=int, default=2, help="number of players")
     parser.add_argument('--num_obstacles', type=int, default=1, help="number of players")
-<<<<<<< HEAD
-    parser.add_argument("--use_random_pos", action='store_false', default=True,
-                        help="use merge information")
-    parser.add_argument('--agent_pos', type=list, default = [(3,3),(3,3)], help="agent_pos")
-=======
     parser.add_argument('--agent_pos', type=list, default = None, help="agent_pos")
->>>>>>> gw-done
     parser.add_argument('--grid_size', type=int, default=19, help="map size")
     parser.add_argument('--agent_view_size', type=int, default=7, help="depth the agent can view")
     parser.add_argument('--max_steps', type=int, default=100, help="depth the agent can view")
