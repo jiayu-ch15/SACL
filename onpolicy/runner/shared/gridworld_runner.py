@@ -440,7 +440,7 @@ class GridWorldRunner(Runner):
                         env_infos['merge_explored_ratio_step'].append(info['merge_ratio_step'])
                         env_infos['merge_explored_ratio'].append(info['merge_explored_ratio'])
                         for agent_id in range(self.num_agents):
-                            agent_k = "agent{}_explored_ratio_step".format(agent_id)
+                            agent_k = "agent{}_ratio_step".format(agent_id)
                             env_infos[agent_k].append(info[agent_k])
 
                 rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
@@ -461,10 +461,6 @@ class GridWorldRunner(Runner):
                 if np.all(dones[0]):
                     ic("end")
                     break
-   
-            for info in infos:
-                env_infos['merge_explored_ratio'].append(info['merge_explored_ratio'])
-                env_infos['num_same_direction'].append(info['num_same_direction'])
 
             print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
             print("average merge explored ratio is: " + str(np.mean(env_infos['merge_explored_ratio'])))
