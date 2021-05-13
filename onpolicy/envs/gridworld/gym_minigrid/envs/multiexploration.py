@@ -45,8 +45,8 @@ class MultiExplorationEnv(MultiRoomEnv):
             self.num_obstacles = int(grid_size/2)
 
         super().__init__(minNumRooms = 4,
-                        maxNumRooms = 8,
-                        maxRoomSize = 10,
+                        maxNumRooms = 7,
+                        maxRoomSize = 8,
                         grid_size = grid_size, 
                         max_steps = max_steps, 
                         num_agents = num_agents, 
