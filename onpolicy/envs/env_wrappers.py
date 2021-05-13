@@ -7,6 +7,7 @@ import multiprocessing as mp
 from multiprocessing import Process, Pipe
 from abc import ABC, abstractmethod
 from onpolicy.utils.util import tile_images
+from icecream import ic
 
 class CloudpickleWrapper(object):
     """
@@ -449,6 +450,8 @@ class InfoSubprocVecEnv(ShareVecEnv):
         """
         envs: list of gym environments to run in subprocesses
         """
+        #self.envs = [fn() for fn in env_fns]
+
         self.waiting = False
         self.closed = False
         nenvs = len(env_fns)
@@ -509,6 +512,97 @@ class InfoSubprocVecEnv(ShareVecEnv):
         for p in self.ps:
             p.join()
         self.closed = True
+
+    def render(self, mode="human"):
+        for remote in self.remotes:
+            remote.send(('render', mode))
+        if mode == "rgb_array":
+            frame = [remote.recv() for remote in self.remotes]
+            return np.stack(frame)
+        
+class ChooseInfoSubprocVecEnv(ShareVecEnv):
+    def __init__(self, env_fns, spaces=None):
+        """
+        envs: list of gym environments to run in subprocesses
+        """
+        self.waiting = False
+        self.closed = False
+        nenvs = len(env_fns)
+        self._mp_ctx = mp.get_context("forkserver")
+        self.remotes, self.work_remotes = zip(*[self._mp_ctx.Pipe(duplex=True) for _ in range(nenvs)])
+        
+        self.ps = [self._mp_ctx.Process(target=infoworker, args=(work_remote, remote, CloudpickleWrapper(env_fn)))
+                   for (work_remote, remote, env_fn) in zip(self.work_remotes, self.remotes, env_fns)]
+        
+        for p in self.ps:
+            p.daemon = True  # if the main process crashes, we should not cause things to hang
+            p.start()
+        for remote in self.work_remotes:
+            remote.close()
+
+        self.remotes[0].send(('get_spaces', None))
+        observation_space, share_observation_space, action_space = self.remotes[0].recv(
+        )
+        ShareVecEnv.__init__(self, len(env_fns), observation_space,
+                             share_observation_space, action_space)
+
+    def step_async(self, actions):
+        for remote, action in zip(self.remotes, actions):
+            remote.send(('step', action))
+        self.waiting = True
+
+    def step_wait(self):
+        results = [remote.recv() for remote in self.remotes]
+        self.waiting = False
+        obs, rews, dones, infos = zip(*results)
+       
+        for done, remote in zip(dones, self.remotes):
+            if 'bool' in done.__class__.__name__:
+                if done:  
+                    remote.send(('reset', None))
+            else:
+                if np.all(done):
+                    remote.send(('reset', None))
+        results = [remote.recv() for remote in self.remotes]
+        obs, infos = zip(*results)
+
+        return np.stack(obs), np.stack(rews), np.stack(dones), infos
+
+    def reset(self):
+        for remote in self.remotes:
+            remote.send(('reset', None))
+        results = [remote.recv() for remote in self.remotes]
+        obs, infos = zip(*results)
+        return np.stack(obs), np.stack(infos)
+
+    def get_short_term_goal(self, data):
+        for remote, da in zip(self.remotes, data):
+            remote.send(('get_short_term_goal', da))
+        return np.stack([remote.recv() for remote in self.remotes])
+
+    def reset_task(self):
+        for remote in self.remotes:
+            remote.send(('reset_task', None))
+        return np.stack([remote.recv() for remote in self.remotes])
+
+    def close(self):
+        if self.closed:
+            return
+        if self.waiting:
+            for remote in self.remotes:
+                remote.recv()
+        for remote in self.remotes:
+            remote.send(('close', None))
+        for p in self.ps:
+            p.join()
+        self.closed = True
+    
+    def render(self, mode="human"):
+        for remote in self.remotes:
+            remote.send(('render', mode))
+        if mode == "rgb_array":
+            frame = [remote.recv() for remote in self.remotes]
+            return np.stack(frame)
 
 
 def choosesimpleworker(remote, parent_remote, env_fn_wrapper):
@@ -631,7 +725,11 @@ def chooseworker(remote, parent_remote, env_fn_wrapper):
             remote.close()
             break
         elif cmd == 'render':
-            remote.send(env.render(mode='rgb_array'))
+            if data == "rgb_array":
+                fr = env.render(mode=data)
+                remote.send(fr)
+            elif data == "human":
+                env.render(mode=data)
         elif cmd == 'get_spaces':
             remote.send(
                 (env.observation_space, env.share_observation_space, env.action_space))
@@ -715,6 +813,12 @@ def chooseguardworker(remote, parent_remote, env_fn_wrapper):
             env.close()
             remote.close()
             break
+        elif cmd == 'render':
+            if data == "rgb_array":
+                fr = env.render(mode=data)
+                remote.send(fr)
+            elif data == "human":
+                env.render(mode=data)
         elif cmd == 'get_spaces':
             remote.send(
                 (env.observation_space, env.share_observation_space, env.action_space))
@@ -788,7 +892,7 @@ def chooseinfoworker(remote, parent_remote, env_fn_wrapper):
             ob, reward, done, info = env.step(data)
             remote.send((ob, reward, done, info))
         elif cmd == 'reset':
-            ob, info = env.reset()
+            ob, info = env.reset(data)
             remote.send((ob, info))
         elif cmd == 'reset_task':
             ob = env.reset_task()
@@ -850,9 +954,9 @@ class ChooseInfoSubprocVecEnv(ShareVecEnv):
         obs, rews, dones, infos = zip(*results)
         return np.stack(obs), np.stack(rews), np.stack(dones), infos
 
-    def reset(self):
-        for remote in self.remotes:
-            remote.send(('reset', None))
+    def reset(self, reset_choose):
+        for remote, choose in zip(self.remotes, reset_choose):
+            remote.send(('reset', choose))
         results = [remote.recv() for remote in self.remotes]
         obs, infos = zip(*results)
         return np.stack(obs), np.stack(infos)
@@ -878,6 +982,14 @@ class ChooseInfoSubprocVecEnv(ShareVecEnv):
         for p in self.ps:
             p.join()
         self.closed = True
+
+    def render(self, mode="human"):
+        for remote in self.remotes:
+            remote.send(('render', mode))
+        if mode == "rgb_array":
+            frame = [remote.recv() for remote in self.remotes]
+            return np.stack(frame)
+
 
 # single env
 class DummyVecEnv(ShareVecEnv):
@@ -1115,8 +1227,9 @@ class ChooseInfoDummyVecEnv(ShareVecEnv):
         self.actions = None
         return obs, rews, dones, infos
 
-    def reset(self):
-        results = [env.reset() for env in self.envs]
+    def reset(self, reset_choose):
+        results = [env.reset(choose)
+                   for (env, choose) in zip(self.envs, reset_choose)]
         obs, infos = map(np.array, zip(*results))
         return obs, infos
 

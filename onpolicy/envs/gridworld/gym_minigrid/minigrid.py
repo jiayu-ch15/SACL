@@ -563,6 +563,19 @@ class Grid:
                         tile_size=tile_size
                     )
                     if agent_here:
+                        tile_img = tile_img.copy()
+                        for other_agent_id in range(agent_id+1, num_agents):
+                            other_agent_here = np.array_equal(agent_pos[other_agent_id], (i, j))
+                            if other_agent_here and agent_dir[other_agent_id] != agent_dir[agent_id]:
+                                other_tile_img = Grid.render_tile(
+                                    cell,
+                                    agent_id=other_agent_id,
+                                    agent_dir=agent_dir[other_agent_id],
+                                    highlight=highlight_mask[i, j],
+                                    tile_size=tile_size
+                                )
+                                tile_img += other_tile_img
+                                tile_img[tile_img>255]=255
                         break
 
                 ymin = j * tile_size
@@ -665,41 +678,35 @@ class Grid:
         return grid, vis_mask
         
     def process_vis(grid, agent_pos):
-        mask = np.zeros(shape=(grid.width, grid.height), dtype=np.bool)
+        mask = np.ones(shape=(grid.width, grid.height), dtype=np.bool)
 
         mask[agent_pos[0], agent_pos[1]] = True
 
-        for j in reversed(range(0, grid.height)):
+        '''for j in reversed(range(0, grid.height)):
             for i in range(0, grid.width-1):
                 if not mask[i, j]:
                     continue
-
                 cell = grid.get(i, j)
                 if cell and not cell.see_behind():
                     continue
-
                 mask[i+1, j] = True
                 if j > 0:
                     mask[i+1, j-1] = True
                     mask[i, j-1] = True
-
             for i in reversed(range(1, grid.width)):
                 if not mask[i, j]:
                     continue
-
                 cell = grid.get(i, j)
                 if cell and not cell.see_behind():
                     continue
-
                 mask[i-1, j] = True
                 if j > 0:
                     mask[i-1, j-1] = True
                     mask[i, j-1] = True
-
         for j in range(0, grid.height):
             for i in range(0, grid.width):
                 if not mask[i, j]:
-                    grid.set(i, j, None)
+                    grid.set(i, j, None)'''
 
 
         local_map = grid.encode()[:,:,0]
@@ -717,22 +724,40 @@ class Grid:
                 if local_map[i, j] != 20:
                     mask[i, :j]=False
                     break'''
+                    
+        for j in range(grid.height):
+            for i in range(agent_pos[0]-1,-1,-1):
+                if local_map[i, j] != 20:
+                    if j==grid.height-1:
+                        mask[:i+1, :j+1]=False
+                    else:
+                        mask[:i+1, :j]=False
+                    for h in range(j+1):
+                        if local_map[i, h] != 0 and local_map[i+1:agent_pos[0]+1, j].all() == 20:
+                            mask[i, h]=True
+                    break   
 
         for j in range(grid.height):
-            for i in range(agent_pos[0]-1,0,-1):
+            for i in range(agent_pos[0]+1, grid.width):
                 if local_map[i, j] != 20:
-                    mask[:i, j]=False
+                    if j==grid.height-1:
+                        mask[i:, :j+1]=False
+                    else:
+                        mask[i:, :j]=False
+                    for h in range(j+1):
+                        if local_map[i, h] != 0 and local_map[agent_pos[0]:i, j].all() == 20:
+                            mask[i, h]=True
                     break
-
-        for i in range(grid.width):
-            for j in range(agent_pos[1]-1, 0, -1):
-                if local_map[i, j] != 20:
-                    mask[i, :j] = False
-                    break
+                    
+        for j in range(agent_pos[1]-1, -1, -1):
+            if local_map[agent_pos[0], j] != 20:
+                mask[agent_pos[0], :j] = False
+                break
         
+
         #import pdb; pdb.set_trace()
         return mask
-        
+
 class MiniGridEnv(gym.Env):
     """
     2D grid world game environment
@@ -797,17 +822,22 @@ class MiniGridEnv(gym.Env):
         # encoding of the grid and a textual 'mission' string
         global_observation_space = {}
         global_observation_space['global_obs'] = gym.spaces.Box(
-            low=0, high=1, shape=(4, self.full_w, self.full_h), dtype='uint8')
-        if use_merge:
-            global_observation_space['global_merge_obs'] = gym.spaces.Box(
-                low=0, high=1, shape=(4, self.full_w, self.full_h), dtype='uint8')
+            low=0, high=255, shape=(4, self.full_w, self.full_h), dtype='uint8')
         global_observation_space['image'] = gym.spaces.Box(
             low=0, high=255, shape=(self.full_w, self.full_h, 3), dtype='uint8')
         global_observation_space['vector'] = gym.spaces.Box(
-            low=-1, high=1, shape=(self.num_agents + 8 + 4,), dtype='float')
+            low=-1, high=1, shape=(self.num_agents,), dtype='float')
+        if use_merge:
+            global_observation_space['global_merge_obs'] = gym.spaces.Box(
+                low=0, high=255, shape=(4, self.full_w, self.full_h), dtype='uint8')
+            global_observation_space['global_direction'] = gym.spaces.Box(
+                low=-1, high=1, shape=(self.num_agents, 4), dtype='float')
+        else:
+            global_observation_space['global_direction'] = gym.spaces.Box(
+                low=-1, high=1, shape=(1, 4), dtype='float')
         share_global_observation_space = global_observation_space.copy()
         share_global_observation_space['gt_map'] = gym.spaces.Box(
-            low=0, high=1, shape=(1, self.full_w, self.full_h), dtype='uint8')
+            low=0, high=255, shape=(1, self.full_w, self.full_h), dtype='uint8')
         
         global_observation_space = gym.spaces.Dict(global_observation_space)
         share_global_observation_space = gym.spaces.Dict(share_global_observation_space)
@@ -835,11 +865,18 @@ class MiniGridEnv(gym.Env):
         # Current position and direction of the agent
         self.agent_pos = []
         self.agent_dir = []
+        self.no_wall_size = 0
 
         # Generate a new random grid at the start of each episode
         # To keep the same grid for each episode, call env.seed() with
         # the same seed before calling env.reset()
         self._gen_grid(self.width, self.height)
+
+        for i in range(self.width):
+            for j in range(self.height):
+                c = self.grid.get(i, j)
+                if c == None:
+                    self.no_wall_size += 1
 
         # These fields should be defined by _gen_grid
         assert len(self.agent_pos) is not 0
@@ -1107,7 +1144,7 @@ class MiniGridEnv(gym.Env):
         size=None,
         rand_dir=True,
         max_tries=math.inf,
-        use_same_location=False,
+        use_same_location = False,
     ):
         """
         Set the agent's starting point at an empty position in the grid
@@ -1116,7 +1153,6 @@ class MiniGridEnv(gym.Env):
         self.agent_pos = []
         self.agent_dir = []
         pos = []
-
         if use_same_location:
             p = self.place_obj(None, top, size, max_tries=max_tries)
             for agent_id in range(self.num_agents):
@@ -1287,12 +1323,15 @@ class MiniGridEnv(gym.Env):
                         self.num_same_direction += 1
                     self.agent_pos[agent_id] = fwd_pos
                 if fwd_cell != None and fwd_cell.type == 'goal':
-                    done = True
-                    reward += self._reward()
+                    pass
+                    #done = True
+                    #reward += self._reward()
                 if fwd_cell != None and fwd_cell.type == 'obstacle':
-                    reward += self._penalty()
+                    pass
+                    #reward += self._penalty()
                 if fwd_cell != None and fwd_cell.type == 'lava':
-                    done = True
+                    pass
+                    #done = True
 
             # Pick up an object
             elif action[agent_id] == self.actions.pickup:
@@ -1450,6 +1489,7 @@ class MiniGridEnv(gym.Env):
                     # Mark this cell to be highlighted
                     highlight_mask[abs_i, abs_j] = True
 
+        explore_mask = highlight_mask if first else self.explored_map.T 
         # Render the whole grid
         explore_mask = highlight_mask if first else self.explored_map.T 
         
@@ -1458,8 +1498,7 @@ class MiniGridEnv(gym.Env):
             tile_size,
             self.agent_pos,
             self.agent_dir,
-            self.direction_index,
-            highlight_mask = explore_mask if highlight else None #highlight_mask 
+            highlight_mask = explore_mask if highlight else None
         )
 
         local_img = self.grid.render(
@@ -1467,26 +1506,17 @@ class MiniGridEnv(gym.Env):
             tile_size,
             self.agent_pos,
             self.agent_dir,
-            self.direction_index,
             highlight_mask = highlight_mask if highlight else None #
         )
 
         self.window.set_caption(self.mission)
         self.window.show_img(img, local_img)
-
+        
         return img, local_img
 
     def get_direction_encoder(self):
-
-        def str2int(s):
-            def fn(x,y):
-                return x*10+y
-            def char2num(s):
-                return {'0':0, '1':1, '2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9}[s]
-            return reduce(fn,map(char2num,s))
-
         self.render(mode='human', close=False, first=True)
-        array_direction = np.array([[0,1], [0,-1], [1,0], [-1,0], [1,1], [1,-1], [-1,1], [-1,-1]])
+        array_direction = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
         print (" Refer each predator as the coordinate origin, input the direciton of the prey relative to it.\n \
            Right is the positive direction of the X-axis,\n Below is the positive direction of the Y-axis.\n \
                0--[0,1] , 1--[0,-1], 2--[1,0], 3--[-1,0], 4--[1,1], 5--[1,-1], 6--[-1,1], 7--[-1,-1], i.e. 000")
