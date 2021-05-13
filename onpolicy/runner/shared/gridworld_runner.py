@@ -397,7 +397,7 @@ class GridWorldRunner(Runner):
             ic(episode)
             self.init_map_variables()
             reset_choose = np.ones(self.n_rollout_threads) == 1.0
-            dict_obs, infos = envs.reset()
+            dict_obs, infos = envs.reset(reset_choose)
             obs = self._convert(dict_obs, infos)
 
             if self.all_args.save_gifs:
