@@ -237,7 +237,7 @@ class HabitatRunner(Runner):
             if gy2 > full_h:
                 gy1, gy2 = full_h - local_h, full_h
         else:
-            gx1.gx2, gy1, gy2 = 0, full_w, 0, full_h
+            gx1, gx2, gy1, gy2 = 0, full_w, 0, full_h
 
         return [gx1, gx2, gy1, gy2]
 
@@ -326,7 +326,7 @@ class HabitatRunner(Runner):
                 loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
                                 int(c * 100.0 / self.map_resolution)]
 
-                self.full_map[e, a, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = a + 1
+                self.full_map[e, a, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = 1
 
                 self.lmb[e, a] = self.get_local_map_boundaries((loc_r, loc_c),
                                                     (self.local_w, self.local_h),
@@ -521,13 +521,16 @@ class HabitatRunner(Runner):
                 (index_a, index_b) = np.unravel_index(np.argmax(agent_merge_map[2, :, :], axis=None), agent_merge_map[2, :, :].shape)
                 agent_merge_map[2, :, :] = np.zeros((self.full_h, self.full_w), dtype=np.float32)
                 if self.first_compute:
-                    agent_merge_map[2, index_a - 1: index_a + 2, index_b - 1: index_b + 2] = agent_id + 1
+                    agent_merge_map[2, index_a - 1: index_a + 2, index_b - 1: index_b + 2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
                 else: 
-                    agent_merge_map[2, index_a - 2: index_a + 3, index_b - 2: index_b + 3] = agent_id + 1
+                    agent_merge_map[2, index_a - 2: index_a + 3, index_b - 2: index_b + 3] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
             
-                trace = np.zeros((self.full_h, self.full_w), dtype=np.float32)
-                trace[agent_merge_map[3] > 0.2] = agent_id + 1
-                agent_merge_map[3] = trace
+                trace = np.zeros((3, self.full_h, self.full_w), dtype=np.float32)
+                trace[0][agent_merge_map[0] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                trace[1][agent_merge_map[1] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                trace[2][agent_merge_map[3] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                agent_merge_map[0:2] = trace[0:2]
+                agent_merge_map[3] = trace[2]
                 merge_map[e] += agent_merge_map
         return merge_map
 
@@ -573,7 +576,7 @@ class HabitatRunner(Runner):
                 loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
                                 int(c * 100.0 / self.map_resolution)]
 
-                self.local_map[e, a, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = a + 1
+                self.local_map[e, a, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = 1
                 self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
                 self.other_agent_rotation[e, a, 0] = locs[e, a, 2]
                 self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
@@ -757,7 +760,7 @@ class HabitatRunner(Runner):
                 loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
                                 int(c * 100.0 / self.map_resolution)]
 
-                self.local_map[e, a, 2:, loc_r - 2:loc_r + 3, loc_c - 2:loc_c + 3] = a + 1
+                self.local_map[e, a, 2:, loc_r - 2:loc_r + 3, loc_c - 2:loc_c + 3] = 1
 
     def update_map_and_pose(self):
         for e in range(self.n_rollout_threads):
@@ -963,9 +966,9 @@ class HabitatRunner(Runner):
                     sub_ax[i].imshow(obs['global_obs'][0, agent_id, i])
                 elif i < 4:
                     sub_ax[i].imshow(obs['global_merge_obs'][0, agent_id-self.num_agents, i])
-                elif i < 5:
+                #elif i < 5:
                     #sub_ax[i].imshow(obs['global_merge_goal'][0, agent_id-self.num_agents, i-4])
-                    sub_ax[i].imshow(obs['gt_map'][0, agent_id - self.num_agents, i-4])
+                    #sub_ax[i].imshow(obs['gt_map'][0, agent_id - self.num_agents, i-4])
         plt.gcf().canvas.flush_events()
         # plt.pause(0.1)
         fig.canvas.start_event_loop(0.001)
