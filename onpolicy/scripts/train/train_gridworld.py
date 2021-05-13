@@ -54,22 +54,20 @@ def parse_args(args, parser):
     parser.add_argument('--scenario_name', type=str, default='simple_spread', help="Which scenario to run on")
     parser.add_argument('--num_agents', type=int, default=2, help="number of players")
     parser.add_argument('--num_obstacles', type=int, default=1, help="number of players")
-    parser.add_argument("--use_random_pos", action='store_false', default=True,
-                        help="use merge information")
-    parser.add_argument('--agent_pos', type=list, default = [(3,3),(3,3)], help="agent_pos")
+    parser.add_argument('--agent_pos', type=list, default = None, help="agent_pos")
     parser.add_argument('--grid_size', type=int, default=19, help="map size")
     parser.add_argument('--agent_view_size', type=int, default=7, help="depth the agent can view")
     parser.add_argument('--max_steps', type=int, default=100, help="depth the agent can view")
-    parser.add_argument('--direction_alpha', type=float,default=0.1, help="number of players")
-    parser.add_argument('--use_human_command', action='store_true', default=False)
     parser.add_argument("--use_same_location", action='store_true', default=False,
                         help="use merge information")
     parser.add_argument("--use_single_reward", action='store_true', default=False,
                         help="use single reward")
     parser.add_argument("--use_complete_reward", action='store_true', default=False,
                         help="use complete reward")            
-    parser.add_argument("--use_merge", action='store_false', default=True,
+    parser.add_argument("--use_merge", action='store_true', default=False,
                         help="use merge information")
+    parser.add_argument("--use_random_pos", action='store_true', default=False,
+                        help="use complete reward")             
     parser.add_argument("--visualize_input", action='store_true', default=False,
                         help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
     all_args = parser.parse_known_args(args)[0]
