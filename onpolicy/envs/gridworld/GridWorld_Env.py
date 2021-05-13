@@ -50,9 +50,9 @@ class GridWorldEnv(object):
     def step(self, actions):
         obs, rewards, dones, infos = self.env.step(actions)
         if self.use_single_reward:
-            rewards = 0.3 * np.expand_dims(infos['agent_explored_reward'], axis=1) + 0.7 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+            rewards = [[0.3 * infos['agent_explored_reward'] + 0.7 * infos['merge_explored_reward'] + rewards] for _ in range(self.num_agents)]
         else:
-            rewards = np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+            rewards = [[infos['merge_explored_reward'] + rewards] for _ in range(self.num_agents)]
         return obs, rewards, dones, infos
 
     def close(self):
