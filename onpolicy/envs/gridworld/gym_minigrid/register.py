@@ -11,12 +11,10 @@ def register(
     num_agents,
     agent_pos,
     entry_point,
-    reward_threshold = 0.95,
-    direction_alpha = 0.1,
+    reward_threshold=0.95,
     use_merge = True,
     use_same_location = True,
-    use_complete_reward = True, 
-    use_human_command = False,
+    use_complete_reward = True,
 ):
     assert id.startswith("MiniGrid-")
     assert id not in env_list
@@ -30,13 +28,10 @@ def register(
         'max_steps': max_steps,
         'agent_view_size': agent_view_size,
         'num_obstacles': num_obstacles,
-        'num_agents': num_agents,
         'agent_pos': agent_pos,
-        'direction_alpha': direction_alpha,
         'use_merge': use_merge,
         'use_same_location': use_same_location,
-        'use_complete_reward': use_complete_reward,
-        'use_human_command': use_human_command, 
+        'use_complete_reward': use_complete_reward
         },
         reward_threshold=reward_threshold
     )
