@@ -44,7 +44,9 @@ def parse_args(args, parser):
     parser.add_argument("--use_single_reward", action='store_true', default=False,
                         help="use single reward")
     parser.add_argument("--use_complete_reward", action='store_true', default=False,
-                        help="use complete reward")            
+                        help="use complete reward") 
+    parser.add_argument("--use_random_pos", action='store_true', default=False,
+                        help="use complete reward")
     parser.add_argument("--use_merge", action='store_true', default=False,
                         help="use merge information")          
     parser.add_argument("--visualize_input", action='store_true', default=False,
