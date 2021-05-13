@@ -32,23 +32,6 @@ def make_train_env(all_args):
         return ShareSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
 
-def make_eval_env(all_args):
-    def get_env_fn(rank):
-        def init_env():
-            if all_args.env_name == "StarCraft2":
-                env = StarCraft2Env(all_args)
-            else:
-                print("Can not support the " + all_args.env_name + "environment.")
-                raise NotImplementedError
-            env.seed(all_args.seed * 50000 + rank * 10000)
-            return env
-        return init_env
-    if all_args.n_eval_rollout_threads == 1:
-        return ShareDummyVecEnv([get_env_fn(0)])
-    else:
-        return ShareSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_eval_rollout_threads)])
-
-
 def parse_args(args, parser):
     parser.add_argument('--map_name', type=str, default='3m',
                         help="Which smac map to run on")
@@ -65,7 +48,6 @@ def parse_args(args, parser):
     parser.add_argument("--use_zerohidden", action='store_true', default=False)
     parser.add_argument("--use_global_local_state", action='store_true', default=False)
     parser.add_argument("--replay_dir", type=str, default='/home/tsing69/project/onpolicy/onpolicy/scripts/results/StarCraft2/3m/rmappo/test/run2/')
-
 
     all_args = parser.parse_known_args(args)[0]
 
@@ -85,6 +67,10 @@ def main(args):
 
     if all_args.use_attn and all_args.use_obs_instead_of_state:
         assert all_args.use_cat_self==False, ("can not use cat self in critic!")
+
+    assert all_args.use_render, ("u need to set use_render be True")
+    assert not (all_args.model_dir == None or all_args.model_dir == ""), ("set model_dir first")
+    assert all_args.n_rollout_threads==1, ("only support to use 1 env to render.")
 
     # cuda
     if all_args.cuda and torch.cuda.is_available():
@@ -137,13 +123,12 @@ def main(args):
 
     # env
     envs = make_train_env(all_args)
-    eval_envs = make_eval_env(all_args) if all_args.use_eval else None
     num_agents = get_map_params(all_args.map_name)["n_agents"]
 
     config = {
         "all_args": all_args,
         "envs": envs,
-        "eval_envs": eval_envs,
+        "eval_envs": None,
         "num_agents": num_agents,
         "device": device,
         "run_dir": run_dir
@@ -156,18 +141,10 @@ def main(args):
         from onpolicy.runner.separated.smac_runner import SMACRunner as Runner
 
     runner = Runner(config)
-    runner.run()
+    runner.render()
     
     # post process
     envs.close()
-    if all_args.use_eval and eval_envs is not envs:
-        eval_envs.close()
-
-    if all_args.use_wandb:
-        run.finish()
-    else:
-        runner.writter.export_scalars_to_json(str(runner.log_dir + '/summary.json'))
-        runner.writter.close()
 
 if __name__ == "__main__":
     main(sys.argv[1:])

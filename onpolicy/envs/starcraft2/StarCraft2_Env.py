@@ -213,6 +213,7 @@ class StarCraft2Env(MultiAgentEnv):
         self.add_center_xy = args.add_center_xy
         self.use_stacked_frames = args.use_stacked_frames
         self.use_global_local_state = args.use_global_local_state
+        self.use_render = args.use_render
         self.stacked_frames = args.stacked_frames
         
         map_params = get_map_params(self.map_name)
@@ -262,7 +263,7 @@ class StarCraft2Env(MultiAgentEnv):
         self.heuristic_rest = heuristic_rest
         self.debug = debug
         self.window_size = (window_size_x, window_size_y)
-        self.replay_dir = replay_dir
+        self.replay_dir = args.replay_dir
         self.replay_prefix = replay_prefix
 
         # Actions
@@ -623,6 +624,9 @@ class StarCraft2Env(MultiAgentEnv):
             local_obs = self.stacked_local_obs.reshape(self.n_agents, -1)
             global_state = self.stacked_global_state.reshape(self.n_agents, -1)
 
+        if np.all(dones) and self.use_render:
+            self.save_replay()
+
         return local_obs, global_state, rewards, dones, infos, available_actions
 
     def get_agent_action(self, a_id, action):
@@ -909,9 +913,8 @@ class StarCraft2Env(MultiAgentEnv):
     def save_replay(self):
         """Save a replay."""
         prefix = self.replay_prefix or self.map_name
-        replay_dir = self.replay_dir or ""
         replay_path = self._run_config.save_replay(
-            self._controller.save_replay(), replay_dir=replay_dir, prefix=prefix)
+            self._controller.save_replay(), replay_dir=self.replay_dir, prefix=prefix)
         logging.info("Replay saved at: %s" % replay_path)
 
     def unit_max_shield(self, unit):
