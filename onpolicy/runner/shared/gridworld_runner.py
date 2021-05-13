@@ -289,7 +289,7 @@ class GridWorldRunner(Runner):
                 self.env_infos['merge_explored_ratio_step'].append(info['merge_ratio_step'])
                 self.env_infos['merge_explored_ratio'].append(info['merge_explored_ratio'])
                 for agent_id in range(self.num_agents):
-                    agent_k = "agent{}_explored_ratio_step".format(agent_id)
+                    agent_k = "agent{}_ratio_step".format(agent_id)
                     self.env_infos[agent_k].append(info[agent_k])
 
         self.buffer.insert(share_obs, obs, rnn_states, rnn_states_critic, actions, action_log_probs, values, rewards, masks)
@@ -367,7 +367,7 @@ class GridWorldRunner(Runner):
                     eval_env_infos['eval_merge_explored_ratio_step'].append(eval_info['merge_ratio_step'])
                     eval_env_infos['eval_merge_explored_ratio'].append(eval_info['merge_explored_ratio'])
                     for agent_id in range(self.num_agents):
-                        agent_k = "agent{}_explored_ratio_step".format(agent_id)
+                        agent_k = "agent{}_ratio_step".format(agent_id)
                         eval_env_infos["eval_" + agent_k].append(eval_info[agent_k])
 
             eval_rnn_states[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)

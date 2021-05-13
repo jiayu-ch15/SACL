@@ -470,7 +470,6 @@ class Grid:
         obj,
         agent_id=None,
         agent_dir=None,
-        direction=None,
         highlight=False,
         tile_size=TILE_PIXELS,
         subdivs=3
@@ -479,7 +478,7 @@ class Grid:
         Render a tile and cache the result
         """
         # Hash map lookup key for the cache
-        key = (agent_id, direction, agent_dir, highlight, tile_size)
+        key = (agent_id, agent_dir, highlight, tile_size)
         key = obj.encode() + key if obj else key
         
         if key in cls.tile_cache:
@@ -502,9 +501,6 @@ class Grid:
                 (0.12, 0.81),
             )
 
-            x1y1_array = [(0.5,1), (0.5,0), (1,0.5), (0,0.5), (1,1), (1,0), (0,1), (0,0)]
-            arrow_fn = point_in_line(x0=0.5, y0=0.5, x1=x1y1_array[direction][0],y1=x1y1_array[direction][1], r=0.03)
-            fill_coords(img, arrow_fn, (255,255,255))
             # Rotate the agent based on its direction
             tri_fn = rotate_fn(tri_fn, cx=0.5, cy=0.5, theta=0.5*math.pi*agent_dir)
             fill_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
@@ -529,7 +525,6 @@ class Grid:
         tile_size,
         agent_pos=None,
         agent_dir=None,
-        direction=None,
         highlight_mask=None
     ):
         """
@@ -558,7 +553,6 @@ class Grid:
                         cell,
                         agent_id=agent_id if agent_here else None,
                         agent_dir=agent_dir[agent_id] if agent_here else None,
-                        direction=direction[agent_id] if agent_here else None,
                         highlight=highlight_mask[i, j],
                         tile_size=tile_size
                     )
@@ -682,49 +676,8 @@ class Grid:
 
         mask[agent_pos[0], agent_pos[1]] = True
 
-        '''for j in reversed(range(0, grid.height)):
-            for i in range(0, grid.width-1):
-                if not mask[i, j]:
-                    continue
-                cell = grid.get(i, j)
-                if cell and not cell.see_behind():
-                    continue
-                mask[i+1, j] = True
-                if j > 0:
-                    mask[i+1, j-1] = True
-                    mask[i, j-1] = True
-            for i in reversed(range(1, grid.width)):
-                if not mask[i, j]:
-                    continue
-                cell = grid.get(i, j)
-                if cell and not cell.see_behind():
-                    continue
-                mask[i-1, j] = True
-                if j > 0:
-                    mask[i-1, j-1] = True
-                    mask[i, j-1] = True
-        for j in range(0, grid.height):
-            for i in range(0, grid.width):
-                if not mask[i, j]:
-                    grid.set(i, j, None)'''
-
-
         local_map = grid.encode()[:,:,0]
         
-        '''for i in range(agent_pos[0]-1, 0, -1):
-            if local_map[i, agent_pos[1]] != 20:
-                mask[:i, agent_pos[1]] = False
-                break
-        for i in range(agent_pos[0]+1, grid.width):
-            if local_map[i, agent_pos[1]] != 20:
-                mask[i+1:, agent_pos[1]] = False
-                break
-        for i in range(grid.width):
-            for j in range(agent_pos[1], 0, -1):
-                if local_map[i, j] != 20:
-                    mask[i, :j]=False
-                    break'''
-                    
         for j in range(grid.height):
             for i in range(agent_pos[0]-1,-1,-1):
                 if local_map[i, j] != 20:
@@ -753,9 +706,7 @@ class Grid:
             if local_map[agent_pos[0], j] != 20:
                 mask[agent_pos[0], :j] = False
                 break
-        
 
-        #import pdb; pdb.set_trace()
         return mask
 
 class MiniGridEnv(gym.Env):
@@ -892,9 +843,6 @@ class MiniGridEnv(gym.Env):
 
         # Step count since episode start
         self.step_count = 0
-
-        if self.use_human_command:
-            self.get_direction_encoder()
 
         # Return first observation
         obs = [self.gen_obs(agent_id) for agent_id in range(self.num_agents)]
@@ -1316,11 +1264,7 @@ class MiniGridEnv(gym.Env):
 
             # Move forward
             elif action[agent_id] == self.actions.forward:
-                #print("forward")
                 if fwd_cell == None or fwd_cell.can_overlap():
-                    if np.any(np.sign(fwd_pos-self.agent_pos[agent_id]) == self.direction[agent_id]):
-                        reward += self.direction_alpha
-                        self.num_same_direction += 1
                     self.agent_pos[agent_id] = fwd_pos
                 if fwd_cell != None and fwd_cell.type == 'goal':
                     pass
@@ -1490,9 +1434,7 @@ class MiniGridEnv(gym.Env):
                     highlight_mask[abs_i, abs_j] = True
 
         explore_mask = highlight_mask if first else self.explored_map.T 
-        # Render the whole grid
-        explore_mask = highlight_mask if first else self.explored_map.T 
-        
+
         img = self.grid.render(
             self.num_agents,
             tile_size,
@@ -1513,42 +1455,6 @@ class MiniGridEnv(gym.Env):
         self.window.show_img(img, local_img)
         
         return img, local_img
-
-    def get_direction_encoder(self):
-        self.render(mode='human', close=False, first=True)
-        array_direction = np.array([[1,1], [1,-1], [-1,1], [-1,-1]])
-        print (" Refer each predator as the coordinate origin, input the direciton of the prey relative to it.\n \
-           Right is the positive direction of the X-axis,\n Below is the positive direction of the Y-axis.\n \
-               0--[0,1] , 1--[0,-1], 2--[1,0], 3--[-1,0], 4--[1,1], 5--[1,-1], 6--[-1,1], 7--[-1,-1], i.e. 000")
-        while True:
-            all_command = input("Enter the command: ")
-            if all_command.isdigit():
-                all_command = str2int(all_command)
-                command = []
-                command.append(all_command // 100)
-                command.append((all_command - command[0] * 100) // 10)
-                command.append(all_command % 10)
-                indicator = False
-                for i in command:
-                    if i in range(0,8):
-                        pass
-                    else:
-                        indicator = True
-                        break
-                if indicator:
-                    print("CommandError, please try again")
-                    continue
-                else:
-                    print(command)
-                    break
-            else:
-                print("CommandError, please try again")
-                continue
-        for agent_id in range(self.num_agents):
-            self.direction_index[agent_id] = command[agent_id]
-            self.direction[agent_id] = array_direction[command[agent_id]]
-            self.direction_encoder[agent_id] = np.eye(8)[command[agent_id]]
-
 
     def close(self):
         if self.window:

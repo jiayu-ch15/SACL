@@ -25,7 +25,6 @@ class MultiExplorationEnv(MultiRoomEnv):
         num_agents=2,
         agent_pos=None, 
         goal_pos=None, 
-        num_agents=2,
         use_merge = True,
         use_same_location = True,
         use_complete_reward = True,
