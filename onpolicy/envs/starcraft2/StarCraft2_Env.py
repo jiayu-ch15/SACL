@@ -212,6 +212,7 @@ class StarCraft2Env(MultiAgentEnv):
         self.use_mustalive = args.use_mustalive
         self.add_center_xy = args.add_center_xy
         self.use_stacked_frames = args.use_stacked_frames
+        self.use_global_local_state = args.use_global_local_state
         self.stacked_frames = args.stacked_frames
         
         map_params = get_map_params(self.map_name)
@@ -423,6 +424,9 @@ class StarCraft2Env(MultiAgentEnv):
 
         local_obs = self.get_obs()
 
+        if self.use_global_local_state:
+            global_state = np.concatenate([np.array(global_state), np.array(local_obs)], axis=-1)
+
         if self.use_stacked_frames:
             self.stacked_local_obs = np.roll(self.stacked_local_obs, 1, axis=1)
             self.stacked_global_state = np.roll(self.stacked_global_state, 1, axis=1)
@@ -515,6 +519,9 @@ class StarCraft2Env(MultiAgentEnv):
 
             local_obs = self.get_obs()
 
+            if self.use_global_local_state:
+                global_state = np.concatenate([np.array(global_state), np.array(local_obs)], axis=-1)
+
             if self.use_stacked_frames:
                 self.stacked_local_obs = np.roll(self.stacked_local_obs, 1, axis=1)
                 self.stacked_global_state = np.roll(self.stacked_global_state, 1, axis=1)
@@ -601,6 +608,10 @@ class StarCraft2Env(MultiAgentEnv):
             global_state = [self.get_state(agent_id) for agent_id in range(self.n_agents)]
 
         local_obs = self.get_obs()
+
+        if self.use_global_local_state:
+            global_state = np.concatenate([np.array(global_state), np.array(local_obs)], axis=-1)
+
 
         if self.use_stacked_frames:
             self.stacked_local_obs = np.roll(self.stacked_local_obs, 1, axis=1)
@@ -1676,6 +1687,9 @@ class StarCraft2Env(MultiAgentEnv):
                 timestep_feats = 1
                 all_feats += timestep_feats
 
+            if self.use_global_local_state:
+                all_feats += self.get_obs_size()[0]
+
             return [all_feats * self.stacked_frames if self.use_stacked_frames else all_feats, [n_allies, n_ally_feats], [n_enemies, n_enemy_feats], [1, move_feats], [1, own_feats+agent_id_feats+timestep_feats]]
 
         
@@ -1731,6 +1745,9 @@ class StarCraft2Env(MultiAgentEnv):
         if self.add_agent_id:
             agent_id_feats = self.n_agents
             size += agent_id_feats
+
+        if self.use_global_local_state:
+            size += self.get_obs_size()[0]
 
         return [size * self.stacked_frames if self.use_stacked_frames else size, [self.n_agents, nf_al], [self.n_enemies, nf_en], [1, move_state + obs_agent_size + timestep_state + agent_id_feats]]
     
