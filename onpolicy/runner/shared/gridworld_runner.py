@@ -397,7 +397,7 @@ class GridWorldRunner(Runner):
             ic(episode)
             self.init_map_variables()
             reset_choose = np.ones(self.n_rollout_threads) == 1.0
-            dict_obs, infos = envs.reset()
+            dict_obs, infos = envs.reset(reset_choose)
             obs = self._convert(dict_obs, infos)
 
             if self.all_args.save_gifs:
@@ -442,10 +442,12 @@ class GridWorldRunner(Runner):
                         for agent_id in range(self.num_agents):
                             agent_k = "agent{}_ratio_step".format(agent_id)
                             env_infos[agent_k].append(info[agent_k])
+                
+                dones_env = np.all(dones, axis=-1)
 
-                rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+                rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
                 masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-                masks[dones == True] = np.zeros(((dones == True).sum(), self.num_agents, 1), dtype=np.float32)
+                masks[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
                 if self.all_args.save_gifs:
                     image, local_image = envs.render('rgb_array')[0]
