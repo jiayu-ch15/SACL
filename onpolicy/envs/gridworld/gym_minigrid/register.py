@@ -15,6 +15,8 @@ def register(
     use_merge = True,
     use_same_location = True,
     use_complete_reward = True,
+    use_multiroom = False,
+    use_time_penalty = False
 ):
     assert id.startswith("MiniGrid-")
     assert id not in env_list
@@ -31,7 +33,9 @@ def register(
         'agent_pos': agent_pos,
         'use_merge': use_merge,
         'use_same_location': use_same_location,
-        'use_complete_reward': use_complete_reward
+        'use_complete_reward': use_complete_reward,
+        'use_multiroom': use_multiroom,
+        'use_time_penalty': use_time_penalty
         },
         reward_threshold=reward_threshold
     )
