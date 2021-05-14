@@ -28,7 +28,8 @@ class MultiExplorationEnv(MultiRoomEnv):
         use_merge = True,
         use_same_location = True,
         use_complete_reward = True,
-        use_multiroom = False
+        use_multiroom = False,
+        use_time_penalty = False
     ):
         self.grid_size = grid_size
         self._agent_default_pos = agent_pos
@@ -38,6 +39,7 @@ class MultiExplorationEnv(MultiRoomEnv):
         self.use_same_location = use_same_location
         self.use_complete_reward = use_complete_reward
         self.use_multiroom = use_multiroom
+        self.use_time_penalty = use_time_penalty
         self.maxNum = 5
         self.minNum = 2
 
@@ -339,8 +341,12 @@ class MultiExplorationEnv(MultiRoomEnv):
         info['obstacle_each_map'] = np.array(self.obstacle_each_map)
         info['agent_direction'] = np.array(self.agent_dir)
         info['agent_local_map'] = self.agent_local_map
-        info['agent_explored_reward'] = np.array(each_agent_rewards) * 0.02
-        info['merge_explored_reward'] = merge_explored_reward * 0.02
+        if self.use_time_penalty:
+            info['agent_explored_reward'] = np.array(each_agent_rewards) * 0.02 - 0.01
+            info['merge_explored_reward'] = merge_explored_reward * 0.02 - 0.01
+        else:
+            info['agent_explored_reward'] = np.array(each_agent_rewards) * 0.02
+            info['merge_explored_reward'] = merge_explored_reward * 0.02
         
         if delta_reward_all_map.sum() / self.no_wall_size >= self.target_ratio:#(self.width * self.height)
             done = True       
