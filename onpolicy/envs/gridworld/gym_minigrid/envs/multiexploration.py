@@ -28,6 +28,7 @@ class MultiExplorationEnv(MultiRoomEnv):
         use_merge = True,
         use_same_location = True,
         use_complete_reward = True,
+        use_multiroom = False
     ):
         self.grid_size = grid_size
         self._agent_default_pos = agent_pos
@@ -36,6 +37,7 @@ class MultiExplorationEnv(MultiRoomEnv):
         self.max_steps = max_steps
         self.use_same_location = use_same_location
         self.use_complete_reward = use_complete_reward
+        self.use_multiroom = use_multiroom
         self.maxNum = 5
         self.minNum = 2
 
@@ -62,65 +64,69 @@ class MultiExplorationEnv(MultiRoomEnv):
         self.merge_ratio_step = max_steps
 
 
-    def _gen_grid(self, width, height):
-        # Create the grid
-        self.grid = Grid(width, height)
-        
-        # Generate the surrounding walls
-        self.grid.horz_wall(0, 0)
-        self.grid.horz_wall(0, height - 1)
-        self.grid.vert_wall(0, 0)
-        self.grid.vert_wall(width - 1, 0)
-        
-        w = self._rand_int(self.minNum, self.maxNum)
-        h = self._rand_int(self.minNum, self.maxNum)
+    def overall_gen_grid(self, width, height):
 
-        room_w = width // w
-        room_h = height // h
-
-        # For each row of rooms
-        for j in range(0, h):
-
-            # For each column
-            for i in range(0, w):
-                xL = i * room_w
-                yT = j * room_h
-                xR = xL + room_w
-                yB = yT + room_h
-                #if self.scene_id = 1:
-                    # Bottom wall and door
-                if i + 1 < w:
-
-                    self.grid.vert_wall(xR, yT, room_h)
-                    pos = (xR, self._rand_int(yT + 1, yB))
-
-                    for s in range(self.door_size):
-                        self.grid.set(*pos, None)
-                        pos = (pos[0], pos[1] + 1)
-
-                # Bottom wall and door
-                if j + 1 < h:
-
-                    self.grid.horz_wall(xL, yB, room_w)
-                    pos = (self._rand_int(xL + 1, xR), yB)
-                    self.grid.set(*pos, None)
-      
-        # Randomize the player start position and orientation
-        if self._agent_default_pos is not None:
-            self.agent_pos = self._agent_default_pos
-            for i in range(self.num_agents):
-                self.grid.set(*self._agent_default_pos[i], None)
-            self.agent_dir = [self._rand_int(0, 4) for i in range(self.num_agents)]  # assuming random start direction
+        if self.use_multiroom:
+            self._gen_grid(width, height)
         else:
-            self.place_agent(use_same_location = self.use_same_location)
-        
-        #place object
-        self.obstacles = []
-        for i_obst in range(self.num_obstacles):
-            self.obstacles.append(Obstacle())
-            pos = self.place_obj(self.obstacles[i_obst], max_tries=100)
+            # Create the grid
+            self.grid = Grid(width, height)
+            
+            # Generate the surrounding walls
+            self.grid.horz_wall(0, 0)
+            self.grid.horz_wall(0, height - 1)
+            self.grid.vert_wall(0, 0)
+            self.grid.vert_wall(width - 1, 0)
+            
+            w = self._rand_int(self.minNum, self.maxNum)
+            h = self._rand_int(self.minNum, self.maxNum)
 
-        self.mission = 'Reach the goal'
+            room_w = width // w
+            room_h = height // h
+
+            # For each row of rooms
+            for j in range(0, h):
+
+                # For each column
+                for i in range(0, w):
+                    xL = i * room_w
+                    yT = j * room_h
+                    xR = xL + room_w
+                    yB = yT + room_h
+                    #if self.scene_id = 1:
+                        # Bottom wall and door
+                    if i + 1 < w:
+
+                        self.grid.vert_wall(xR, yT, room_h)
+                        pos = (xR, self._rand_int(yT + 1, yB))
+
+                        for s in range(self.door_size):
+                            self.grid.set(*pos, None)
+                            pos = (pos[0], pos[1] + 1)
+
+                    # Bottom wall and door
+                    if j + 1 < h:
+
+                        self.grid.horz_wall(xL, yB, room_w)
+                        pos = (self._rand_int(xL + 1, xR), yB)
+                        self.grid.set(*pos, None)
+        
+            # Randomize the player start position and orientation
+            if self._agent_default_pos is not None:
+                self.agent_pos = self._agent_default_pos
+                for i in range(self.num_agents):
+                    self.grid.set(*self._agent_default_pos[i], None)
+                self.agent_dir = [self._rand_int(0, 4) for i in range(self.num_agents)]  # assuming random start direction
+            else:
+                self.place_agent(use_same_location = self.use_same_location)
+            
+            #place object
+            self.obstacles = []
+            for i_obst in range(self.num_obstacles):
+                self.obstacles.append(Obstacle())
+                pos = self.place_obj(self.obstacles[i_obst], max_tries=100)
+
+            self.mission = 'Reach the goal'
 
     def reset(self):
         self.explorable_size = 0
