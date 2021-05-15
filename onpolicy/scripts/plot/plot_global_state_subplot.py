@@ -18,9 +18,9 @@ plt.style.use('ggplot')
 
 map_names = ['6h_vs_8z','corridor','10m_vs_11m','3s5z_vs_3s6z','5m_vs_6m']
 title_names = [name.replace("_vs_"," vs. ") for name in map_names]
-exp_names = ['final_mappo', 'mappo_original_mustalive', 'mappo_catobs'] 
-label_names = ["agent-specific", "original", "concatenated"]
-color_names = ['red','blue','limegreen']
+exp_names = ['final_mappo', 'mappo_original_mustalive', 'mappo_catobs', 'mappo_catgl_dead'] 
+label_names = ["agent-specific", "original", "concatenated","original+local"]
+color_names = ['red','blue','limegreen','saddlebrown']
 
 save_dir = './subplot/'
 if not os.path.exists(save_dir):
@@ -34,7 +34,7 @@ for map_name, title_name, ax in zip(map_names, title_names, axes):
     max_steps = []
     for exp_name, label_name, color_name in zip(exp_names, label_names, color_names):
         print(exp_name)
-        if exp_name in ['mappo_nomustalive', 'mappo_original_mustalive', 'mappo_catobs']:
+        if exp_name in ['mappo_nomustalive', 'mappo_original_mustalive', 'mappo_catobs','mappo_catgl_dead']:
             data_dir =  './global_state/' + map_name + '/' + map_name + '_' + exp_name + '.csv'
         else:
             data_dir =  './' + map_name + '/' + map_name + '_' + exp_name + '.csv'
