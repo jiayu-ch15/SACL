@@ -638,9 +638,9 @@ class HabitatRunner(Runner):
             p_input = defaultdict(list)
             for a in range(self.num_agents):
                 p_input['goal'].append([int(self.global_goal[e, a][0] * self.local_w), int(self.global_goal[e, a][1] * self.local_h)])
-                p_input['map_pred'].append(map[e, a, 0, :, :])
-                p_input['exp_pred'].append(map[e, a, 1, :, :])
-                p_input['pose_pred'].append(self.planner_pose_inputs[e, a])
+                p_input['map_pred'].append(map[e, a, 0, :, :].copy())
+                p_input['exp_pred'].append(map[e, a, 1, :, :].copy())
+                p_input['pose_pred'].append(self.planner_pose_inputs[e, a].copy())
             self.local_input.append(p_input)
     
     def compute_global_input(self):
@@ -988,9 +988,9 @@ class HabitatRunner(Runner):
 
             # init map and pose 
             self.init_map_and_pose() 
-
+            reset_choose = np.ones(self.n_eval_rollout_threads) == 1.0
             # reset env
-            self.obs, infos = self.envs.reset()
+            self.obs, infos = self.envs.reset(reset_choose)
             self.trans = [infos[e]['trans'] for e in range(self.n_rollout_threads)]
             self.rotation = [infos[e]['rotation'] for e in range(self.n_rollout_threads)]
             self.scene_id = [infos[e]['scene_id'] for e in range(self.n_rollout_threads)]
