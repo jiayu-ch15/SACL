@@ -30,6 +30,7 @@ def register(
         'max_steps': max_steps,
         'agent_view_size': agent_view_size,
         'num_obstacles': num_obstacles,
+        'num_agents': num_agents,
         'agent_pos': agent_pos,
         'use_merge': use_merge,
         'use_same_location': use_same_location,
