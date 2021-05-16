@@ -218,12 +218,13 @@ for map_name, title_name in zip(map_names,title_names):
 ########## figure 3
 
 map_names = ['MMM2','6h_vs_8z','corridor','10m_vs_11m','3s5z_vs_3s6z','5m_vs_6m']
-for map_name in map_names:
+title_names = [name.replace("_vs_"," vs. ") for name in map_names]
+for map_name, title_name in zip(map_names,title_names):
     plt.figure()
     ###################################PPO###################################
     exp_names = ['final_mappo', 'mappo_original_mustalive', 'mappo_catobs','mappo_catgl_dead'] 
     label_names = ["agent-specific", "original", "concated", 'original+local']
-    color_names = ['red','blue','limegreen']
+    color_names = ['red','blue','limegreen','saddlebrown']
 
     save_dir = './global_state/'
     if not os.path.exists(save_dir):
@@ -231,7 +232,7 @@ for map_name in map_names:
     max_steps = []
     for exp_name, label_name, color_name in zip(exp_names, label_names, color_names):
         print(exp_name)
-        if exp_name in ['mappo_nomustalive', 'mappo_original_mustalive', 'mappo_catobs']:
+        if exp_name in ['mappo_nomustalive', 'mappo_original_mustalive', 'mappo_catobs', 'mappo_catgl_dead']:
             data_dir =  './global_state/' + map_name + '/' + map_name + '_' + exp_name + '.csv'
         else:
             data_dir =  './' + map_name + '/' + map_name + '_' + exp_name + '.csv'

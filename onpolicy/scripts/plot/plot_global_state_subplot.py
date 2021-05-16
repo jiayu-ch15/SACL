@@ -129,7 +129,7 @@ fig.legend(lines,     # The line objects
            loc="right",   # Position of legend
            borderaxespad=0.1,    # Small spacing around legend box
            #title="RR",  # Title for the legend
-           bbox_to_anchor=(0.935, 0.28),
+           bbox_to_anchor=(0.935, 0.35),
 		   #bbox_transform=axes[2].transAxes,
            ncol=1,
            fontsize=20
