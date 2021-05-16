@@ -19,6 +19,7 @@ def register(
     use_human_command = False,
     use_direction_encoder = False,
     use_fixed_goal_pos = False,
+    use_mobile_goal_pos = False,
 ):
     assert id.startswith("MiniGrid-")
     assert id not in env_list

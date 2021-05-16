@@ -55,8 +55,8 @@ def parse_args(args, parser):
                         help="use complete reward") 
     parser.add_argument("--use_direction_encoder", action='store_false', default=True,
                         help="use complete reward")
-    parser.add_argument("--use_fixed_goal_pos", action='store_false', default=True,
-                        help="use complete reward")           
+    parser.add_argument("--use_fixed_goal_pos", action='store_true', default=False,
+                        help="use complete reward")
     
     all_args = parser.parse_known_args(args)[0]
 

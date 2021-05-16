@@ -104,7 +104,7 @@ class MultiExplorationEnv(MiniGridEnv):
             self.put_obj(goal, *self.goal_pos)
             goal.init_pos, goal.cur_pos = self.goal_pos      
         else:
-            self.place_obj(Goal())
+            self.goal_pos = self.place_obj(Goal())
 
         self.obstacles = []
         for i_obst in range(self.num_obstacles):
@@ -141,7 +141,7 @@ class MultiExplorationEnv(MiniGridEnv):
         self.num_episode += 1
 
         obs = MiniGridEnv.reset(self, choose=True)
-
+        
         self.num_step = 0
         self.get_ratio = 0
         self.target_ratio = 0.98
@@ -307,6 +307,7 @@ class MultiExplorationEnv(MiniGridEnv):
             self.obstacle_all_map = np.logical_or(self.obstacle_all_map, self.obstacle_each_map[i])
         
         merge_explored_reward = (np.array(self.explored_all_map).astype(int) - np.array(self.previous_all_map).astype(int)).sum()
+        info['reward_except_alpha'] += merge_explored_reward
 
         self.previous_all_map = self.explored_all_map.copy()
         #self.explored_all_map[7:-7,7:-7].astype(np.int8)

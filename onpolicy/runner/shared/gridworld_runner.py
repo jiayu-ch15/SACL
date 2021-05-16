@@ -87,6 +87,7 @@ class GridWorldRunner(Runner):
                         env_infos['num_same_direction'].append(info['num_same_direction'])
                         env_infos['num_get_goal'].append(info['num_get_goal'])
                         env_infos['num_get_goal_step'].append(info['num_get_goal_step'])
+                        env_infos['reward_except_alpha'].append(info['reward_except_alpha'])
 
                     print("average episode ratio is {}".format(np.mean(env_infos["merge_explored_ratio"])))
 

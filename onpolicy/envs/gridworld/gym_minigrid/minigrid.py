@@ -9,6 +9,13 @@ from .rendering import *
 import matplotlib.pyplot as plt
 from icecream import ic
 from functools import reduce
+import random
+
+import sys
+import tty
+import termios
+
+import keyboard
 
 # Size in pixels of a tile in the full-scale human view
 TILE_PIXELS = 32
@@ -973,7 +980,7 @@ class MiniGridEnv(gym.Env):
 
     def _rand_int(self, low, high):
         """
-        Generate random integer in [low,high[
+        Generate random integer in [low,high)
         """
 
         return self.np_random.randint(low, high)
@@ -1124,7 +1131,6 @@ class MiniGridEnv(gym.Env):
         self.agent_dir = []
         pos = []
 
-        # all_pos = np.array(((1, 1), (1, self.height - 2), (self.width - 2, 1), (self.width - 2, self.height - 2)))
 
         if use_same_location:
             p = self.place_obj(None, top, size, max_tries=max_tries)
@@ -1262,19 +1268,73 @@ class MiniGridEnv(gym.Env):
 
         return obs_cell is not None and obs_cell.type == world_cell.type
 
+    def readchar(self,):
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
+
+    def readkey(self, getchar_fn=None):
+        fn_char = getchar_fn or self.readchar
+        c1 = fn_char()
+        if ord(c1) != 0x1b:
+            return c1
+        c2 = fn_char()
+        if ord(c2) != 0x5b:
+            return c1
+        c3 = fn_char()
+        return chr(0x10 + ord(c3) - 65)
+
     def step(self, action):
         
         self.step_count += 1
 
         reward = 0
+        reward_except_alpha = 0
         done = False
         obs = []
+        info = {}
+
+        # Change the position of goal
+        goal_pos_list = np.array(((1, 1), (self.width - 2, 1), (1, self.height - 2), (self.width - 2, self.height - 2)))
+        change_list = ['1', '2', '3', '4']
+        print("please enter the '1/2/3/4' to change the position of goal")
+        goal_key = self.readkey(self.readchar)
+        print("you have enter the %s " % goal_key)
+        for i, change_value in enumerate(change_list):
+            if goal_key == change_value:
+                for element in goal_pos_list:
+                    cell = self.grid.get(*element)
+                    if cell == None or cell.type == 'goal':
+                        self.grid.set(*element, None)
+                self.grid.set(*goal_pos_list[i], Goal())
+                break
+
+
+        command_list = ['q', 'w', 'e', 'a', 'd', 'z', 'x', 'c']
+        index_list = [7, 1, 5, 3, 2, 6, 0, 4]
+        array_direction = np.array([[0,1], [0,-1], [1,0], [-1,0], [1,1], [1,-1], [-1,1], [-1,-1]])
         for agent_id in range(self.num_agents):
             # Get the position in front of the agent
             fwd_pos = self.front_pos(agent_id)
 
             # Get the contents of the cell in front of the agent
             fwd_cell = self.grid.get(*fwd_pos)
+
+            # Get the KeyBoard input to change the direction can obtain the direction_reward
+
+            print("please enter the command to change the direction can obtain the direction_reward for agent_%d" % agent_id)
+            key = self.readkey(self.readchar)
+            print("you have enter the %s " % key)
+            for i, command in enumerate(command_list):
+                if key == command:
+                    self.direction_index[agent_id] = index_list[i]
+                    self.direction[agent_id] = array_direction[i]
+                    self.direction_encoder[agent_id] = np.eye(8)[i]
 
             # Rotate left
             if action[agent_id] == self.actions.left:
@@ -1299,6 +1359,7 @@ class MiniGridEnv(gym.Env):
                 if fwd_cell != None and fwd_cell.type == 'goal':
                     # done = True
                     reward += self._reward()
+                    reward_except_alpha += self._reward()
                     self.num_get_goal += 1
                     
                     if self.num_get_goal == 1:
@@ -1306,6 +1367,7 @@ class MiniGridEnv(gym.Env):
 
                 if fwd_cell != None and fwd_cell.type == 'obstacle':
                     reward += self._penalty()
+                    reward_except_alpha += self._penalty()
                 if fwd_cell != None and fwd_cell.type == 'lava':
                     done = True
 
@@ -1341,7 +1403,9 @@ class MiniGridEnv(gym.Env):
 
             obs.append(self.gen_obs(agent_id))
 
-        return obs, reward, done, {}
+            info['reward_except_alpha'] =reward_except_alpha
+
+        return obs, reward, done, info
 
     def gen_obs_grid(self, agent_id):
         """
