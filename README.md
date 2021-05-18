@@ -25,6 +25,7 @@
 - [Gibson](https://github.com/StanfordVL/GibsonEnv)
 - [Gibson2](https://github.com/StanfordVL/iGibson)
 - [Mini-GridWorld](https://github.com/maximecb/gym-minigrid)
+- [StagHunt]
 
 ## TODOs:
 - [ ] multi-agent FLOW
@@ -142,7 +143,7 @@ we also have a backward version training script, which uses a different way to c
 
 ``` Bash
    # install this package first
-   pip install seabon
+   pip install seaborn
 ```
 
 3 Cooperative scenarios in MPE:
@@ -355,7 +356,9 @@ ln -s /mnt/disk2/nav/habitat_data/scene_datasets
 
 ## 13.Mini-GridWorld
 
-## 14. Docs：
+## 14.StagHunt
+
+## 15. Docs：
 
 ```
 pip install sphinx sphinxcontrib-apidoc sphinx_rtd_theme recommonmark
@@ -364,7 +367,7 @@ sphinx-quickstart
 make html
 ```
 
-## 15. submodules
+## 16. submodules
 
 here we give an example on how to add your repo as a submodule of on-policy repo
 ```
