@@ -259,11 +259,11 @@ class HumanRunner(Runner):
             for agent_id in range(self.all_args.num_adversaries):
                 for key in eval_info[agent_id].keys():
                     agent_key = 'predator{}/{}'.format(agent_id, key)
-                    eval_env_infos[agent_key].append(eval_info[agent_id][key])
+                    eval_env_infos["eval_" + agent_key].append(eval_info[agent_id][key])
             for agent_id in range(self.all_args.num_adversaries, self.all_args.num_adversaries+self.all_args.num_good_agents):
                 for key in eval_info[agent_id].keys():
                     agent_key = 'prey{}/{}'.format(agent_id, key)
-                    eval_env_infos[agent_key].append(eval_info[agent_id][key])
+                    eval_env_infos["eval_" + agent_key].append(eval_info[agent_id][key])
 
         eval_env_infos['eval_average_episode_rewards'] = np.sum(np.array(eval_episode_rewards), axis=0)
         print("eval average episode rewards of agent: " + str(np.mean(eval_env_infos['eval_average_episode_rewards'])))
