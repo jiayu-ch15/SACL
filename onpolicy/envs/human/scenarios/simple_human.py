@@ -67,8 +67,8 @@ class Scenario(BaseScenario):
             if self.use_pos_four_direction:
                 direction = np.random.randint(4)
                 abs_pos = np.random.uniform(0.5, 1, world.dim_p)
-                agent.state.p_pos = abs_pos * direction
                 agent.direction = array_direction[direction]
+                agent.state.p_pos = abs_pos * agent.direction
             else:
                 agent.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
             agent.state.p_vel = np.zeros(world.dim_p)
