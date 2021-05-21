@@ -93,7 +93,7 @@ class Scenario(BaseScenario):
                 else: # wrong
                     while True:
                         tmp = np.random.randint((array_direction).shape[0])
-                        if array_direction[tmp] != np.sign(agent.goal.state.p_pos - agent.state.p_pos):
+                        if (array_direction[tmp] != np.sign(agent.goal.state.p_pos - agent.state.p_pos)).any():
                             break
                     agent.direction = array_direction[tmp]
 
