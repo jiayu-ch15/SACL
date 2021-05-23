@@ -224,3 +224,54 @@ class SMACRunner(Runner):
                 else:
                     self.writter.add_scalars("eval_win_rate", {"eval_win_rate": eval_win_rate}, total_num_steps)
                 break
+
+    @torch.no_grad()
+    def render(self):
+        battles_won = 0
+        episode = 0
+
+        episode_rewards = []
+        one_episode_rewards = []
+
+        obs, share_obs, available_actions = self.envs.reset()
+
+        rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+        masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+
+        while True:
+            self.trainer.prep_rollout()
+            actions, rnn_states = \
+                self.trainer.policy.act(np.concatenate(obs),
+                                        np.concatenate(rnn_states),
+                                        np.concatenate(masks),
+                                        np.concatenate(available_actions),
+                                        deterministic=True)
+            actions = np.array(np.split(_t2n(actions), self.n_rollout_threads))
+            rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
+            
+            # Obser reward and next obs
+            obs, share_obs, rewards, dones, infos, available_actions = self.envs.step(actions)
+            one_episode_rewards.append(rewards)
+
+            dones_env = np.all(dones, axis=1)
+
+            if self.use_zerohidden:
+                rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
+            else:
+                rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+
+            masks = np.ones((self.all_args.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+            masks[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
+
+            for i in range(self.n_rollout_threads):
+                if dones_env[i]:
+                    episode += 1
+                    episode_rewards.append(np.sum(one_episode_rewards, axis=0))
+                    one_episode_rewards = []
+                    if infos[i][0]['won']:
+                        battles_won += 1
+
+            if episode >= self.all_args.render_episodes:
+                win_rate = battles_won/episode
+                print("render win rate is {}.".format(win_rate))
+                break

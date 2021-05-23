@@ -25,9 +25,13 @@ for map_name, title_name in zip(map_names,title_names):
     print(map_name)
     plt.figure()
     ###################################PPO###################################
-    exp_names = ['final_mappo', 'final_ippo', 'final_mappo_original'] 
-    label_names = ["MAPPO", "IPPO", "MAPPO_original"]
-    color_names = ['red','blue','limegreen']
+    #exp_names = ['final_mappo', 'final_ippo', 'final_mappo_original'] 
+    #label_names = ["MAPPO", "IPPO", "MAPPO_original"]
+    #color_names = ['red','blue','limegreen']
+    
+    exp_names = ['final_mappo', 'final_ippo'] 
+    label_names = ["MAPPO", "IPPO"]
+    color_names = ['red','blue']
 
     save_dir = './win_rate/'
     if not os.path.exists(save_dir):
@@ -91,7 +95,7 @@ for map_name, title_name in zip(map_names,title_names):
     
     exp_name = 'final_qmix'
     label_name = "QMix"
-    color_name = 'saddlebrown'
+    color_name = 'limegreen'
     data_dir =  './' + map_name + '/' + map_name + '_' + exp_name + '.csv'
 
     df = pandas.read_csv(data_dir)

@@ -1,0 +1,275 @@
+wandb_version: 1
+
+_wandb:
+  desc: null
+  value:
+    cli_version: 0.10.26
+    framework: torch
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    python_version: 3.6.1
+    t:
+      1:
+      - 1
+      4: 3.6.1
+      5: 0.10.26
+      8:
+      - 5
+action_repeat:
+  desc: null
+  value: 5
+activation_id:
+  desc: null
+  value: 1
+algorithm_name:
+  desc: null
+  value: rmappo
+attn_N:
+  desc: null
+  value: 1
+attn_heads:
+  desc: null
+  value: 4
+attn_size:
+  desc: null
+  value: 64
+aux_epoch:
+  desc: null
+  value: 5
+clip_param:
+  desc: null
+  value: 0.1
+clone_coef:
+  desc: null
+  value: 1.0
+cnn_layers_params:
+  desc: null
+  value: null
+critic_lr:
+  desc: null
+  value: 0.0005
+cuda:
+  desc: null
+  value: true
+cuda_deterministic:
+  desc: null
+  value: true
+data_chunk_length:
+  desc: null
+  value: 32
+dropout:
+  desc: null
+  value: 0.0
+entropy_coef:
+  desc: null
+  value: 0.01
+env_name:
+  desc: null
+  value: Agar
+episode_length:
+  desc: null
+  value: 400
+eval_episodes:
+  desc: null
+  value: 32
+eval_interval:
+  desc: null
+  value: 1
+experiment_name:
+  desc: null
+  value: debug
+gae_lambda:
+  desc: null
+  value: 0.95
+gain:
+  desc: null
+  value: 0.01
+gamma:
+  desc: null
+  value: 0.995
+hidden_size:
+  desc: null
+  value: 128
+huber_delta:
+  desc: null
+  value: 10.0
+ifi:
+  desc: null
+  value: 0.1
+influence_layer_N:
+  desc: null
+  value: 1
+layer_N:
+  desc: null
+  value: 1
+log_interval:
+  desc: null
+  value: 5
+lr:
+  desc: null
+  value: 0.00025
+max_grad_norm:
+  desc: null
+  value: 20.0
+model_dir:
+  desc: null
+  value: null
+n_eval_rollout_threads:
+  desc: null
+  value: 10
+n_render_rollout_threads:
+  desc: null
+  value: 1
+n_rollout_threads:
+  desc: null
+  value: 50
+n_training_threads:
+  desc: null
+  value: 1
+num_agents:
+  desc: null
+  value: 2
+num_env_steps:
+  desc: null
+  value: 60000000
+num_mini_batch:
+  desc: null
+  value: 2
+opti_eps:
+  desc: null
+  value: 1.0e-05
+policy_value_loss_coef:
+  desc: null
+  value: 1
+ppo_epoch:
+  desc: null
+  value: 4
+recurrent_N:
+  desc: null
+  value: 1
+render_episodes:
+  desc: null
+  value: 5
+save_gifs:
+  desc: null
+  value: false
+save_interval:
+  desc: null
+  value: 1
+seed:
+  desc: null
+  value: 1
+share_policy:
+  desc: null
+  value: false
+share_reward:
+  desc: null
+  value: false
+stacked_frames:
+  desc: null
+  value: 1
+tau:
+  desc: null
+  value: 0.995
+use_attn:
+  desc: null
+  value: true
+use_attn_internal:
+  desc: null
+  value: true
+use_average_pool:
+  desc: null
+  value: true
+use_cat_self:
+  desc: null
+  value: false
+use_centralized_V:
+  desc: null
+  value: false
+use_clipped_value_loss:
+  desc: null
+  value: true
+use_conv1d:
+  desc: null
+  value: false
+use_curriculum_learning:
+  desc: null
+  value: true
+use_eval:
+  desc: null
+  value: true
+use_feature_normalization:
+  desc: null
+  value: true
+use_gae:
+  desc: null
+  value: true
+use_huber_loss:
+  desc: null
+  value: true
+use_influence_policy:
+  desc: null
+  value: false
+use_linear_lr_decay:
+  desc: null
+  value: false
+use_max_grad_norm:
+  desc: null
+  value: true
+use_maxpool2d:
+  desc: null
+  value: false
+use_naive_recurrent_policy:
+  desc: null
+  value: false
+use_obs_instead_of_state:
+  desc: null
+  value: false
+use_orthogonal:
+  desc: null
+  value: true
+use_policy_active_masks:
+  desc: null
+  value: true
+use_policy_vhead:
+  desc: null
+  value: false
+use_popart:
+  desc: null
+  value: false
+use_proper_time_limits:
+  desc: null
+  value: false
+use_recurrent_policy:
+  desc: null
+  value: true
+use_render:
+  desc: null
+  value: false
+use_single_network:
+  desc: null
+  value: false
+use_stacked_frames:
+  desc: null
+  value: false
+use_value_active_masks:
+  desc: null
+  value: true
+use_valuenorm:
+  desc: null
+  value: true
+use_wandb:
+  desc: null
+  value: true
+user_name:
+  desc: null
+  value: dux
+value_loss_coef:
+  desc: null
+  value: 1
+wandb_name:
+  desc: null
+  value: zoeyuchao
+weight_decay:
+  desc: null
+  value: 0

@@ -212,6 +212,8 @@ class StarCraft2Env(MultiAgentEnv):
         self.use_mustalive = args.use_mustalive
         self.add_center_xy = args.add_center_xy
         self.use_stacked_frames = args.use_stacked_frames
+        self.use_global_local_state = args.use_global_local_state
+        self.use_render = args.use_render
         self.stacked_frames = args.stacked_frames
         
         map_params = get_map_params(self.map_name)
@@ -261,7 +263,7 @@ class StarCraft2Env(MultiAgentEnv):
         self.heuristic_rest = heuristic_rest
         self.debug = debug
         self.window_size = (window_size_x, window_size_y)
-        self.replay_dir = replay_dir
+        self.replay_dir = args.replay_dir
         self.replay_prefix = replay_prefix
 
         # Actions
@@ -423,8 +425,12 @@ class StarCraft2Env(MultiAgentEnv):
 
         local_obs = self.get_obs()
 
+        if self.use_global_local_state:
+            global_state = np.concatenate([np.array(global_state), np.array(local_obs)], axis=-1)
+
         if self.use_stacked_frames:
             self.stacked_local_obs = np.roll(self.stacked_local_obs, 1, axis=1)
+            
             self.stacked_global_state = np.roll(self.stacked_global_state, 1, axis=1)
 
             self.stacked_local_obs[:, -1, :] = np.array(local_obs).copy()
@@ -515,6 +521,9 @@ class StarCraft2Env(MultiAgentEnv):
 
             local_obs = self.get_obs()
 
+            if self.use_global_local_state:
+                global_state = np.concatenate([np.array(global_state), np.array(local_obs)], axis=-1)
+
             if self.use_stacked_frames:
                 self.stacked_local_obs = np.roll(self.stacked_local_obs, 1, axis=1)
                 self.stacked_global_state = np.roll(self.stacked_global_state, 1, axis=1)
@@ -602,6 +611,10 @@ class StarCraft2Env(MultiAgentEnv):
 
         local_obs = self.get_obs()
 
+        if self.use_global_local_state:
+            global_state = np.concatenate([np.array(global_state), np.array(local_obs)], axis=-1)
+
+
         if self.use_stacked_frames:
             self.stacked_local_obs = np.roll(self.stacked_local_obs, 1, axis=1)
             self.stacked_global_state = np.roll(self.stacked_global_state, 1, axis=1)
@@ -611,6 +624,9 @@ class StarCraft2Env(MultiAgentEnv):
 
             local_obs = self.stacked_local_obs.reshape(self.n_agents, -1)
             global_state = self.stacked_global_state.reshape(self.n_agents, -1)
+
+        if np.all(dones) and self.use_render:
+            self.save_replay()
 
         return local_obs, global_state, rewards, dones, infos, available_actions
 
@@ -898,9 +914,8 @@ class StarCraft2Env(MultiAgentEnv):
     def save_replay(self):
         """Save a replay."""
         prefix = self.replay_prefix or self.map_name
-        replay_dir = self.replay_dir or ""
         replay_path = self._run_config.save_replay(
-            self._controller.save_replay(), replay_dir=replay_dir, prefix=prefix)
+            self._controller.save_replay(), replay_dir=self.replay_dir, prefix=prefix)
         logging.info("Replay saved at: %s" % replay_path)
 
     def unit_max_shield(self, unit):
@@ -1676,6 +1691,9 @@ class StarCraft2Env(MultiAgentEnv):
                 timestep_feats = 1
                 all_feats += timestep_feats
 
+            if self.use_global_local_state:
+                all_feats += self.get_obs_size()[0]
+
             return [all_feats * self.stacked_frames if self.use_stacked_frames else all_feats, [n_allies, n_ally_feats], [n_enemies, n_enemy_feats], [1, move_feats], [1, own_feats+agent_id_feats+timestep_feats]]
 
         
@@ -1731,6 +1749,12 @@ class StarCraft2Env(MultiAgentEnv):
         if self.add_agent_id:
             agent_id_feats = self.n_agents
             size += agent_id_feats
+
+        if self.use_global_local_state:
+            if self.use_stacked_frames:
+                size += int(self.get_obs_size()[0]/self.stacked_frames)
+            else:
+                size += self.get_obs_size()[0]
 
         return [size * self.stacked_frames if self.use_stacked_frames else size, [self.n_agents, nf_al], [self.n_enemies, nf_en], [1, move_state + obs_agent_size + timestep_state + agent_id_feats]]
     

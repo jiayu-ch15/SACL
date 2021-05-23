@@ -9,6 +9,8 @@ class Scenario(BaseScenario):
         self.use_pos_four_direction = args.use_pos_four_direction
         self.use_goal_reward = args.use_goal_reward
         self.use_all_reach = args.use_all_reach
+        self.use_noisy_command = args.use_noisy_command
+        self.noisy_level = args.noisy_level
         
         self.add_direction_encoder = args.add_direction_encoder
         self.direction_alpha = args.direction_alpha
@@ -83,7 +85,18 @@ class Scenario(BaseScenario):
             agent.goal = agents[choice]
             agent.goal.color = np.array([0.45, 0.95, 0.45]) #green
             agent.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
-            agent.direction = np.sign(agent.goal.state.p_pos - agent.state.p_pos)
+
+            if self.use_noisy_command: # different noisy level human command
+                right = np.random.randint(9)
+                if right >= self.noisy_level: # right
+                    agent.direction = np.sign(agent.goal.state.p_pos - agent.state.p_pos)
+                else: # wrong
+                    while True:
+                        tmp = np.random.randint((array_direction).shape[0])
+                        if (array_direction[tmp] != np.sign(agent.goal.state.p_pos - agent.state.p_pos)).any():
+                            break
+                    agent.direction = array_direction[tmp]
+
             agent.direction_encoder = np.eye(4)[np.argmax(np.all(np.where(array_direction == agent.direction, True, False), axis=1))]
             agent.state.p_vel = np.zeros(world.dim_p)
             agent.state.c = np.zeros(world.dim_c)

@@ -11,8 +11,7 @@ def register(
     num_agents,
     agent_pos,
     entry_point,
-    reward_threshold = 0.95,
-    direction_alpha = 0.1,
+    reward_threshold=0.95,
     use_merge = True,
     use_same_location = True,
     use_complete_reward = True, 
@@ -35,13 +34,11 @@ def register(
         'num_obstacles': num_obstacles,
         'num_agents': num_agents,
         'agent_pos': agent_pos,
-        'direction_alpha': direction_alpha,
         'use_merge': use_merge,
         'use_same_location': use_same_location,
         'use_complete_reward': use_complete_reward,
-        'use_human_command': use_human_command, 
-        'use_direction_encoder': use_direction_encoder, 
-        'use_fixed_goal_pos': use_fixed_goal_pos
+        'use_multiroom': use_multiroom,
+        'use_time_penalty': use_time_penalty
         },
         reward_threshold=reward_threshold
     )
