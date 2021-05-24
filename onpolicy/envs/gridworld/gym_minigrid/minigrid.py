@@ -9,13 +9,6 @@ from .rendering import *
 import matplotlib.pyplot as plt
 from icecream import ic
 from functools import reduce
-import random
-
-import sys
-import tty
-import termios
-
-import keyboard
 
 # Size in pixels of a tile in the full-scale human view
 TILE_PIXELS = 32
@@ -754,7 +747,6 @@ class MiniGridEnv(gym.Env):
         seed=1337,
         agent_view_size=7,
         use_merge=True,
-        use_direction_encoder=True
     ):  
         self.num_agents = num_agents
         # Can't set both grid_size and width/height
@@ -959,7 +951,7 @@ class MiniGridEnv(gym.Env):
 
     def _rand_int(self, low, high):
         """
-        Generate random integer in [low,high)
+        Generate random integer in [low,high[
         """
 
         return self.np_random.randint(low, high)
@@ -1123,7 +1115,6 @@ class MiniGridEnv(gym.Env):
                 pos.append(p)
                 if rand_dir:
                     self.agent_dir.append(self._rand_int(0, 4))
-
         return pos
 
     def dir_vec(self, agent_id):
@@ -1245,73 +1236,19 @@ class MiniGridEnv(gym.Env):
 
         return obs_cell is not None and obs_cell.type == world_cell.type
 
-    def readchar(self,):
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        try:
-            tty.setraw(sys.stdin.fileno())
-            ch = sys.stdin.read(1)
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        return ch
-
-    def readkey(self, getchar_fn=None):
-        fn_char = getchar_fn or self.readchar
-        c1 = fn_char()
-        if ord(c1) != 0x1b:
-            return c1
-        c2 = fn_char()
-        if ord(c2) != 0x5b:
-            return c1
-        c3 = fn_char()
-        return chr(0x10 + ord(c3) - 65)
-
     def step(self, action):
         
         self.step_count += 1
 
         reward = 0
-        reward_except_alpha = 0
         done = False
         obs = []
-        info = {}
-
-        # Change the position of goal
-        goal_pos_list = np.array(((1, 1), (self.width - 2, 1), (1, self.height - 2), (self.width - 2, self.height - 2)))
-        change_list = ['1', '2', '3', '4']
-        print("please enter the '1/2/3/4' to change the position of goal")
-        goal_key = self.readkey(self.readchar)
-        print("you have enter the %s " % goal_key)
-        for i, change_value in enumerate(change_list):
-            if goal_key == change_value:
-                for element in goal_pos_list:
-                    cell = self.grid.get(*element)
-                    if cell == None or cell.type == 'goal':
-                        self.grid.set(*element, None)
-                self.grid.set(*goal_pos_list[i], Goal())
-                break
-
-
-        command_list = ['q', 'w', 'e', 'a', 'd', 'z', 'x', 'c']
-        index_list = [7, 1, 5, 3, 2, 6, 0, 4]
-        array_direction = np.array([[0,1], [0,-1], [1,0], [-1,0], [1,1], [1,-1], [-1,1], [-1,-1]])
         for agent_id in range(self.num_agents):
             # Get the position in front of the agent
             fwd_pos = self.front_pos(agent_id)
 
             # Get the contents of the cell in front of the agent
             fwd_cell = self.grid.get(*fwd_pos)
-
-            # Get the KeyBoard input to change the direction can obtain the direction_reward
-
-            print("please enter the command to change the direction can obtain the direction_reward for agent_%d" % agent_id)
-            key = self.readkey(self.readchar)
-            print("you have enter the %s " % key)
-            for i, command in enumerate(command_list):
-                if key == command:
-                    self.direction_index[agent_id] = index_list[i]
-                    self.direction[agent_id] = array_direction[i]
-                    self.direction_encoder[agent_id] = np.eye(8)[i]
 
             # Rotate left
             if action[agent_id] == self.actions.left:
@@ -1372,9 +1309,7 @@ class MiniGridEnv(gym.Env):
 
             obs.append(self.gen_obs(agent_id))
 
-            info['reward_except_alpha'] =reward_except_alpha
-
-        return obs, reward, done, info
+        return obs, reward, done, {}
 
     def gen_obs_grid(self, agent_id):
         """
