@@ -46,52 +46,15 @@ class GridWorldEnv(object):
             self.hare1_num = 0
             self.hare2_num = 0
             self.coop = 5  
-            self.defect = -2
-            self.gore = 2
-            self.reward_randomization = args.reward_randomization
-            if self.reward_randomization:
-                #coop = [5,4,0,5,5,-5,-5,5]
-                #defect = [1,2,5,0,0,5,0,-5]
-                #gore = [-5,-2,0,5,0,-5,5,5]
-                
-                coop = [5]
-                defect = [0]
-                gore = [0]
-                
-                
-                self.coop = coop[choose]
-                self.defect = defect[choose]
-                self.gore = gore[choose]
-                '''
-                coef = 2*np.random.rand(3)-1
-                self.coop = self.coop * coef[0]
-                self.defect = self.defect * coef[1]
-                self.gore = self.gore * coef[2]
-                '''               
+            self.defect = -20
+            self.gore = 2               
         elif self.env_name == "HarvestGW":
             self.coop = 2
-            self.defect = 1
-            self.reward_randomization = args.reward_randomization
-            if self.reward_randomization:
-                coop = [5,10,0,-10,10]
-                defect = [1,-10,-5,10,1]
-                self.coop = coop[choose]
-                self.defect = defect[choose]
-                '''
-                coef = 2*np.random.rand(2)-1
-                self.coop = self.coop * coef[0]
-                self.defect = self.defect * coef[1]
-                ''' 
+            self.defect = 1 
         elif self.env_name == "EscalationGW":
             self.coop = 1
             self.coop_length = 0
             self.defect_coef = -0.9
-            self.reward_randomization = args.reward_randomization
-            if self.reward_randomization:
-                coop = [1,1,0,1,1,1]
-                defect_coef = [0, -2, 1, -0.5, 1, 5]
-                self.coop = coop[choose]
-                self.defect_coef = defect_coef[choose]
 
         self.max_life = 20
         self.coop_num = 0       
@@ -819,7 +782,6 @@ class GridWorldEnv(object):
 
     def step(self, actions): #action [1,2,4,3,7]
         """A single environment step. Returns reward, terminated, info."""
-        print(actions)
         actions = [np.argmax(a) for a in actions]
         agent_actions = {}
         for i in range(self.num_agents):
