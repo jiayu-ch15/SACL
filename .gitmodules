@@ -7,3 +7,6 @@
 [submodule "onpolicy/envs/habitat/habitat-lab"]
 	path = onpolicy/envs/habitat/habitat-lab
 	url = https://github.com/zoeyuchao/habitat-lab.git
+[submodule "onpolicy/envs/MultiVehicleEnv"]
+	path = onpolicy/envs/MultiVehicleEnv
+	url = https://github.com/efc-robot/MultiVehicleEnv.git
