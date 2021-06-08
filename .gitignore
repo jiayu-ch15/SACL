@@ -7,6 +7,11 @@ win_rate
 *.so
 *.csv
 RODE
+QPLEX
+QPLEX_wrong
+HSD
+AIQMIX
+CWQMIX
 *.egg-info
 wandb
 .vscode

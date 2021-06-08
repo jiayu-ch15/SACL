@@ -22,7 +22,7 @@ for map_name, title_name in zip(map_names,title_names):
     plt.figure()
     ###################################PPO###################################
     exp_names = ['final_mappo', 'mappo_nopopart'] 
-    label_names = ["with PopArt", "without PopArt"]
+    label_names = ["with value normalization", "without value normalization"]
     color_names = ['red','blue']
 
     save_dir = './popart/'

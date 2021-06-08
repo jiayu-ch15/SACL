@@ -19,7 +19,7 @@ plt.style.use('ggplot')
 map_names = ['6h_vs_8z','corridor','10m_vs_11m','3s5z_vs_3s6z','5m_vs_6m']
 title_names = [name.replace("_vs_"," vs. ") for name in map_names]
 exp_names = ['final_mappo', 'mappo_original_mustalive', 'mappo_catobs', 'mappo_catgl_dead'] 
-label_names = ["agent-specific", "original", "concatenated","original+local"]
+label_names = ["Feature-Pruned (FP)", "Environment-Provided (EP)", "Concatenation of Local Obs. (CL)","Agent-Specfic (AS)"]
 color_names = ['red','blue','limegreen','saddlebrown']
 
 save_dir = './subplot/'
@@ -113,29 +113,29 @@ for map_name, title_name, ax in zip(map_names, title_names, axes):
     ax.set_title(title_name, fontsize=20)
     ax.tick_params(labelsize=20)
 
-# fig.legend(lines,     # The line objects
-#            labels=label_names,   # The labels for each line
-#            loc="lower center",   # Position of legend
-#            borderaxespad=0.1,    # Small spacing around legend box
-#            #title="RR",  # Title for the legend
-#            bbox_to_anchor=(0.5, -0.23),
-# 		   #bbox_transform=axes[2].transAxes,
-#            ncol=len(label_names),
-#            fontsize=20
-#            )
-
 fig.legend(lines,     # The line objects
            labels=label_names,   # The labels for each line
-           loc="right",   # Position of legend
+           loc="lower center",   # Position of legend
            borderaxespad=0.1,    # Small spacing around legend box
            #title="RR",  # Title for the legend
-           bbox_to_anchor=(0.935, 0.35),
+           bbox_to_anchor=(0.5, -0.23),
 		   #bbox_transform=axes[2].transAxes,
-           ncol=1,
+           ncol=len(label_names),
            fontsize=20
            )
+
+# fig.legend(lines,     # The line objects
+#            labels=label_names,   # The labels for each line
+#            loc="right",   # Position of legend
+#            borderaxespad=0.1,    # Small spacing around legend box
+#            #title="RR",  # Title for the legend
+#            bbox_to_anchor=(0.89, 0.35),
+# 		   #bbox_transform=axes[2].transAxes,
+#            ncol=1,
+#            fontsize=20
+#            )
 
 # Adjust the scaling factor to fit your legend text completely outside the plot
 # (smaller value results in more space being made for the legend)
 plt.subplots_adjust(right=0.85)
-plt.savefig(save_dir + "global_state_subplot_rightlegend.png", bbox_inches="tight")
+plt.savefig(save_dir + "global_state_subplot.png", bbox_inches="tight")
