@@ -46,11 +46,13 @@ class GridWorldEnv(object):
             self.hare1_num = 0
             self.hare2_num = 0
             self.coop = 5  
-            self.defect = -20
-            self.gore = 2               
+            self.defect = 2
+            self.gore = -2
+              
         elif self.env_name == "HarvestGW":
             self.coop = 2
-            self.defect = 1 
+            self.defect = 1
+
         elif self.env_name == "EscalationGW":
             self.coop = 1
             self.coop_length = 0
@@ -161,6 +163,7 @@ class GridWorldEnv(object):
         self.hare1_num = 0
         self.hare2_num = 0
         self.coop_length = 0
+        self.curr_step = 0
         self.agents = []
         for i in range(self.num_agents):
             agent = Agent(i, self.agents_start_pos[i], self.base_map, self.env_name)
@@ -203,13 +206,14 @@ class GridWorldEnv(object):
             # my pos
             my_pos = self.agents[agent_id].pos.tolist()
             # other pos
-            other_pos = self.agents[1-agent_id].pos.tolist()
+            other_pos = (self.agents[1-agent_id].pos - self.agents[agent_id].pos).tolist()
             # stag_pos
-            stag_pos = self.stag_pos.tolist()
+            stag_pos = (self.stag_pos - self.agents[agent_id].pos).tolist()
             # plant_pos
-            hare1_pos = self.hare1_pos.tolist()
-            hare2_pos = self.hare2_pos.tolist()
-            return np.concatenate([my_pos]+[other_pos]+[stag_pos]+[hare1_pos]+[hare2_pos])
+            hare1_pos = (self.hare1_pos.tolist() - self.agents[agent_id].pos).tolist()
+            hare2_pos = (self.hare2_pos.tolist()- self.agents[agent_id].pos).tolist()
+            return np.concatenate([my_pos]+[other_pos]+[stag_pos]+[hare1_pos]+[hare2_pos]+[[agent_id]])
+            #return np.concatenate([my_pos] + [other_pos]+[stag_pos]+[hare1_pos]+[hare2_pos])
         elif self.env_name == 'EscalationGW':
             # my pos
             my_pos = self.agents[agent_id].pos.tolist()
@@ -756,7 +760,8 @@ class GridWorldEnv(object):
 
         rgb_arr = self.map_to_colors(map_with_agents)
         plt.figure()
-        plt.imshow(rgb_arr, interpolation='nearest')        
+        plt.imshow(rgb_arr, interpolation='nearest') 
+        plt.pause(0.001)       
         
         if 'StagHunt' in self.env_name: 
             text = "#Coop.-Hunt = " + str(self.coop_num) + "/" + str(self.episode_length)        
@@ -782,6 +787,7 @@ class GridWorldEnv(object):
 
     def step(self, actions): #action [1,2,4,3,7]
         """A single environment step. Returns reward, terminated, info."""
+        self.curr_step += 1
         actions = [np.argmax(a) for a in actions]
         agent_actions = {}
         for i in range(self.num_agents):
@@ -805,6 +811,10 @@ class GridWorldEnv(object):
         elif self.env_name == 'EscalationGW':
             self.EscalationConsume(pos0, pos1)
             self.EscalationUpdateMap()
+            
+        if self.curr_step >= self.episode_length:
+            for i in range(self.num_agents):
+                self.agents[i].done = True
 
         observations = []
         rewards = []
@@ -835,7 +845,7 @@ class GridWorldEnv(object):
 
         if self.shape_reward:
             rewards = list(map(lambda x :x[0] * self.shape_beta + x[1] * (1-self.shape_beta), zip([global_reward] * self.num_agents, rewards)))
-
+        
         return observations, rewards, dones, infos
 
     def reset(self):
