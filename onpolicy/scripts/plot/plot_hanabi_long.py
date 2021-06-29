@@ -23,12 +23,11 @@ title_names = ['2 Player Hanabi']
 for map_name,title_name in zip(map_names,title_names):
     plt.figure()
     ###################################PPO###################################
-    exp_names = ['seed1_1', 'seed2', 'seed3_1','seed4_1'] 
-    #exp_names = ['seed1_1'] 
-    label_names = ["seed 1", "seed 2",'seed 3','seed 4']
-    color_names = ['red','blue','limegreen','saddlebrown']
+    exp_names = ['seed1']  
+    label_names = ["seed 3"]
+    color_names = ['red']
 
-    save_dir = './hanabi/'
+    save_dir = './hanabi_new/'
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     max_steps = []
@@ -37,12 +36,11 @@ for map_name,title_name in zip(map_names,title_names):
         cut_max_step = 0
         cut_x_step = None
         cut_y_seed = None
-        if exp_name in ['seed3_1','seed4_1']:
 
-            if exp_name == 'seed3_1':
-                data_dir =  './hanabi/seed3_2.csv'
-            if exp_name == 'seed4_1':
-                data_dir =  './hanabi/seed4_2.csv'
+        if exp_name in ['seed1']:
+
+            if exp_name == 'seed1':
+                data_dir =  './hanabi_new/365.csv'
 
             df = pandas.read_csv(data_dir)
             
@@ -57,7 +55,7 @@ for map_name,title_name in zip(map_names,title_names):
             cut_x_step = np.array(df_final[key_step]).squeeze(-1)
             cut_y_seed = np.array(df_final[key_win_rate])
 
-        data_dir =  './hanabi/' + exp_name + '.csv'
+        data_dir =  './hanabi_new/' + exp_name + '.csv'
 
         df = pandas.read_csv(data_dir)
         
@@ -79,17 +77,13 @@ for map_name,title_name in zip(map_names,title_names):
         x_step = np.array(df_final[key_step]).squeeze(-1)
         y_seed = np.array(df_final[key_win_rate])
 
-        if exp_name is "seed1_1":
-            max_step += 8.73e8
-            x_step += 873000000
-        else:
-            max_step += cut_max_step
-            x_step += cut_max_step #1492446209
-            if cut_y_seed is not None:
-                print(cut_x_step)
-                print(x_step)
-                x_step = np.concatenate((cut_x_step,x_step),axis=0)
-                y_seed = np.concatenate((cut_y_seed,y_seed),axis=0)
+        max_step += cut_max_step
+        x_step += cut_max_step
+        if cut_y_seed is not None:
+            print(cut_x_step)
+            print(x_step)
+            x_step = np.concatenate((cut_x_step,x_step),axis=0)
+            y_seed = np.concatenate((cut_y_seed,y_seed),axis=0)
 
         max_steps.append(max_step) 
         # mean_seed = np.mean(y_seed, axis=1)
@@ -104,12 +98,12 @@ for map_name,title_name in zip(map_names,title_names):
     plt.tick_params(axis='both',which='major') 
     
     final_max_step = np.max(max_steps)
-    final_max_step = 10e9
+    final_max_step = 20e9
     x_major_locator = MultipleLocator(int(final_max_step/4))
     x_minor_Locator = MultipleLocator(int(final_max_step/8)) 
     y_major_locator = MultipleLocator(1)
     y_minor_Locator = MultipleLocator(0.5)
-    plt.xlim(0.7, 10)
+    plt.xlim(0.7, 20)
     plt.ylim(20, 25)
     ax=plt.gca()
     # labels = ax.get_xticklabels() + ax.get_yticklabels()
@@ -130,4 +124,4 @@ for map_name,title_name in zip(map_names,title_names):
     plt.ylabel('Score', fontsize=20)
     plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=20)
     plt.title(title_name,fontsize=25)
-    plt.savefig(save_dir + map_name + "_score.png", bbox_inches="tight")
+    plt.savefig(save_dir + map_name + "_score_long.png", bbox_inches="tight")

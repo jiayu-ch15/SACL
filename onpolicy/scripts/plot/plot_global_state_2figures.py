@@ -124,7 +124,7 @@ for map_name, title_name in zip(map_names,title_names):
     ###################################PPO###################################
     #exp_names = ['final_mappo', 'mappo_nomustalive', 'final_mappo_original', 'mappo_original_mustalive'] 
     exp_names = ['mappo_catgl_dead', 'mappo_catgl_all']
-    label_names = ["original+local with death mask", "original+local without death mask"]
+    label_names = ["with death mask", "without death mask"]
     color_names = ['red','blue','limegreen','saddlebrown']
 
     save_dir = './global_state/'
@@ -217,13 +217,13 @@ for map_name, title_name in zip(map_names,title_names):
 
 ########## figure 3
 
-map_names = ['MMM2','6h_vs_8z','corridor','10m_vs_11m','3s5z_vs_3s6z','5m_vs_6m']
+map_names = ['MMM2','6h_vs_8z','corridor','10m_vs_11m','3s5z_vs_3s6z','5m_vs_6m', '8m_vs_9m']
 title_names = [name.replace("_vs_"," vs. ") for name in map_names]
 for map_name, title_name in zip(map_names,title_names):
     plt.figure()
     ###################################PPO###################################
     exp_names = ['final_mappo', 'mappo_original_mustalive', 'mappo_catobs','mappo_catgl_dead'] 
-    label_names = ["agent-specific", "original", "concated", 'original+local']
+    label_names = ["FP", "EP", "CL","AS"]
     color_names = ['red','blue','limegreen','saddlebrown']
 
     save_dir = './global_state/'

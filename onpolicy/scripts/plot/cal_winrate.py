@@ -21,15 +21,27 @@ super_hard_maps = ["MMM2", "3s5z_vs_3s6z", "27m_vs_30m", "6h_vs_8z", "corridor"]
 
 map_names = easy_maps + hard_maps + super_hard_maps
 difficulties = len(easy_maps) * ["Easy"] + len(hard_maps) * ["Hard"] + len(super_hard_maps) * ["Super Hard"]
-rode_scores = ["/", "/", "/", "100(0.0)", "/", "/", "/", "/", "/", "100(0.0)", "100(46.4)", "78.9(4.2)", "100(0.0)", "/", "/", "71.1(9.2)", "93.75(1.95)", "95.3(2.2)", "89.8(6.7)", "96.8(25.11)", "96.8(1.5)", "78.1(37.0)", "65.6(32.1)"]
+
+rode_scores = ["/", "/", "100(0.0)", "100(0.0)", "/", "/", "/", "/", "/", "100(0.0)",\
+"100(46.4)", "78.9(4.2)", "100(0.0)", "/", "/", "71.1(9.2)", "93.75(1.95)", "95.3(2.2)",\
+"89.8(6.7)", "96.8(25.11)", "96.8(1.5)", "78.1(37.0)", "65.6(32.1)"]
+qplex_scores = ["/", "/", "98.4(1.6)", "100(4.3)", "/", "/", "/", "/", "/", "96.8(1.6)", \
+"100(2.9)", "98.4(1.4)", "90.6(7.3)", "/", "/", "70.3(3.2)", "96.8(2.2)", "96.1(8.7)",\
+"82.8(20.8)", "10.2(11.0)", "43.7(18.7)", "1.5(31.0)", "0.0(0.0)"]
+cwqmix_scores = ["/", "/", "100(0.0)", "93.7(2.2)", "/", "/", "/", "/", "/", "96.9(1.4)", \
+"100(0.0)", "34.4(6.5)", "85.9(3.3)", "/", "/", "57.8(9.1)", "70.3(20.3)", "75.0(3.3)",\
+"0.0(0.0)", "53.1(12.9)", "82.8(7.8)", "49.2(14.8)","0.0(0.0)"]
+aiqmix_scores = ["/", "/", "100(0.0)", "96.9(0.7)", "/", "/", "/", "/", "/", "92.2(10.4)", \
+"85.9(34.7)", "82.8(10.6)", "97.6(2.3)", "/", "/", "64.1(5.5)", "96.9(2.9)", "96.9(1.4)",\
+"67.2(12.4)", "0.0(0.0)", "62.5(34.3)", "0.0(0.0)", "12.5(7.6)"]
 
 all_final_max_step = []
 for map_name in map_names:
     print("########################MAP##########################")
     print(map_name)
     ###################################PPO###################################
-    exp_names = ['final_mappo', 'final_ippo', 'final_mappo_original'] 
-    label_names = ["MAPPO", "IPPO", "MAPPO_original"]
+    exp_names = ['final_mappo', 'final_ippo', 'final_calgl_dead'] 
+    label_names = ["MAPPO", "IPPO", "MAPPO_share_local"]
     color_names = ['red','blue','limegreen']
 
     save_dir = './win_rate/'
@@ -205,7 +217,7 @@ for map_name, final_max_step in zip(map_names, all_final_max_step):
     print(map_name)
     print(final_max_step)
     ###################################PPO###################################
-    exp_names = ['final_mappo', 'final_ippo']
+    exp_names = ['final_mappo', 'final_calgl_dead', 'final_ippo']
 
     median_value = []
     std_value = []
@@ -244,67 +256,71 @@ for map_name, final_max_step in zip(map_names, all_final_max_step):
         median_value.append(str(format(median_seed*100, '.1f')) + "(" + str(format(std_seed*100, '.1f')) + ")")
 
    
-    exp_name = 'final_qmix'
-    data_dir =  './' + map_name + '/' + map_name + '_' + exp_name + '.csv'
+    exp_names = ['final_qmix', 'final_qmix_all']
+    
+    for exp_name in exp_names:
+        print(exp_name)
+        data_dir =  './' + map_name + '/' + map_name + '_' + exp_name + '.csv'
 
-    df = pandas.read_csv(data_dir)
+        df = pandas.read_csv(data_dir)
 
-    key_cols = [c for c in df.columns if 'MIN' not in c and 'MAX' not in c]
-    key_step = [n for n in key_cols if n == 'Step']
-    key_win_rate = [n for n in key_cols if n != 'Step']
+        key_cols = [c for c in df.columns if 'MIN' not in c and 'MAX' not in c]
+        key_step = [n for n in key_cols if n == 'Step']
+        key_win_rate = [n for n in key_cols if n != 'Step']
 
-    qmix_x_step = []
-    qmix_y_seed = []
-    for k in key_win_rate:
+        qmix_x_step = []
+        qmix_y_seed = []
+        for k in key_win_rate:
 
-        df_final = df[[k, 'Step']].dropna()
-        step = df_final[key_step]
-        win_rate = df_final[k]
+            df_final = df[[k, 'Step']].dropna()
+            step = df_final[key_step]
+            win_rate = df_final[k]
 
-        max_step = step.max()['Step']
+            max_step = step.max()['Step']
 
-        if max_step < 2e6:
-            print("error: broken data! double check!")
-            print("drop qmix run!")
-            continue
+            if max_step < 2e6:
+                print("error: broken data! double check!")
+                print("drop qmix run!")
+                continue
 
-        df_final = df_final.loc[df_final['Step'] <= final_max_step] 
-        qmix_x_step.append(np.array(df_final[key_step]).squeeze(-1))
-        qmix_y_seed.append(np.array(df_final[k]))
+            df_final = df_final.loc[df_final['Step'] <= final_max_step] 
+            qmix_x_step.append(np.array(df_final[key_step]).squeeze(-1))
+            qmix_y_seed.append(np.array(df_final[k]))
 
-    # adapt sample frequency
-    sample_qmix_y_seed = []
-    for x, y in zip(qmix_x_step, qmix_y_seed):
-        eval_interval = x[10] - x[9]
-        if eval_interval - 10000 < 5000: # eval_interval = 10000
-            print("warning: better not to use mixed data, try to one eval_interval")
-            print(map_name)
-            print(eval_interval)
-            sample_qmix_y_seed.append(y[::8][-10:])
-        elif eval_interval - 20000 < 5000: # eval_interval = 20000
-            sample_qmix_y_seed.append(y[::4][-10:])
-        elif eval_interval - 80000 < 5000: # eval_interval = 80000
-            print("warning: better not to use mixed data, try to one eval_interval")
-            if map_name not in ["25m","27m_vs_30m","bane_vs_bane"]:
+        # adapt sample frequency
+        sample_qmix_y_seed = []
+        for x, y in zip(qmix_x_step, qmix_y_seed):
+            eval_interval = x[10] - x[9]
+            if eval_interval - 10000 < 5000: # eval_interval = 10000
+                print("warning: better not to use mixed data, try to one eval_interval")
                 print(map_name)
                 print(eval_interval)
-            sample_qmix_y_seed.append(y[-10:])
-        else:
-            raise NotImplementedError
+                sample_qmix_y_seed.append(y[::8][-10:])
+            elif eval_interval - 20000 < 5000: # eval_interval = 20000
+                sample_qmix_y_seed.append(y[::4][-10:])
+            elif eval_interval - 80000 < 5000: # eval_interval = 80000
+                print("warning: better not to use mixed data, try to one eval_interval")
+                if map_name not in ["25m","27m_vs_30m","bane_vs_bane"]:
+                    print(map_name)
+                    print(eval_interval)
+                sample_qmix_y_seed.append(y[-10:])
+            else:
+                raise NotImplementedError
 
-    median_seed = np.median(np.median(np.array(sample_qmix_y_seed), axis=0))
-    std_seed = np.std(np.median(np.array(sample_qmix_y_seed), axis=0))    
-    median_value.append(str(format(median_seed*100, '.1f')) + "(" + str(format(std_seed*100, '.1f')) + ")")
+        median_seed = np.median(np.median(np.array(sample_qmix_y_seed), axis=0))
+        std_seed = np.std(np.median(np.array(sample_qmix_y_seed), axis=0))    
+        median_value.append(str(format(median_seed*100, '.1f')) + "(" + str(format(std_seed*100, '.1f')) + ")")
 
 
     if map_name in ["27m_vs_30m","corridor","6h_vs_8z","3s5z_vs_3s6z"]:
         cut_max_step = 5e6
     else:
         cut_max_step = 2e6
+    
     print("########################MAP##########################")
     print(map_name)
     ###################################PPO###################################
-    exp_names = ['final_mappo']
+    exp_names = ['final_mappo', 'final_calgl_dead', 'final_ippo'] 
 
     for exp_name in exp_names:
         print(exp_name)
@@ -340,61 +356,67 @@ for map_name, final_max_step in zip(map_names, all_final_max_step):
         std_seed = np.std(np.median(y_seed_last, axis=0))
         median_value.append(str(format(median_seed*100, '.1f')) + "(" + str(format(std_seed*100, '.1f')) + ")")
 
-   
-    exp_name = 'final_qmix'
-    data_dir =  './' + map_name + '/' + map_name + '_' + exp_name + '.csv'
+    exp_names = ['final_qmix', 'final_qmix_all']
+    
+    for exp_name in exp_names:
+        print(exp_name)
 
-    df = pandas.read_csv(data_dir)
+        data_dir =  './' + map_name + '/' + map_name + '_' + exp_name + '.csv'
 
-    key_cols = [c for c in df.columns if 'MIN' not in c and 'MAX' not in c]
-    key_step = [n for n in key_cols if n == 'Step']
-    key_win_rate = [n for n in key_cols if n != 'Step']
+        df = pandas.read_csv(data_dir)
 
-    qmix_x_step = []
-    qmix_y_seed = []
-    for k in key_win_rate:
+        key_cols = [c for c in df.columns if 'MIN' not in c and 'MAX' not in c]
+        key_step = [n for n in key_cols if n == 'Step']
+        key_win_rate = [n for n in key_cols if n != 'Step']
 
-        df_final = df[[k, 'Step']].dropna()
-        step = df_final[key_step]
-        win_rate = df_final[k]
+        qmix_x_step = []
+        qmix_y_seed = []
+        for k in key_win_rate:
 
-        max_step = step.max()['Step']
+            df_final = df[[k, 'Step']].dropna()
+            step = df_final[key_step]
+            win_rate = df_final[k]
 
-        if max_step < 2e6:
-            print("error: broken data! double check!")
-            print("drop qmix run!")
-            continue
+            max_step = step.max()['Step']
 
-        df_final = df_final.loc[df_final['Step'] <= cut_max_step] 
-        qmix_x_step.append(np.array(df_final[key_step]).squeeze(-1))
-        qmix_y_seed.append(np.array(df_final[k]))
+            if max_step < 2e6:
+                print("error: broken data! double check!")
+                print("drop qmix run!")
+                continue
 
-    # adapt sample frequency
-    sample_qmix_y_seed = []
-    for x, y in zip(qmix_x_step, qmix_y_seed):
-        eval_interval = x[10] - x[9]
-        if eval_interval - 10000 < 5000: # eval_interval = 10000
-            print("warning: better not to use mixed data, try to one eval_interval")
-            print(map_name)
-            print(eval_interval)
-            sample_qmix_y_seed.append(y[::8][-5:])
-        elif eval_interval - 20000 < 5000: # eval_interval = 20000
-            sample_qmix_y_seed.append(y[::4][-5:])
-        elif eval_interval - 80000 < 5000: # eval_interval = 80000
-            print("warning: better not to use mixed data, try to one eval_interval")
-            if map_name not in ["25m","27m_vs_30m","bane_vs_bane"]:
+            df_final = df_final.loc[df_final['Step'] <= cut_max_step] 
+            qmix_x_step.append(np.array(df_final[key_step]).squeeze(-1))
+            qmix_y_seed.append(np.array(df_final[k]))
+
+        # adapt sample frequency
+        sample_qmix_y_seed = []
+        for x, y in zip(qmix_x_step, qmix_y_seed):
+            eval_interval = x[10] - x[9]
+            if eval_interval - 10000 < 5000: # eval_interval = 10000
+                print("warning: better not to use mixed data, try to one eval_interval")
                 print(map_name)
                 print(eval_interval)
-            sample_qmix_y_seed.append(y[-5:])
-        else:
-            raise NotImplementedError
+                sample_qmix_y_seed.append(y[::8][-5:])
+            elif eval_interval - 20000 < 5000: # eval_interval = 20000
+                sample_qmix_y_seed.append(y[::4][-5:])
+            elif eval_interval - 80000 < 5000: # eval_interval = 80000
+                print("warning: better not to use mixed data, try to one eval_interval")
+                if map_name not in ["25m","27m_vs_30m","bane_vs_bane"]:
+                    print(map_name)
+                    print(eval_interval)
+                sample_qmix_y_seed.append(y[-5:])
+            else:
+                raise NotImplementedError
 
-    median_seed = np.median(np.median(np.array(sample_qmix_y_seed), axis=0))
-    std_seed = np.std(np.median(np.array(sample_qmix_y_seed), axis=0))    
-    median_value.append(str(format(median_seed*100, '.1f')) + "(" + str(format(std_seed*100, '.1f')) + ")")
+        median_seed = np.median(np.median(np.array(sample_qmix_y_seed), axis=0))
+        std_seed = np.std(np.median(np.array(sample_qmix_y_seed), axis=0))    
+        median_value.append(str(format(median_seed*100, '.1f')) + "(" + str(format(std_seed*100, '.1f')) + ")")
     results.append(np.array(median_value))
 
 results = np.array(results)
-print(results)
-df = pandas.DataFrame({'Map': np.array(map_names), "Map Difficulty": np.array(difficulties), 'MAPPO': results[:,0], 'IPPO': results[:,1], 'QMIX': results[:,2], 'RODE': np.array(rode_scores), 'MAPPO-c': results[:,3], 'QMIX-c': results[:,4]})
+print(results.shape)
+df = pandas.DataFrame({'Map': np.array(map_names), "Map Difficulty": np.array(difficulties), 'MAPPO(FP)': results[:,0], 'MAPPO(AS)': results[:,1], 'IPPO': results[:,2], 'QMix': results[:,3], 'QMix(AS)': results[:,4], 'RODE': np.array(rode_scores), 'QPLEX': np.array(qplex_scores), 'CWQMix': np.array(cwqmix_scores), 'AIQMix': np.array(aiqmix_scores)})
+print(df.to_latex(index=False))
+
+df = pandas.DataFrame({'Map': np.array(map_names), "Map Difficulty": np.array(difficulties), 'MAPPO(FP)-c': results[:,5], 'MAPPO(AS)-c': results[:,6], 'IPPO-c': results[:,7], 'QMix-c': results[:,8], 'QMix(AS)-c': results[:,9], 'RODE': np.array(rode_scores), 'QPLEX': np.array(qplex_scores), 'CWQMix': np.array(cwqmix_scores), 'AIQMix': np.array(aiqmix_scores)})
 print(df.to_latex(index=False))

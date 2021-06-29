@@ -16,29 +16,27 @@ def moving_average(interval, windowsize):
 
 plt.style.use('ggplot')
 
-map_names = ['spread','MMM2','3s5z_vs_3s6z','5m_vs_6m','27m_vs_30m']
+map_names = ['MMM2','10m_vs_11m','8m_vs_9m','5m_vs_6m','3s5z_vs_3s6z']
 title_names = [name.replace("_vs_"," vs. ") for name in map_names]
-exp_names = ['final_mappo', 'mappo_nopopart'] 
-label_names = ["with value normalization", "without value normalization"]
-color_names = ['red','blue']
+ppo_epoch = [5, 10, 15, 10, 5]
 
 fig, axes = plt.subplots(1, 5, figsize=(36, 4))
-save_dir = './subplot/'
-if not os.path.exists(save_dir):
-    os.makedirs(save_dir)
-    
 lines = []
-for map_name, title_name, ax in zip(map_names, title_names, axes):
+
+for map_name, title_name, p, ax in zip(map_names, title_names, ppo_epoch, axes):
+    ###################################PPO###################################
+    exp_names = ['final_clip0.05_ppo', 'final_clip0.1_ppo', 'final_clip0.15_ppo', 'final_clip0.2_ppo','final_clip0.3_ppo','final_clip0.5_ppo'] 
+    label_names = ["clip 0.05", "clip 0.1", "clip 0.15", "clip 0.2",'clip 0.3','clip 0.5']
+    color_names = ['red','blue','limegreen', 'saddlebrown','purple','gray']
+    
+    save_dir = './subplot/'
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
     max_steps = []
     for exp_name, label_name, color_name in zip(exp_names, label_names, color_names):
         print(exp_name)
-        if exp_name in ["mappo_nopopart"]:
-            data_dir =  './popart/' + map_name + '/' + map_name + '_' + exp_name + '.csv'
-        else:
-            if map_name == "spread":
-                data_dir =  './mpe/' + map_name + '/' + map_name + '_' + exp_name + '.csv'
-            else:
-                data_dir =  './' + map_name + '/' + map_name + '_' + exp_name + '.csv'
+        print(p)
+        data_dir =  './clip/' + map_name + '/' + map_name + '_' + exp_name + str(p) + '.csv'
 
         df = pandas.read_csv(data_dir)
         
@@ -72,10 +70,7 @@ for map_name, title_name, ax in zip(map_names, title_names, axes):
         elif max_step < 9e6:
             max_step = 5e6
         else:
-            if map_name == "spread":
-                max_step = 20e6
-            else:
-                max_step = 10e6
+            max_step = 10e6
 
         print("final step is {}".format(max_step))
         max_steps.append(max_step)
@@ -97,57 +92,32 @@ for map_name, title_name, ax in zip(map_names, title_names, axes):
     ax.tick_params(axis='both',which='major') 
     final_max_step = np.min(max_steps)
     print("final max step is {}".format(final_max_step))
-    if map_name == "spread":
-        x_major_locator = MultipleLocator(int(final_max_step/4))
-        x_minor_Locator = MultipleLocator(int(final_max_step/8)) 
-        y_major_locator = MultipleLocator(20)
-        y_minor_Locator = MultipleLocator(5)
-        ax.set_ylim([-180, -100])
-        # ax=plt.gca()
-        ax.xaxis.set_major_locator(x_major_locator)
-        ax.yaxis.set_major_locator(y_major_locator)
-        ax.xaxis.set_minor_locator(x_minor_Locator)
-        ax.yaxis.set_minor_locator(y_minor_Locator)
-        ax.xaxis.get_major_formatter().set_powerlimits((0,2))
-        tx = ax.xaxis.get_offset_text() 
-        tx.set_fontsize(18) 
-        #ax.xaxis.grid(True, which='minor')
-        ax.set_xlim(0, final_max_step)
-        #ax.xticks(fontsize=20)
-        #ax.yticks(fontsize=20)
-        ax.set_xlabel('Timesteps', fontsize=20)
-        ax.set_ylabel('Episode Rewards', fontsize=20)
-        ax.set_title(title_name, fontsize=20)
-        ax.tick_params(labelsize=20)
-    else:
-        x_major_locator = MultipleLocator(int(final_max_step/5))
-        x_minor_Locator = MultipleLocator(int(final_max_step/10)) 
-        y_major_locator = MultipleLocator(0.2)
-        y_minor_Locator = MultipleLocator(0.1)
-        ax.set_ylim([0, 1.1])
-        # ax=plt.gca()
-        ax.xaxis.set_major_locator(x_major_locator)
-        ax.yaxis.set_major_locator(y_major_locator)
-        ax.xaxis.set_minor_locator(x_minor_Locator)
-        ax.yaxis.set_minor_locator(y_minor_Locator)
-        ax.xaxis.get_major_formatter().set_powerlimits((0,2))
-        tx = ax.xaxis.get_offset_text() 
-        tx.set_fontsize(18) 
-        #ax.xaxis.grid(True, which='minor')
-        ax.set_xlim(0, final_max_step)
-        #ax.xticks(fontsize=20)
-        #ax.yticks(fontsize=20)
-        ax.set_xlabel('Timesteps', fontsize=20)
-        ax.set_ylabel('Win Rate', fontsize=20)
-        ax.set_title(title_name, fontsize=20)
-        ax.tick_params(labelsize=20)
+    x_major_locator = MultipleLocator(int(final_max_step/5))
+    x_minor_Locator = MultipleLocator(int(final_max_step/10)) 
+    y_major_locator = MultipleLocator(0.2)
+    y_minor_Locator = MultipleLocator(0.1)
+
+    ax.xaxis.set_major_locator(x_major_locator)
+    ax.yaxis.set_major_locator(y_major_locator)
+    ax.xaxis.set_minor_locator(x_minor_Locator)
+    ax.yaxis.set_minor_locator(y_minor_Locator)
+    ax.xaxis.get_major_formatter().set_powerlimits((0,2))
+    tx = ax.xaxis.get_offset_text() 
+    tx.set_fontsize(18) 
+    #ax.xaxis.grid(True, which='minor')
+    ax.set_xlim(0, final_max_step)
+    ax.set_ylim([0, 1.1])
+    ax.set_xlabel('Timesteps', fontsize=20)
+    ax.set_ylabel('Win Rate', fontsize=20)
+    ax.set_title(title_name, fontsize=20)
+    ax.tick_params(labelsize=20)
 
 fig.legend(lines,     # The line objects
            labels=label_names,   # The labels for each line
            loc="lower center",   # Position of legend
            borderaxespad=0.1,    # Small spacing around legend box
            #title="RR",  # Title for the legend
-           bbox_to_anchor=(0.49, -0.23),
+           bbox_to_anchor=(0.5, -0.23),
 		   #bbox_transform=axes[2].transAxes,
            ncol=len(label_names),
            fontsize=20
@@ -158,7 +128,7 @@ fig.legend(lines,     # The line objects
 #            loc="right",   # Position of legend
 #            borderaxespad=0.1,    # Small spacing around legend box
 #            #title="RR",  # Title for the legend
-#            bbox_to_anchor=(0.938, 0.23),
+#            bbox_to_anchor=(0.911, 0.445),
 # 		   #bbox_transform=axes[2].transAxes,
 #            ncol=1,
 #            fontsize=20
@@ -167,4 +137,4 @@ fig.legend(lines,     # The line objects
 # Adjust the scaling factor to fit your legend text completely outside the plot
 # (smaller value results in more space being made for the legend)
 plt.subplots_adjust(right=0.85)
-plt.savefig(save_dir + "popart_subplot.png", bbox_inches="tight")
+plt.savefig(save_dir + "clip_subplot.png", bbox_inches="tight")

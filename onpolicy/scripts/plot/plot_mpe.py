@@ -186,6 +186,6 @@ for map_name,title_name in zip(map_names,title_names):
 
     plt.xlabel('Timesteps', fontsize=25)
     plt.ylabel('Episode Rewards', fontsize=20)
-    plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=25)
+    plt.legend(loc='lower right', numpoints=1, fancybox=True, fontsize=25)
     plt.title(title_name,fontsize=25)
     plt.savefig(save_dir + map_name + "_episode_rewards.png", bbox_inches="tight")

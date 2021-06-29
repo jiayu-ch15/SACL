@@ -25,7 +25,8 @@
 - [Gibson](https://github.com/StanfordVL/GibsonEnv)
 - [Gibson2](https://github.com/StanfordVL/iGibson)
 - [Mini-GridWorld](https://github.com/maximecb/gym-minigrid)
-- [StagHunt]
+- [StagHunt](https://github.com/staghuntrpg/RPG/tree/main/GridWorld)
+- [MultiVehicleEnv](https://github.com/efc-robot/MultiVehicleEnv.git)
 
 ## TODOs:
 - [ ] multi-agent FLOW
@@ -358,7 +359,22 @@ ln -s /mnt/disk2/nav/habitat_data/scene_datasets
 
 ## 14.StagHunt
 
-## 15. Docs：
+## 15. MultiVehicleEnv(MVE)
+This repo is supported as a submodule of on-policy repo, use the following command to clone MVE environment.
+
+```
+cd onpolicy
+git submodule update --init --recursive
+```
+
+```
+cd onpolicy/onpolicy/envs/MultiVehicleEnv
+cd src
+pip install -e .
+```
+
+
+## 16. Docs：
 
 ```
 pip install sphinx sphinxcontrib-apidoc sphinx_rtd_theme recommonmark
