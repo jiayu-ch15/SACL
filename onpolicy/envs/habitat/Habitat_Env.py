@@ -12,6 +12,7 @@ class MultiHabitatEnv(object):
 
         self.num_agents = args.num_agents
         self.use_partial_reward = args.use_partial_reward
+        self.use_merge_partial_reward = args.use_merge_partial_reward
 
         config_env, config_baseline, dataset = self.get_config(args, rank)
 
@@ -141,14 +142,16 @@ class MultiHabitatEnv(object):
         else:
             self.env.seed(seed)
 
-    def reset(self, choose):
+    def reset(self):
         obs, infos = self.env.reset()
         return obs, infos
 
     def step(self, actions):
         obs, rewards, dones, infos = self.env.step(actions)
         if self.use_partial_reward:
-            rewards = 0.3 * np.expand_dims(np.array(infos['explored_reward']), axis=1) + 0.7 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+            rewards = 0.5 * np.expand_dims(np.array(infos['explored_reward']), axis=1) + 0.5 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+        elif self.use_merge_partial_reward:
+            rewards = 0.5 * np.expand_dims(np.array(infos['explored_merge_reward']), axis=1) + 0.5 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         else:
             rewards = np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         return obs, rewards, dones, infos
