@@ -1050,6 +1050,7 @@ class HabitatRunner(Runner):
                     step_info['explored_ratio'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
                     step_info['explored_reward'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
                     step_info['merge_explored_ratio'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
+                    step_info['merge_repeat_ratio'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
                     step_info['merge_explored_reward'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
                     
                     for e in range(self.n_rollout_threads):
