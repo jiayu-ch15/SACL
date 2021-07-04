@@ -167,7 +167,7 @@ class Exploration_Env(habitat.RLEnv):
         self.explored_ratio_step = np.ones(self.num_agents) * (-1.0)
         self.merge_explored_ratio_step = -1.0
         self.explored_ratio_threshold = 0.9
-        self.merge_ratio = 0
+        self.merge_raito = 0
         self.ratio = np.zeros(self.num_agents)
         
 
@@ -273,8 +273,10 @@ class Exploration_Env(habitat.RLEnv):
         if self.episode_no >1 :
             merge_reward = self.info['merge_explored_reward']
             merge_ratio = self.info['merge_explored_ratio']
+            merge_repeat_ratio = self.info['merge_repeat_ratio']
             reward = self.info['explored_reward']
             ratio = self.info['explored_ratio']
+            
 
         # Set info
         self.info = {
@@ -304,6 +306,7 @@ class Exploration_Env(habitat.RLEnv):
             self.info['merge_explored_ratio'] = merge_ratio
             self.info['explored_reward'] = reward
             self.info['explored_ratio'] = ratio
+            self.info['merge_repeat_ratio'] = merge_repeat_ratio
 
         self.save_position()
 
@@ -455,6 +458,7 @@ class Exploration_Env(habitat.RLEnv):
             'explored_ratio': [],
             'merge_explored_reward': 0.0,
             'merge_explored_ratio': 0.0,
+            'repeat_ratio':0.0,
         }
         for agent_id in range(self.num_agents):
             self.info['time'].append(self.timestep)
@@ -498,6 +502,7 @@ class Exploration_Env(habitat.RLEnv):
                 agents_explored_map = np.maximum(agents_explored_map, self.transform(self.current_explored_gt[agent_id]*self.explorable_map[agent_id], agent_id))
         
         if self.timestep % self.args.num_local_steps == 0 and self.merge_ratio < self.explored_ratio_threshold and self.use_repeat_penalty:
+            self.info['merge_repeat_ratio'] = agents_explored_map[self.prev_merge_exlored_map == 1].sum() * (25./10000)
             self.info['merge_explored_reward'] -= (agents_explored_map[self.prev_merge_exlored_map == 1].sum() * (25./10000) * 0.02 *0.5)
             self.prev_merge_exlored_map = curr_merge_explored_map
 
