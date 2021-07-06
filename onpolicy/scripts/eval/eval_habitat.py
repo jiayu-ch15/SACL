@@ -77,6 +77,7 @@ def parse_args(args, parser):
     parser.add_argument('--use_intrinsic_reward', action='store_true', default=False)
     parser.add_argument('--use_delta_reward', action='store_true', default=False)
     parser.add_argument('--use_partial_reward', action='store_true', default=False)
+    parser.add_argument('--use_merge_partial_reward', action='store_true', default=False)
 
 
     # Environment, dataset and episode specifications
