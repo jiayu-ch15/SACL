@@ -25,10 +25,10 @@ class MultiHabitatEnv(object):
             int(full_h / args.global_downscaling)
 
         global_observation_space = {}
-        global_observation_space['global_obs'] = gym.spaces.Box(
-            low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
+        #global_observation_space['global_obs'] = gym.spaces.Box(
+            #low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
         global_observation_space['global_merge_obs'] = gym.spaces.Box(
-            low=0, high=1, shape=(4, local_w, local_h), dtype='uint8')
+            low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
         global_observation_space['global_orientation'] = gym.spaces.Box(
             low=-1, high=1, shape=(1,), dtype='long')
         global_observation_space['other_global_orientation'] = gym.spaces.Box(
