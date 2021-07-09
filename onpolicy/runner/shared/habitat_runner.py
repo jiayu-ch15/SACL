@@ -546,7 +546,6 @@ class HabitatRunner(Runner):
 
     def center_transform(self, inputs, a):
         merge_map = np.zeros((self.n_rollout_threads, 4, self.full_w, self.full_h), dtype=np.float32)
-        local_merge_map = np.zeros((self.n_rollout_threads, 4, self.local_w, self.local_h), dtype=np.float32)
         for e in range(self.n_rollout_threads):
             for agent_id in range(self.num_agents):
                 n_map = np.zeros((4, self.full_w, self.full_h), dtype=np.float32)
@@ -569,14 +568,11 @@ class HabitatRunner(Runner):
                 trace[n_map[3] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
                 #n_map[0:2] = trace[0:2]
                 n_map[3] = trace
-                if agent_id == a:
-                    local_merge_map[e, 2:] = n_map[2:, index_a-self.local_h//2: index_a+self.local_h//2, index_b-self.local_w//2: index_b+self.local_w//2]
                 merge_map[e] += n_map
             merge_map[e, 0][merge_map[e, 0]>1] = 1.0
             merge_map[e, 1][merge_map[e, 1]>1] = 1.0
-            local_merge_map[e, :2] = merge_map[e, :2, (self.full_h-self.local_h)//2:(self.full_h-self.local_h)//2+self.local_h, (self.full_w-self.local_w)//2:(self.full_w-self.local_w)//2+self.local_w]
             
-        return merge_map, local_merge_map
+        return merge_map
 
     def point_transform(self, point, trans, rotation):
         trans = check(trans)
@@ -627,7 +623,8 @@ class HabitatRunner(Runner):
                 self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
             
             if self.use_center:
-                self.merge_map[:, a], self.local_merge_map[:, a] = self.center_transform(self.full_map, a)
+                self.merge_map[:, a]= self.center_transform(self.full_map, a)
+                _, self.local_merge_map[:, a] = self.transform(self.full_map, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a], a)
             else:
                 self.merge_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a], a)
             
@@ -705,7 +702,8 @@ class HabitatRunner(Runner):
                 self.other_agent_rotation[e, a, 0] = locs[e, a, 2]
 
             if self.use_center:
-                self.merge_map[:, a], self.local_merge_map[:, a] = self.center_transform(self.full_map, a)
+                self.merge_map[:, a] = self.center_transform(self.full_map, a)
+                _, self.local_merge_map[:, a] = self.transform(self.full_map, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a], a)
             else:
                 self.merge_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a], a)
             #self.global_input['global_obs'][:, a, 0:4] = self.local_map[:, a]
