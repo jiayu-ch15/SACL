@@ -8,6 +8,7 @@ from collections import defaultdict, deque
 from itertools import chain
 import matplotlib
 import matplotlib.pyplot as plt
+import cv2
 
 import torch
 import torch.nn as nn
@@ -277,6 +278,7 @@ class HabitatRunner(Runner):
         self.use_intrinsic_reward = self.all_args.use_intrinsic_reward
         self.use_delta_reward = self.all_args.use_delta_reward
         self.use_abs_orientation = self.all_args.use_abs_orientation
+        self.use_center = self.all_args.use_center
 
     def init_map_variables(self):
         ### Full map consists of 4 channels containing the following:
@@ -542,6 +544,40 @@ class HabitatRunner(Runner):
             local_merge_map[e, 2:] = self.local_map[e, a, 2:]
         return merge_map, local_merge_map
 
+    def center_transform(self, inputs, a):
+        merge_map = np.zeros((self.n_rollout_threads, 4, self.full_w, self.full_h), dtype=np.float32)
+        local_merge_map = np.zeros((self.n_rollout_threads, 4, self.local_w, self.local_h), dtype=np.float32)
+        for e in range(self.n_rollout_threads):
+            for agent_id in range(self.num_agents):
+                n_map = np.zeros((4, self.full_w, self.full_h), dtype=np.float32)
+                for i in range(4):
+                    r, c = self.full_pose[e, a,:2]
+                    r, c =[int(r * 100.0 / self.map_resolution), int(c * 100.0 / self.map_resolution)]
+                    M = np.float32([[1, 0, self.full_w//2 - r], [0, 1, self.full_h//2 - c]])
+                    n_map[i] = cv2.warpAffine(inputs[e, agent_id, i], M, (self.full_w, self.full_h))
+
+                (index_a, index_b) = np.unravel_index(np.argmax(n_map[2, :, :], axis=None), n_map[2, :, :].shape)
+                n_map[2, :, :] = np.zeros((self.full_h, self.full_w), dtype=np.float32)
+                if self.first_compute:
+                    n_map[2, index_a - 1: index_a + 2, index_b - 1: index_b + 2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                else: 
+                    n_map[2, index_a - 2: index_a + 3, index_b - 2: index_b + 3] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+            
+                trace = np.zeros((self.full_h, self.full_w), dtype=np.float32)
+                # trace[0][n_map[0] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                # trace[1][n_map[1] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                trace[n_map[3] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                #n_map[0:2] = trace[0:2]
+                n_map[3] = trace
+                if agent_id == a:
+                    local_merge_map[e, 2:] = n_map[2:, index_a-self.local_h//2: index_a+self.local_h//2, index_b-self.local_w//2: index_b+self.local_w//2]
+                merge_map[e] += n_map
+            merge_map[e, 0][merge_map[e, 0]>1] = 1.0
+            merge_map[e, 1][merge_map[e, 1]>1] = 1.0
+            local_merge_map[e, :2] = merge_map[e, :2, (self.full_h-self.local_h)//2:(self.full_h-self.local_h)//2+self.local_h, (self.full_w-self.local_w)//2:(self.full_w-self.local_w)//2+self.local_w]
+            
+        return merge_map, local_merge_map
+
     def point_transform(self, point, trans, rotation):
         trans = check(trans)
         rotation = check(rotation)
@@ -590,7 +626,10 @@ class HabitatRunner(Runner):
                 self.other_agent_rotation[e, a, 0] = locs[e, a, 2]
                 self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
             
-            self.merge_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a], a)
+            if self.use_center:
+                self.merge_map[:, a], self.local_merge_map[:, a] = self.center_transform(self.full_map, a)
+            else:
+                self.merge_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a], a)
             
             #self.global_input['global_obs'][:, a, 0:4] = self.local_map[:, a].copy()
             #self.global_input['global_obs'][:, a, 4:8] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a]))).numpy()
@@ -665,7 +704,10 @@ class HabitatRunner(Runner):
                 self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
                 self.other_agent_rotation[e, a, 0] = locs[e, a, 2]
 
-            self.merge_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, np.array(self.agent_trans)[:, a], np.array(self.agent_rotation)[:, a], a)
+            if self.use_center:
+                self.merge_map[:, a], self.local_merge_map[:, a] = self.center_transform(self.full_map, a)
+            else:
+                self.merge_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a], a)
             #self.global_input['global_obs'][:, a, 0:4] = self.local_map[:, a]
             #self.global_input['global_obs'][:, a, 4:8] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a]))).numpy()
         
