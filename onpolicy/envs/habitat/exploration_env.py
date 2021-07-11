@@ -22,7 +22,7 @@ from .utils.map_builder import MapBuilder
 from .utils.fmm_planner import FMMPlanner
 from .utils.noisy_actions import CustomActionSpaceConfiguration
 from .utils.supervision import HabitatMaps
-from .utils.grid import get_grid, get_grid_full
+from .utils.grid import get_grid, get_grid_full, get_grid_reverse_full
 from .utils import pose as pu
 from .utils import visualizations as vu
 
@@ -182,8 +182,8 @@ class Exploration_Env(habitat.RLEnv):
         self.n_trans = []
         self.init_theta = []
 
-        self.agent_n_rot = [[] for agent_id in range(self.num_agents)]
-        self.agent_n_trans = [[] for agent_id in range(self.num_agents)]
+        self.agent_n_rot = []
+        self.agent_n_trans = []
         self.agent_st = []
 
         obs = super().reset()
@@ -194,14 +194,13 @@ class Exploration_Env(habitat.RLEnv):
             self.n_rot.append(n_rot)
             self.n_trans.append(n_trans)
             self.init_theta.append(init_theta)
-        for aa in range(self.num_agents):
-            for a in range(self.num_agents):
-                delta_st = self.agent_st[a] - self.agent_st[aa]
-                delta_rot_mat, delta_trans_mat, delta_n_rot_mat, delta_n_trans_mat =\
-                get_grid_full(delta_st, (1, 1, self.grid_size, self.grid_size), (1, 1, self.full_map_size, self.full_map_size), torch.device("cpu"))
+        
+        for a in range(self.num_agents):
+            _, _, delta_n_rot_mat, delta_n_trans_mat =\
+            get_grid_reverse_full(self.agent_st[a], (1, 1, self.grid_size, self.grid_size), (1, 1, self.full_map_size, self.full_map_size), torch.device("cpu"))
 
-                self.agent_n_rot[aa].append(delta_n_rot_mat.numpy())
-                self.agent_n_trans[aa].append(delta_n_trans_mat.numpy())
+            self.agent_n_rot.append(delta_n_rot_mat)
+            self.agent_n_trans.append(delta_n_trans_mat)
         
         self.merge_pred_map = np.zeros_like(self.explorable_map[0])
         self.prev_merge_exlored_map = np.zeros_like(self.explorable_map[0])
