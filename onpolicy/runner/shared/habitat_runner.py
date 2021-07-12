@@ -155,6 +155,9 @@ class HabitatRunner(Runner):
                 
                 self.run_slam_module(self.last_obs, self.obs, infos, True)
                 self.update_local_map()
+                self.update_map_and_pose(False)
+                for agent_id in range(self.num_agents):
+                    _, self.local_merge_map[:, agent_id] = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, agent_id)
 
                 # Global Policy
                 if local_step == self.num_local_steps - 1:
@@ -167,7 +170,7 @@ class HabitatRunner(Runner):
                     values, actions, action_log_probs, rnn_states, rnn_states_critic = self.compute_global_goal(step = global_step + 1)
 
                 # Local Policy
-                self.compute_local_input(self.local_map)
+                self.compute_local_input(self.local_merge_map)
 
                 # Output stores local goals as well as the the ground-truth action
                 self.local_output = self.envs.get_short_term_goal(self.local_input)
@@ -869,27 +872,28 @@ class HabitatRunner(Runner):
 
                 self.local_map[e, a, 2:, loc_r - 2:loc_r + 3, loc_c - 2:loc_c + 3] = 1
 
-    def update_map_and_pose(self):
+    def update_map_and_pose(self, update = True):
         for e in range(self.n_rollout_threads):
             for a in range(self.num_agents):
                 self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]] = self.local_map[e, a]
-                self.full_pose[e, a] = self.local_pose[e, a] + self.origins[e, a]
+                if update:
+                    self.full_pose[e, a] = self.local_pose[e, a] + self.origins[e, a]
 
-                locs = self.full_pose[e, a]
-                r, c = locs[1], locs[0]
-                loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
-                                int(c * 100.0 / self.map_resolution)]
+                    locs = self.full_pose[e, a]
+                    r, c = locs[1], locs[0]
+                    loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
+                                    int(c * 100.0 / self.map_resolution)]
 
-                self.lmb[e, a] = self.get_local_map_boundaries((loc_r, loc_c),
-                                                    (self.local_w, self.local_h),
-                                                    (self.full_w, self.full_h))
+                    self.lmb[e, a] = self.get_local_map_boundaries((loc_r, loc_c),
+                                                        (self.local_w, self.local_h),
+                                                        (self.full_w, self.full_h))
 
-                self.planner_pose_inputs[e, a, 3:] = self.lmb[e, a].copy()
-                self.origins[e, a] = [self.lmb[e, a][2] * self.map_resolution / 100.0,
-                                self.lmb[e, a][0] * self.map_resolution / 100.0, 0.]
+                    self.planner_pose_inputs[e, a, 3:] = self.lmb[e, a].copy()
+                    self.origins[e, a] = [self.lmb[e, a][2] * self.map_resolution / 100.0,
+                                    self.lmb[e, a][0] * self.map_resolution / 100.0, 0.]
 
-                self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
-                self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
+                    self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
+                    self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
 
     def insert_global_policy(self, data):
         dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
@@ -1179,20 +1183,21 @@ class HabitatRunner(Runner):
 
                 self.run_slam_module(self.last_obs, self.obs, infos)
                 self.update_local_map()
+                self.update_map_and_pose(False)
+                for agent_id in range(self.num_agents):
+                    _, self.local_merge_map[:, agent_id] = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, agent_id)
 
                 # Global Policy
                 if local_step == self.num_local_steps - 1:
                     # For every global step, update the full and local maps
                     self.update_map_and_pose()
                     self.compute_global_input()
-                    self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-                    
-                                
+                    self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
                     # Compute Global goal
                     rnn_states = self.eval_compute_global_goal(rnn_states)
                     
                 # Local Policy
-                self.compute_local_input(self.local_map)
+                self.compute_local_input(self.local_merge_map)
 
                 # Output stores local goals as well as the the ground-truth action
                 self.local_output = self.envs.get_short_term_goal(self.local_input)
