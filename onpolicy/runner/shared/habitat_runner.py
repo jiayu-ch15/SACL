@@ -77,7 +77,7 @@ class HabitatRunner(Runner):
         values, actions, action_log_probs, rnn_states, rnn_states_critic = self.compute_global_goal(step=0)
 
         # compute local input
-        self.compute_local_input(self.global_input['global_merge_obs'])
+        self.compute_local_input(self.local_merge_map)
 
         # Output stores local goals as well as the the ground-truth action
         self.local_output = self.envs.get_short_term_goal(self.local_input)
@@ -283,6 +283,7 @@ class HabitatRunner(Runner):
         self.use_delta_reward = self.all_args.use_delta_reward
         self.use_abs_orientation = self.all_args.use_abs_orientation
         self.use_center = self.all_args.use_center
+        self.use_resnet = self.all_args.use_resnet
 
     def init_map_variables(self):
         ### Full map consists of 4 channels containing the following:
@@ -296,6 +297,8 @@ class HabitatRunner(Runner):
         self.full_w, self.full_h = map_size, map_size
         self.local_w, self.local_h = int(self.full_w / self.global_downscaling), \
                         int(self.full_h / self.global_downscaling)
+        if self.use_resnet:
+            self.res_w = self.res_h = 224
 
         # Initializing full, merge and local map
         self.full_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
@@ -380,15 +383,27 @@ class HabitatRunner(Runner):
             self.env_infos['auc'] = np.zeros((self.all_args.eval_episodes, self.n_rollout_threads, self.max_episode_length), dtype=np.float32)
 
         self.global_input = {}
-        #self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
-        self.global_input['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
-        self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
-        self.global_input['other_global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents-1), dtype=np.long)
-        self.global_input['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents), dtype=np.float32)
-        # self.global_input['global_merge_goal'] = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.local_w, self.local_h), dtype=np.float32)
+        if self.use_resnet:
+            #self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
+            self.global_input['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.res_w, self.res_h), dtype=np.float32)
+            self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
+            self.global_input['other_global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents-1), dtype=np.long)
+            self.global_input['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents), dtype=np.float32)
+            # self.global_input['global_merge_goal'] = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.local_w, self.local_h), dtype=np.float32)
+        else:
+            #self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
+            self.global_input['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
+            self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
+            self.global_input['other_global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents-1), dtype=np.long)
+            self.global_input['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents), dtype=np.float32)
+            # self.global_input['global_merge_goal'] = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.local_w, self.local_h), dtype=np.float32)
+    
         self.share_global_input = self.global_input.copy()
         if self.use_centralized_V:
-            self.share_global_input['gt_map'] = np.zeros((self.n_rollout_threads, self.num_agents, 1, self.local_w, self.local_h), dtype=np.float32)
+            if self.use_resnet:
+                self.share_global_input['gt_map'] = np.zeros((self.n_rollout_threads, self.num_agents, 1, self.res_w, self.res_h), dtype=np.float32)
+            else:
+                self.share_global_input['gt_map'] = np.zeros((self.n_rollout_threads, self.num_agents, 1, self.local_w, self.local_h), dtype=np.float32)
         
         self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
         self.global_goal = np.zeros((self.n_rollout_threads, self.num_agents, 2), dtype=np.float32) 
@@ -644,15 +659,28 @@ class HabitatRunner(Runner):
                         i += 1
 
         for a in range(self.num_agents): # TODO @CHAO
-            self.global_input['global_merge_obs'][:, a, 0:4] = self.local_merge_map[:, a]
-            self.global_input['global_merge_obs'][:, a, 4:] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
-            # self.global_input['global_merge_goal'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
-            if self.use_centralized_V:
-                #self.share_global_input['gt_map'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:, a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
-                if self.use_center:
-                    self.share_global_input['gt_map'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(self.center_gt_transform(np.array(self.explorable_map)[:, a], a)))).numpy()
-                else:
-                    self.share_global_input['gt_map'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(np.array(self.explorable_map)[:, a]))).numpy()
+            if self.use_resnet:
+                for e in range(self.n_rollout_threads):
+                    for i in range(4):
+                        self.global_input['global_merge_obs'][e, a, i] = cv2.resize(self.local_merge_map[e, a, i], (self.res_h, self.res_w))
+                        self.global_input['global_merge_obs'][e, a, i+4] = cv2.resize(self.merge_map[e, a, i], (self.res_h, self.res_w))
+                    # self.global_input['global_merge_goal'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
+                    if self.use_centralized_V:
+                        #self.share_global_input['gt_map'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:, a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
+                        if self.use_center:
+                            self.share_global_input['gt_map'][e, a, 0] = cv2.resize(self.center_gt_transform(np.array(self.explorable_map)[:, a], a), (self.res_h, self.res_w))
+                        else:
+                            self.share_global_input['gt_map'][e, a, 0] = cv2.resize(np.array(self.explorable_map)[:, a], (self.res_h, self.res_w))
+            else:
+                self.global_input['global_merge_obs'][:, a, 0:4] = self.local_merge_map[:, a]
+                self.global_input['global_merge_obs'][:, a, 4:] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
+                # self.global_input['global_merge_goal'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
+                if self.use_centralized_V:
+                    #self.share_global_input['gt_map'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:, a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
+                    if self.use_center:
+                        self.share_global_input['gt_map'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(self.center_gt_transform(np.array(self.explorable_map)[:, a], a)))).numpy()
+                    else:
+                        self.share_global_input['gt_map'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(np.array(self.explorable_map)[:, a]))).numpy()
         
         for key in self.global_input.keys():
             self.share_global_input[key] = self.global_input[key].copy()
@@ -734,14 +762,28 @@ class HabitatRunner(Runner):
                         i += 1 
         
         for a in range(self.num_agents):
-            self.global_input['global_merge_obs'][:, a, 0:4] = self.local_merge_map[:, a]
-            self.global_input['global_merge_obs'][:, a, 4:] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
-            # self.global_input['global_merge_goal'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
-            if self.use_centralized_V:
-                if self.use_center:
-                    self.share_global_input['gt_map'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(self.center_gt_transform(np.array(self.explorable_map)[:, a], a)))).numpy()
-                else:
-                    self.share_global_input['gt_map'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(np.array(self.explorable_map)[:, a]))).numpy()
+            if self.use_resnet:
+                for e in range(self.n_rollout_threads):
+                    for i in range(4):
+                        self.global_input['global_merge_obs'][e, a, i] = cv2.resize(self.local_merge_map[e, a, i], (self.res_h, self.res_w))
+                        self.global_input['global_merge_obs'][e, a, i+4] = cv2.resize(self.merge_map[e, a, i], (self.res_h, self.res_w))
+                    # self.global_input['global_merge_goal'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
+                    if self.use_centralized_V:
+                        #self.share_global_input['gt_map'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:, a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
+                        if self.use_center:
+                            self.share_global_input['gt_map'][e, a, 0] = cv2.resize(self.center_gt_transform(np.array(self.explorable_map)[:, a], a), (self.res_h, self.res_w))
+                        else:
+                            self.share_global_input['gt_map'][e, a, 0] = cv2.resize(np.array(self.explorable_map)[:, a], (self.res_h, self.res_w))
+            else:
+                self.global_input['global_merge_obs'][:, a, 0:4] = self.local_merge_map[:, a]
+                self.global_input['global_merge_obs'][:, a, 4:] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
+                # self.global_input['global_merge_goal'][:, a, 0, :, :] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a, 1]))).numpy()
+                if self.use_centralized_V:
+                    #self.share_global_input['gt_map'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:, a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
+                    if self.use_center:
+                        self.share_global_input['gt_map'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(self.center_gt_transform(np.array(self.explorable_map)[:, a], a)))).numpy()
+                    else:
+                        self.share_global_input['gt_map'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(np.array(self.explorable_map)[:, a]))).numpy()
 
         for key in self.global_input.keys():
             self.share_global_input[key] = self.global_input[key].copy()
@@ -1081,7 +1123,7 @@ class HabitatRunner(Runner):
             rnn_states = self.eval_compute_global_goal(rnn_states)
 
             # compute local input
-            self.compute_local_input(self.global_input['global_merge_obs'])
+            self.compute_local_input(self.local_merge_map)
 
             # Output stores local goals as well as the the ground-truth action
             self.local_output = self.envs.get_short_term_goal(self.local_input)

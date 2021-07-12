@@ -60,7 +60,6 @@ class Exploration_Env(habitat.RLEnv):
         self.use_complete_reward = args.use_complete_reward
         self.use_time_penalty = args.use_time_penalty
         self.use_repeat_penalty = args.use_repeat_penalty
-        self.reward_decay = args.reward_decay
         self.use_render = args.use_render
         self.render_merge = args.render_merge
         self.save_gifs = args.save_gifs
@@ -69,7 +68,6 @@ class Exploration_Env(habitat.RLEnv):
 
         self.num_actions = 3
         self.dt = 10
-        self.reward_gamma = 1
 
         self.sensor_noise_fwd = \
             pickle.load(open(onpolicy.__path__[0] + "/envs/habitat/model/noise_models/sensor_noise_fwd.pkl", 'rb'))
@@ -508,7 +506,9 @@ class Exploration_Env(habitat.RLEnv):
             if self.use_repeat_penalty and self.merge_ratio < self.explored_ratio_threshold:
                 self.info['merge_explored_reward'] -= (agents_explored_map[self.prev_merge_exlored_map == 1].sum() * (25./10000) * 0.02 *0.5)
             self.prev_merge_exlored_map = curr_merge_explored_map
-                
+        
+        if self.use_time_penalty and self.merge_ratio < self.explored_ratio_threshold:
+            self.info['merge_explored_reward'] -= 0.02     
 
         self.save_position()
 
@@ -572,9 +572,6 @@ class Exploration_Env(habitat.RLEnv):
         self.prev_merge_explored_area = curr_merge_explored_area
         merge_explored_ratio = merge_explored_reward / merge_explored_reward_scale
         merge_explored_reward = merge_explored_reward * (25./10000.) * 0.02 * self.reward_gamma
-
-        if self.use_time_penalty:
-            self.reward_gamma *= self.reward_decay
 
         return agent_explored_rewards, agent_explored_ratios, merge_explored_reward, merge_explored_ratio, agent_trans_reward, curr_merge_explored_map
 

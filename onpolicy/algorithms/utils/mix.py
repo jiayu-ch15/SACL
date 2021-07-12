@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .util import init
+from .resnet import MapNet
 
 class Flatten(nn.Module):
     def forward(self, x):
@@ -18,6 +19,7 @@ class MIXBase(nn.Module):
         self._activation_id = args.activation_id
         self._use_maxpool2d = args.use_maxpool2d
         self.hidden_size = args.hidden_size
+        self.use_resnet = args.use_resnet
         self.cnn_keys = []
         self.embed_keys = []
         self.mlp_keys = []
@@ -39,7 +41,17 @@ class MIXBase(nn.Module):
                 raise NotImplementedError
 
         if len(self.cnn_keys) > 0:
-            self.cnn = self._build_cnn_model(obs_shape, cnn_layers_params, self.hidden_size, self._use_orthogonal, self._activation_id)
+            if self.use_resnet:
+                for key in self.cnn_keys:
+                    if key in ['rgb','depth','image','occupy_image']:
+                        self.n_cnn_input += obs_shape[key].shape[2] 
+                    elif key in ['global_map','local_map','global_obs','global_merge_obs','global_merge_goal','gt_map']:
+                        self.n_cnn_input += obs_shape[key].shape[0] 
+                    else:
+                        raise NotImplementedError
+                self.cnn = MapNet(int(self.n_cnn_input), self.hidden_size, [2, 2, 2, 2])
+            else:
+                self.cnn = self._build_cnn_model(obs_shape, cnn_layers_params, self.hidden_size, self._use_orthogonal, self._activation_id)
         if len(self.embed_keys) > 0:
             self.embed = self._build_embed_model(obs_shape)
         if len(self.mlp_keys) > 0:
@@ -49,7 +61,7 @@ class MIXBase(nn.Module):
         out_x = x
         if len(self.cnn_keys) > 0:
             cnn_input = self._build_cnn_input(x)
-            cnn_x = self.cnn(cnn_input)
+            cnn_x = self.cnn(cnn_input)            
             out_x = cnn_x
 
         if len(self.embed_keys) > 0:
