@@ -157,7 +157,6 @@ class Exploration_Env(habitat.RLEnv):
                                               self.agent_state[agent_id].rotation])
 
     def reset(self):
-        self.reward_gamma = 1
         self.episode_no += 1
         self.timestep = 0
         self._previous_action = None
@@ -550,13 +549,13 @@ class Exploration_Env(habitat.RLEnv):
             for a in range(self.num_agents):
                 if a!=agent_id:
                     agent_trans_merge_map = np.maximum(self.transform(curr_agent_explored_map[agent_id], agent_id), self.pre_agent_trans_map[a])
-            agent_trans_reward.append((agent_trans_merge_map.sum()- self.prev_merge_explored_area) * 1.0 * (25./10000.) * 0.02 * self.reward_gamma)
+            agent_trans_reward.append((agent_trans_merge_map.sum()- self.prev_merge_explored_area) * 1.0 * (25./10000.) * 0.02)
             
             curr_agent_explored_area = curr_agent_explored_map[agent_id].sum()
             agent_explored_reward = (curr_agent_explored_area - self.prev_explored_area[agent_id]) * 1.0
             self.prev_explored_area[agent_id] = curr_agent_explored_area
             # converting to m^2 * Reward Scaling 0.02 * reward time penalty
-            agent_explored_rewards.append(agent_explored_reward * (25./10000) * 0.02 * self.reward_gamma) 
+            agent_explored_rewards.append(agent_explored_reward * (25./10000) * 0.02) 
             
             
             reward_scale = self.explorable_map[agent_id].sum()
@@ -571,7 +570,7 @@ class Exploration_Env(habitat.RLEnv):
         merge_explored_reward = (curr_merge_explored_area - self.prev_merge_explored_area) * 1.0
         self.prev_merge_explored_area = curr_merge_explored_area
         merge_explored_ratio = merge_explored_reward / merge_explored_reward_scale
-        merge_explored_reward = merge_explored_reward * (25./10000.) * 0.02 * self.reward_gamma
+        merge_explored_reward = merge_explored_reward * (25./10000.) * 0.02
 
         return agent_explored_rewards, agent_explored_ratios, merge_explored_reward, merge_explored_ratio, agent_trans_reward, curr_merge_explored_map
 
