@@ -11,7 +11,9 @@ class MultiHabitatEnv(object):
     def __init__(self, args, rank, run_dir):
 
         self.num_agents = args.num_agents
+        self.use_resnet = args.use_resnet
         self.use_partial_reward = args.use_partial_reward
+        self.use_merge_partial_reward = args.use_merge_partial_reward
 
         config_env, config_baseline, dataset = self.get_config(args, rank)
 
@@ -24,10 +26,14 @@ class MultiHabitatEnv(object):
             int(full_h / args.global_downscaling)
 
         global_observation_space = {}
-        global_observation_space['global_obs'] = gym.spaces.Box(
-            low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
-        global_observation_space['global_merge_obs'] = gym.spaces.Box(
-            low=0, high=1, shape=(4, local_w, local_h), dtype='uint8')
+        #global_observation_space['global_obs'] = gym.spaces.Box(
+            #low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
+        if self.use_resnet:
+            global_observation_space['global_merge_obs'] = gym.spaces.Box(
+                low=0, high=1, shape=(8, 224, 224), dtype='uint8')
+        else:
+            global_observation_space['global_merge_obs'] = gym.spaces.Box(
+                low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
         global_observation_space['global_orientation'] = gym.spaces.Box(
             low=-1, high=1, shape=(1,), dtype='long')
         global_observation_space['other_global_orientation'] = gym.spaces.Box(
@@ -37,8 +43,8 @@ class MultiHabitatEnv(object):
         # global_observation_space['global_merge_goal'] = gym.spaces.Box(
         #   low=0, high=1, shape=(2, local_w, local_h), dtype='uint8')
         share_global_observation_space = global_observation_space.copy()
-        share_global_observation_space['gt_map'] = gym.spaces.Box(
-            low=0, high=1, shape=(1, local_w, local_h), dtype='uint8')
+        #share_global_observation_space['gt_map'] = gym.spaces.Box(
+            #low=0, high=1, shape=(1, local_w, local_h), dtype='uint8')
         
         global_observation_space = gym.spaces.Dict(global_observation_space)
         share_global_observation_space = gym.spaces.Dict(share_global_observation_space)
@@ -141,14 +147,16 @@ class MultiHabitatEnv(object):
         else:
             self.env.seed(seed)
 
-    def reset(self, choose):
+    def reset(self):
         obs, infos = self.env.reset()
         return obs, infos
 
     def step(self, actions):
         obs, rewards, dones, infos = self.env.step(actions)
         if self.use_partial_reward:
-            rewards = 0.3 * np.expand_dims(np.array(infos['explored_reward']), axis=1) + 0.7 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+            rewards = 0.5 * np.expand_dims(np.array(infos['explored_reward']), axis=1) + 0.5 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+        elif self.use_merge_partial_reward:
+            rewards = 0.5 * np.expand_dims(np.array(infos['explored_merge_reward']), axis=1) + 0.5 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         else:
             rewards = np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         return obs, rewards, dones, infos

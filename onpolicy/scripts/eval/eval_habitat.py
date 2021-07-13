@@ -26,7 +26,7 @@ def make_eval_env(all_args, run_dir):
                 print("Can not support the " +
                       all_args.env_name + "environment.")
                 raise NotImplementedError
-            env.seed(all_args.seed + rank * 5000)
+            env.seed(all_args.seed + rank * 1000)
             return env
         return init_env
     if all_args.n_rollout_threads == 1:
@@ -69,7 +69,6 @@ def parse_args(args, parser):
 
 
     # reward params
-    parser.add_argument('--reward_decay', type=float, default=0.9)
     parser.add_argument('--use_restrict_map',action='store_true', default=False)
     parser.add_argument('--use_time_penalty',action='store_true', default=False)
     parser.add_argument('--use_repeat_penalty',action='store_true', default=False)
@@ -77,6 +76,7 @@ def parse_args(args, parser):
     parser.add_argument('--use_intrinsic_reward', action='store_true', default=False)
     parser.add_argument('--use_delta_reward', action='store_true', default=False)
     parser.add_argument('--use_partial_reward', action='store_true', default=False)
+    parser.add_argument('--use_merge_partial_reward', action='store_true', default=False)
 
 
     # Environment, dataset and episode specifications
@@ -112,6 +112,10 @@ def parse_args(args, parser):
                         default=False, help="by default True, use random agent rotation at the initialization")
     parser.add_argument('--use_abs_orientation', action='store_true',
                         default=False, help="by default True, use abs orientation at the initialization")
+    parser.add_argument('--use_center', action='store_true',
+                        default=False, help="by default True, use agent center point as input")
+    parser.add_argument('--use_resnet', action='store_true',
+                        default=False, help="by default True, use resnet as global network")       
 
 
     # Local Policy
