@@ -563,8 +563,8 @@ class HabitatRunner(Runner):
                 merge_map[ e, i][merge_map[ e, i]>1] = 1
                 merge_map[ e, i][merge_map[ e, i]<0.2] = 0
 
-            local_merge_map[e, :2] = merge_map[e, :2, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
-            local_merge_map[e, 2:] = self.local_map[e, a, 2:]
+            local_merge_map[e, :2] = merge_map[e, :2, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]].copy()
+            local_merge_map[e, 2:] = self.local_map[e, a, 2:].copy()
         return merge_map, local_merge_map
 
     def center_transform(self, inputs, a):
