@@ -62,6 +62,7 @@
 
 ### 1.3 docker
 ```
+docker pull zoeyuchao/marl:latest
 docker exec -it marl bash
 ```
 
