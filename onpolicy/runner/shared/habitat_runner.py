@@ -896,7 +896,7 @@ class HabitatRunner(Runner):
         
         #encourage_place_unexplored_map
         for e in range(self.n_rollout_threads):
-            if self.use_intrinsic_reward:
+            if self.use_intrinsic_reward and self.env_info['sum_merge_explored_ratio'][e] > 0.9:
                 for agent_id in range(self.num_agents):
                     intrinsic_gt = self.intrinsic_gt[e , agent_id].copy()
                     intrinsic_gt[intrinsic_gt<0.2] = -1
