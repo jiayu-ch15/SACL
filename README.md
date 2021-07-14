@@ -43,6 +43,7 @@
    pip install torch==1.5.1+cu101 torchvision==0.6.1+cu101 -f https://download.pytorch.org/whl/torch_stable.html
    cd onpolicy
    pip install -e . 
+   pip install wandb icecream setproctitle gym seaborn tensorboardX
 ```
 
 ### 1.2 hyperparameters
@@ -58,6 +59,12 @@
   - use_eval: turn on evaluation while training, if True, u need to set "n_eval_rollout_threads"
   - wandb_name: For example, if your wandb link is https://wandb.ai/mapping, then you need to change wandb_name to "mapping". 
   - user_name: only control the program name shown in "nvidia-smi".
+
+### 1.3 docker
+```
+docker pull zoeyuchao/marl:latest
+docker exec -it marl bash
+```
 
 ## 2. StarCraftII
 
@@ -325,6 +332,13 @@ git submodule foreach git submodule update
 
 ## 11. habitat
 
+```
+sudo apt-get update || true
+# These are fairly ubiquitous packages and your system likely has them already,
+# but if not, let's get the essentials for EGL support:
+sudo apt-get install -y --no-install-recommends libjpeg-dev libglm-dev libgl1-mesa-glx libegl1-mesa-dev mesa-utils xorg-dev freeglut3-dev
+```
+
 
 ``` 
 pip install -i https://pypi.tuna.tsinghua.edu.cn/simple magnum scikit-image==0.17.2 lmdb scikit-learn==0.24.1 scikit-fmm yacs imageio-ffmpeg numpy-quaternion numba tqdm gitpython attrs==19.1.0 tensorboard
@@ -353,6 +367,7 @@ wget https://dl.fbaipublicfiles.com/habitat/data/datasets/pointnav/gibson/v1/poi
 unzip pointnav_gibson_v1.zip
 ln -s /mnt/disk2/nav/habitat_data/scene_datasets
 ```
+
 ## 12.Human-Robot
 
 ## 13.Mini-GridWorld
