@@ -65,6 +65,8 @@
 ```
 # install docker first, then add current user to docker group
 sudo gpasswd -a $USER docker
+newgrp docker
+# pull the provided docker, if you want to use vizdoom, use "docker pull zoeyuchao/marl:vizdoom"
 docker pull zoeyuchao/marl:latest
 docker run --gpus all -dit --name marl --mount type=tmpfs,dst=/dev/shm --mount type=bind,src=/home/yuchao/,dst=/root/code zoeyuchao/marl:latest
 docker exec -it marl bash
