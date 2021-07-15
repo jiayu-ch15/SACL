@@ -27,6 +27,7 @@
 - [Mini-GridWorld](https://github.com/maximecb/gym-minigrid)
 - [StagHunt](https://github.com/staghuntrpg/RPG/tree/main/GridWorld)
 - [MultiVehicleEnv](https://github.com/efc-robot/MultiVehicleEnv.git)
+- [VizDoom](https://github.com/mwydmuch/ViZDoom.git) refer to vizdoom branch
 
 ## TODOs:
 - [ ] multi-agent FLOW
