@@ -63,6 +63,8 @@
 
 ### 1.3 docker
 ```
+# install docker first, then add current user to docker group
+sudo gpasswd -a $USER docker
 docker pull zoeyuchao/marl:latest
 docker run --gpus all -dit --name marl --mount type=tmpfs,dst=/dev/shm --mount type=bind,src=/home/yuchao/,dst=/root/code zoeyuchao/marl:latest
 docker exec -it marl bash
