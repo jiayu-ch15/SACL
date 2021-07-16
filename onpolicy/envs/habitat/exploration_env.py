@@ -507,7 +507,7 @@ class Exploration_Env(habitat.RLEnv):
             self.prev_merge_exlored_map = curr_merge_explored_map
         
         if self.use_time_penalty and self.merge_ratio < self.explored_ratio_threshold:
-            self.info['merge_explored_reward'] -= 0.02     
+            self.info['merge_explored_reward'] -= 0.002     
 
         self.save_position()
 

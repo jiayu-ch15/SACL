@@ -563,8 +563,8 @@ class HabitatRunner(Runner):
                 merge_map[ e, i][merge_map[ e, i]>1] = 1
                 merge_map[ e, i][merge_map[ e, i]<0.2] = 0
 
-            local_merge_map[e, :2] = merge_map[e, :2, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
-            local_merge_map[e, 2:] = self.local_map[e, a, 2:]
+            local_merge_map[e, :2] = merge_map[e, :2, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]].copy()
+            local_merge_map[e, 2:] = self.local_map[e, a, 2:].copy()
         return merge_map, local_merge_map
 
     def center_transform(self, inputs, a):
@@ -896,7 +896,7 @@ class HabitatRunner(Runner):
         
         #encourage_place_unexplored_map
         for e in range(self.n_rollout_threads):
-            if self.use_intrinsic_reward:
+            if self.use_intrinsic_reward and self.env_info['sum_merge_explored_ratio'][e] > 0.9:
                 for agent_id in range(self.num_agents):
                     intrinsic_gt = self.intrinsic_gt[e , agent_id].copy()
                     intrinsic_gt[intrinsic_gt<0.2] = -1

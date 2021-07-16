@@ -25,6 +25,7 @@ class GridWorldEnv(object):
             num_obstacles = self.num_obstacles,
             agent_pos = self.agent_pos,
             use_merge = args.use_merge,
+            use_local = args.use_local,
             use_same_location = args.use_same_location,
             use_complete_reward = args.use_complete_reward,
             use_multiroom = self.use_multiroom,

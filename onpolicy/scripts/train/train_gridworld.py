@@ -66,6 +66,8 @@ def parse_args(args, parser):
                         help="use complete reward")            
     parser.add_argument("--use_merge", action='store_true', default=False,
                         help="use merge information")
+    parser.add_argument("--use_local", action='store_true', default=False,
+                        help="use local information")
     parser.add_argument("--use_multiroom", action='store_true', default=False,
                         help="use multiroom")
     parser.add_argument("--use_random_pos", action='store_true', default=False,

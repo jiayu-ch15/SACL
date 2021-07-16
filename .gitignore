@@ -28,3 +28,4 @@ dataset
 data
 pretrained_models
 
+onpolicy/envs/vizdoom/
