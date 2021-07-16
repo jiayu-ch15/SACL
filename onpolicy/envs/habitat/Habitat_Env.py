@@ -43,9 +43,13 @@ class MultiHabitatEnv(object):
         # global_observation_space['global_merge_goal'] = gym.spaces.Box(
         #   low=0, high=1, shape=(2, local_w, local_h), dtype='uint8')
         share_global_observation_space = global_observation_space.copy()
-        #share_global_observation_space['gt_map'] = gym.spaces.Box(
-            #low=0, high=1, shape=(1, local_w, local_h), dtype='uint8')
-        
+        if self.use_resnet:
+            share_global_observation_space['gt_map'] = gym.spaces.Box(
+                low=0, high=1, shape=(1, 224, 224), dtype='uint8')
+        else:
+            share_global_observation_space['gt_map'] = gym.spaces.Box(
+                low=0, high=1, shape=(1, local_w, local_h), dtype='uint8')
+            
         global_observation_space = gym.spaces.Dict(global_observation_space)
         share_global_observation_space = gym.spaces.Dict(share_global_observation_space)
 

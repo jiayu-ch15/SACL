@@ -26,6 +26,7 @@ class MultiExplorationEnv(MultiRoomEnv):
         agent_pos=None, 
         goal_pos=None, 
         use_merge = True,
+        use_local = True,
         use_same_location = True,
         use_complete_reward = True,
         use_multiroom = False,
@@ -55,7 +56,8 @@ class MultiExplorationEnv(MultiRoomEnv):
                         max_steps = max_steps, 
                         num_agents = num_agents, 
                         agent_view_size = agent_view_size, 
-                        use_merge = use_merge
+                        use_merge = use_merge,
+                        use_local = use_local,
                         )
         self.augment = 255 // (np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum())
         self.target_ratio = 0.98

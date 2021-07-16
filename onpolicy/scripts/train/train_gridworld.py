@@ -73,7 +73,9 @@ def parse_args(args, parser):
     parser.add_argument("--use_random_pos", action='store_true', default=False,
                         help="use complete reward")   
     parser.add_argument("--use_time_penalty", action='store_true', default=False,
-                        help="use time penalty")            
+                        help="use time penalty") 
+    parser.add_argument("--use_resnet", action='store_true', default=False,
+                        help="use resnet as network")           
     parser.add_argument("--visualize_input", action='store_true', default=False,
                         help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
     all_args = parser.parse_known_args(args)[0]

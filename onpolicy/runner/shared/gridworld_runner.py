@@ -178,12 +178,12 @@ class GridWorldRunner(Runner):
                     obs['global_merge_obs'][e, agent_id, 0] = infos[e]['explored_all_map'][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size] / 255.0
                     obs['global_merge_obs'][e, agent_id, 1] = infos[e]['obstacle_all_map'][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size] / 255.0
                     obs['global_merge_obs'][e, agent_id, 2] = merge_pos_map[e][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size] / 255.0
-                    obs['global_merge_obs'][e, agent_id, 3] = self.eval_all_merge_pos_map[e][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size] / 255.0
+                    obs['global_merge_obs'][e, agent_id, 3] = self.all_merge_pos_map[e][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size] / 255.0
                 else:
                     obs['global_obs'][e, agent_id, 0] = infos[e]['explored_each_map'][agent_id][self.agent_view_size : self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size] / 255.0
                     obs['global_obs'][e, agent_id, 1] = infos[e]['obstacle_each_map'][agent_id][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size] / 255.0
                     obs['global_obs'][e, agent_id, 2] = agent_pos_map[e, agent_id][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size] / 255.0
-                    obs['global_obs'][e, agent_id, 3] = self.eval_all_agent_pos_map[e, agent_id][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size] / 255.0
+                    obs['global_obs'][e, agent_id, 3] = self.all_agent_pos_map[e, agent_id][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size] / 255.0
 
                 obs['vector'][e, agent_id] = np.eye(self.num_agents)[agent_id]
 
