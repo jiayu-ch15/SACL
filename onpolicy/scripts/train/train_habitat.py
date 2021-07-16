@@ -137,7 +137,8 @@ def parse_args(args, parser):
     parser.add_argument('--use_center', action='store_true',
                         default=False, help="by default True, use agent center point as input")
     parser.add_argument('--use_resnet', action='store_true',
-                        default=False, help="by default True, use resnet as global network")                
+                        default=False, help="by default True, use resnet as global network") 
+    parser.add_argument('--pretrained_global_resnet', type=int, default=1)     
                         
 
     # Local Policy

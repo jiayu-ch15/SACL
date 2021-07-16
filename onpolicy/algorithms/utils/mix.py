@@ -3,9 +3,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.models as models
+
 
 from .util import init
-from .resnet import MapNet
+from .resnet import MapNet, Pre_MapNet
 
 class Flatten(nn.Module):
     def forward(self, x):
@@ -20,6 +22,7 @@ class MIXBase(nn.Module):
         self._use_maxpool2d = args.use_maxpool2d
         self.hidden_size = args.hidden_size
         self.use_resnet = args.use_resnet
+        self.pretrained_global_resnet = args.pretrained_global_resnet
         self.cnn_keys = []
         self.embed_keys = []
         self.mlp_keys = []
@@ -49,7 +52,20 @@ class MIXBase(nn.Module):
                         self.n_cnn_input += obs_shape[key].shape[0] 
                     else:
                         raise NotImplementedError
-                self.cnn = MapNet(int(self.n_cnn_input), self.hidden_size, [2, 2, 2, 2])
+                    
+                cnn_layers = [nn.Conv2d(int(self.n_cnn_input), 64, kernel_size=7, stride=2, padding=3, bias=False)]
+                resnet = models.resnet18(pretrained = self.pretrained_global_resnet)
+                cnn_layers += list(resnet.children())[1:-1]  # 去除最后的fc层
+                cnn_layers += [Flatten(),
+                                nn.Linear(resnet.fc.in_features, self.hidden_size)]
+                self.cnn = nn.Sequential(*cnn_layers)
+                
+                # if self.pretrained_global_resnet:
+                    
+                #     self.cnn= Pre_MapNet(int(self.n_cnn_input), self.hidden_size)
+                # else:
+                #     self.cnn = MapNet(int(self.n_cnn_input), self.hidden_size, [2, 2, 2, 2])
+                
             else:
                 self.cnn = self._build_cnn_model(obs_shape, cnn_layers_params, self.hidden_size, self._use_orthogonal, self._activation_id)
         if len(self.embed_keys) > 0:

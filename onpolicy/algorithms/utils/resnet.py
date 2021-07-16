@@ -1,6 +1,6 @@
 import torch.nn as nn
 import math
-
+import torchvision.models as models
 
 def conv3x3(in_planes, out_planes, stride=1):
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
@@ -119,3 +119,23 @@ class MapNet(nn.Module):
         # [batch_size, num_classes]
         return x
 
+
+class Pre_MapNet(nn.Module):
+    def __init__(self, inputs_channels, num_classes):
+        super(Pre_MapNet, self).__init__()
+        
+        self.conv1 = nn.Sequential(nn.Conv2d(inputs_channels, 64, kernel_size=7, stride=2, padding=3, bias=False))
+        resnet = models.resnet18(pretrained = 1)
+        modules = list(resnet.children())[:-1]  # 去除最后的fc层
+        self.resnet_base = nn.Sequential(*modules)
+        self.linear = nn.Linear(resnet.fc.in_features,  num_classes)
+
+    def forward(self, x):
+        # [batch_size, 1, input_size, input_size]
+        x = self.conv1(x)
+        # [batch_size, num_classes]
+        x = self.resnet_base(x)
+        x = x.view(x.size(0), -1)
+        x = self.linear(x)
+        
+        return x
