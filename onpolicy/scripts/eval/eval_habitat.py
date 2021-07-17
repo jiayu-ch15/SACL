@@ -115,7 +115,11 @@ def parse_args(args, parser):
     parser.add_argument('--use_center', action='store_true',
                         default=False, help="by default True, use agent center point as input")
     parser.add_argument('--use_resnet', action='store_true',
-                        default=False, help="by default True, use resnet as global network")       
+                        default=False, help="by default True, use resnet as global network")    
+    parser.add_argument('--use_merge', action='store_true',
+                        default=False, help="by default True, use merge information") 
+    parser.add_argument('--use_single', action='store_true',
+                        default=False, help="by default True, use single information")    
 
 
     # Local Policy
