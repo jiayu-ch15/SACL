@@ -12,6 +12,7 @@ class MultiHabitatEnv(object):
 
         self.num_agents = args.num_agents
         self.use_resnet = args.use_resnet
+        self.use_centralized_V = args.use_centralized_V
         self.use_partial_reward = args.use_partial_reward
         self.use_merge_partial_reward = args.use_merge_partial_reward
 
@@ -43,12 +44,13 @@ class MultiHabitatEnv(object):
         # global_observation_space['global_merge_goal'] = gym.spaces.Box(
         #   low=0, high=1, shape=(2, local_w, local_h), dtype='uint8')
         share_global_observation_space = global_observation_space.copy()
-        if self.use_resnet:
-            share_global_observation_space['gt_map'] = gym.spaces.Box(
-                low=0, high=1, shape=(1, 224, 224), dtype='uint8')
-        else:
-            share_global_observation_space['gt_map'] = gym.spaces.Box(
-                low=0, high=1, shape=(1, local_w, local_h), dtype='uint8')
+        if self.use_centralized_V:
+            if self.use_resnet:
+                share_global_observation_space['gt_map'] = gym.spaces.Box(
+                    low=0, high=1, shape=(1, 224, 224), dtype='uint8')
+            else:
+                share_global_observation_space['gt_map'] = gym.spaces.Box(
+                    low=0, high=1, shape=(1, local_w, local_h), dtype='uint8')
             
         global_observation_space = gym.spaces.Dict(global_observation_space)
         share_global_observation_space = gym.spaces.Dict(share_global_observation_space)
@@ -151,7 +153,7 @@ class MultiHabitatEnv(object):
         else:
             self.env.seed(seed)
 
-    def reset(self, choose):
+    def reset(self):
         obs, infos = self.env.reset()
         return obs, infos
 
