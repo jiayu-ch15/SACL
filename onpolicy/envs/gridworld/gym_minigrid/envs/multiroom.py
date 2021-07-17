@@ -37,6 +37,7 @@ class MultiRoomEnv(MiniGridEnv):
         agent_view_size, 
         use_merge,
         use_local,
+        use_single,
         minNumRooms,
         maxNumRooms,
         maxRoomSize=10     
@@ -58,6 +59,7 @@ class MultiRoomEnv(MiniGridEnv):
             agent_view_size = agent_view_size, 
             use_merge = use_merge,
             use_local = use_local,
+            use_single = use_single,
         )
 
     def _gen_grid(self, width, height):

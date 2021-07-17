@@ -748,6 +748,8 @@ class MiniGridEnv(gym.Env):
         agent_view_size=7,
         use_merge=True,
         use_local = True,
+        use_centralize_V = True,
+        use_single = True,
     ):  
         self.num_agents = num_agents
         # Can't set both grid_size and width/height
@@ -784,13 +786,15 @@ class MiniGridEnv(gym.Env):
         else:
             global_observation_space['global_direction'] = gym.spaces.Box(
                 low=-1, high=1, shape=(1, 4), dtype='float')
+        if use_single:
             global_observation_space['global_obs'] = gym.spaces.Box(
                 low=0, high=255, shape=(4, self.full_w, self.full_h), dtype='uint8')
         global_observation_space['vector'] = gym.spaces.Box(
             low=-1, high=1, shape=(self.num_agents,), dtype='float')
         share_global_observation_space = global_observation_space.copy()
-        share_global_observation_space['gt_map'] = gym.spaces.Box(
-            low=0, high=255, shape=(1, self.full_w, self.full_h), dtype='uint8')
+        if use_centralize_V:
+            share_global_observation_space['gt_map'] = gym.spaces.Box(
+                low=0, high=255, shape=(1, self.full_w, self.full_h), dtype='uint8')
         
         global_observation_space = gym.spaces.Dict(global_observation_space)
         share_global_observation_space = gym.spaces.Dict(share_global_observation_space)

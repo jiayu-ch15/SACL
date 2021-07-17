@@ -14,6 +14,7 @@ from onpolicy.config import get_config
 from onpolicy.envs.gridworld.GridWorld_Env import GridWorldEnv
 from onpolicy.envs.env_wrappers import ChooseInfoSubprocVecEnv, ChooseInfoDummyVecEnv
 
+
 def make_render_env(all_args):
     def get_env_fn(rank):
         def init_env():
@@ -23,13 +24,30 @@ def make_render_env(all_args):
                 print("Can not support the " +
                       all_args.env_name + "environment.")
                 raise NotImplementedError
-            env.seed(all_args.seed + rank * 1000)
+            env.seed(all_args.seed * 50000 + rank * 10000)
             return env
         return init_env
-    if all_args.n_rollout_threads == 1:
+    if all_args.n_eval_rollout_threads == 1:
         return ChooseInfoDummyVecEnv([get_env_fn(0)])
     else:
-        return ChooseInfoSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
+        return ChooseInfoSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_eval_rollout_threads)])
+
+# def make_render_env(all_args):
+#     def get_env_fn(rank):
+#         def init_env():
+#             if all_args.env_name == "GridWorld":
+#                 env = GridWorldEnv(all_args)
+#             else:
+#                 print("Can not support the " +
+#                       all_args.env_name + "environment.")
+#                 raise NotImplementedError
+#             env.seed(all_args.seed + rank * 1000)
+#             return env
+#         return init_env
+#     if all_args.n_rollout_threads == 1:
+#         return ChooseInfoDummyVecEnv([get_env_fn(0)])
+#     else:
+#         return ChooseInfoSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
 def parse_args(args, parser):
     parser.add_argument('--scenario_name', type=str, default='simple_spread', help="Which scenario to run on")
@@ -49,6 +67,10 @@ def parse_args(args, parser):
                         help="use complete reward")
     parser.add_argument("--use_merge", action='store_true', default=False,
                         help="use merge information") 
+    parser.add_argument("--use_single", action='store_true', default=False,
+                        help="use single information") 
+    parser.add_argument("--use_resnet", action='store_true', default=False,
+                        help="use single information") 
     parser.add_argument("--use_local", action='store_true', default=False,
                         help="use local information")
     parser.add_argument("--use_multiroom", action='store_true', default=False,
