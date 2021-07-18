@@ -389,12 +389,16 @@ class HabitatRunner(Runner):
 
         self.global_input = {}
         if self.use_resnet:
-            #self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.res_w, self.res_h), dtype=np.float32)
-            self.global_input['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.res_w, self.res_h), dtype=np.float32)
+            if self.use_merge:
+                self.global_input['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.res_w, self.res_h), dtype=np.float32)
             # self.global_input['global_merge_goal'] = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.res_w, self.res_h), dtype=np.float32)
+            if self.use_single:
+                self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.res_w, self.res_h), dtype=np.float32)
         else:
-            #self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
-            self.global_input['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
+            if self.use_merge:
+                self.global_input['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
+            if self.use_single:
+                self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)
             # self.global_input['global_merge_goal'] = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.local_w, self.local_h), dtype=np.float32)
         self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
         self.global_input['other_global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents-1), dtype=np.long)
