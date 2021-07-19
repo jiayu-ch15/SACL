@@ -120,7 +120,7 @@ def parse_args(args, parser):
                         default=False, help="by default True, use merge information") 
     parser.add_argument('--use_single', action='store_true',
                         default=False, help="by default True, use single information")
-    parser.add_argument('--use_marge_local', action='store_true',
+    parser.add_argument('--use_merge_local', action='store_true',
                         default=False, help="by default True, use single information")
     parser.add_argument('--pretrained_global_resnet', type=int, default=1)      
 
