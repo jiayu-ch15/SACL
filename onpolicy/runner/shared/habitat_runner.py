@@ -128,6 +128,8 @@ class HabitatRunner(Runner):
                             self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
                     if 'merge_explored_ratio_step' in infos[e].keys():
                         self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
+                    if 'merge_explored_ratio_step_0.95' in infos[e].keys():
+                        self.env_info['merge_explored_ratio_step_0.95'][e] = infos[e]['merge_explored_ratio_step_0.95']
                     for agent_id in range(self.num_agents):
                         agent_k = "agent{}_explored_ratio_step".format(agent_id)
                         if agent_k in infos[e].keys():
@@ -386,6 +388,7 @@ class HabitatRunner(Runner):
         self.env_infos['sum_merge_repeat_ratio'] = deque(maxlen=length)
         self.env_infos['sum_merge_explored_reward'] = deque(maxlen=length)
         self.env_infos['merge_explored_ratio_step'] = deque(maxlen=length)
+        self.env_infos['merge_explored_ratio_step_0.95'] = deque(maxlen=length)
         self.env_infos['invalid_merge_explored_ratio_step_num'] = deque(maxlen=length)
         self.env_infos['invalid_merge_map_num'] = deque(maxlen=length)
         self.env_infos['max_sum_merge_explored_ratio'] = deque(maxlen=length)
@@ -489,6 +492,7 @@ class HabitatRunner(Runner):
         self.env_info['sum_merge_explored_reward'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
         self.env_info['explored_ratio_step'] = np.ones((self.n_rollout_threads, self.num_agents), dtype=np.float32) * self.max_episode_length
         self.env_info['merge_explored_ratio_step'] = np.ones((self.n_rollout_threads,), dtype=np.float32) * self.max_episode_length
+        self.env_info['merge_explored_ratio_step_0.95'] = np.ones((self.n_rollout_threads,), dtype=np.float32) * self.max_episode_length
         # if self.use_eval:
         #     self.env_info['auc'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
         
@@ -1044,13 +1048,13 @@ class HabitatRunner(Runner):
                         for i in range(self.max_episode_length):
                             wandb.log({k: np.mean(v[:,:,i])}, step=i+1)
                     else:
-                        wandb.log({k: np.nanmean(v) if k == "merge_explored_ratio_step" else np.mean(v)}, step=total_num_steps)
+                        wandb.log({k: np.nanmean(v) if k == "merge_explored_ratio_step" or k == "merge_explored_ratio_step_0.95" else np.mean(v)}, step=total_num_steps)
                 else:
                     if k == 'auc':
                         for i in range(self.max_episode_length):
                             self.writter.add_scalars(k, {k: np.mean(v[:,:,i])}, i+1)
                     else:
-                        self.writter.add_scalars(k, {k: np.nanmean(v) if k == "merge_explored_ratio_step" else np.mean(v)}, total_num_steps)
+                        self.writter.add_scalars(k, {k: np.nanmean(v) if k == "merge_explored_ratio_step" or k == "merge_explored_ratio_step_0.95" else np.mean(v)}, total_num_steps)
 
     def log_eval(self, eval_infos, total_num_steps):
         for k, v in eval_infos.items():
@@ -1188,6 +1192,8 @@ class HabitatRunner(Runner):
                             #     self.env_infos['auc'][episode, e, step] = self.env_infos['auc'][episode, e, step-1] + self.env_info['auc'][e]
                     if 'merge_explored_ratio_step' in infos[e].keys():
                         self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
+                    if 'merge_explored_ratio_step_0.95' in infos[e].keys():
+                        self.env_info['merge_explored_ratio_step_0.95'][e] = infos[e]['merge_explored_ratio_step_0.95']
                     for agent_id in range(self.num_agents):
                         agent_k = "agent{}_explored_ratio_step".format(agent_id)
                         if agent_k in infos[e].keys():
@@ -1245,7 +1251,7 @@ class HabitatRunner(Runner):
                 self.log_env(self.env_infos, total_num_steps)
             
         for k, v in self.env_infos.items():
-            print("eval average {}: {}".format(k, np.nanmean(v) if k == 'merge_explored_ratio_step' else np.mean(v)))
+            print("eval average {}: {}".format(k, np.nanmean(v) if k == 'merge_explored_ratio_step' or k == "merge_explored_ratio_step_0.95"else np.mean(v)))
 
         if self.all_args.save_gifs:
             print("generating gifs....")
