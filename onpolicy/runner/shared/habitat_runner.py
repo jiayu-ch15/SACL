@@ -77,7 +77,10 @@ class HabitatRunner(Runner):
         values, actions, action_log_probs, rnn_states, rnn_states_critic = self.compute_global_goal(step=0)
 
         # compute local input
-        self.compute_local_input(self.local_merge_map)
+        if self.use_marge_local:
+            self.compute_local_input(self.local_merge_map)
+        else:
+            self.compute_local_input(self.local_map)
 
         # Output stores local goals as well as the the ground-truth action
         self.local_output = self.envs.get_short_term_goal(self.local_input)
@@ -170,7 +173,10 @@ class HabitatRunner(Runner):
                     values, actions, action_log_probs, rnn_states, rnn_states_critic = self.compute_global_goal(step = global_step + 1)
 
                 # Local Policy
-                self.compute_local_input(self.local_merge_map)
+                if self.use_marge_local:
+                    self.compute_local_input(self.local_merge_map)
+                else:
+                    self.compute_local_input(self.local_map)
 
                 # Output stores local goals as well as the the ground-truth action
                 self.local_output = self.envs.get_short_term_goal(self.local_input)
@@ -289,6 +295,7 @@ class HabitatRunner(Runner):
         self.use_resnet = self.all_args.use_resnet
         self.use_merge = self.all_args.use_merge
         self.use_single = self.all_args.use_single
+        self.use_marge_local = self.all_args.use_marge_local
 
     def init_map_variables(self):
         ### Full map consists of 4 channels containing the following:
@@ -1149,7 +1156,10 @@ class HabitatRunner(Runner):
             rnn_states = self.eval_compute_global_goal(rnn_states)
 
             # compute local input
-            self.compute_local_input(self.local_merge_map)
+            if self.use_marge_local:
+                self.compute_local_input(self.local_merge_map)
+            else:
+                self.compute_local_input(self.local_map)
 
             # Output stores local goals as well as the the ground-truth action
             self.local_output = self.envs.get_short_term_goal(self.local_input)
@@ -1219,7 +1229,10 @@ class HabitatRunner(Runner):
                     rnn_states = self.eval_compute_global_goal(rnn_states)
                     
                 # Local Policy
-                self.compute_local_input(self.local_merge_map)
+                if self.use_marge_local:
+                    self.compute_local_input(self.local_merge_map)
+                else:
+                    self.compute_local_input(self.local_map)
 
                 # Output stores local goals as well as the the ground-truth action
                 self.local_output = self.envs.get_short_term_goal(self.local_input)
