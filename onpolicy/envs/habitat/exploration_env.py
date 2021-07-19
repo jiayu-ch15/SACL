@@ -164,6 +164,7 @@ class Exploration_Env(habitat.RLEnv):
         self.explored_ratio_step = np.ones(self.num_agents) * (-1.0)
         self.merge_explored_ratio_step = -1.0
         self.explored_ratio_threshold = 0.9
+        self.merge_explored_ratio_step_95 = -1.0
         self.merge_ratio = 0
         self.ratio = np.zeros(self.num_agents)
         
@@ -478,6 +479,11 @@ class Exploration_Env(habitat.RLEnv):
             if self.merge_explored_ratio_step == -1.0:
                 self.merge_explored_ratio_step = self.timestep
                 self.info['merge_explored_ratio_step'] = self.timestep
+                
+        if self.merge_ratio >= 0.95:
+            if self.merge_explored_ratio_step_95 == -1.0:
+                self.merge_explored_ratio_step_95 = self.timestep
+                self.info['merge_explored_ratio_step_0.95'] = self.timestep
 
         for agent_id in range(self.num_agents):
             self.ratio[agent_id] += agent_explored_ratio[agent_id]
