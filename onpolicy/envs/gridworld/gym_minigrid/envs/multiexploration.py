@@ -220,8 +220,8 @@ class MultiExplorationEnv(MultiRoomEnv):
         info['agent_direction'] = np.array(self.agent_dir)
         info['agent_local_map'] = self.agent_local_map
         if self.use_agent_id:
-            info['explored_each_map'] = np.array(self.explored_each_map)
-            info['obstacle_each_map'] = np.array(self.obstacle_each_map)
+            info['explored_each_map'] = np.array(self.explored_each_map * (i+1) / self.augment)
+            info['obstacle_each_map'] = np.array(self.obstacle_each_map * (i+1) / self.augment)
         else:
             info['explored_each_map'] = np.array(self.explored_each_map)
             info['obstacle_each_map'] = np.array(self.obstacle_each_map)
@@ -350,8 +350,8 @@ class MultiExplorationEnv(MultiRoomEnv):
         info['agent_direction'] = np.array(self.agent_dir)
         info['agent_local_map'] = self.agent_local_map
         if self.use_agent_id:
-            info['explored_each_map'] = np.array(self.explored_each_map)
-            info['obstacle_each_map'] = np.array(self.obstacle_each_map)
+            info['explored_each_map'] = np.array(self.explored_each_map * (i+1) / self.augment)
+            info['obstacle_each_map'] = np.array(self.obstacle_each_map * (i+1) / self.augment)
         else:
             info['explored_each_map'] = np.array(self.explored_each_map)
             info['obstacle_each_map'] = np.array(self.obstacle_each_map)
