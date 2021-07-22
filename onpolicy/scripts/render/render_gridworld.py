@@ -61,6 +61,7 @@ def parse_args(args, parser):
                         help="use time penalty")         
     parser.add_argument("--visualize_input", action='store_true', default=False,
                         help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
+    parser.add_argument('--pretrained_global_resnet', type=int, default=1)      
     all_args = parser.parse_known_args(args)[0]
 
     return all_args
@@ -79,7 +80,7 @@ def main(args):
     else:
         raise NotImplementedError
 
-    assert all_args.use_render, ("u need to set use_render be True")
+    assert all_args.use_eval or all_args.use_render, ("u need to set use_eval or use_render be True")
     assert not (all_args.model_dir == None or all_args.model_dir == ""), ("set model_dir first")
     #assert all_args.n_rollout_threads==1, ("only support to use 1 env to render.")
     

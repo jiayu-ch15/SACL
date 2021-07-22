@@ -304,6 +304,12 @@ class GridWorldRunner(Runner):
                     self.env_infos[agent_k].append(info[agent_k])
 
         self.buffer.insert(share_obs, obs, rnn_states, rnn_states_critic, actions, action_log_probs, values, rewards, masks)
+        
+    def log_auc(self, auc_infos):
+        for k, v in auc_infos.items():
+            if len(v) > 0:
+                for i in range(self.episode_length):
+                    self.writter.add_scalars(k, {k: np.mean(v[:,:,i])}, i+1)
     
     def visualize_obs(self, fig, ax, obs):
         # individual
@@ -398,25 +404,28 @@ class GridWorldRunner(Runner):
 
     @torch.no_grad()
     def render(self):
-        env_infos = defaultdict(list)
-
+        
+        auc_infos = {}
+        auc_infos['auc'] = np.zeros((self.all_args.eval_episodes, self.n_rollout_threads, self.episode_length), dtype=np.float32)
         envs = self.envs
         
         all_frames = []
         all_local_frames = []
         for episode in range(self.all_args.render_episodes):
+            env_infos = defaultdict(list)
             ic(episode)
             self.init_map_variables()
             reset_choose = np.ones(self.n_rollout_threads) == 1.0
             dict_obs, infos = envs.reset(reset_choose)
             obs = self._convert(dict_obs, infos)
-
-            if self.all_args.save_gifs:
-                image, local_image = envs.render('rgb_array')[0]
-                all_frames.append(image)
-                all_local_frames.append(local_image)
-            else:
-                envs.render('human')
+            
+            if self.use_render:
+                if self.all_args.save_gifs:
+                    image, local_image = envs.render('rgb_array')[0]
+                    all_frames.append(image)
+                    all_local_frames.append(local_image)
+                else:
+                    envs.render('human')
 
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
@@ -442,6 +451,10 @@ class GridWorldRunner(Runner):
 
                 # Obser reward and next obs
                 dict_obs, rewards, dones, infos = envs.step(actions)
+                
+                for e in range(self.n_rollout_threads):
+                    if 'merge_explored_ratio' in infos[e].keys() and self.use_eval:
+                        auc_infos['auc'][episode, e, step] = np.array(infos[e]['merge_explored_ratio'])
 
                 obs = self._convert(dict_obs, infos)
                 episode_rewards.append(rewards)
@@ -459,26 +472,32 @@ class GridWorldRunner(Runner):
                 rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
                 masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 masks[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
-
-                if self.all_args.save_gifs:
-                    image, local_image = envs.render('rgb_array')[0]
-                    all_frames.append(image)
-                    all_local_frames.append(local_image)
-                    calc_end = time.time()
-                    elapsed = calc_end - calc_start
-                    if elapsed < self.all_args.ifi:
-                        time.sleep(self.all_args.ifi - elapsed)
-                else:
-                    envs.render('human')
+                
+                if self.use_render:
+                    if self.all_args.save_gifs:
+                        image, local_image = envs.render('rgb_array')[0]
+                        all_frames.append(image)
+                        all_local_frames.append(local_image)
+                        calc_end = time.time()
+                        elapsed = calc_end - calc_start
+                        if elapsed < self.all_args.ifi:
+                            time.sleep(self.all_args.ifi - elapsed)
+                    else:
+                        envs.render('human')
 
                 if np.all(dones[0]):
                     ic("end")
                     break
-
+                
+            total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
             print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
             print("average merge explored ratio is: " + str(np.mean(env_infos['merge_explored_ratio'])))
             print("average merge explored step is: " + str(np.mean(env_infos['merge_explored_ratio_step'])))
+            self.log_env(env_infos, total_num_steps)
 
+        if self.use_eval and not self.use_wandb:
+                self.log_auc(auc_infos)
+                
         if self.all_args.save_gifs:
             ic("rendering....")
             imageio.mimsave(str(self.gif_dir) + '/merge.gif', all_frames, duration=self.all_args.ifi)
