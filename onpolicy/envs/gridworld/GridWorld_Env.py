@@ -14,6 +14,7 @@ class GridWorldEnv(object):
         self.agent_pos = None if self.use_random_pos else args.agent_pos
         self.num_obstacles = args.num_obstacles
         self.use_single_reward = args.use_single_reward
+        self.use_partial_reward = args.use_partial_reward
         self.use_multiroom = args.use_multiroom
         
         register(
@@ -67,6 +68,8 @@ class GridWorldEnv(object):
             dones = np.array([done for agent_id in range(self.num_agents)])
             if self.use_single_reward:
                 rewards = 0.3 * np.expand_dims(infos['agent_explored_reward'], axis=1) + 0.7 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+            elif self.use_partial_reward:
+                rewards = 0.5 * np.expand_dims(infos['agent_explored_partial_reward'], axis=1) + 0.5 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
             else:
                 rewards = np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         else:

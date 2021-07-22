@@ -229,6 +229,7 @@ class MultiExplorationEnv(MultiRoomEnv):
         info['merge_explored_ratio'] = self.merge_ratio
         info['merge_explored_reward'] = self.merge_reward
         info['agent_explored_reward'] = self.agent_reward
+        info['agent_explored_partial_reward'] = self.agent_partial_reward
         info['merge_ratio_step'] = self.merge_ratio_step
         for i in range(self.num_agents):
             info["agent{}_ratio_step".format(i)] = self.agent_ratio_step[i]
@@ -236,6 +237,7 @@ class MultiExplorationEnv(MultiRoomEnv):
         self.merge_ratio = 0
         self.merge_reward = 0
         self.agent_reward = np.zeros((self.num_agents))
+        self.agent_partial_reward = np.zeros((self.num_agents))
         self.agent_ratio_step = np.ones((self.num_agents)) * self.max_steps
         self.merge_ratio_step = self.max_steps
     
@@ -247,10 +249,12 @@ class MultiExplorationEnv(MultiRoomEnv):
         self.obstacle_each_map_t = []
         current_agent_pos = []
         each_agent_rewards = []
+        each_agent_partial_rewards = []
         self.num_step += 1
         reward_obstacle_each_map = np.zeros((self.num_agents, self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size))
         delta_reward_each_map = np.zeros((self.num_agents, self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size))
         reward_explored_each_map = np.zeros((self.num_agents, self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size))
+        partial_reward_explored_each_map = np.zeros((self.num_agents, self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size))
         explored_all_map = np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size))
         obstacle_all_map = np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size))
 
@@ -321,8 +325,11 @@ class MultiExplorationEnv(MultiRoomEnv):
 
             delta_reward_each_map[i] = reward_explored_each_map[i] - reward_obstacle_each_map[i]
             
-            each_agent_rewards.append((np.array(delta_reward_each_map[i]) - np.array(reward_previous_explored_each_map)).sum())
+            each_agent_rewards.append((delta_reward_each_map[i] - reward_previous_explored_each_map).sum())
             self.previous_explored_each_map[i] = self.explored_each_map[i] - self.obstacle_each_map[i]
+            
+            partial_reward_explored_each_map[i] = np.maximum(self.previous_all_map, delta_reward_each_map[i])
+            each_agent_partial_rewards.append((partial_reward_explored_each_map[i] - self.previous_all_map).sum())
         
         for i in range(self.num_agents):
             explored_all_map += self.explored_each_map[i] * (i+1) / self.augment
@@ -358,9 +365,11 @@ class MultiExplorationEnv(MultiRoomEnv):
         if self.use_time_penalty:
             info['agent_explored_reward'] = np.array(each_agent_rewards) * 0.02 - 0.01
             info['merge_explored_reward'] = merge_explored_reward * 0.02 - 0.01
+            info['agent_explored_partial_reward'] = np.array(each_agent_partial_rewards) * 0.02 - 0.01
         else:
             info['agent_explored_reward'] = np.array(each_agent_rewards) * 0.02
             info['merge_explored_reward'] = merge_explored_reward * 0.02
+            info['agent_explored_partial_reward'] = np.array(each_agent_partial_rewards) * 0.02
         
         if delta_reward_all_map.sum() / self.no_wall_size >= self.target_ratio:#(self.width * self.height)
             done = True       
@@ -375,6 +384,7 @@ class MultiExplorationEnv(MultiRoomEnv):
                 #     info['agent_explored_reward'][i] += 0.1 * (reward_explored_each_map[i].sum() / (self.width * self.height))
         
         self.agent_reward = info['agent_explored_reward']
+        self.agent_partial_reward = info['agent_explored_partial_reward']
         self.merge_reward = info['merge_explored_reward']
         self.merge_ratio = delta_reward_all_map.sum() / self.no_wall_size #(self.width * self.height)
         info['merge_explored_ratio'] = self.merge_ratio

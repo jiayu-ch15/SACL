@@ -273,6 +273,7 @@ class Exploration_Env(habitat.RLEnv):
             merge_ratio = self.info['merge_explored_ratio']
             merge_repeat_ratio = self.info['merge_repeat_ratio']
             reward = self.info['explored_reward']
+            partial_reward = self.info['explored_merge_reward']
             ratio = self.info['explored_ratio']
             
 
@@ -304,6 +305,7 @@ class Exploration_Env(habitat.RLEnv):
             self.info['merge_explored_ratio'] = merge_ratio
             self.info['explored_reward'] = reward
             self.info['explored_ratio'] = ratio
+            self.info['explored_merge_reward'] = partial_reward
             self.info['merge_repeat_ratio'] = merge_repeat_ratio
 
         self.save_position()
