@@ -68,6 +68,7 @@ class MultiExplorationEnv(MultiRoomEnv):
         self.merge_ratio = 0
         self.merge_reward = 0
         self.agent_reward = np.zeros((num_agents))
+        self.agent_partial_reward = np.zeros((num_agents))
         self.agent_ratio_step = np.ones((num_agents)) * max_steps
         self.merge_ratio_step = max_steps
 
