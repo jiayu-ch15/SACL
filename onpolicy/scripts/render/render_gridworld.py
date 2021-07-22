@@ -52,7 +52,7 @@ def parse_args(args, parser):
     parser.add_argument("--use_single", action='store_true', default=False,
                         help="use single information") 
     parser.add_argument("--use_resnet", action='store_true', default=False,
-                        help="use single information") 
+                        help="use resnet as network") 
     parser.add_argument("--use_local", action='store_true', default=False,
                         help="use local information")
     parser.add_argument("--use_multiroom", action='store_true', default=False,

@@ -493,7 +493,8 @@ class GridWorldRunner(Runner):
             print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
             print("average merge explored ratio is: " + str(np.mean(env_infos['merge_explored_ratio'])))
             print("average merge explored step is: " + str(np.mean(env_infos['merge_explored_ratio_step'])))
-            self.log_env(env_infos, total_num_steps)
+            if self.use_eval:
+                self.log_env(env_infos, total_num_steps)
 
         if self.use_eval and not self.use_wandb:
                 self.log_auc(auc_infos)
