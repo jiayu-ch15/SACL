@@ -18,7 +18,8 @@ def register(
     use_same_location = True,
     use_complete_reward = True,
     use_multiroom = False,
-    use_time_penalty = False
+    use_time_penalty = False,
+    use_agent_id = False,
 ):
     assert id.startswith("MiniGrid-")
     assert id not in env_list
@@ -40,7 +41,8 @@ def register(
         'use_same_location': use_same_location,
         'use_complete_reward': use_complete_reward,
         'use_multiroom': use_multiroom,
-        'use_time_penalty': use_time_penalty
+        'use_time_penalty': use_time_penalty,
+        'use_agent_id': use_agent_id
         },
         reward_threshold=reward_threshold
     )

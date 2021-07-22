@@ -29,6 +29,7 @@ class GridWorldEnv(object):
             use_single = args.use_single,
             use_same_location = args.use_same_location,
             use_complete_reward = args.use_complete_reward,
+            use_agent_id = args.use_agent_id,
             use_multiroom = self.use_multiroom,
             use_time_penalty = args.use_time_penalty,
             entry_point = 'onpolicy.envs.gridworld.gym_minigrid.envs:MultiExplorationEnv'

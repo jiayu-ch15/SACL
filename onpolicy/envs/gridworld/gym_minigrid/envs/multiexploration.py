@@ -31,7 +31,8 @@ class MultiExplorationEnv(MultiRoomEnv):
         use_same_location = True,
         use_complete_reward = True,
         use_multiroom = False,
-        use_time_penalty = False
+        use_time_penalty = False,
+        use_agent_id = False
     ):
         self.grid_size = grid_size
         self._agent_default_pos = agent_pos
@@ -61,7 +62,8 @@ class MultiExplorationEnv(MultiRoomEnv):
                         use_local = use_local,
                         use_single = use_single,
                         )
-        self.augment = 255 // (np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum())
+        self.augment = np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+        self.use_agent_id = use_agent_id
         self.target_ratio = 0.98
         self.merge_ratio = 0
         self.merge_reward = 0
@@ -169,36 +171,36 @@ class MultiExplorationEnv(MultiRoomEnv):
                         if local_map[x][y] == 0:
                             continue
                         else:
-                            self.explored_each_map[i][x+pos[0]-self.agent_view_size//2][y+pos[1]] = (i+1)*self.augment
+                            self.explored_each_map[i][x+pos[0]-self.agent_view_size//2][y+pos[1]] = 255
                             if local_map[x][y] != 20:
-                                self.obstacle_each_map[i][x+pos[0]-self.agent_view_size//2][y+pos[1]] = (i+1)*self.augment
+                                self.obstacle_each_map[i][x+pos[0]-self.agent_view_size//2][y+pos[1]] = 255
             if direction == 1:# Facing down
                 for x in range(self.agent_view_size):
                     for y in range(self.agent_view_size):
                         if local_map[x][y] == 0:
                             continue
                         else:
-                            self.explored_each_map[i][x+pos[0]][y+pos[1]-self.agent_view_size//2] = (i+1)*self.augment
+                            self.explored_each_map[i][x+pos[0]][y+pos[1]-self.agent_view_size//2] = 255
                             if local_map[x][y] != 20:
-                                self.obstacle_each_map[i][x+pos[0]][y+pos[1]-self.agent_view_size//2] = (i+1)*self.augment
+                                self.obstacle_each_map[i][x+pos[0]][y+pos[1]-self.agent_view_size//2] = 255
             if direction == 2:# Facing left
                 for x in range(self.agent_view_size):
                     for y in range(self.agent_view_size):
                         if local_map[x][y] == 0:
                             continue
                         else:
-                            self.explored_each_map[i][x+pos[0]-self.agent_view_size//2][y+pos[1]-self.agent_view_size+1] = (i+1)*self.augment
+                            self.explored_each_map[i][x+pos[0]-self.agent_view_size//2][y+pos[1]-self.agent_view_size+1] = 255
                             if local_map[x][y] != 20:
-                                self.obstacle_each_map[i][x+pos[0]-self.agent_view_size//2][y+pos[1]-self.agent_view_size+1] = (i+1)*self.augment
+                                self.obstacle_each_map[i][x+pos[0]-self.agent_view_size//2][y+pos[1]-self.agent_view_size+1] = 255
             if direction == 3:# Facing up
                 for x in range(self.agent_view_size):
                     for y in range(self.agent_view_size):
                         if local_map[x][y] == 0:
                             continue
                         else:
-                            self.explored_each_map[i][x+pos[0]-self.agent_view_size+1][y+pos[1]-self.agent_view_size//2] = (i+1)*self.augment
+                            self.explored_each_map[i][x+pos[0]-self.agent_view_size+1][y+pos[1]-self.agent_view_size//2] = 255
                             if local_map[x][y] != 20:
-                                self.obstacle_each_map[i][x+pos[0]-self.agent_view_size+1][y+pos[1]-self.agent_view_size//2] = (i+1)*self.augment
+                                self.obstacle_each_map[i][x+pos[0]-self.agent_view_size+1][y+pos[1]-self.agent_view_size//2] = 255
             for j in range(3):
                 mmap = np.rot90(obs[i]['image'][:,:,j].T,3)
                 mmap = np.rot90(mmap, 4-direction)
@@ -207,18 +209,22 @@ class MultiExplorationEnv(MultiRoomEnv):
         obstacle_all_map = np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size))
         self.previous_all_map = np.zeros((self.width + 2*self.agent_view_size, self.width + 2*self.agent_view_size))
         for i in range(self.num_agents):
-            explored_all_map += self.explored_each_map[i]
-            obstacle_all_map += self.obstacle_each_map[i]
+            explored_all_map += self.explored_each_map[i] * (i+1) / self.augment
+            obstacle_all_map += self.obstacle_each_map[i] * (i+1) / self.augment
         self.explored_map = np.array(explored_all_map).astype(int)[self.agent_view_size : self.width+self.agent_view_size, self.agent_view_size : self.width+self.agent_view_size]
         
         info = {}
         info['explored_all_map'] = np.array(explored_all_map)
         info['current_agent_pos'] = np.array(current_agent_pos)
-        info['explored_each_map'] = np.array(self.explored_each_map)
         info['obstacle_all_map'] = np.array(obstacle_all_map)
-        info['obstacle_each_map'] = np.array(self.obstacle_each_map)
         info['agent_direction'] = np.array(self.agent_dir)
         info['agent_local_map'] = self.agent_local_map
+        if self.use_agent_id:
+            info['explored_each_map'] = np.array(self.explored_each_map)
+            info['obstacle_each_map'] = np.array(self.obstacle_each_map)
+        else:
+            info['explored_each_map'] = np.array(self.explored_each_map)
+            info['obstacle_each_map'] = np.array(self.obstacle_each_map)
 
         info['merge_explored_ratio'] = self.merge_ratio
         info['merge_explored_reward'] = self.merge_reward
@@ -251,7 +257,7 @@ class MultiExplorationEnv(MultiRoomEnv):
         for i in range(self.num_agents):
             self.explored_each_map_t.append(np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size)))
             self.obstacle_each_map_t.append(np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size)))
-        for i in range(self.num_agents):     
+        for i in range(self.num_agents): 
             local_map = np.rot90(obs[i]['image'][:,:,0].T,3)
             
             pos = [self.agent_pos[i][1] + self.agent_view_size, self.agent_pos[i][0] + self.agent_view_size]
@@ -265,27 +271,27 @@ class MultiExplorationEnv(MultiRoomEnv):
                         if local_map[x][y] == 0:
                             continue
                         else:
-                            self.explored_each_map_t[i][x+pos[0]-self.agent_view_size//2][y+pos[1]] = (i+1)*self.augment
+                            self.explored_each_map_t[i][x+pos[0]-self.agent_view_size//2][y+pos[1]] = 255
                             if local_map[x][y] != 20:
-                                self.obstacle_each_map_t[i][x+pos[0]-self.agent_view_size//2][y+pos[1]] = (i+1)*self.augment
+                                self.obstacle_each_map_t[i][x+pos[0]-self.agent_view_size//2][y+pos[1]] = 255
             if direction == 1:## Facing down
                 for x in range(self.agent_view_size):
                     for y in range(self.agent_view_size):
                         if local_map[x][y] == 0:
                             continue
                         else:
-                            self.explored_each_map_t[i][x+pos[0]][y+pos[1]-self.agent_view_size//2] = (i+1)*self.augment
+                            self.explored_each_map_t[i][x+pos[0]][y+pos[1]-self.agent_view_size//2] = 255
                             if local_map[x][y] != 20:
-                                self.obstacle_each_map_t[i][x+pos[0]][y+pos[1]-self.agent_view_size//2] = (i+1)*self.augment
+                                self.obstacle_each_map_t[i][x+pos[0]][y+pos[1]-self.agent_view_size//2] = 255
             if direction == 2:## Facing left
                 for x in range(self.agent_view_size):
                     for y in range(self.agent_view_size):
                         if local_map[x][y] == 0:
                             continue
                         else:
-                            self.explored_each_map_t[i][x+pos[0]-self.agent_view_size//2][y+pos[1]-self.agent_view_size+1] = (i+1)*self.augment
+                            self.explored_each_map_t[i][x+pos[0]-self.agent_view_size//2][y+pos[1]-self.agent_view_size+1] = 255 #(i+1)*self.augment
                             if local_map[x][y] != 20:
-                                self.obstacle_each_map_t[i][x+pos[0]-self.agent_view_size//2][y+pos[1]-self.agent_view_size+1] = (i+1)*self.augment
+                                self.obstacle_each_map_t[i][x+pos[0]-self.agent_view_size//2][y+pos[1]-self.agent_view_size+1] = 255
             if direction == 3:#Facing up
                 for x in range(self.agent_view_size):
                     for y in range(self.agent_view_size):
@@ -293,9 +299,9 @@ class MultiExplorationEnv(MultiRoomEnv):
                             continue
                         else:
 
-                            self.explored_each_map_t[i][x+pos[0]-self.agent_view_size+1][y+pos[1]-self.agent_view_size//2] = (i+1)*self.augment
+                            self.explored_each_map_t[i][x+pos[0]-self.agent_view_size+1][y+pos[1]-self.agent_view_size//2] = 255
                             if local_map[x][y] != 20:
-                                self.obstacle_each_map_t[i][x+pos[0]-self.agent_view_size+1][y+pos[1]-self.agent_view_size//2] = (i+1)*self.augment
+                                self.obstacle_each_map_t[i][x+pos[0]-self.agent_view_size+1][y+pos[1]-self.agent_view_size//2] = 255
             for j in range(3):
                 mmap = np.rot90(obs[i]['image'][:,:,j].T,3)
                 mmap = np.rot90(mmap, 4 - direction)
@@ -319,8 +325,8 @@ class MultiExplorationEnv(MultiRoomEnv):
             self.previous_explored_each_map[i] = self.explored_each_map[i] - self.obstacle_each_map[i]
         
         for i in range(self.num_agents):
-            explored_all_map += self.explored_each_map[i]
-            obstacle_all_map += self.obstacle_each_map[i]
+            explored_all_map += self.explored_each_map[i] * (i+1) / self.augment
+            obstacle_all_map += self.obstacle_each_map[i] * (i+1) / self.augment
         
         reward_explored_all_map = explored_all_map.copy()
         reward_explored_all_map[reward_explored_all_map != 0] = 1
@@ -340,11 +346,15 @@ class MultiExplorationEnv(MultiRoomEnv):
         info = {}
         info['explored_all_map'] = np.array(explored_all_map)
         info['current_agent_pos'] = np.array(current_agent_pos)
-        info['explored_each_map'] = np.array(self.explored_each_map)
         info['obstacle_all_map'] = np.array(obstacle_all_map)
-        info['obstacle_each_map'] = np.array(self.obstacle_each_map)
         info['agent_direction'] = np.array(self.agent_dir)
         info['agent_local_map'] = self.agent_local_map
+        if self.use_agent_id:
+            info['explored_each_map'] = np.array(self.explored_each_map)
+            info['obstacle_each_map'] = np.array(self.obstacle_each_map)
+        else:
+            info['explored_each_map'] = np.array(self.explored_each_map)
+            info['obstacle_each_map'] = np.array(self.obstacle_each_map)
         if self.use_time_penalty:
             info['agent_explored_reward'] = np.array(each_agent_rewards) * 0.02 - 0.01
             info['merge_explored_reward'] = merge_explored_reward * 0.02 - 0.01
