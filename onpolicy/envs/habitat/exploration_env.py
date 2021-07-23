@@ -15,7 +15,7 @@ from PIL import Image
 import matplotlib
 if matplotlib.get_backend() == "agg":
     print("matplot backend is {}".format(matplotlib.get_backend()))
-matplotlib.use('TkAgg')
+#matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 from .utils.map_builder import MapBuilder
