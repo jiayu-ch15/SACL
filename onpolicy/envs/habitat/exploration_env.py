@@ -204,6 +204,9 @@ class Exploration_Env(habitat.RLEnv):
         self.prev_merge_exlored_map = np.zeros_like(self.explorable_map[0])
         self.prev_explored_area = [0. for _ in range(self.num_agents)]
         self.pre_agent_trans_map = [np.zeros_like(self.explorable_map[0]) for _ in range(self.num_agents)]
+        merge_explored_gt = np.zeros_like(self.explorable_map[0])
+        merge_obstacle_gt = np.zeros_like(self.explorable_map[0])
+
         self.prev_merge_explored_area = 0
 
         # Preprocess observations
@@ -255,6 +258,10 @@ class Exploration_Env(habitat.RLEnv):
             fp_explored.append(fp_explored_t)
             self.explored_map.append(explored_map_t)
             self.current_explored_gt.append(current_explored_gt)
+            merge_explored_gt = np.maximum(merge_explored_gt, self.transform(explored_map_t, agent_id))
+            merge_obstacle_gt = np.maximum(merge_obstacle_gt, self.transform(map_t, agent_id))
+            
+            
 
         # Initialize variables
         self.merge_pred_map = np.zeros_like(self.explorable_map[0])
@@ -273,7 +280,6 @@ class Exploration_Env(habitat.RLEnv):
             merge_ratio = self.info['merge_explored_ratio']
             merge_repeat_ratio = self.info['merge_repeat_ratio']
             reward = self.info['explored_reward']
-            partial_reward = self.info['explored_merge_reward']
             ratio = self.info['explored_ratio']
             
 
@@ -284,6 +290,8 @@ class Exploration_Env(habitat.RLEnv):
             'fp_explored': [],
             'sensor_pose': [],
             'pose_err': [],
+            'merge_obstacle_gt': [],
+            'merge_explored_gt': []
         }
         for agent_id in range(self.num_agents):
             self.info['time'].append(self.timestep)
@@ -291,6 +299,8 @@ class Exploration_Env(habitat.RLEnv):
             self.info['fp_explored'].append(fp_explored[agent_id])
             self.info['sensor_pose'].append([0., 0., 0.])
             self.info['pose_err'].append([0., 0., 0.])
+            self.info['merge_explored_gt'].append(self.agent_transform(merge_explored_gt, agent_id))
+            self.info['merge_obstacle_gt'].append(self.agent_transform(merge_obstacle_gt, agent_id))
             
         self.info['trans'] = self.n_trans
         self.info['rotation'] = self.n_rot
@@ -298,6 +308,7 @@ class Exploration_Env(habitat.RLEnv):
         self.info['agent_trans'] = self.agent_n_trans
         self.info['agent_rotation'] = self.agent_n_rot
         self.info['explorable_map'] = self.explorable_map
+        
 
         self.info['scene_id'] = self.scene_id
         if self.episode_no >1 :
@@ -305,7 +316,6 @@ class Exploration_Env(habitat.RLEnv):
             self.info['merge_explored_ratio'] = merge_ratio
             self.info['explored_reward'] = reward
             self.info['explored_ratio'] = ratio
-            self.info['explored_merge_reward'] = partial_reward
             self.info['merge_repeat_ratio'] = merge_repeat_ratio
 
         self.save_position()
@@ -402,7 +412,9 @@ class Exploration_Env(habitat.RLEnv):
                  self.curr_loc_gt[agent_id][1] * 100.0,
                  np.deg2rad(self.curr_loc_gt[agent_id][2]))
             )
-
+            
+        merge_explored_gt = np.zeros_like(self.explorable_map[0])
+        merge_obstacle_gt = np.zeros_like(self.explorable_map[0])
         fp_proj = []
         fp_explored = []
         self.map = []
@@ -417,6 +429,8 @@ class Exploration_Env(habitat.RLEnv):
             fp_explored.append(fp_explored_t)
             self.explored_map.append(explored_map_t)
             self.current_explored_gt.append(current_explored_gt)
+            merge_explored_gt = np.maximum(merge_explored_gt, self.transform(explored_map_t, agent_id))
+            merge_obstacle_gt = np.maximum(merge_obstacle_gt, self.transform(map_t, agent_id))
 
         # Update collision map
         for agent_id in range(self.num_agents):
@@ -454,6 +468,8 @@ class Exploration_Env(habitat.RLEnv):
             'fp_explored': [],
             'sensor_pose': [],
             'pose_err': [],
+            'merge_obstacle_gt': [],
+            'merge_explored_gt': [],
             'explored_reward': [0.0 for _ in range(self.num_agents)],
             'explored_merge_reward':[0.0 for _ in range(self.num_agents)],
             'explored_ratio': [],
@@ -469,9 +485,12 @@ class Exploration_Env(habitat.RLEnv):
             self.info['pose_err'].append([dx_gt[agent_id] - dx_base[agent_id],
                                           dy_gt[agent_id] - dy_base[agent_id],
                                           do_gt[agent_id] - do_base[agent_id]])
+            self.info['merge_explored_gt'].append(self.agent_transform(merge_explored_gt, agent_id))
+            self.info['merge_obstacle_gt'].append(self.agent_transform(merge_obstacle_gt, agent_id))
 
         
         agent_explored_area, agent_explored_ratio, merge_explored_area, merge_explored_ratio, agent_trans_reward, curr_merge_explored_map = self.get_global_reward()
+        
       
         # log step
         self.merge_ratio += merge_explored_ratio
@@ -661,6 +680,16 @@ class Exploration_Env(habitat.RLEnv):
             0).float(), self.n_rot[agent_id].float(), align_corners=True)
         n_map = F.grid_sample(
             n_rotated.float(), self.n_trans[agent_id].float(), align_corners=True)
+        n_map = n_map[0, 0, :, :].numpy()
+
+        return n_map
+    
+    def agent_transform(self, inputs, agent_id):
+        inputs = torch.from_numpy(inputs)
+        n_trans = F.grid_sample(inputs.unsqueeze(0).unsqueeze(
+            0).float(), self.agent_n_trans[agent_id].float(), align_corners=True)
+        n_map = F.grid_sample(
+            n_trans.float(), self.agent_n_rot[agent_id].float(), align_corners=True)
         n_map = n_map[0, 0, :, :].numpy()
 
         return n_map

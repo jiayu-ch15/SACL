@@ -56,6 +56,8 @@ class HabitatRunner(Runner):
         self.agent_trans = [infos[e]['agent_trans'] for e in range(self.n_rollout_threads)]
         self.agent_rotation = [infos[e]['agent_rotation'] for e in range(self.n_rollout_threads)]
         self.explorable_map = [infos[e]['explorable_map'] for e in range(self.n_rollout_threads)]
+        self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
+        self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
         for agent_id in range(self.num_agents):
             self.intrinsic_gt[ : , agent_id] = np.array(self.explorable_map)[ : , agent_id]
 
@@ -151,6 +153,8 @@ class HabitatRunner(Runner):
                     self.agent_rotation = [infos[e]['agent_rotation'] for e in range(self.n_rollout_threads)]
                     self.explorable_map = [infos[e]['explorable_map'] for e in range(self.n_rollout_threads)]
                     self.scene_id = [infos[e]['scene_id'] for e in range(self.n_rollout_threads)]
+                    self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
+                    self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
                     for agent_id in range(self.num_agents):
                         self.intrinsic_gt[:, agent_id] = np.array(self.explorable_map)[:, agent_id]
 
@@ -298,6 +302,7 @@ class HabitatRunner(Runner):
         self.use_merge = self.all_args.use_merge
         self.use_single = self.all_args.use_single
         self.use_merge_local = self.all_args.use_merge_local
+        self.use_oracle = self.all_args.use_oracle
 
     def init_map_variables(self):
         ### Full map consists of 4 channels containing the following:
@@ -545,6 +550,40 @@ class HabitatRunner(Runner):
                                 self.local_map[:, a, 1, :, :], 
                                 self.local_pose[:, a, :],
                                 build_maps = build_maps)
+    def oracle_transform(self, inputs, trans, rotation, agent_trans, agent_rotation, a):
+        merge_map = np.zeros((self.n_rollout_threads, 4, self.full_w, self.full_h), dtype=np.float32)
+        local_merge_map = np.zeros((self.n_rollout_threads, 4, self.local_w, self.local_h), dtype=np.float32)
+        for e in range(self.n_rollout_threads):
+            for agent_id in range(self.num_agents):
+                output = torch.from_numpy(inputs[e, agent_id, 2:])
+                n_rotated = F.grid_sample(output.unsqueeze(0).float(), rotation[e][agent_id].float(), align_corners=True)
+                n_map = F.grid_sample(n_rotated.float(), trans[e][agent_id].float(), align_corners=True)
+                agent_merge_map = n_map[0, :, :, :].numpy()
+
+                (index_a, index_b) = np.unravel_index(np.argmax(agent_merge_map[0, :, :], axis=None), agent_merge_map[0, :, :].shape)
+                agent_merge_map[0, :, :] = np.zeros((self.full_h, self.full_w), dtype=np.float32)
+                if self.first_compute:
+                    agent_merge_map[0, index_a - 1: index_a + 2, index_b - 1: index_b + 2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                else: 
+                    agent_merge_map[0, index_a - 2: index_a + 3, index_b - 2: index_b + 3] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+            
+                trace = np.zeros((self.full_h, self.full_w), dtype=np.float32)
+                #trace[0][agent_merge_map[0] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                #trace[1][agent_merge_map[1] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                trace[agent_merge_map[1] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                #agent_merge_map[0:2] = trace[0:2]
+                agent_merge_map[1] = trace
+                merge_map[e,2:] += agent_merge_map
+            
+            
+            agent_n_trans = F.grid_sample(torch.from_numpy(merge_map[e,2:]).unsqueeze(0).float(), agent_trans[e][a].float(), align_corners=True)      
+            merge_map[e,2:] = F.grid_sample(agent_n_trans.float(), agent_rotation[e][a].float(), align_corners=True)[0, :, :, :].numpy()
+            merge_map[e,0] = self.merge_obstacle_gt[e,a]
+            merge_map[e,1] = self.merge_explored_gt[e,a]
+
+            local_merge_map[e, :2] = merge_map[e, :2, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]].copy()
+            local_merge_map[e, 2:] = self.local_map[e, a, 2:].copy()
+        return merge_map, local_merge_map
     
     def transform(self, inputs, trans, rotation, agent_trans, agent_rotation, a):
         merge_map = np.zeros((self.n_rollout_threads, 4, self.full_w, self.full_h), dtype=np.float32)
@@ -648,14 +687,22 @@ class HabitatRunner(Runner):
                 self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
                 self.other_agent_rotation[e, a, 0] = locs[e, a, 2]
                 self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
-            
-            if self.use_center:
-                self.transform_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
-                self.merge_map[:, a] = self.center_transform(self.transform_map[:,a], a)
-                full_map[:, a] = self.center_transform(self.full_map[:, a], a)
+            if self.use_oracle:
+                if self.use_center:
+                    self.transform_map[:, a], self.local_merge_map[:, a] = self.oracle_transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
+                    self.merge_map[:, a] = self.center_transform(self.transform_map[:,a], a)
+                    full_map[:, a] = self.center_transform(self.full_map[:, a], a)
+                else:
+                    self.merge_map[:, a], self.local_merge_map[:, a] = self.oracle_transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
+                    full_map[:, a] = self.full_map[:, a].copy()
             else:
-                self.merge_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
-                full_map[:, a] = self.full_map[:, a].copy()
+                if self.use_center:
+                    self.transform_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
+                    self.merge_map[:, a] = self.center_transform(self.transform_map[:,a], a)
+                    full_map[:, a] = self.center_transform(self.full_map[:, a], a)
+                else:
+                    self.merge_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
+                    full_map[:, a] = self.full_map[:, a].copy()
             #self.global_input['global_obs'][:, a, 0:4] = self.local_map[:, a].copy()
             #self.global_input['global_obs'][:, a, 4:8] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a]))).numpy()
             '''if self.use_center:
@@ -759,14 +806,22 @@ class HabitatRunner(Runner):
                 self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
                 self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
                 self.other_agent_rotation[e, a, 0] = locs[e, a, 2]
-
-            if self.use_center:
-                self.transform_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
-                self.merge_map[:, a] = self.center_transform(self.transform_map[:, a], a)
-                full_map[:, a] = self.center_transform(self.full_map[:, a], a)
+            if self.use_oracle:
+                if self.use_center:
+                    self.transform_map[:, a], self.local_merge_map[:, a] = self.oracle_transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
+                    self.merge_map[:, a] = self.center_transform(self.transform_map[:,a], a)
+                    full_map[:, a] = self.center_transform(self.full_map[:, a], a)
+                else:
+                    self.merge_map[:, a], self.local_merge_map[:, a] = self.oracle_transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
+                    full_map[:, a] = self.full_map[:, a].copy()
             else:
-                self.merge_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
-                full_map[:, a] = self.full_map[:, a].copy()
+                if self.use_center:
+                    self.transform_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
+                    self.merge_map[:, a] = self.center_transform(self.transform_map[:, a], a)
+                    full_map[:, a] = self.center_transform(self.full_map[:, a], a)
+                else:
+                    self.merge_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
+                    full_map[:, a] = self.full_map[:, a].copy()
             #self.global_input['global_obs'][:, a, 0:4] = self.local_map[:, a]
             #self.global_input['global_obs'][:, a, 4:8] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a]))).numpy()
         
@@ -1153,6 +1208,8 @@ class HabitatRunner(Runner):
             self.agent_trans = [infos[e]['agent_trans'] for e in range(self.n_rollout_threads)]
             self.agent_rotation = [infos[e]['agent_rotation'] for e in range(self.n_rollout_threads)]
             self.explorable_map = [infos[e]['explorable_map'] for e in range(self.n_rollout_threads)]
+            self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
+            self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
 
             # Predict map from frame 1:
             self.run_slam_module(self.obs, self.obs, infos)
