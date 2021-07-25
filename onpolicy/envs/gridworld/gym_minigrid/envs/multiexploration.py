@@ -311,6 +311,9 @@ class MultiExplorationEnv(MultiRoomEnv):
                 mmap = np.rot90(obs[i]['image'][:,:,j].T,3)
                 mmap = np.rot90(mmap, 4 - direction)
                 self.agent_local_map[i,:,:, j] = mmap
+                
+        agent_previous_all_map = self.previous_all_map.copy()
+        agent_previous_all_map[agent_previous_all_map != 0] = 1
         for i in range(self.num_agents):
             self.explored_each_map[i] = np.maximum(self.explored_each_map[i], self.explored_each_map_t[i])
             self.obstacle_each_map[i] = np.maximum(self.obstacle_each_map[i], self.obstacle_each_map_t[i])
@@ -329,8 +332,8 @@ class MultiExplorationEnv(MultiRoomEnv):
             each_agent_rewards.append((delta_reward_each_map[i] - reward_previous_explored_each_map).sum())
             self.previous_explored_each_map[i] = self.explored_each_map[i] - self.obstacle_each_map[i]
             
-            partial_reward_explored_each_map[i] = np.maximum(self.previous_all_map, delta_reward_each_map[i])
-            each_agent_partial_rewards.append((partial_reward_explored_each_map[i] - self.previous_all_map).sum())
+            partial_reward_explored_each_map[i] = np.maximum(agent_previous_all_map, delta_reward_each_map[i])
+            each_agent_partial_rewards.append((partial_reward_explored_each_map[i] - agent_previous_all_map).sum())
         
         for i in range(self.num_agents):
             explored_all_map += self.explored_each_map[i] * (i+1) / self.augment
