@@ -65,6 +65,7 @@ class Exploration_Env(habitat.RLEnv):
         self.save_gifs = args.save_gifs
         self.map_resolution = args.map_resolution
         self.map_size_cm = args.map_size_cm
+        self.use_eval = args.use_eval
 
         self.num_actions = 3
         self.dt = 10
@@ -243,7 +244,7 @@ class Exploration_Env(habitat.RLEnv):
                  self.curr_loc_gt[agent_id][1]*100.0,
                  np.deg2rad(self.curr_loc_gt[agent_id][2]))
             )
-
+        
         fp_proj = []
         fp_explored = []
         self.map = []
@@ -291,7 +292,8 @@ class Exploration_Env(habitat.RLEnv):
             'sensor_pose': [],
             'pose_err': [],
             'merge_obstacle_gt': [],
-            'merge_explored_gt': []
+            'merge_explored_gt': [],
+            'path_length': []
         }
         for agent_id in range(self.num_agents):
             self.info['time'].append(self.timestep)
@@ -301,6 +303,8 @@ class Exploration_Env(habitat.RLEnv):
             self.info['pose_err'].append([0., 0., 0.])
             self.info['merge_explored_gt'].append(self.agent_transform(merge_explored_gt, agent_id))
             self.info['merge_obstacle_gt'].append(self.agent_transform(merge_obstacle_gt, agent_id))
+            if self.use_eval:
+                self.info['path_length'].append(pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][0]))
             
         self.info['trans'] = self.n_trans
         self.info['rotation'] = self.n_rot
@@ -470,6 +474,7 @@ class Exploration_Env(habitat.RLEnv):
             'pose_err': [],
             'merge_obstacle_gt': [],
             'merge_explored_gt': [],
+            'path_length': [],
             'explored_reward': [0.0 for _ in range(self.num_agents)],
             'explored_merge_reward':[0.0 for _ in range(self.num_agents)],
             'explored_ratio': [],
@@ -487,6 +492,8 @@ class Exploration_Env(habitat.RLEnv):
                                           do_gt[agent_id] - do_base[agent_id]])
             self.info['merge_explored_gt'].append(self.agent_transform(merge_explored_gt, agent_id))
             self.info['merge_obstacle_gt'].append(self.agent_transform(merge_obstacle_gt, agent_id))
+            if self.use_eval:
+                self.info['path_length'].append(pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][0]))
 
         
         agent_explored_area, agent_explored_ratio, merge_explored_area, merge_explored_ratio, agent_trans_reward, curr_merge_explored_map = self.get_global_reward()
@@ -531,7 +538,7 @@ class Exploration_Env(habitat.RLEnv):
             self.info['merge_repeat_ratio'] = agents_explored_map[self.prev_merge_exlored_map == 1].sum() * (25./10000)
             if self.use_repeat_penalty and self.merge_ratio < self.explored_ratio_threshold:
                 self.info['merge_explored_reward'] -= (agents_explored_map[self.prev_merge_exlored_map == 1].sum() * (25./10000) * 0.02 *0.5)
-            self.prev_merge_exlored_map = curr_merge_explored_map
+            self.prev_merge_exlored_map = curr_merge_explored_map.copy()
         
         if self.use_time_penalty and self.merge_ratio < self.explored_ratio_threshold:
             self.info['merge_explored_reward'] -= 0.002     
