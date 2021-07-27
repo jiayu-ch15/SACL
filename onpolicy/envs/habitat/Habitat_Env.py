@@ -116,9 +116,9 @@ class MultiHabitatEnv(object):
             
 
         if rank > (args.n_rollout_threads)/2 and args.n_rollout_threads > 6:
-            gpu_id = 2
+            gpu_id = 0
         else:
-            gpu_id = 1
+            gpu_id = 0
 
         config_env.ENVIRONMENT.MAX_EPISODE_STEPS = args.max_episode_length
         config_env.ENVIRONMENT.ITERATOR_OPTIONS.SHUFFLE = True
