@@ -123,7 +123,7 @@ class RRT:
             else:
                 if self.check_collision(new_node, self.obstacle_list):
                     self.push_node(new_node)
-        print("%d iterations, %d targets"%(i, len(targets)))
+        # print("%d iterations, %d targets"%(i, len(targets)))
         return targets
 
     def steer(self, from_node, to_node, extend_length=float("inf")):

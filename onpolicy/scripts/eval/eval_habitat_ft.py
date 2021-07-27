@@ -120,8 +120,10 @@ def parse_args(args, parser):
                         default=False, help="by default True, use merge information") 
     parser.add_argument('--use_single', action='store_true',
                         default=False, help="by default True, use single information")
-    parser.add_argument('--use_marge_local', action='store_true',
+    parser.add_argument('--use_merge_local', action='store_true',
                         default=False, help="by default True, use single information")
+    parser.add_argument('--use_oracle', action='store_true',
+                        default=False, help="by default True, use oracle information") 
     parser.add_argument('--pretrained_global_resnet', type=int, default=1)      
 
 
@@ -173,7 +175,7 @@ def parse_args(args, parser):
     parser.add_argument('--local_planner', type=str, default='fmm', help = 'choose local planner. [fmm, rrt, astar]')
 
     parser.add_argument('--ft_num_local_steps', type=int, default = 5)
-    parser.add_argument('--ft_clear_radius',type=float, default = 35)
+    parser.add_argument('--ft_clear_radius',type=float, default = 40)
     parser.add_argument('--ft_cluster_radius', type=float, default = 5.0)
 
     # apf
@@ -293,7 +295,7 @@ def main(args):
         from onpolicy.runner.separated.habitat_runner import HabitatRunner as Runner
 
     runner = Runner(config)
-    runner.eval_apf()
+    runner.eval_ft()
     
     # post process
     envs.close()

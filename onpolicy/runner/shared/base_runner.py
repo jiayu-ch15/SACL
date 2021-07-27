@@ -69,7 +69,6 @@ class Runner(object):
                 self.save_dir = str(self.run_dir / 'models')
                 if not os.path.exists(self.save_dir):
                     os.makedirs(self.save_dir)
-
         if "mappo" in self.algorithm_name:
             if self.use_single_network:
                 from onpolicy.algorithms.r_mappo_single.r_mappo_single import R_MAPPO as TrainAlgo
@@ -84,23 +83,26 @@ class Runner(object):
             else:
                 from onpolicy.algorithms.r_mappg.r_mappg import R_MAPPG as TrainAlgo
                 from onpolicy.algorithms.r_mappg.algorithm.rMAPPGPolicy import R_MAPPGPolicy as Policy
+        elif self.all_args.use_ft_global:
+            pass
         else:
             raise NotImplementedError
         
         share_observation_space = self.envs.share_observation_space[0] if self.use_centralized_V else self.envs.observation_space[0]
 
-        # policy network
-        self.policy = Policy(self.all_args,
-                            self.envs.observation_space[0],
-                            share_observation_space,
-                            self.envs.action_space[0],
-                            device = self.device)
+        if not self.all_args.use_ft_global:
+            # policy network
+            self.policy = Policy(self.all_args,
+                                self.envs.observation_space[0],
+                                share_observation_space,
+                                self.envs.action_space[0],
+                                device = self.device)
 
-        if self.model_dir is not None:
-            self.restore()
+            if self.model_dir is not None:
+                self.restore()
 
-        # algorithm
-        self.trainer = TrainAlgo(self.all_args, self.policy, device = self.device)
+            # algorithm
+            self.trainer = TrainAlgo(self.all_args, self.policy, device = self.device)
         
         # buffer
         self.buffer = SharedReplayBuffer(self.all_args,

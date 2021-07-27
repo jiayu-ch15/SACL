@@ -14,7 +14,7 @@ class AstarPlanner(object):
     
     def get_short_term_goal(self, start):
         self.start = start
-        path = pyastar2d.astar_path(self.map, self.start, self.goal, allow_diagonal=True)
+        path = pyastar2d.astar_path(self.map, self.start, self.goal, allow_diagonal=False)
         if len(path) == 1:
             return start[0], start[1], True
         w = min(len(path), 5)

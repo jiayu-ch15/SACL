@@ -130,7 +130,7 @@ def nearest_frontier(map, locations, steps, agent_id, clear_radius = 40, cluster
         # no valid target
         print("random goal")
         x, y = np.random.randint(0, H), np.random.randint(0, W)
-        while vis[x, y] == 0 or dis[x,y] < 100:
+        while map[x,y] == 1:
             x, y = np.random.randint(0, H), np.random.randint(0, W)
         min_x, min_y = x, y
     return min_x, min_y

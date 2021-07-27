@@ -83,7 +83,7 @@ class APF(object):
                 for j in range(W):
                     if map[i,j] == 2 and vis[i,j] == 1:
                         targets.append((i,j))
-        print("Number of targets", len(targets))
+        # print("Number of targets", len(targets))
         # clustering
         clusters = []
         num_targets = len(targets)
@@ -152,7 +152,7 @@ class APF(object):
         if type(penalty) != type(None):
             potential += penalty
 
-        print("    %d targets"%num_targets)
+        # print("    %d targets"%num_targets)
 
         # schedule path
         it = 1
@@ -187,7 +187,7 @@ class APF(object):
                     break
             if not full_path and len(path)>1:
                 return path[1] # next grid
-        print("    Iters %d, Goal (%d, %d)"%(it, path[-1][0], path[-1][1]))
+        # print("    Iters %d, Goal (%d, %d)"%(it, path[-1][0], path[-1][1]))
         random_plan = False
         if minDis2Target > 1:
             # random_plan = True
@@ -202,5 +202,5 @@ class APF(object):
                 random_targets.append((np.random.randint(0,H), np.random.randint(0,W)))
             w = np.random.randint(0, len(random_targets))
             path = (locations[agent_id], random_targets[w])
-            print("    random plan, pick goal (%d, %d)"%(random_targets[w][0], random_targets[w][1]))
+            # print("    random plan, pick goal (%d, %d)"%(random_targets[w][0], random_targets[w][1]))
         return path

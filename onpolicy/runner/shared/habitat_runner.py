@@ -1485,11 +1485,12 @@ class HabitatRunner(Runner):
             print("done!")
             
     @torch.no_grad()
-    def eval_apf(self):
+    def eval_ft(self):
         self.eval_infos = defaultdict(list)
 
         for episode in range(self.all_args.eval_episodes):
             # store each episode ratio or reward
+            self.env_step = 0
             self.init_env_info()
             if not self.use_delta_reward:
                 self.rewards = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
@@ -1533,6 +1534,7 @@ class HabitatRunner(Runner):
             
             for step in range(self.max_episode_length):
                 ic(step)
+                self.env_step = step + 1
                 local_step = step % self.num_local_steps
                 global_step = (step // self.num_local_steps) % self.episode_length
                 eval_global_step = step // self.num_local_steps + 1
@@ -1544,7 +1546,6 @@ class HabitatRunner(Runner):
 
                 # Obser reward and next obs
                 self.obs, reward, dones, infos = self.envs.step(actions_env)
-
                 for e in range(self.n_rollout_threads):
                     for key in ['explored_ratio', 'explored_reward', 'path_length', 'merge_explored_ratio', 'merge_explored_reward', 'merge_repeat_ratio']:
                         if key in infos[e].keys():
@@ -1561,6 +1562,7 @@ class HabitatRunner(Runner):
                         agent_k = "agent{}_explored_ratio_step".format(agent_id)
                         if agent_k in infos[e].keys():
                             self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
+                print("gjx step %d, explored "%(self.env_step), self.env_info['sum_merge_explored_ratio'])
                                 
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
