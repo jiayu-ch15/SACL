@@ -404,9 +404,10 @@ class HabitatRunner(Runner):
         
         self.env_infos['sum_explored_ratio'] = deque(maxlen=length)
         self.env_infos['sum_explored_reward'] = deque(maxlen=length)
+        self.env_infos['sum_repeat_area'] = deque(maxlen=length)
         self.env_infos['sum_mer_explored_reward'] = deque(maxlen=length)
         self.env_infos['sum_merge_explored_ratio'] = deque(maxlen=length)
-        self.env_infos['sum_merge_repeat_ratio'] = deque(maxlen=length)
+        self.env_infos['sum_merge_repeat_area'] = deque(maxlen=length)
         self.env_infos['sum_merge_explored_reward'] = deque(maxlen=length)
         self.env_infos['merge_explored_ratio_step'] = deque(maxlen=length)
         self.env_infos['merge_explored_ratio_step_0.95'] = deque(maxlen=length)
@@ -415,7 +416,8 @@ class HabitatRunner(Runner):
         self.env_infos['merge_success_rate'] = deque(maxlen=length)
         self.env_infos['max_sum_merge_explored_ratio'] = deque(maxlen=length)
         self.env_infos['min_sum_merge_explored_ratio'] = deque(maxlen=length)
-        self.env_infos['explored_ratio_step'] = deque(maxlen=length)        
+        self.env_infos['explored_ratio_step'] = deque(maxlen=length) 
+        self.env_infos['overlap_ratio'] = deque(maxlen=length) 
         if self.use_eval:
             self.env_infos['sum_path_length'] = deque(maxlen=length)
             self.auc_infos = {}
@@ -515,7 +517,6 @@ class HabitatRunner(Runner):
         self.env_info['sum_merge_explored_ratio'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
         self.env_info['sum_repeat_area'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
         self.env_info['sum_merge_repeat_area'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
-        self.env_info['sum_merge_overlap_ratio'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
         self.env_info['sum_merge_explored_reward'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
         self.env_info['explored_ratio_step'] = np.ones((self.n_rollout_threads, self.num_agents), dtype=np.float32) * self.max_episode_length
         self.env_info['merge_explored_ratio_step'] = np.ones((self.n_rollout_threads,), dtype=np.float32) * self.max_episode_length
@@ -1556,13 +1557,15 @@ class HabitatRunner(Runner):
                 self.obs, reward, dones, infos = self.envs.step(actions_env)
 
                 for e in range(self.n_rollout_threads):
-                    for key in ['explored_ratio', 'explored_reward', 'path_length', 'merge_explored_ratio', 'merge_explored_reward', 'merge_repeat_ratio']:
+                    for key in ['explored_ratio', 'explored_reward', 'repeat_area', 'path_length', 'merge_explored_ratio', 'merge_explored_reward', 'merge_repeat_area']:
                         if key in infos[e].keys():
                             self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
                             if key == 'merge_explored_ratio' and self.use_eval:
                                 self.auc_infos['merge_auc'][episode, e, step] = self.auc_infos['merge_auc'][episode, e, step-1] + np.array(infos[e][key])
                             if key == 'explored_ratio' and self.use_eval:
                                 self.auc_infos['agent_auc'][episode, e, :, step] = self.auc_infos['agent_auc'][episode, e, :, step-1] + np.array(infos[e][key])
+                    if 'overlap_ratio' in infos[e].keys():
+                        self.env_info['overlap_ratio'][e] = infos[e]['overlap_ratio']
                     if 'merge_explored_ratio_step' in infos[e].keys():
                         self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
                     if 'merge_explored_ratio_step_0.95' in infos[e].keys():
