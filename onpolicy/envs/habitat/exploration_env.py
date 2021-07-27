@@ -205,6 +205,7 @@ class Exploration_Env(habitat.RLEnv):
         
         self.merge_pred_map = np.zeros_like(self.explorable_map[0])
         self.prev_merge_explored_map = np.zeros_like(self.explorable_map[0])
+        self.prev_agent_explored_map = [np.zeros_like(self.explorable_map[0]) for _ in range(self.num_agents)]
         self.prev_explored_area = [0. for _ in range(self.num_agents)]
         self.pre_agent_trans_map = [np.zeros_like(self.explorable_map[0]) for _ in range(self.num_agents)]
         merge_explored_gt = np.zeros_like(self.explorable_map[0])
