@@ -3,7 +3,7 @@ from queue import deque
 import os
 import sys
 
-from utils.apf import l2distance
+from onpolicy.utils.apf import l2distance
 from onpolicy.utils.RRTStar.rrt_star import RRTStar
 from onpolicy.utils.RRT.rrt import RRT
 import matplotlib.pyplot as plt

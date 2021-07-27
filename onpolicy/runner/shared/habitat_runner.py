@@ -1520,6 +1520,7 @@ class HabitatRunner(Runner):
             self.merge_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
             # Predict map from frame 1:
             self.run_slam_module(self.obs, self.obs, infos)
+            self.env_step = 0
 
             # Compute Global policy input
             self.update_local_map()
@@ -1540,6 +1541,7 @@ class HabitatRunner(Runner):
             self.local_output = np.array(self.local_output, dtype = np.long)
             
             for step in range(self.max_episode_length):
+                self.env_step = step
                 ic(step)
                 local_step = step % self.num_local_steps
                 global_step = (step // self.num_local_steps) % self.episode_length
