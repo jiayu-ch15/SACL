@@ -31,7 +31,8 @@ from habitat import logger
 from habitat.config.default import get_config as cfg_env
 from habitat.datasets.pointnav.pointnav_dataset import PointNavDatasetV1
 from habitat_baselines.config.default import get_config as cfg_baseline
-
+from copy import deepcopy
+from icecream import ic
 import onpolicy
 
 def _preprocess_depth(depth):
@@ -167,6 +168,7 @@ class Exploration_Env(habitat.RLEnv):
         self.explored_ratio_threshold = 0.9
         self.merge_explored_ratio_step_95 = -1.0
         self.merge_ratio = 0
+        self.overlap_flag = True
         self.ratio = np.zeros(self.num_agents)
         
 
@@ -202,7 +204,7 @@ class Exploration_Env(habitat.RLEnv):
             self.agent_n_trans.append(delta_n_trans_mat)
         
         self.merge_pred_map = np.zeros_like(self.explorable_map[0])
-        self.prev_merge_exlored_map = np.zeros_like(self.explorable_map[0])
+        self.prev_merge_explored_map = np.zeros_like(self.explorable_map[0])
         self.prev_explored_area = [0. for _ in range(self.num_agents)]
         self.pre_agent_trans_map = [np.zeros_like(self.explorable_map[0]) for _ in range(self.num_agents)]
         merge_explored_gt = np.zeros_like(self.explorable_map[0])
@@ -276,10 +278,10 @@ class Exploration_Env(habitat.RLEnv):
         self.collison_map = [np.zeros(self.map[0].shape)
                              for _ in range(self.num_agents)]
         self.col_width = [1 for _ in range(self.num_agents)]
-        if self.episode_no >1 :
+        if self.episode_no > 1 :
             merge_reward = self.info['merge_explored_reward']
             merge_ratio = self.info['merge_explored_ratio']
-            merge_repeat_ratio = self.info['merge_repeat_ratio']
+            merge_repeat_area = self.info['merge_repeat_area']
             reward = self.info['explored_reward']
             partial_reward = self.info['explored_merge_reward']
             ratio = self.info['explored_ratio']
@@ -321,7 +323,7 @@ class Exploration_Env(habitat.RLEnv):
             self.info['merge_explored_ratio'] = merge_ratio
             self.info['explored_reward'] = reward
             self.info['explored_ratio'] = ratio
-            self.info['merge_repeat_ratio'] = merge_repeat_ratio
+            self.info['merge_repeat_area'] = merge_repeat_area
             self.info['explored_merge_reward'] = partial_reward
 
         self.save_position()
@@ -480,9 +482,11 @@ class Exploration_Env(habitat.RLEnv):
             'explored_reward': [0.0 for _ in range(self.num_agents)],
             'explored_merge_reward':[0.0 for _ in range(self.num_agents)],
             'explored_ratio': [],
+            'repeat_area': [0.0 for _ in range(self.num_agents)],
+            'overlap_ratio': 0.0,
             'merge_explored_reward': 0.0,
             'merge_explored_ratio': 0.0,
-            'merge_repeat_ratio':0.0,
+            'merge_repeat_area':0.0,
         }
         for agent_id in range(self.num_agents):
             self.info['time'].append(self.timestep)
@@ -498,7 +502,8 @@ class Exploration_Env(habitat.RLEnv):
                 self.info['path_length'].append(pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][0]))
 
         
-        agent_explored_area, agent_explored_ratio, merge_explored_area, merge_explored_ratio, agent_trans_reward, curr_merge_explored_map = self.get_global_reward()
+        agent_explored_area, agent_explored_ratio, merge_explored_area, merge_explored_ratio, \
+            agent_trans_reward, curr_merge_explored_map, curr_agent_explored_map, curr_merge_explored_area = self.get_global_reward()
         
       
         # log step
@@ -536,12 +541,31 @@ class Exploration_Env(habitat.RLEnv):
             if self.timestep % self.args.num_local_steps == 0:
                 agents_explored_map = np.maximum(agents_explored_map, self.transform(self.current_explored_gt[agent_id]*self.explorable_map[agent_id], agent_id))
         
+        if (self.merge_ratio >= self.explored_ratio_threshold or self.timestep >= self.args.max_episode_length) and self.overlap_flag:
+            overlap_map = np.sum(self.pre_agent_trans_map, axis=0)
+            # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
+            self.info['overlap_ratio'] = (overlap_map > 1.2).sum() / curr_merge_explored_area
+            self.overlap_flag = False
+
         if self.timestep % self.args.num_local_steps == 0:
-            self.info['merge_repeat_ratio'] = agents_explored_map[self.prev_merge_exlored_map == 1].sum() * (25./10000)
+            for agent_id in range(self.num_agents):
+                if self.ratio[agent_id] <= self.explored_ratio_threshold:
+                    single_agent_explored_map = self.current_explored_gt[agent_id] * self.explorable_map[agent_id]
+                    self.info["repeat_area"][agent_id] = single_agent_explored_map[self.prev_agent_explored_map[agent_id] == 1].sum() / self.explorable_map[agent_id].sum()
+                else:
+                    self.info["repeat_area"][agent_id] = 0.0
+
+            if self.merge_ratio <= self.explored_ratio_threshold:
+                self.info['merge_repeat_area'] = agents_explored_map[self.prev_merge_explored_map == 1].sum() / self.explorable_map[0].sum()
+            else:
+                self.info['merge_repeat_area'] = 0.0
+
             if self.use_repeat_penalty and self.merge_ratio < self.explored_ratio_threshold:
-                self.info['merge_explored_reward'] -= (agents_explored_map[self.prev_merge_exlored_map == 1].sum() * (25./10000) * 0.02 *0.5)
-            self.prev_merge_exlored_map = curr_merge_explored_map.copy()
-        
+                self.info['merge_explored_reward'] -= (agents_explored_map[self.prev_merge_explored_map == 1].sum() * (25./10000) * 0.02 *0.5)
+            
+            self.prev_merge_explored_map = curr_merge_explored_map.copy()
+            self.prev_agent_explored_map = deepcopy(curr_agent_explored_map)
+             
         if self.use_time_penalty and self.merge_ratio < self.explored_ratio_threshold:
             self.info['merge_explored_reward'] -= 0.002     
 
@@ -583,7 +607,7 @@ class Exploration_Env(habitat.RLEnv):
             merge_explorable_map = np.maximum(merge_explorable_map, self.transform(self.explorable_map[agent_id], agent_id))
             
             for a in range(self.num_agents):
-                if a!=agent_id:
+                if a != agent_id:
                     agent_trans_merge_map = np.maximum(self.transform(curr_agent_explored_map[agent_id], agent_id), self.pre_agent_trans_map[a])
             agent_trans_reward.append((agent_trans_merge_map.sum()- self.prev_merge_explored_area) * 1.0 * (25./10000.) * 0.02)
             
@@ -608,7 +632,9 @@ class Exploration_Env(habitat.RLEnv):
         merge_explored_ratio = merge_explored_reward / merge_explored_reward_scale
         merge_explored_reward = merge_explored_reward * (25./10000.) * 0.02
 
-        return agent_explored_rewards, agent_explored_ratios, merge_explored_reward, merge_explored_ratio, agent_trans_reward, curr_merge_explored_map
+        return agent_explored_rewards, agent_explored_ratios, \
+            merge_explored_reward, merge_explored_ratio, agent_trans_reward, \
+                curr_merge_explored_map, curr_agent_explored_map, curr_merge_explored_area
 
     def get_done(self, observations, agent_id):
         # This function is not used, Habitat-RLEnv requires this function
