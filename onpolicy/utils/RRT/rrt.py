@@ -117,11 +117,11 @@ class RRT:
             x, y = int(new_node.x), int(new_node.y)
             x = max(0, min(x, H-1))
             y = max(0, min(y, W-1))
-            if map[x,y] == 1:
-                # unexplored
-                targets.append((x,y))
-            else:
-                if self.check_collision(new_node, self.obstacle_list):
+            if self.check_collision(new_node, self.obstacle_list):
+                if map[x,y] == 1:
+                    # unexplored
+                    targets.append((x,y))
+                else:
                     self.push_node(new_node)
         # print("%d iterations, %d targets"%(i, len(targets)))
         return targets
