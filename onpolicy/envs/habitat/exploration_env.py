@@ -336,7 +336,8 @@ class Exploration_Env(habitat.RLEnv):
             self.info['explored_merge_reward'] = partial_reward
             self.info['merge_overlap_ratio'] = merge_overlap_ratio
             self.info['repeat_area'] = repeat_area
-            self.info['path_length'] = path_length
+            if self.use_eval:
+                self.info['path_length'] = path_length
 
         self.save_position()
 
