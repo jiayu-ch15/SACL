@@ -129,7 +129,6 @@ class HabitatRunner(Runner):
                 for e in range (self.n_rollout_threads):
                     for key in ['explored_ratio', 'explored_reward', 'repeat_area', 'merge_explored_ratio', 'merge_explored_reward','merge_repeat_area']:
                         if key in infos[e].keys():
-                            ic(key)
                             self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
                     if 'overlap_ratio' in infos[e].keys():
                         self.env_info['overlap_ratio'][e] = infos[e]['overlap_ratio']
@@ -169,7 +168,7 @@ class HabitatRunner(Runner):
                 
                 self.run_slam_module(self.last_obs, self.obs, infos, True)
                 self.update_local_map()
-                self.update_map_and_pose(False)
+                self.update_map_and_pose(update = False)
                 for agent_id in range(self.num_agents):
                     _, self.local_merge_map[:, agent_id] = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, agent_id)
 
@@ -931,6 +930,7 @@ class HabitatRunner(Runner):
         rnn_states_critic = np.array(np.split(_t2n(rnn_states_critic), self.n_rollout_threads))
         
         # Compute planner inputs
+        self.last_global_goal = self.global_goal.copy()
         self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(action)), self.n_rollout_threads))
  
         return values, actions, action_log_probs, rnn_states, rnn_states_critic
