@@ -17,6 +17,7 @@ class MultiHabitatEnv(object):
         self.use_merge_partial_reward = args.use_merge_partial_reward
         self.use_merge = args.use_merge
         self.use_single = args.use_single
+        self.use_merge_goal = args.use_merge_goal
 
         config_env, config_baseline, dataset = self.get_config(args, rank)
 
@@ -35,13 +36,16 @@ class MultiHabitatEnv(object):
             if self.use_resnet:
                 global_observation_space['global_merge_obs'] = gym.spaces.Box(
                     low=0, high=1, shape=(8, 224, 224), dtype='uint8')
-                # global_observation_space['global_merge_goal'] = gym.spaces.Box(
-                #     low=0, high=1, shape=(2, 224, 224), dtype='uint8')
             else:
                 global_observation_space['global_merge_obs'] = gym.spaces.Box(
                     low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
-                # global_observation_space['global_merge_goal'] = gym.spaces.Box(
-                #     low=0, high=1, shape=(2, local_w, local_h), dtype='uint8')
+        if self.use_merge_goal:
+            if self.use_resnet:
+                global_observation_space['global_merge_goal'] = gym.spaces.Box(
+                    low=0, high=1, shape=(2, 224, 224), dtype='uint8')
+            else:
+                global_observation_space['global_merge_goal'] = gym.spaces.Box(
+                    low=0, high=1, shape=(2, local_w, local_h), dtype='uint8')
         if self.use_single:
             if self.use_resnet:
                 global_observation_space['global_obs'] = gym.spaces.Box(

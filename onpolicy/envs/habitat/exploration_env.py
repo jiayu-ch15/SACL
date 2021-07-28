@@ -489,7 +489,7 @@ class Exploration_Env(habitat.RLEnv):
             'explored_merge_reward':[0.0 for _ in range(self.num_agents)],
             'explored_ratio': [],
             'repeat_area': [0.0 for _ in range(self.num_agents)],
-            'overlap_ratio': 0.0,
+            'merge_overlap_ratio': 0.0,
             'merge_explored_reward': 0.0,
             'merge_explored_ratio': 0.0,
             'merge_repeat_area':0.0,
@@ -548,19 +548,19 @@ class Exploration_Env(habitat.RLEnv):
         if (self.merge_ratio >= self.explored_ratio_threshold or self.timestep >= self.args.max_episode_length) and self.overlap_flag:
             overlap_map = np.sum(self.pre_agent_trans_map, axis=0)
             # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
-            self.info['overlap_ratio'] = (overlap_map > 1.2).sum() / curr_merge_explored_area
+            self.info['merge_overlap_ratio'] = (overlap_map > 1.2).sum() / curr_merge_explored_area
             self.overlap_flag = False
 
         if self.timestep % self.args.num_local_steps == 0:
             for agent_id in range(self.num_agents):
                 if self.ratio[agent_id] <= self.explored_ratio_threshold:
                     single_agent_explored_map = self.current_explored_gt[agent_id] * self.explorable_map[agent_id]
-                    self.info["repeat_area"][agent_id] = single_agent_explored_map[self.prev_agent_explored_map[agent_id] == 1].sum() / self.explorable_map[agent_id].sum()
+                    self.info["repeat_area"][agent_id] = single_agent_explored_map[self.prev_agent_explored_map[agent_id] == 1].sum() * (25./10000)
                 else:
                     self.info["repeat_area"][agent_id] = 0.0
 
             if self.merge_ratio <= self.explored_ratio_threshold:
-                self.info['merge_repeat_area'] = agents_explored_map[self.prev_merge_explored_map == 1].sum() / self.explorable_map[0].sum()
+                self.info['merge_repeat_area'] = agents_explored_map[self.prev_merge_explored_map == 1].sum() * (25./10000)
             else:
                 self.info['merge_repeat_area'] = 0.0
 

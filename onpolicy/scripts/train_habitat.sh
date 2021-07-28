@@ -3,7 +3,7 @@ env="Habitat"
 scenario="pointnav_gibson"
 num_agents=2
 algo="mappo"
-exp="new_time_penalty_centralized_V_merge_partial_reward_all_rand_rot_pos_center_single_local_ppo4"
+#exp="new_time_penalty_centralized_V_merge_partial_reward_all_rand_rot_pos_center_single_local_ppo4"
 exp="debug"
 seed_max=1
 
