@@ -286,9 +286,13 @@ class Exploration_Env(habitat.RLEnv):
             merge_reward = self.info['merge_explored_reward']
             merge_ratio = self.info['merge_explored_ratio']
             merge_repeat_area = self.info['merge_repeat_area']
+            merge_overlap_ratio = self.info['merge_overlap_ratio']
             reward = self.info['explored_reward']
             partial_reward = self.info['explored_merge_reward']
             ratio = self.info['explored_ratio']
+            repeat_area = self.info['repeat_area']
+            if self.use_eval:
+                path_length = self.info['path_length']
             
 
         # Set info
@@ -320,10 +324,9 @@ class Exploration_Env(habitat.RLEnv):
         self.info['init_pos_y'] = self.init_pos_y
         self.info['agent_trans'] = self.agent_n_trans
         self.info['agent_rotation'] = self.agent_n_rot
-        self.info['explorable_map'] = self.explorable_map
-        
-
+        self.info['explorable_map'] = self.explorable_map       
         self.info['scene_id'] = self.scene_id
+        
         if self.episode_no > 1:
             self.info['merge_explored_reward'] = merge_reward
             self.info['merge_explored_ratio'] = merge_ratio
@@ -331,6 +334,9 @@ class Exploration_Env(habitat.RLEnv):
             self.info['explored_ratio'] = ratio
             self.info['merge_repeat_area'] = merge_repeat_area
             self.info['explored_merge_reward'] = partial_reward
+            self.info['merge_overlap_ratio'] = merge_overlap_ratio
+            self.info['repeat_area'] = repeat_area
+            self.info['path_length'] = path_length
 
         self.save_position()
 
@@ -489,7 +495,6 @@ class Exploration_Env(habitat.RLEnv):
             'explored_merge_reward':[0.0 for _ in range(self.num_agents)],
             'explored_ratio': [],
             'repeat_area': [0.0 for _ in range(self.num_agents)],
-            'merge_overlap_ratio': 0.0,
             'merge_explored_reward': 0.0,
             'merge_explored_ratio': 0.0,
             'merge_repeat_area':0.0,
