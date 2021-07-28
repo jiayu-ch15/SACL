@@ -35,9 +35,13 @@ class MultiHabitatEnv(object):
             if self.use_resnet:
                 global_observation_space['global_merge_obs'] = gym.spaces.Box(
                     low=0, high=1, shape=(8, 224, 224), dtype='uint8')
+                # global_observation_space['global_merge_goal'] = gym.spaces.Box(
+                #     low=0, high=1, shape=(2, 224, 224), dtype='uint8')
             else:
                 global_observation_space['global_merge_obs'] = gym.spaces.Box(
                     low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
+                # global_observation_space['global_merge_goal'] = gym.spaces.Box(
+                #     low=0, high=1, shape=(2, local_w, local_h), dtype='uint8')
         if self.use_single:
             if self.use_resnet:
                 global_observation_space['global_obs'] = gym.spaces.Box(
@@ -52,8 +56,7 @@ class MultiHabitatEnv(object):
             low=-1, high=1, shape=(self.num_agents-1,), dtype='long')
         global_observation_space['vector'] = gym.spaces.Box(
             low=-1, high=1, shape=(self.num_agents,), dtype='float')
-        # global_observation_space['global_merge_goal'] = gym.spaces.Box(
-        #   low=0, high=1, shape=(2, local_w, local_h), dtype='uint8')
+       
         share_global_observation_space = global_observation_space.copy()
         if self.use_centralized_V:
             if self.use_resnet:
