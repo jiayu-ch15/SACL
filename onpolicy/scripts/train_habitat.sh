@@ -4,6 +4,8 @@ scenario="pointnav_gibson"
 num_agents=2
 algo="mappo"
 exp="debug"
+seed_max=1
+
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
 for seed in `seq ${seed_max}`;
 do
