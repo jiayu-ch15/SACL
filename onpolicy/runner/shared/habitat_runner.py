@@ -412,6 +412,7 @@ class HabitatRunner(Runner):
              
         if self.use_eval:
             self.agents_env_info_keys += ['sum_path_length']
+            self.sum_env_info_keys  += ['path_length']
             self.auc_infos_keys = ['merge_auc','agent_auc']
 
         # convert keys
@@ -1463,7 +1464,7 @@ class HabitatRunner(Runner):
 
                 # Obser reward and next obs
                 self.obs, reward, dones, infos = self.envs.step(actions_env)
-
+                
                 for e in range(self.n_rollout_threads):
                     for key in self.sum_env_info_keys:
                         if key in infos[e].keys():
