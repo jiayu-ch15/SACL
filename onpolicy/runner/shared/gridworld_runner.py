@@ -78,6 +78,7 @@ class GridWorldRunner(Runner):
                                 
                 self.log_train(train_infos, total_num_steps)
                 self.log_env(self.env_infos, total_num_steps)
+                self.log_agent(self.env_infos, total_num_steps)
 
             # eval
             if episode % self.eval_interval == 0 and self.use_eval:
@@ -296,12 +297,18 @@ class GridWorldRunner(Runner):
             self.all_merge_pos_map[dones_env == True] = np.zeros(((dones_env == True).sum(), self.full_w, self.full_h), dtype=np.float32)
      
         for done_env, info in zip(dones_env, infos):
+            explored_ratio_step = np.zeros((self.num_agents))
             if done_env:
                 self.env_infos['merge_explored_ratio_step'].append(info['merge_ratio_step'])
                 self.env_infos['merge_explored_ratio'].append(info['merge_explored_ratio'])
+                self.env_infos['merge_overlap_ratio'].append(info['merge_overlap_ratio'])
+                self.env_infos['merge_repeat_area'].append(info['merge_repeat_area'])
+                self.env_infos['agent_repeat_area'].append(info['agent_repeat_area'])
+                self.env_infos['agent_length'].append(info['agent_length'])                
                 for agent_id in range(self.num_agents):
                     agent_k = "agent{}_ratio_step".format(agent_id)
-                    self.env_infos[agent_k].append(info[agent_k])
+                    explored_ratio_step[agent_id] = info[agent_k]
+                self.env_infos['explored_ratio_step'].append(explored_ratio_step)
 
         self.buffer.insert(share_obs, obs, rnn_states, rnn_states_critic, actions, action_log_probs, values, rewards, masks)
         
@@ -310,7 +317,17 @@ class GridWorldRunner(Runner):
             if len(v) > 0:
                 for i in range(self.episode_length):
                     self.writter.add_scalars(k, {k: np.mean(v[:,:,i])}, i+1)
-    
+                    
+    def log_agent(self, train_infos, total_num_steps):
+        for k, v in train_infos.items():
+            if "merge" not in k:
+                for agent_id in range(self.num_agents):
+                    agent_k = "agent{}_".format(agent_id) + k
+                    if self.use_wandb:
+                        wandb.log({agent_k: np.mean(np.array(v)[:, agent_id])}, step=total_num_steps)
+                    else:
+                        self.writter.add_scalars(agent_k, {agent_k: np.mean(np.array(v)[:, agent_id])}, total_num_steps)
+                    
     def visualize_obs(self, fig, ax, obs):
         # individual
         for agent_id in range(self.num_agents * 3):

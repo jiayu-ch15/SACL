@@ -67,6 +67,10 @@ class MultiExplorationEnv(MultiRoomEnv):
         self.target_ratio = 0.98
         self.merge_ratio = 0
         self.merge_reward = 0
+        self.merge_overlap_ratio = 0
+        self.merge_repeat_area = 0
+        self.agent_repeat_area = np.zeros((num_agents))
+        self.agent_length = np.zeros((num_agents))
         self.agent_reward = np.zeros((num_agents))
         self.agent_partial_reward = np.zeros((num_agents))
         self.agent_ratio_step = np.ones((num_agents)) * max_steps
@@ -145,9 +149,9 @@ class MultiExplorationEnv(MultiRoomEnv):
         self.get_ratio = 0
         self.target_ratio = 0.98
         self.gt_map = self.grid.encode()[:,:,0].T
+        self.last_agent_pos = self.agent_pos
         self.agent_local_map = np.zeros((self.num_agents, self.agent_view_size, self.agent_view_size, 3))
         self.pad_gt_map = np.pad(self.gt_map,((self.agent_view_size, self.agent_view_size), (self.agent_view_size,self.agent_view_size)) , constant_values=(0,0))
-        
         # init local map
         self.explored_each_map = []
         self.obstacle_each_map = []
@@ -162,7 +166,7 @@ class MultiExplorationEnv(MultiRoomEnv):
         for i in range(self.num_agents):
             local_map = np.rot90(obs[i]['image'][:,:,0].T,3)
             pos = [self.agent_pos[i][1] + self.agent_view_size, self.agent_pos[i][0] + self.agent_view_size]
-            direction = self.agent_dir[i]
+            direction = self.agent_dir[i]            
             current_agent_pos.append(pos)
             ### adjust angle
             local_map = np.rot90(local_map, 4-direction)
@@ -220,6 +224,11 @@ class MultiExplorationEnv(MultiRoomEnv):
         info['obstacle_all_map'] = np.array(obstacle_all_map)
         info['agent_direction'] = np.array(self.agent_dir)
         info['agent_local_map'] = self.agent_local_map
+        info['agent_length'] = self.agent_length
+        info['merge_overlap_ratio'] = self.merge_overlap_ratio
+        info['agent_repeat_area'] = self.agent_repeat_area
+        info['merge_repeat_area'] = self.merge_repeat_area
+        
         if self.use_agent_id:
             info['explored_each_map'] = np.array(self.explored_each_map * (i+1) / self.augment)
             info['obstacle_each_map'] = np.array(self.obstacle_each_map * (i+1) / self.augment)
@@ -237,6 +246,10 @@ class MultiExplorationEnv(MultiRoomEnv):
 
         self.merge_ratio = 0
         self.merge_reward = 0
+        self.merge_overlap_ratio = 0
+        self.merge_repeat_area = 0
+        self.agent_repeat_area = np.zeros((num_agents))
+        self.agent_length = np.zeros((num_agents))
         self.agent_reward = np.zeros((self.num_agents))
         self.agent_partial_reward = np.zeros((self.num_agents))
         self.agent_ratio_step = np.ones((self.num_agents)) * self.max_steps
@@ -255,6 +268,7 @@ class MultiExplorationEnv(MultiRoomEnv):
         reward_obstacle_each_map = np.zeros((self.num_agents, self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size))
         delta_reward_each_map = np.zeros((self.num_agents, self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size))
         reward_explored_each_map = np.zeros((self.num_agents, self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size))
+        current_agent_map = np.zeros((self.num_agents, self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size))
         partial_reward_explored_each_map = np.zeros((self.num_agents, self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size))
         explored_all_map = np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size))
         obstacle_all_map = np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size))
@@ -264,9 +278,10 @@ class MultiExplorationEnv(MultiRoomEnv):
             self.obstacle_each_map_t.append(np.zeros((self.width + 2*self.agent_view_size, self.height + 2*self.agent_view_size)))
         for i in range(self.num_agents): 
             local_map = np.rot90(obs[i]['image'][:,:,0].T,3)
-            
             pos = [self.agent_pos[i][1] + self.agent_view_size, self.agent_pos[i][0] + self.agent_view_size]
             current_agent_pos.append(pos)
+            self.agent_length[i] += abs(self.agent_pos[i][1]-self.last_agent_pos[i][1]) + abs(self.agent_pos[i][0]-self.last_agent_pos[i][0])
+            self.last_agent_pos = self.agent_pos
             direction = self.agent_dir[i]
             ### adjust angle          
             local_map = np.rot90(local_map, 4-direction)
@@ -317,6 +332,8 @@ class MultiExplorationEnv(MultiRoomEnv):
         for i in range(self.num_agents):
             self.explored_each_map[i] = np.maximum(self.explored_each_map[i], self.explored_each_map_t[i])
             self.obstacle_each_map[i] = np.maximum(self.obstacle_each_map[i], self.obstacle_each_map_t[i])
+            current_agent_map[i] = self.explored_each_map_t[i] - self.obstacle_each_map_t[i]
+            current_agent_map[i][current_agent_map[i] != 0 ] = 1
            
             reward_explored_each_map[i] = self.explored_each_map[i].copy()
             reward_explored_each_map[i][reward_explored_each_map[i] != 0] = 1
@@ -334,6 +351,8 @@ class MultiExplorationEnv(MultiRoomEnv):
             
             partial_reward_explored_each_map[i] = np.maximum(agent_previous_all_map, delta_reward_each_map[i])
             each_agent_partial_rewards.append((partial_reward_explored_each_map[i] - agent_previous_all_map).sum())
+            
+            self.agent_repeat_area[i] += current_agent_map[i][reward_previous_explored_each_map == 1].sum()
         
         for i in range(self.num_agents):
             explored_all_map += self.explored_each_map[i] * (i+1) / self.augment
@@ -349,6 +368,10 @@ class MultiExplorationEnv(MultiRoomEnv):
 
         reward_previous_all_map = self.previous_all_map.copy()
         reward_previous_all_map[reward_previous_all_map != 0] = 1
+        
+        current_all_map = np.sum(current_agent_map, axis = 0)
+        current_all_map[current_all_map>1] = 1
+        self.merge_repeat_area += current_all_map[reward_previous_all_map == 1].sum()
 
         merge_explored_reward = (np.array(delta_reward_all_map) - np.array(reward_previous_all_map)).sum()
         self.previous_all_map = explored_all_map - obstacle_all_map
@@ -360,6 +383,9 @@ class MultiExplorationEnv(MultiRoomEnv):
         info['obstacle_all_map'] = np.array(obstacle_all_map)
         info['agent_direction'] = np.array(self.agent_dir)
         info['agent_local_map'] = self.agent_local_map
+        info['agent_length'] = self.agent_length
+        info['agent_repeat_area'] = self.agent_repeat_area
+        info['merge_repeat_area'] = self.merge_repeat_area
         if self.use_agent_id:
             info['explored_each_map'] = np.array(self.explored_each_map * (i+1) / self.augment)
             info['obstacle_each_map'] = np.array(self.obstacle_each_map * (i+1) / self.augment)
@@ -377,7 +403,11 @@ class MultiExplorationEnv(MultiRoomEnv):
         
         if delta_reward_all_map.sum() / self.no_wall_size >= self.target_ratio:#(self.width * self.height)
             done = True       
-            self.merge_ratio_step = self.num_step
+            self.merge_ratio_step = self.num_step            
+            overlap_delta_map = np.sum(delta_reward_each_map, axis = 0)
+            info['merge_overlap_ratio'] = (overlap_delta_map > 1).sum() / delta_reward_all_map.sum()  
+            self.merge_overlap_ratio = info['merge_overlap_ratio']
+            
             if self.use_complete_reward:
                 info['merge_explored_reward'] += 0.1 * (delta_reward_all_map.sum() / self.no_wall_size)     
                 
