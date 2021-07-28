@@ -174,7 +174,6 @@ def parse_args(args, parser):
     parser.add_argument('--noise_level', type=float, default=1.0)
 
     # baseline: frontier-based global planner
-    parser.add_argument('--use_ft_global', default = False, action = 'store_true')
     parser.add_argument('--ft_global_mode', type=str, default='nearest', choices=['apf', 'nearest', 'utility', 'rrt'], help = 'choose frontier method mode. [apf, nearest, utility, rrt(TODO)]')
     parser.add_argument('--local_planner', type=str, default='fmm', help = 'choose local planner. [fmm, rrt, astar]')
 
@@ -223,8 +222,6 @@ def main(args):
         raise NotImplementedError
 
     assert all_args.use_eval or all_args.use_render, ("u need to set use_eval or use_render be True")
-    assert all_args.use_ft_global or (not (all_args.model_dir == None or all_args.model_dir == "")), ("set model_dir first")
-
     # cuda
     if all_args.cuda and torch.cuda.is_available():
         print("choose to use gpu...")
@@ -255,7 +252,7 @@ def main(args):
                          "_seed" + str(all_args.seed),
                          group=all_args.scenario_name,
                          dir=str(run_dir),
-                         job_type="training",
+                         job_type="evaluation",
                          reinit=True)
     else:
         if not run_dir.exists():

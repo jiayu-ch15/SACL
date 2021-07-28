@@ -111,7 +111,7 @@ def main(args):
                          "_seed" + str(all_args.seed),
                          group=all_args.hanabi_name,
                          dir=str(run_dir),
-                         job_type="training",
+                         job_type="evaluation",
                          reinit=True)
     else:
         if not run_dir.exists():

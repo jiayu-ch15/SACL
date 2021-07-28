@@ -51,7 +51,6 @@ class Runner(object):
         self.model_dir = self.all_args.model_dir
 
         if self.use_render:
-            import imageio
             self.run_dir = config["run_dir"]
             self.gif_dir = str(self.run_dir / 'gifs')
             if not os.path.exists(self.gif_dir):
@@ -83,14 +82,14 @@ class Runner(object):
             else:
                 from onpolicy.algorithms.r_mappg.r_mappg import R_MAPPG as TrainAlgo
                 from onpolicy.algorithms.r_mappg.algorithm.rMAPPGPolicy import R_MAPPGPolicy as Policy
-        elif self.all_args.use_ft_global:
-            pass
+        elif "ft" in self.algorithm_name:
+            print("use frontier-based algorithm")
         else:
             raise NotImplementedError
         
         share_observation_space = self.envs.share_observation_space[0] if self.use_centralized_V else self.envs.observation_space[0]
 
-        if not self.all_args.use_ft_global:
+        if "ft" not in self.algorithm_name:
             # policy network
             self.policy = Policy(self.all_args,
                                 self.envs.observation_space[0],
@@ -104,8 +103,8 @@ class Runner(object):
             # algorithm
             self.trainer = TrainAlgo(self.all_args, self.policy, device = self.device)
         
-        # buffer
-        self.buffer = SharedReplayBuffer(self.all_args,
+            # buffer
+            self.buffer = SharedReplayBuffer(self.all_args,
                                         self.num_agents,
                                         self.envs.observation_space[0],
                                         share_observation_space,

@@ -182,6 +182,8 @@ class Exploration_Env(habitat.RLEnv):
         self.n_rot = []
         self.n_trans = []
         self.init_theta = []
+        self.init_pos_x = []
+        self.init_pos_y = []
 
         self.agent_n_rot = []
         self.agent_n_trans = []
@@ -189,13 +191,16 @@ class Exploration_Env(habitat.RLEnv):
 
         obs = super().reset()
         self.full_map_size = self.map_size_cm//self.map_resolution
+
         for agent_id in range(self.num_agents):
-            mapp, n_rot, n_trans, init_theta = self._get_gt_map(self.full_map_size, agent_id)
+            mapp, n_rot, n_trans, init_theta, init_pos_x, init_pos_y = self._get_gt_map(self.full_map_size, agent_id)
             self.explorable_map.append(mapp)
             self.n_rot.append(n_rot)
             self.n_trans.append(n_trans)
             self.init_theta.append(init_theta)
-        
+            self.init_pos_x.append(init_pos_x)
+            self.init_pos_y.append(init_pos_y)
+
         for a in range(self.num_agents):
             _, _, delta_n_rot_mat, delta_n_trans_mat =\
             get_grid_reverse_full(self.agent_st[a], (1, 1, self.grid_size, self.grid_size), (1, 1, self.full_map_size, self.full_map_size), torch.device("cpu"))
@@ -265,8 +270,6 @@ class Exploration_Env(habitat.RLEnv):
             merge_explored_gt = np.maximum(merge_explored_gt, self.transform(explored_map_t, agent_id))
             merge_obstacle_gt = np.maximum(merge_obstacle_gt, self.transform(map_t, agent_id))
             
-            
-
         # Initialize variables
         self.merge_pred_map = np.zeros_like(self.explorable_map[0])
         self.scene_name = self.habitat_env.sim.config.SCENE
@@ -313,13 +316,15 @@ class Exploration_Env(habitat.RLEnv):
         self.info['trans'] = self.n_trans
         self.info['rotation'] = self.n_rot
         self.info['theta'] = self.init_theta
+        self.info['init_pos_x'] = self.init_pos_x
+        self.info['init_pos_y'] = self.init_pos_y
         self.info['agent_trans'] = self.agent_n_trans
         self.info['agent_rotation'] = self.agent_n_rot
         self.info['explorable_map'] = self.explorable_map
         
 
         self.info['scene_id'] = self.scene_id
-        if self.episode_no >1 :
+        if self.episode_no > 1:
             self.info['merge_explored_reward'] = merge_reward
             self.info['merge_explored_ratio'] = merge_ratio
             self.info['explored_reward'] = reward
@@ -502,11 +507,9 @@ class Exploration_Env(habitat.RLEnv):
             if self.use_eval:
                 self.info['path_length'].append(pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][0]))
 
-        
         agent_explored_area, agent_explored_ratio, merge_explored_area, merge_explored_ratio, \
             agent_trans_reward, curr_merge_explored_map, curr_agent_explored_map, curr_merge_explored_area = self.get_global_reward()
         
-      
         # log step
         self.merge_ratio += merge_explored_ratio
         if self.merge_ratio >= self.explored_ratio_threshold:
@@ -885,7 +888,7 @@ class Exploration_Env(habitat.RLEnv):
             logger.error("Invalid map: {}/{}".format(self.scene_name, self.episode_no))
             return None
 
-        agent_y = self._env.sim.get_agent_state(agent_id).position.tolist()[1]*100.
+        agent_y = self._env.sim.get_agent_state(agent_id).position.tolist()[1] * 100.
 
         if self.use_restrict_map:
             sim_map = self.map_obj.get_restrict_map(agent_y, -50., 50.0)
@@ -897,6 +900,10 @@ class Exploration_Env(habitat.RLEnv):
         # Transform the map to align with the agent
         min_x, min_y = self.map_obj.origin/100.0
         x, y, o = self.get_sim_location(agent_id)
+
+        start_pos_x = x
+        start_pos_y = y
+
         x, y = -x - min_x, -y - min_y
         range_x, range_y = self.map_obj.max/100. - self.map_obj.origin/100.
 
@@ -955,7 +962,7 @@ class Exploration_Env(habitat.RLEnv):
         episode_map = episode_map.numpy()
         episode_map[episode_map > 0] = 1.
 
-        return episode_map, n_rot_mat, n_trans_mat, 180.0 + np.rad2deg(o)
+        return episode_map, n_rot_mat, n_trans_mat, 180.0 + np.rad2deg(o), start_pos_x, start_pos_y
 
     def _get_stg(self, grid, explored, start, goal, planning_window, agent_id):
 

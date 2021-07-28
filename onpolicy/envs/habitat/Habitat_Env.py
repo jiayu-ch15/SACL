@@ -164,7 +164,7 @@ class MultiHabitatEnv(object):
         else:
             self.env.seed(seed)
 
-    def reset(self):
+    def reset(self, choose=True):
         obs, infos = self.env.reset()
         return obs, infos
 

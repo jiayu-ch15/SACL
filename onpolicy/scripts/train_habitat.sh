@@ -21,6 +21,7 @@ do
     --load_local "../envs/habitat/model/pretrained_models/local_best.pt" --save_interval 10 \
     --eval_episodes 1 --use_selected_middle_scenes \
     --use_delta_reward --use_different_start_pos --use_complete_reward --use_merge_partial_reward \
-    --use_center --use_merge --use_time_penalty --use_same_scene --scene_id 16 --wandb_name "mapping" --user_name "yuchao"
+    --use_center --use_merge --use_time_penalty --use_same_scene --scene_id 16 \
+    --wandb_name "mapping" --user_name "yuchao"
     echo "training is done!"
 done

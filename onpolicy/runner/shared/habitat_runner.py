@@ -39,6 +39,8 @@ class HabitatRunner(Runner):
         super(HabitatRunner, self).__init__(config)
         # init parameters
         self.init_hyper_parameters()
+        # init keys
+        self.init_keys()
         # init variables
         self.init_map_variables() 
         # global policy
@@ -60,6 +62,9 @@ class HabitatRunner(Runner):
         self.explorable_map = [infos[e]['explorable_map'] for e in range(self.n_rollout_threads)]
         self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
         self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
+        self.init_pos_x = [infos[e]['init_pos_x'] for e in range(self.n_rollout_threads)]
+        self.init_pos_y = [infos[e]['init_pos_y'] for e in range(self.n_rollout_threads)]
+
         for agent_id in range(self.num_agents):
             self.intrinsic_gt[ : , agent_id] = np.array(self.explorable_map)[ : , agent_id]
 
@@ -86,7 +91,7 @@ class HabitatRunner(Runner):
         else:
             self.compute_local_input(self.local_map)
 
-        # Output stores local goals as well as the the ground-truth action
+        # Output stores local goals as well as the ground-truth action
         self.local_output = self.envs.get_short_term_goal(self.local_input)
         self.local_output = np.array(self.local_output, dtype = np.long)
         
@@ -127,21 +132,19 @@ class HabitatRunner(Runner):
                 self.obs, reward, dones, infos = self.envs.step(actions_env)
                 self.rewards += reward
                 for e in range (self.n_rollout_threads):
-                    for key in ['explored_ratio', 'explored_reward', 'repeat_area', 'merge_explored_ratio', 'merge_explored_reward','merge_repeat_area']:
+                    for key in self.sum_env_info_keys:
                         if key in infos[e].keys():
-                            ic(key)
                             self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
-                    if 'overlap_ratio' in infos[e].keys():
-                        self.env_info['overlap_ratio'][e] = infos[e]['overlap_ratio']
-                    if 'merge_explored_ratio_step' in infos[e].keys():
-                        self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
-                    if 'merge_explored_ratio_step_0.95' in infos[e].keys():
-                        self.env_info['merge_explored_ratio_step_0.95'][e] = infos[e]['merge_explored_ratio_step_0.95']
-                    for agent_id in range(self.num_agents):
-                        agent_k = "agent{}_explored_ratio_step".format(agent_id)
-                        if agent_k in infos[e].keys():
-                            self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
-                              
+                    for key in self.equal_env_info_keys:
+                        if key == 'explored_ratio_step':
+                            for agent_id in range(self.num_agents):
+                                agent_k = "agent{}_{}".format(agent_id, key)
+                                if agent_k in infos[e].keys():
+                                    self.env_info[key][e][agent_id] = infos[e][agent_k]
+                        else:
+                            if key in infos[e].keys():
+                                self.env_info[key][e] = infos[e][key]
+                   
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
@@ -160,6 +163,8 @@ class HabitatRunner(Runner):
                     self.scene_id = [infos[e]['scene_id'] for e in range(self.n_rollout_threads)]
                     self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
                     self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
+                    self.init_pos_x = [infos[e]['init_pos_x'] for e in range(self.n_rollout_threads)]
+                    self.init_pos_y = [infos[e]['init_pos_y'] for e in range(self.n_rollout_threads)]
                     for agent_id in range(self.num_agents):
                         self.intrinsic_gt[:, agent_id] = np.array(self.explorable_map)[:, agent_id]
 
@@ -387,42 +392,51 @@ class HabitatRunner(Runner):
                 self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
                 self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
 
+    def init_keys(self):
+        # train keys
+        self.train_global_infos_keys = ['value_loss','policy_loss','dist_entropy','actor_grad_norm','critic_grad_norm','ratio']
+        self.train_local_infos_keys = ['local_policy_loss']
+        self.train_slam_infos_keys = ['costs','exp_costs','pose_costs']
+
+        # info keys
+        self.sum_env_info_keys = ['explored_ratio', 'merge_explored_ratio', 'merge_explored_reward', 'explored_reward', 'repeat_area', 'merge_repeat_area']
+        self.equal_env_info_keys = ['overlap_ratio', 'merge_explored_ratio_step', 'merge_explored_ratio_step_0.95', 'explored_ratio_step']
+        
+        # log keys
+        self.agents_env_info_keys = ['sum_explored_ratio','sum_explored_reward','sum_intrinsic_merge_explored_reward','sum_repeat_area','explored_ratio_step']
+        self.env_info_keys = ['sum_merge_explored_ratio','sum_merge_explored_reward','sum_merge_repeat_area','overlap_ratio','merge_explored_ratio_step','merge_explored_ratio_step_0.95','init_pos_x','init_pos_y']
+             
+        if self.use_eval:
+            self.agents_env_info_keys += ['sum_path_length']
+            self.auc_infos_keys = ['merge_auc','agent_auc']
+
+        # convert keys
+        self.env_infos_keys = self.agents_env_info_keys + self.env_info_keys + \
+                        ['max_sum_merge_explored_ratio','min_sum_merge_explored_ratio','merge_success_rate','invalid_merge_explored_ratio_step_num','invalid_merge_map_num'] 
+
+
     def init_global_policy(self):
         self.best_gobal_reward = -np.inf
         length = 1
+
         # ppo network log info
         self.train_global_infos = {}
-        self.train_global_infos['value_loss']= deque(maxlen=length)
-        self.train_global_infos['policy_loss']= deque(maxlen=length)
-        self.train_global_infos['dist_entropy'] = deque(maxlen=length)
-        self.train_global_infos['actor_grad_norm'] = deque(maxlen=length)
-        self.train_global_infos['critic_grad_norm'] = deque(maxlen=length)
-        self.train_global_infos['ratio'] = deque(maxlen=length)
-        
+        for key in self.train_global_infos_keys:
+            self.train_global_infos[key] = deque(maxlen=length)
+
         # env info
         self.env_infos = {}
-        
-        self.env_infos['sum_explored_ratio'] = deque(maxlen=length)
-        self.env_infos['sum_explored_reward'] = deque(maxlen=length)
-        self.env_infos['sum_repeat_area'] = deque(maxlen=length)
-        self.env_infos['sum_mer_explored_reward'] = deque(maxlen=length)
-        self.env_infos['sum_merge_explored_ratio'] = deque(maxlen=length)
-        self.env_infos['sum_merge_repeat_area'] = deque(maxlen=length)
-        self.env_infos['sum_merge_explored_reward'] = deque(maxlen=length)
-        self.env_infos['merge_explored_ratio_step'] = deque(maxlen=length)
-        self.env_infos['merge_explored_ratio_step_0.95'] = deque(maxlen=length)
-        self.env_infos['invalid_merge_explored_ratio_step_num'] = deque(maxlen=length)
-        self.env_infos['invalid_merge_map_num'] = deque(maxlen=length)
-        self.env_infos['merge_success_rate'] = deque(maxlen=length)
-        self.env_infos['max_sum_merge_explored_ratio'] = deque(maxlen=length)
-        self.env_infos['min_sum_merge_explored_ratio'] = deque(maxlen=length)
-        self.env_infos['explored_ratio_step'] = deque(maxlen=length) 
-        self.env_infos['overlap_ratio'] = deque(maxlen=length) 
+        for key in self.env_infos_keys:
+            self.env_infos[key] = deque(maxlen=length)
+
+        # auc info
         if self.use_eval:
-            self.env_infos['sum_path_length'] = deque(maxlen=length)
             self.auc_infos = {}
-            self.auc_infos['merge_auc'] = np.zeros((self.all_args.eval_episodes, self.n_rollout_threads, self.max_episode_length), dtype=np.float32)
-            self.auc_infos['agent_auc'] = np.zeros((self.all_args.eval_episodes,  self.n_rollout_threads, self.num_agents, self.max_episode_length), dtype=np.float32)
+            for key in self.auc_infos_keys:
+                if 'merge' in key:
+                    self.auc_infos[key] = np.zeros((self.all_args.eval_episodes, self.n_rollout_threads, self.max_episode_length), dtype=np.float32)
+                else:
+                    self.auc_infos[key] = np.zeros((self.all_args.eval_episodes,  self.n_rollout_threads, self.num_agents, self.max_episode_length), dtype=np.float32)
 
         self.global_input = {}
         if self.use_resnet:
@@ -460,7 +474,8 @@ class HabitatRunner(Runner):
         self.best_local_loss = np.inf
 
         self.train_local_infos = {}
-        self.train_local_infos['local_policy_loss'] = deque(maxlen=1000)
+        for key in self.train_local_infos_keys:
+            self.train_local_infos[key] = deque(maxlen=1000)
         
         # Local policy
         self.local_masks = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
@@ -492,9 +507,8 @@ class HabitatRunner(Runner):
         self.best_slam_cost = 10000
         
         self.train_slam_infos = {}
-        self.train_slam_infos['costs'] = deque(maxlen=1000)
-        self.train_slam_infos['exp_costs'] = deque(maxlen=1000)
-        self.train_slam_infos['pose_costs'] = deque(maxlen=1000)
+        for key in self.train_slam_infos_keys:
+            self.train_slam_infos[key] = deque(maxlen=1000)
         
         self.nslam_module = Neural_SLAM_Module(self.all_args, device=self.device)
         
@@ -511,19 +525,19 @@ class HabitatRunner(Runner):
 
     def init_env_info(self):
         self.env_info = {}
-        self.env_info['sum_explored_ratio'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
-        self.env_info['sum_mer_explored_reward'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
-        self.env_info['sum_explored_reward'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
-        self.env_info['sum_merge_explored_ratio'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
-        self.env_info['sum_repeat_area'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
-        self.env_info['sum_merge_repeat_area'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
-        self.env_info['sum_merge_explored_reward'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
-        self.env_info['explored_ratio_step'] = np.ones((self.n_rollout_threads, self.num_agents), dtype=np.float32) * self.max_episode_length
-        self.env_info['merge_explored_ratio_step'] = np.ones((self.n_rollout_threads,), dtype=np.float32) * self.max_episode_length
-        self.env_info['merge_explored_ratio_step_0.95'] = np.ones((self.n_rollout_threads,), dtype=np.float32) * self.max_episode_length
-        self.env_info['overlap_ratio'] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
-        if self.use_eval:
-            self.env_info['sum_path_length'] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
+
+        for key in self.agents_env_info_keys:
+            if "step" in key:
+                self.env_info[key] = np.ones((self.n_rollout_threads, self.num_agents), dtype=np.float32) * self.max_episode_length
+            else:
+                self.env_info[key] = np.zeros((self.n_rollout_threads, self.num_agents), dtype=np.float32)
+        
+        for key in self.env_info_keys:
+            if "step" in key:
+                self.env_info[key] = np.ones((self.n_rollout_threads,), dtype=np.float32) * self.max_episode_length
+            else:
+                self.env_info[key] = np.zeros((self.n_rollout_threads,), dtype=np.float32)
+
     def convert_info(self):
         for k, v in self.env_info.items():
             if k == "explored_ratio_step":
@@ -549,9 +563,9 @@ class HabitatRunner(Runner):
             else:
                 self.env_infos[k].append(v)
                 if k == 'sum_merge_explored_ratio':       
-                    self.env_infos['max_sum_merge_explored_ratio'].append(np.max(v))
-                    self.env_infos['min_sum_merge_explored_ratio'].append(np.min(v))
-                    ic(np.mean(v))
+                    self.env_infos['max_{}'.format(k)].append(np.max(v))
+                    self.env_infos['min_{}'.format(k)].append(np.min(v))
+                    print('mean sum merge explored ratio: {}'.format(np.mean(v)))
 
     def insert_slam_module(self, infos):
         # Add frames to memory
@@ -1045,9 +1059,9 @@ class HabitatRunner(Runner):
                         self.rewards[e, agent_id] += 0.02
         
         if self.use_delta_reward:
-            self.env_info['sum_mer_explored_reward'] += self.rewards[:,:,0]
+            self.env_info['sum_intrinsic_merge_explored_reward'] += self.rewards[:,:,0]
         else:
-            self.env_info['sum_mer_explored_reward'] = self.rewards[:,:,0]
+            self.env_info['sum_intrinsic_merge_explored_reward'] = self.rewards[:,:,0]
         
         rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
         rnn_states_critic[dones == True] = np.zeros(((dones == True).sum(), *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
@@ -1058,6 +1072,7 @@ class HabitatRunner(Runner):
         self.buffer.insert(self.share_global_input, self.global_input, rnn_states, rnn_states_critic, actions, action_log_probs, values, self.rewards, self.global_masks)
         
         self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
+        
         if self.use_delta_reward:
             self.rewards = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
         
@@ -1373,14 +1388,12 @@ class HabitatRunner(Runner):
         for episode in range(self.all_args.eval_episodes):
             # store each episode ratio or reward
             self.init_env_info()
-            if not self.use_delta_reward:
-                self.rewards = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
 
             rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
 
             # init map and pose 
             self.init_map_and_pose() 
-            reset_choose = np.ones(self.n_eval_rollout_threads) == 1.0
+            reset_choose = np.ones(self.n_rollout_threads) == 1.0
             # reset env
             self.obs, infos = self.envs.reset(reset_choose)
             self.trans = [infos[e]['trans'] for e in range(self.n_rollout_threads)]
@@ -1414,8 +1427,6 @@ class HabitatRunner(Runner):
             for step in range(self.max_episode_length):
                 ic(step)
                 local_step = step % self.num_local_steps
-                global_step = (step // self.num_local_steps) % self.episode_length
-                eval_global_step = step // self.num_local_steps + 1
 
                 self.last_obs = self.obs.copy()
 
@@ -1426,24 +1437,23 @@ class HabitatRunner(Runner):
                 self.obs, reward, dones, infos = self.envs.step(actions_env)
 
                 for e in range(self.n_rollout_threads):
-                    for key in ['explored_ratio', 'explored_reward', 'repeat_area', 'path_length', 'merge_explored_ratio', 'merge_explored_reward', 'merge_repeat_area']:
+                    for key in self.sum_env_info_keys:
                         if key in infos[e].keys():
                             self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
                             if key == 'merge_explored_ratio' and self.use_eval:
                                 self.auc_infos['merge_auc'][episode, e, step] = self.auc_infos['merge_auc'][episode, e, step-1] + np.array(infos[e][key])
                             if key == 'explored_ratio' and self.use_eval:
                                 self.auc_infos['agent_auc'][episode, e, :, step] = self.auc_infos['agent_auc'][episode, e, :, step-1] + np.array(infos[e][key])
-                    if 'overlap_ratio' in infos[e].keys():
-                        self.env_info['overlap_ratio'][e] = infos[e]['overlap_ratio']
-                    if 'merge_explored_ratio_step' in infos[e].keys():
-                        self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
-                    if 'merge_explored_ratio_step_0.95' in infos[e].keys():
-                        self.env_info['merge_explored_ratio_step_0.95'][e] = infos[e]['merge_explored_ratio_step_0.95']
-                    for agent_id in range(self.num_agents):
-                        agent_k = "agent{}_explored_ratio_step".format(agent_id)
-                        if agent_k in infos[e].keys():
-                            self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
-                                
+                    for key in self.equal_env_info_keys:
+                        if key == 'explored_ratio_step':
+                            for agent_id in range(self.num_agents):
+                                agent_k = "agent{}_{}".format(agent_id, key)
+                                if agent_k in infos[e].keys():
+                                    self.env_info[key][e][agent_id] = infos[e][agent_k]
+                        else:
+                            if key in infos[e].keys():
+                                self.env_info[key][e] = infos[e][key]
+                    
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
@@ -1501,14 +1511,10 @@ class HabitatRunner(Runner):
             # store each episode ratio or reward
             self.env_step = 0
             self.init_env_info()
-            if not self.use_delta_reward:
-                self.rewards = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
-
-            rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
 
             # init map and pose 
             self.init_map_and_pose() 
-            reset_choose = np.ones(self.n_eval_rollout_threads) == 1.0
+            reset_choose = np.ones(self.n_rollout_threads) == 1.0
             # reset env
             self.obs, infos = self.envs.reset(reset_choose)
             self.trans = [infos[e]['trans'] for e in range(self.n_rollout_threads)]
@@ -1520,9 +1526,9 @@ class HabitatRunner(Runner):
             self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
             self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
             self.merge_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
+            
             # Predict map from frame 1:
             self.run_slam_module(self.obs, self.obs, infos)
-            self.env_step = 0
 
             # Compute Global policy input
             self.update_local_map()
@@ -1543,12 +1549,8 @@ class HabitatRunner(Runner):
             self.local_output = np.array(self.local_output, dtype = np.long)
             
             for step in range(self.max_episode_length):
-                self.env_step = step
                 ic(step)
                 self.env_step = step + 1
-                local_step = step % self.num_local_steps
-                global_step = (step // self.num_local_steps) % self.episode_length
-                eval_global_step = step // self.num_local_steps + 1
 
                 self.last_obs = self.obs.copy()
 
@@ -1558,24 +1560,24 @@ class HabitatRunner(Runner):
                 # Obser reward and next obs
                 self.obs, reward, dones, infos = self.envs.step(actions_env)
                 for e in range(self.n_rollout_threads):
-                    for key in ['explored_ratio', 'explored_reward', 'repeat_area', 'path_length', 'merge_explored_ratio', 'merge_explored_reward', 'merge_repeat_area']:
+                    for key in self.sum_env_info_keys:
                         if key in infos[e].keys():
                             self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
                             if key == 'merge_explored_ratio' and self.use_eval:
                                 self.auc_infos['merge_auc'][episode, e, step] = self.auc_infos['merge_auc'][episode, e, step-1] + np.array(infos[e][key])
                             if key == 'explored_ratio' and self.use_eval:
                                 self.auc_infos['agent_auc'][episode, e, :, step] = self.auc_infos['agent_auc'][episode, e, :, step-1] + np.array(infos[e][key])
-                    if 'overlap_ratio' in infos[e].keys():
-                        self.env_info['overlap_ratio'][e] = infos[e]['overlap_ratio']
-                    if 'merge_explored_ratio_step' in infos[e].keys():
-                        self.env_info['merge_explored_ratio_step'][e] = infos[e]['merge_explored_ratio_step']
-                    if 'merge_explored_ratio_step_0.95' in infos[e].keys():
-                        self.env_info['merge_explored_ratio_step_0.95'][e] = infos[e]['merge_explored_ratio_step_0.95']
-                    for agent_id in range(self.num_agents):
-                        agent_k = "agent{}_explored_ratio_step".format(agent_id)
-                        if agent_k in infos[e].keys():
-                            self.env_info['explored_ratio_step'][e][agent_id] = infos[e][agent_k]
-                print("gjx step %d, explored "%(self.env_step), self.env_info['sum_merge_explored_ratio'])
+                    for key in self.equal_env_info_keys:
+                        if key == "explored_ratio_step":
+                            for agent_id in range(self.num_agents):
+                                agent_k = "agent{}_{}".format(agent_id, key)
+                                if agent_k in infos[e].keys():
+                                    self.env_info[key][e][agent_id] = infos[e][agent_k]
+                        else:
+                            if key in infos[e].keys():
+                                self.env_info[key][e] = infos[e][key]
+                    
+                print("eval step %d, explored " %(self.env_step), self.env_info['sum_merge_explored_ratio'])
                                 
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
@@ -1587,8 +1589,10 @@ class HabitatRunner(Runner):
                 self.update_map_and_pose(update=False)
                 for a in range(self.num_agents):
                     self.merge_map[:, a], _ = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
+                
                 # Global Policy
                 self.ft_go_steps += 1
+
                 for e in range (self.n_rollout_threads):
                     if self.env_info['sum_merge_explored_ratio'][e] - self.ft_last_merge_explored_ratio[e] > 0.01 or step % self.all_args.ft_num_local_steps == 0:
                         self.update_map_and_pose(envs = e)  
@@ -1610,8 +1614,8 @@ class HabitatRunner(Runner):
                 self.log_agent(self.env_infos, total_num_steps)
                 
         if self.use_eval and not self.use_wandb:
-                self.log_auc(self.auc_infos)
-                self.log_agent_auc(self.auc_infos)
+            self.log_auc(self.auc_infos)
+            self.log_agent_auc(self.auc_infos)
             
         for k, v in self.env_infos.items():
             print("eval average {}: {}".format(k, np.nanmean(v) if k == 'merge_explored_ratio_step' or k == "merge_explored_ratio_step_0.95"else np.mean(v)))
