@@ -125,7 +125,8 @@ def parse_args(args, parser):
     parser.add_argument('--use_oracle', action='store_true',
                         default=False, help="by default True, use oracle information") 
     parser.add_argument('--pretrained_global_resnet', type=int, default=1)
-    parser.add_argument('--use_merge_goal', action = 'store_true', default = False)
+    parser.add_argument('--use_merge_goal', action='store_true',
+                        default=False, help="by default True, use merge goal")
 
 
     # Local Policy
