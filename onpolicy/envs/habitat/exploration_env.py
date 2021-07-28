@@ -1025,7 +1025,17 @@ class Exploration_Env(habitat.RLEnv):
             return new_mat
 
         traversible = add_boundary(traversible)
-
+        
+        if self.args.local_planner == 'fmm':
+            planner = FMMPlanner(traversible, 360//self.dt)
+        elif self.args.local_planner == 'rrt':
+            from .utils.rrt_planner import RRTPlanner
+            planner = RRTPlanner(traversible)
+        elif self.args.local_planner == 'astar':
+            from .utils.astar_planner import AstarPlanner
+            planner = AstarPlanner(traversible)
+        else:
+            raise NotImplementedError
         planner = FMMPlanner(traversible, 360//self.dt)
 
         reachable = planner.set_goal([goal[1]-y1+1, goal[0]-x1+1])

@@ -168,6 +168,8 @@ def parse_args(args, parser):
     parser.add_argument('--obs_threshold', type=float, default=1)
     parser.add_argument('--collision_threshold', type=float, default=0.20)
     parser.add_argument('--noise_level', type=float, default=1.0)
+    
+    parser.add_argument('--local_planner', type=str, default='fmm', choices=['fmm', 'astar', 'rrt'], help = 'choose local planner. [fmm, rrt, astar]')
 
     all_args = parser.parse_known_args(args)[0]
 

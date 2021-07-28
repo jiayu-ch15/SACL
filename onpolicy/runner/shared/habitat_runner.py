@@ -1560,7 +1560,8 @@ class HabitatRunner(Runner):
 
             # Compute Global policy input
             self.update_local_map()
-            self.update_single_map_and_pose(update=False)
+            for e in range(self.n_rollout_threads):
+                self.update_single_map_and_pose(envs = e, update=False)
             
             for a in range(self.num_agents):
                 self.merge_map[:, a], _ = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
@@ -1605,7 +1606,7 @@ class HabitatRunner(Runner):
                             if key in infos[e].keys():
                                 self.env_info[key][e] = infos[e][key]
                     
-                print("eval step {}, explored {}".format(self.env_step, self.env_info['sum_merge_explored_ratio']))
+                ic("eval step {}, explored {}".format(self.env_step, self.env_info['sum_merge_explored_ratio']))
                                 
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
@@ -1614,7 +1615,8 @@ class HabitatRunner(Runner):
 
                 self.run_slam_module(self.last_obs, self.obs, infos)
                 self.update_local_map()
-                self.update_single_map_and_pose(update=False)
+                for e in range(self.n_rollout_threads):
+                    self.update_single_map_and_pose(envs = e, update=False)
                 for a in range(self.num_agents):
                     self.merge_map[:, a], _ = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
                 
