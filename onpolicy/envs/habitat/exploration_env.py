@@ -289,6 +289,7 @@ class Exploration_Env(habitat.RLEnv):
             merge_repeat_area = self.info['merge_repeat_area']
             if 'merge_overlap_ratio' in self.info.keys():
                 merge_overlap_ratio = self.info['merge_overlap_ratio']
+                merge_overlap_divide_ratio = self.info['merge_overlap_divide_ratio']
                 merge_overlap = True
             reward = self.info['explored_reward']
             partial_reward = self.info['explored_merge_reward']
@@ -339,6 +340,7 @@ class Exploration_Env(habitat.RLEnv):
             self.info['explored_merge_reward'] = partial_reward
             if merge_overlap:
                 self.info['merge_overlap_ratio'] = merge_overlap_ratio
+                self.info['merge_overlap_divide_ratio'] = merge_overlap_divide_ratio
             self.info['repeat_area'] = repeat_area
             if self.use_eval:
                 self.info['path_length'] = path_length
@@ -516,7 +518,6 @@ class Exploration_Env(habitat.RLEnv):
             self.info['merge_obstacle_gt'].append(self.agent_transform(merge_obstacle_gt, agent_id))
             if self.use_eval:
                 self.info['path_length'].append(pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][1]))
-                ic(self.info['path_length'])
         agent_explored_area, agent_explored_ratio, merge_explored_area, merge_explored_ratio, \
             agent_trans_reward, curr_merge_explored_map, curr_agent_explored_map, curr_merge_explored_area = self.get_global_reward()
         
@@ -559,6 +560,7 @@ class Exploration_Env(habitat.RLEnv):
             overlap_map = np.sum(self.pre_agent_trans_map, axis=0)
             # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
             self.info['merge_overlap_ratio'] = (overlap_map > 1.2).sum() / curr_merge_explored_area
+            self.info['merge_overlap_divide_ratio'] = (overlap_map > 1.2).sum() / (curr_merge_explored_area * self.merge_ratio)
             self.overlap_flag = False
 
         if self.timestep % self.args.num_local_steps == 0:

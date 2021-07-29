@@ -404,11 +404,11 @@ class HabitatRunner(Runner):
 
         # info keys
         self.sum_env_info_keys = ['explored_ratio', 'merge_explored_ratio', 'merge_explored_reward', 'explored_reward', 'repeat_area', 'merge_repeat_area']
-        self.equal_env_info_keys = ['merge_overlap_ratio', 'merge_explored_ratio_step', 'merge_explored_ratio_step_0.95', 'explored_ratio_step','init_pos_x','init_pos_y']
+        self.equal_env_info_keys = ['merge_overlap_ratio', 'merge_overlap_divide_ratio', 'merge_explored_ratio_step', 'merge_explored_ratio_step_0.95', 'explored_ratio_step','init_pos_x','init_pos_y']
         
         # log keys
         self.agents_env_info_keys = ['sum_explored_ratio','sum_explored_reward','sum_intrinsic_merge_explored_reward','sum_repeat_area','explored_ratio_step','init_pos_x','init_pos_y']
-        self.env_info_keys = ['sum_merge_explored_ratio','sum_merge_explored_reward','sum_merge_repeat_area','merge_overlap_ratio','merge_explored_ratio_step','merge_explored_ratio_step_0.95']
+        self.env_info_keys = ['sum_merge_explored_ratio','sum_merge_explored_reward','sum_merge_repeat_area','merge_overlap_ratio','merge_overlap_divide_ratio', 'merge_explored_ratio_step','merge_explored_ratio_step_0.95']
              
         if self.use_eval:
             self.agents_env_info_keys += ['sum_path_length']
