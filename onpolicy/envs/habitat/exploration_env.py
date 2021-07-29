@@ -289,7 +289,6 @@ class Exploration_Env(habitat.RLEnv):
             merge_repeat_area = self.info['merge_repeat_area']
             if 'merge_overlap_ratio' in self.info.keys():
                 merge_overlap_ratio = self.info['merge_overlap_ratio']
-                merge_overlap_divide_ratio = self.info['merge_overlap_divide_ratio']
                 merge_overlap = True
             reward = self.info['explored_reward']
             partial_reward = self.info['explored_merge_reward']
@@ -340,7 +339,6 @@ class Exploration_Env(habitat.RLEnv):
             self.info['explored_merge_reward'] = partial_reward
             if merge_overlap:
                 self.info['merge_overlap_ratio'] = merge_overlap_ratio
-                self.info['merge_overlap_divide_ratio'] = merge_overlap_divide_ratio
             self.info['repeat_area'] = repeat_area
             if self.use_eval:
                 self.info['path_length'] = path_length
@@ -519,7 +517,7 @@ class Exploration_Env(habitat.RLEnv):
             if self.use_eval:
                 self.info['path_length'].append(pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][1]))
         agent_explored_area, agent_explored_ratio, merge_explored_area, merge_explored_ratio, \
-            agent_trans_reward, curr_merge_explored_map, curr_agent_explored_map, curr_merge_explored_area = self.get_global_reward()
+            agent_trans_reward, curr_merge_explored_map, curr_agent_explored_map = self.get_global_reward()
         
         # log step
         self.merge_ratio += merge_explored_ratio
@@ -559,8 +557,7 @@ class Exploration_Env(habitat.RLEnv):
         if (self.merge_ratio >= self.explored_ratio_threshold or self.timestep >= self.args.max_episode_length) and self.overlap_flag:
             overlap_map = np.sum(self.pre_agent_trans_map, axis=0)
             # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
-            self.info['merge_overlap_ratio'] = (overlap_map > 1.2).sum() / curr_merge_explored_area
-            self.info['merge_overlap_divide_ratio'] = (overlap_map > 1.2).sum() / (curr_merge_explored_area * self.merge_ratio)
+            self.info['merge_overlap_ratio'] = curr_merge_explored_map[overlap_map > 1.2].sum() / curr_merge_explored_map.sum()
             self.overlap_flag = False
 
         if self.timestep % self.args.num_local_steps == 0:
@@ -650,7 +647,7 @@ class Exploration_Env(habitat.RLEnv):
 
         return agent_explored_rewards, agent_explored_ratios, \
             merge_explored_reward, merge_explored_ratio, agent_trans_reward, \
-                curr_merge_explored_map, curr_agent_explored_map, curr_merge_explored_area
+                curr_merge_explored_map, curr_agent_explored_map
 
     def get_done(self, observations, agent_id):
         # This function is not used, Habitat-RLEnv requires this function
