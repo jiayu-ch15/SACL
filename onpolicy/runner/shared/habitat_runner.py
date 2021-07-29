@@ -650,18 +650,17 @@ class HabitatRunner(Runner):
                 trace = np.zeros((self.full_h, self.full_w), dtype=np.float32)
                 #trace[0][agent_merge_map[0] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
                 #trace[1][agent_merge_map[1] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
-                trace[agent_merge_map[3] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                trace[agent_merge_map[3] > 0] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
                 #agent_merge_map[0:2] = trace[0:2]
                 agent_merge_map[3] = trace
-                merge_map[e] += agent_merge_map
+                for i in range(2):
+                    merge_map[e, i] = np.maximum(agent_merge_map[i], merge_map[e, i])
+                    merge_map[e, i+2] += agent_merge_map[i+2]
             
             
             agent_n_trans = F.grid_sample(torch.from_numpy(merge_map[e]).unsqueeze(0).float(), agent_trans[e][a].float(), align_corners=True)      
             merge_map[e] = F.grid_sample(agent_n_trans.float(), agent_rotation[e][a].float(), align_corners=True)[0, :, :, :].numpy()
-            for i in range(2):
-                merge_map[ e, i][merge_map[ e, i]>1] = 1
-                merge_map[ e, i][merge_map[ e, i]<0.2] = 0
-
+    
             local_merge_map[e, :2] = merge_map[e, :2, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]].copy()
             local_merge_map[e, 2:] = self.local_map[e, a, 2:].copy()
         return merge_map, local_merge_map
@@ -697,22 +696,19 @@ class HabitatRunner(Runner):
             for a in range(self.num_agents):
                 point_map = np.zeros((1, self.full_w, self.full_h), dtype=np.float32)
                 point_map[0, int(point[e, a, 0]*self.local_w+self.lmb[e, a, 0]-2): int(point[e, a, 0]*self.local_w+self.lmb[e, a, 0]+3), \
-                    int(point[e, a, 1]*self.local_w+self.lmb[e, a, 2]-2): int(point[e, a, 1]*self.local_w+self.lmb[e, a, 2]+3)] += 1
+                    int(point[e, a, 1]*self.local_w+self.lmb[e, a, 2]-2): int(point[e, a, 1]*self.local_w+self.lmb[e, a, 2]+3)] = 1
                 n_rotated = F.grid_sample(torch.from_numpy(point_map).unsqueeze(0).float(), rotation[e][a].float(), align_corners=True)
                 n_map = F.grid_sample(n_rotated.float(), trans[e][a].float(), align_corners=True)
-                merge_map += n_map[0, :, :, :].numpy().copy()
+                point_map = n_map[0, :, :, :].numpy().copy()
+                point_map[point_map> 0] = (a + 1)/np.array([a+1 for a in range(self.num_agents)]).sum()
+                merge_map += point_map
             
             agent_n_trans = F.grid_sample(torch.from_numpy(merge_map).unsqueeze(0).float(), agent_trans[e][agent_id].float(), align_corners=True)      
             agent_n_rot = F.grid_sample(agent_n_trans.float(), agent_rotation[e][agent_id].float(), align_corners=True)
             merge_point_map[e, 0] = agent_n_rot[0, 0, :, :].numpy().copy()
-            merge_point_map[e, 0][merge_point_map[e, 0]>1]=1
-            merge_point_map[e, 0][merge_point_map[e, 0]<0.2]=0
-            
                 
-        self.merge_goal_trace[:, agent_id, :, :] +=  merge_point_map[:, 0]
+        self.merge_goal_trace[:, agent_id, :, :] =  np.maximum(self.merge_goal_trace[:, agent_id, :, :], merge_point_map[:, 0])
         merge_point_map[:, 1] = self.merge_goal_trace[:, agent_id, :, :].copy()
-        merge_point_map[:, 1][merge_point_map[:, 1]>1]=1
-        merge_point_map[:, 1][merge_point_map[:, 1]<0.2]=0
         
         return merge_point_map
 
