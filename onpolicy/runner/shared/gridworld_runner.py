@@ -453,18 +453,24 @@ class GridWorldRunner(Runner):
                 ic(step)
                 calc_start = time.time()
 
-                self.trainer.prep_rollout()
+                if 'ft' not in self.all_args.algorithm_name:
+                    self.trainer.prep_rollout()
 
                 concat_obs = {}
                 for key in obs.keys():
                     concat_obs[key] = np.concatenate(obs[key])
 
-                action, rnn_states = self.trainer.policy.act(concat_obs,
-                                                    np.concatenate(rnn_states),
-                                                    np.concatenate(masks),
-                                                    deterministic=True)
-                actions = np.array(np.split(_t2n(action), self.n_rollout_threads))
-                rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
+                if self.all_args.algorithm_name in ["ft_rrt", "ft_nearest", "ft_apf", "ft_utility"]:
+                    actions, _ = envs.ft_get_actions(self.all_args, mode = self.all_args.algorithm_name[3:])
+                elif self.all_args.algorithm_name in ["rmappo", "mappo", "rmappg", "mappg"]:
+                    action, rnn_states = self.trainer.policy.act(concat_obs,
+                                                        np.concatenate(rnn_states),
+                                                        np.concatenate(masks),
+                                                        deterministic=True)
+                    actions = np.array(np.split(_t2n(action), self.n_rollout_threads))
+                    rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
+                else:
+                    raise NotImplementedError
 
                 # Obser reward and next obs
                 dict_obs, rewards, dones, infos = envs.step(actions)
@@ -510,11 +516,11 @@ class GridWorldRunner(Runner):
             print("average episode rewards is: " + str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
             print("average merge explored ratio is: " + str(np.mean(env_infos['merge_explored_ratio'])))
             print("average merge explored step is: " + str(np.mean(env_infos['merge_explored_ratio_step'])))
-            if self.use_eval:
+            if self.use_eval and not self.use_render:
                 self.log_env(env_infos, total_num_steps)
 
-        if self.use_eval and not self.use_wandb:
-                self.log_auc(auc_infos)
+        if self.use_eval and not self.use_wandb and not self.use_render:
+            self.log_auc(auc_infos)
                 
         if self.all_args.save_gifs:
             ic("rendering....")

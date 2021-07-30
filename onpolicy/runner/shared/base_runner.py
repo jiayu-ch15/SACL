@@ -72,13 +72,13 @@ class Runner(object):
                 self.save_dir = str(self.run_dir / 'models')
                 if not os.path.exists(self.save_dir):
                     os.makedirs(self.save_dir)
+        
         if "mappo" in self.algorithm_name:
             if self.use_single_network:
                 from onpolicy.algorithms.r_mappo_single.r_mappo_single import R_MAPPO as TrainAlgo
                 from onpolicy.algorithms.r_mappo_single.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
             else:
                 from onpolicy.algorithms.r_mappo.r_mappo import R_MAPPO as TrainAlgo
-                from onpolicy.algorithms.r_mappo.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
         elif "mappg" in self.algorithm_name:
             if self.use_single_network:
                 from onpolicy.algorithms.r_mappg_single.r_mappg_single import R_MAPPG as TrainAlgo

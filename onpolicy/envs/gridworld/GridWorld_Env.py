@@ -92,4 +92,8 @@ class GridWorldEnv(object):
             self.env.render(mode=mode)
         else:
             return self.env.render(mode=mode)
-            
+    
+    def ft_get_actions(self, args, mode):
+        assert mode in ['apf', 'utility', 'nearest', 'rrt'], ('frontier global mode should be in [apf, utility, nearest, rrt]')
+        actions, goals = self.env.ft_get_actions(args, mode = mode)
+        return actions, goals 
