@@ -23,7 +23,7 @@ class RRTPlanner(object):
             obstacle_list=self.obstacles,
             expand_dis=3.0 ,
             goal_sample_rate=10,
-            max_iter=10000,
+            max_iter=100000,
             connect_circle_dist=30.0)
         path = rrt_star.planning(animation=False, smooth_path = True)
 
