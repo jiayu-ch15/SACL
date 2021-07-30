@@ -412,7 +412,7 @@ class HabitatRunner(Runner):
              
         if self.use_eval:
             self.agents_env_info_keys += ['path_length/ratio']
-            self.equal_env_info_keys  += ['path_length/ratio'']
+            self.equal_env_info_keys  += ['path_length/ratio']
             self.auc_infos_keys = ['merge_auc','agent_auc']
 
         # convert keys

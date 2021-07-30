@@ -515,7 +515,7 @@ class Exploration_Env(habitat.RLEnv):
             self.info['merge_explored_gt'].append(self.agent_transform(merge_explored_gt, agent_id))
             self.info['merge_obstacle_gt'].append(self.agent_transform(merge_obstacle_gt, agent_id))
             if self.use_eval:
-                self.path_length[agent_id] += pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][1]))
+                self.path_length[agent_id] += pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][1])
         agent_explored_area, agent_explored_ratio, merge_explored_area, merge_explored_ratio, \
             agent_trans_reward, curr_merge_explored_map, curr_agent_explored_map = self.get_global_reward()
         
