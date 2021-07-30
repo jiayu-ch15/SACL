@@ -170,7 +170,10 @@ class Exploration_Env(habitat.RLEnv):
         self.merge_ratio = 0
         self.overlap_flag = True
         merge_overlap = False
+        self.path_length_flag = True
+        path_length_flag = False
         self.ratio = np.zeros(self.num_agents)
+        self.path_length = np.zeros(self.num_agents)
         
 
         if self.args.randomize_env_every > 0:
@@ -294,8 +297,9 @@ class Exploration_Env(habitat.RLEnv):
             partial_reward = self.info['explored_merge_reward']
             ratio = self.info['explored_ratio']
             repeat_area = self.info['repeat_area']
-            if self.use_eval:
-                path_length = self.info['path_length']
+            if self.use_eval and 'path_length/ratio' in self.info.keys():
+                path_length = self.info['path_length/ratio']
+                path_length_flag = True
             
 
         # Set info
@@ -307,7 +311,6 @@ class Exploration_Env(habitat.RLEnv):
             'pose_err': [],
             'merge_obstacle_gt': [],
             'merge_explored_gt': [],
-            'path_length': []
         }
         for agent_id in range(self.num_agents):
             self.info['time'].append(self.timestep)
@@ -317,8 +320,6 @@ class Exploration_Env(habitat.RLEnv):
             self.info['pose_err'].append([0., 0., 0.])
             self.info['merge_explored_gt'].append(self.agent_transform(merge_explored_gt, agent_id))
             self.info['merge_obstacle_gt'].append(self.agent_transform(merge_obstacle_gt, agent_id))
-            if self.use_eval:
-                self.info['path_length'].append(pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][1]))
             
         self.info['trans'] = self.n_trans
         self.info['rotation'] = self.n_rot
@@ -340,8 +341,8 @@ class Exploration_Env(habitat.RLEnv):
             if merge_overlap:
                 self.info['merge_overlap_ratio'] = merge_overlap_ratio
             self.info['repeat_area'] = repeat_area
-            if self.use_eval:
-                self.info['path_length'] = path_length
+            if self.use_eval and path_length_flag:
+                self.info['path_length/ratio'] = path_length
 
         self.save_position()
 
@@ -495,7 +496,6 @@ class Exploration_Env(habitat.RLEnv):
             'pose_err': [],
             'merge_obstacle_gt': [],
             'merge_explored_gt': [],
-            'path_length': [],
             'explored_reward': [0.0 for _ in range(self.num_agents)],
             'explored_merge_reward':[0.0 for _ in range(self.num_agents)],
             'explored_ratio': [],
@@ -515,7 +515,7 @@ class Exploration_Env(habitat.RLEnv):
             self.info['merge_explored_gt'].append(self.agent_transform(merge_explored_gt, agent_id))
             self.info['merge_obstacle_gt'].append(self.agent_transform(merge_obstacle_gt, agent_id))
             if self.use_eval:
-                self.info['path_length'].append(pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][1]))
+                self.path_length[agent_id] += pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][1]))
         agent_explored_area, agent_explored_ratio, merge_explored_area, merge_explored_ratio, \
             agent_trans_reward, curr_merge_explored_map, curr_agent_explored_map = self.get_global_reward()
         
@@ -554,11 +554,17 @@ class Exploration_Env(habitat.RLEnv):
             if self.timestep % self.args.num_local_steps == 0:
                 agents_explored_map = np.maximum(agents_explored_map, self.transform(self.current_explored_gt[agent_id]*self.explorable_map[agent_id], agent_id))
         
-        if (self.merge_ratio >= self.explored_ratio_threshold or self.timestep >= self.args.max_episode_length) and self.overlap_flag:
-            overlap_map = np.sum(self.pre_agent_trans_map, axis=0)
-            # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
-            self.info['merge_overlap_ratio'] = curr_merge_explored_map[overlap_map > 1.2].sum() / curr_merge_explored_map.sum()
-            self.overlap_flag = False
+        if (self.merge_ratio >= self.explored_ratio_threshold or self.timestep >= self.args.max_episode_length) :
+            if self.overlap_flag:
+                overlap_map = np.sum(self.pre_agent_trans_map, axis=0)
+                # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
+                self.info['merge_overlap_ratio'] = curr_merge_explored_map[overlap_map > 1.2].sum() / curr_merge_explored_map.sum()
+                self.overlap_flag = False
+            if self.path_length_flag:
+                self.path_length_flag = False
+                self.info['path_length/ratio'] = np.zeros((self.num_agents))
+                for agent_id in range(self.num_agents):
+                    self.info['path_length/ratio'][agent_id] = self.path_length[agent_id]/ self.ratio[agent_id]
 
         if self.timestep % self.args.num_local_steps == 0:
             for agent_id in range(self.num_agents):
