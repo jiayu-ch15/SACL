@@ -1086,7 +1086,16 @@ class Exploration_Env(habitat.RLEnv):
             traversible[int(goal[0]-x1)-goal_r:int(goal[0]-x1)+goal_r+1,
                         int(goal[1]-y1)-goal_r:int(goal[1]-y1)+goal_r+1] = 1
             scale = 1
-            planner = FMMPlanner(traversible, 360//self.dt, scale)
+            if self.args.local_planner == 'fmm':
+                planner = FMMPlanner(traversible, 360//self.dt)
+            elif self.args.local_planner == 'rrt':
+                from .utils.rrt_planner import RRTPlanner
+                planner = RRTPlanner(traversible)
+            elif self.args.local_planner == 'astar':
+                from .utils.astar_planner import AstarPlanner
+                planner = AstarPlanner(traversible)
+            else:
+                raise NotImplementedError
 
             reachable = planner.set_goal([goal[1]-y1, goal[0]-x1])
 
