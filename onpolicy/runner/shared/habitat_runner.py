@@ -9,7 +9,6 @@ from itertools import chain
 import matplotlib
 import matplotlib.pyplot as plt
 import cv2
-matplotlib.use('TkAgg')
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
