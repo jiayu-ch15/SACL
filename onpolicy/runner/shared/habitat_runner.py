@@ -9,7 +9,7 @@ from itertools import chain
 import matplotlib
 import matplotlib.pyplot as plt
 import cv2
-
+matplotlib.use('TkAgg')
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -317,6 +317,7 @@ class HabitatRunner(Runner):
         self.use_merge_local = self.all_args.use_merge_local
         self.use_oracle = self.all_args.use_oracle
         self.use_merge_goal = self.all_args.use_merge_goal
+        self.use_max = self.all_args.use_max
 
     def init_map_variables(self):
         ### Full map consists of 4 channels containing the following:
@@ -404,11 +405,11 @@ class HabitatRunner(Runner):
 
         # info keys
         self.sum_env_info_keys = ['explored_ratio', 'merge_explored_ratio', 'merge_explored_reward', 'explored_reward', 'repeat_area', 'merge_repeat_area']
-        self.equal_env_info_keys = ['merge_overlap_ratio', 'merge_overlap_divide_ratio', 'merge_explored_ratio_step', 'merge_explored_ratio_step_0.95', 'explored_ratio_step','init_pos_x','init_pos_y']
+        self.equal_env_info_keys = ['merge_overlap_ratio', 'merge_explored_ratio_step', 'merge_explored_ratio_step_0.95', 'explored_ratio_step','init_pos_x','init_pos_y']
         
         # log keys
         self.agents_env_info_keys = ['sum_explored_ratio','sum_explored_reward','sum_intrinsic_merge_explored_reward','sum_repeat_area','explored_ratio_step','init_pos_x','init_pos_y']
-        self.env_info_keys = ['sum_merge_explored_ratio','sum_merge_explored_reward','sum_merge_repeat_area','merge_overlap_ratio','merge_overlap_divide_ratio', 'merge_explored_ratio_step','merge_explored_ratio_step_0.95']
+        self.env_info_keys = ['sum_merge_explored_ratio','sum_merge_explored_reward','sum_merge_repeat_area','merge_overlap_ratio', 'merge_explored_ratio_step','merge_explored_ratio_step_0.95']
              
         if self.use_eval:
             self.agents_env_info_keys += ['sum_path_length']
@@ -653,14 +654,21 @@ class HabitatRunner(Runner):
                 trace[agent_merge_map[3] > 0] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
                 #agent_merge_map[0:2] = trace[0:2]
                 agent_merge_map[3] = trace
-                for i in range(2):
-                    merge_map[e, i] = np.maximum(agent_merge_map[i], merge_map[e, i])
-                    merge_map[e, i+2] += agent_merge_map[i+2]
-            
+                if self.use_max:
+                    for i in range(2):
+                        merge_map[e, i] = np.maximum(agent_merge_map[i], merge_map[e, i])
+                        merge_map[e, i+2] += agent_merge_map[i+2]
+                        
+                else:
+                    merge_map[e] += agent_merge_map
             
             agent_n_trans = F.grid_sample(torch.from_numpy(merge_map[e]).unsqueeze(0).float(), agent_trans[e][a].float(), align_corners=True)      
             merge_map[e] = F.grid_sample(agent_n_trans.float(), agent_rotation[e][a].float(), align_corners=True)[0, :, :, :].numpy()
-    
+            if not self.use_max:
+                for i in range(2):
+                    merge_map[ e, i][merge_map[ e, i]>1] = 1
+                    merge_map[ e, i][merge_map[ e, i]<0.2] = 0
+
             local_merge_map[e, :2] = merge_map[e, :2, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]].copy()
             local_merge_map[e, 2:] = self.local_map[e, a, 2:].copy()
         return merge_map, local_merge_map

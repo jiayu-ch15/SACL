@@ -123,9 +123,9 @@ class MultiHabitatEnv(object):
             
 
         if rank > (args.n_rollout_threads)/2 and args.n_rollout_threads > 6:
-            gpu_id = 0
+            gpu_id = 2
         else:
-            gpu_id = 0
+            gpu_id = 1
 
         config_env.ENVIRONMENT.MAX_EPISODE_STEPS = args.max_episode_length
         config_env.ENVIRONMENT.ITERATOR_OPTIONS.SHUFFLE = True
@@ -180,7 +180,7 @@ class MultiHabitatEnv(object):
         if self.use_partial_reward:
             rewards = 0.5 * np.expand_dims(np.array(infos['explored_reward']), axis=1) + 0.5 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         elif self.use_merge_partial_reward:
-            rewards = 0.5 * np.expand_dims(np.array(infos['explored_merge_reward']), axis=1) + 0.5 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+            rewards = 1.0 * np.expand_dims(np.array(infos['explored_merge_reward']), axis=1) + 0.0 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         else:
             rewards = np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         return obs, rewards, dones, infos
