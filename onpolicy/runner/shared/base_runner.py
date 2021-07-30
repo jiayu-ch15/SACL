@@ -78,7 +78,6 @@ class Runner(object):
                 from onpolicy.algorithms.r_mappo_single.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
             else:
                 from onpolicy.algorithms.r_mappo.r_mappo import R_MAPPO as TrainAlgo
-                from onpolicy.algorithms.r_mappo.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
         elif "mappg" in self.algorithm_name:
             if self.use_single_network:
                 from onpolicy.algorithms.r_mappg_single.r_mappg_single import R_MAPPG as TrainAlgo

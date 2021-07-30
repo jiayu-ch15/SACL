@@ -1163,3 +1163,9 @@ class ChooseInfoDummyVecEnv(ShareVecEnv):
     
     def get_short_term_goal(self, data):
         return [env.get_short_term_goal(d) for d, env in zip(data, self.envs)]
+
+    def ft_get_actions(self, args, mode = ""):
+        assert mode in ['apf', 'utility', 'nearest', 'rrt'], ('frontier global mode should be in [apf, utility, nearest, rrt]')
+        results = [env.ft_get_actions(args, mode = mode) for env in self.envs]
+        actions, goals = map(np.array, zip(*results))
+        return actions, goals 
