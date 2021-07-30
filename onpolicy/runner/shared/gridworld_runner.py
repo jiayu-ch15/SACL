@@ -520,7 +520,7 @@ class GridWorldRunner(Runner):
                 self.log_env(env_infos, total_num_steps)
 
         if self.use_eval and not self.use_wandb and not self.use_render:
-                self.log_auc(auc_infos)
+            self.log_auc(auc_infos)
                 
         if self.all_args.save_gifs:
             ic("rendering....")
