@@ -10,6 +10,10 @@ from tensorboardX import SummaryWriter
 from onpolicy.utils.separated_buffer import SeparatedReplayBuffer
 from onpolicy.utils.util import update_linear_schedule
 
+import psutil
+import slackweb
+webhook_url = " https://hooks.slack.com/services/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"
+
 def _t2n(x):
     return x.detach().cpu().numpy()
 
@@ -141,7 +145,7 @@ class Runner(object):
             train_info = self.trainer[agent_id].train(self.buffer[agent_id])
             train_infos.append(train_info)       
             self.buffer[agent_id].after_update()
-
+        self.log_system()
         return train_infos
 
     def save(self):
@@ -182,3 +186,13 @@ class Runner(object):
                     wandb.log({k: np.mean(v)}, step=total_num_steps)
                 else:
                     self.writter.add_scalars(k, {k: np.mean(v)}, total_num_steps)
+
+    def log_system(self):
+        # RRAM
+        mem = psutil.virtual_memory()
+        total_mem = float(mem.total) / 1024 / 1024 / 1024
+        used_mem = float(mem.used) / 1024 / 1024 / 1024
+        if used_mem/total_mem > 0.95:
+            slack = slackweb.Slack(url=webhook_url)
+            host_name = socket.gethostname()
+            slack.notify(text="Host {}: occupied memory is *{:.2f}*%!".format(host_name, used_mem/total_mem*100))
