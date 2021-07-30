@@ -1045,7 +1045,6 @@ class Exploration_Env(habitat.RLEnv):
             planner = AstarPlanner(traversible)
         else:
             raise NotImplementedError
-        planner = FMMPlanner(traversible, 360//self.dt)
 
         reachable = planner.set_goal([goal[1]-y1+1, goal[0]-x1+1])
 
