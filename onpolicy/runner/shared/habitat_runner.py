@@ -9,7 +9,6 @@ from itertools import chain
 import matplotlib
 import matplotlib.pyplot as plt
 import cv2
-
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -317,6 +316,7 @@ class HabitatRunner(Runner):
         self.use_merge_local = self.all_args.use_merge_local
         self.use_oracle = self.all_args.use_oracle
         self.use_merge_goal = self.all_args.use_merge_goal
+        self.use_max = self.all_args.use_max
 
     def init_map_variables(self):
         ### Full map consists of 4 channels containing the following:
@@ -404,11 +404,11 @@ class HabitatRunner(Runner):
 
         # info keys
         self.sum_env_info_keys = ['explored_ratio', 'merge_explored_ratio', 'merge_explored_reward', 'explored_reward', 'repeat_area', 'merge_repeat_area']
-        self.equal_env_info_keys = ['merge_overlap_ratio', 'merge_overlap_divide_ratio', 'merge_explored_ratio_step', 'merge_explored_ratio_step_0.95', 'explored_ratio_step','init_pos_x','init_pos_y']
+        self.equal_env_info_keys = ['merge_overlap_ratio', 'merge_explored_ratio_step', 'merge_explored_ratio_step_0.95', 'explored_ratio_step','init_pos_x','init_pos_y']
         
         # log keys
         self.agents_env_info_keys = ['sum_explored_ratio','sum_explored_reward','sum_intrinsic_merge_explored_reward','sum_repeat_area','explored_ratio_step','init_pos_x','init_pos_y']
-        self.env_info_keys = ['sum_merge_explored_ratio','sum_merge_explored_reward','sum_merge_repeat_area','merge_overlap_ratio','merge_overlap_divide_ratio', 'merge_explored_ratio_step','merge_explored_ratio_step_0.95']
+        self.env_info_keys = ['sum_merge_explored_ratio','sum_merge_explored_reward','sum_merge_repeat_area','merge_overlap_ratio', 'merge_explored_ratio_step','merge_explored_ratio_step_0.95']
              
         if self.use_eval:
             self.agents_env_info_keys += ['sum_path_length']
@@ -653,14 +653,21 @@ class HabitatRunner(Runner):
                 trace[agent_merge_map[3] > 0] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
                 #agent_merge_map[0:2] = trace[0:2]
                 agent_merge_map[3] = trace
-                for i in range(2):
-                    merge_map[e, i] = np.maximum(agent_merge_map[i], merge_map[e, i])
-                    merge_map[e, i+2] += agent_merge_map[i+2]
-            
+                if self.use_max:
+                    for i in range(2):
+                        merge_map[e, i] = np.maximum(agent_merge_map[i], merge_map[e, i])
+                        merge_map[e, i+2] += agent_merge_map[i+2]
+                        
+                else:
+                    merge_map[e] += agent_merge_map
             
             agent_n_trans = F.grid_sample(torch.from_numpy(merge_map[e]).unsqueeze(0).float(), agent_trans[e][a].float(), align_corners=True)      
             merge_map[e] = F.grid_sample(agent_n_trans.float(), agent_rotation[e][a].float(), align_corners=True)[0, :, :, :].numpy()
-    
+            if not self.use_max:
+                for i in range(2):
+                    merge_map[ e, i][merge_map[ e, i]>1] = 1
+                    merge_map[ e, i][merge_map[ e, i]<0.2] = 0
+
             local_merge_map[e, :2] = merge_map[e, :2, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]].copy()
             local_merge_map[e, 2:] = self.local_map[e, a, 2:].copy()
         return merge_map, local_merge_map
@@ -1112,14 +1119,14 @@ class HabitatRunner(Runner):
             'locations' : locations
         }
         # if enough distance or steps, replan
-        if self.all_args.ft_global_mode == 'apf':
+        if 'apf' in self.all_args.algorithm_name:
            goal_mask = [(self.env_step > 0 and bfs_distance(self.ft_map, self.ft_lx, self.ft_ly, locations[agent_id], self.ft_pre_goals[e][agent_id]) > 50) and self.ft_go_steps[e][agent_id]<10 for agent_id in range(self.num_agents)] #  dist>40 and steps<30? true for not update
-        elif self.all_args.ft_global_mode == 'nearest':
+        elif 'nearest' in self.all_args.algorithm_name:
             # goal_mask = [(self.env_step > 0 and bfs_distance(self.ft_map, self.ft_lx, self.ft_ly, locations[agent_id], self.ft_pre_goals[e][agent_id]) > 70 and self.ft_go_steps[e][agent_id]<10) for agent_id in range(self.num_agents)]
             goal_mask = [(self.env_step > 0 and l2distance(locations[agent_id], self.ft_pre_goals[e][agent_id]) > 30 and self.ft_go_steps[e][agent_id]<10) for agent_id in range(self.num_agents)]
-        elif self.all_args.ft_global_mode == 'utility':
+        elif 'utility' in self.all_args.algorithm_name:
             goal_mask = [(self.env_step > 0 and bfs_distance(self.ft_map, self.ft_lx, self.ft_ly, locations[agent_id], self.ft_pre_goals[e][agent_id]) > 50 and self.ft_go_steps[e][agent_id]<20) for agent_id in range(self.num_agents)]
-        elif self.all_args.ft_global_mode == 'rrt':
+        elif 'rrt' in self.all_args.algorithm_name:
             goal_mask = [(self.env_step > 0 and l2distance(locations[agent_id], self.ft_pre_goals[e][agent_id]) > 30 and self.ft_go_steps[e][agent_id]<10) for agent_id in range(self.num_agents)]
         else:
             raise NotImplementedError
@@ -1127,7 +1134,7 @@ class HabitatRunner(Runner):
         goals = self.ft_get_goal(inputs, goal_mask, pre_goals = self.ft_pre_goals[e])
 
         for agent_id in range(self.num_agents):
-            if not goal_mask[agent_id] or self.all_args.ft_global_mode == 'utility':
+            if not goal_mask[agent_id] or 'utility' in self.all_args.algorithm_name:
                 self.ft_pre_goals[e][agent_id] = np.array(goals[agent_id], dtype=np.int32) # goals before rotation
 
         self.ft_goals[e]=self.rot_ft_goals(e, goals, goal_mask)
@@ -1209,7 +1216,7 @@ class HabitatRunner(Runner):
         
         goals = []
         locations = [(x-lx, y-ly) for x, y in locations]
-        if self.all_args.ft_global_mode == 'utility':
+        if self.all_args.algorithm_name == 'ft_utility':
             pre_goals = pre_goals.copy()
             pre_goals[:, 0] -= lx
             pre_goals[:, 1] -= ly
@@ -1221,13 +1228,13 @@ class HabitatRunner(Runner):
                 if goal_mask[agent_id]:
                     goals.append((-1,-1))
                     continue
-                if self.all_args.ft_global_mode == 'apf':
+                if self.all_args.algorithm_name == 'ft_apf':
                     apf = APF(self.all_args)
                     path = apf.schedule(map, locations, steps, agent_id, clear_disk = True)
                     goal = path[-1]
-                elif self.all_args.ft_global_mode == 'nearest':
+                elif self.all_args.algorithm_name == 'ft_nearest':
                     goal = nearest_frontier(map, locations, steps, agent_id, clear_radius = self.all_args.ft_clear_radius, cluster_radius = self.all_args.ft_cluster_radius)
-                elif self.all_args.ft_global_mode == 'rrt':
+                elif self.all_args.algorithm_name == 'ft_rrt':
                     goal = rrt_global_plan(map, unexplored, locations, agent_id, clear_radius = self.all_args.ft_clear_radius, cluster_radius = self.all_args.ft_cluster_radius, step = self.env_step, utility_radius = self.all_args.utility_radius)
                 else:
                     raise NotImplementedError
