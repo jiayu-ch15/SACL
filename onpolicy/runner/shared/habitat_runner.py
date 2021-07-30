@@ -1119,14 +1119,14 @@ class HabitatRunner(Runner):
             'locations' : locations
         }
         # if enough distance or steps, replan
-        if self.all_args.ft_global_mode == 'apf':
+        if 'apf' in self.all_args.algorithm_name:
            goal_mask = [(self.env_step > 0 and bfs_distance(self.ft_map, self.ft_lx, self.ft_ly, locations[agent_id], self.ft_pre_goals[e][agent_id]) > 50) and self.ft_go_steps[e][agent_id]<10 for agent_id in range(self.num_agents)] #  dist>40 and steps<30? true for not update
-        elif self.all_args.ft_global_mode == 'nearest':
+        elif 'nearest' in self.all_args.algorithm_name:
             # goal_mask = [(self.env_step > 0 and bfs_distance(self.ft_map, self.ft_lx, self.ft_ly, locations[agent_id], self.ft_pre_goals[e][agent_id]) > 70 and self.ft_go_steps[e][agent_id]<10) for agent_id in range(self.num_agents)]
             goal_mask = [(self.env_step > 0 and l2distance(locations[agent_id], self.ft_pre_goals[e][agent_id]) > 30 and self.ft_go_steps[e][agent_id]<10) for agent_id in range(self.num_agents)]
-        elif self.all_args.ft_global_mode == 'utility':
+        elif 'utility' in self.all_args.algorithm_name:
             goal_mask = [(self.env_step > 0 and bfs_distance(self.ft_map, self.ft_lx, self.ft_ly, locations[agent_id], self.ft_pre_goals[e][agent_id]) > 50 and self.ft_go_steps[e][agent_id]<20) for agent_id in range(self.num_agents)]
-        elif self.all_args.ft_global_mode == 'rrt':
+        elif 'rrt' in self.all_args.algorithm_name:
             goal_mask = [(self.env_step > 0 and l2distance(locations[agent_id], self.ft_pre_goals[e][agent_id]) > 30 and self.ft_go_steps[e][agent_id]<10) for agent_id in range(self.num_agents)]
         else:
             raise NotImplementedError
@@ -1134,7 +1134,7 @@ class HabitatRunner(Runner):
         goals = self.ft_get_goal(inputs, goal_mask, pre_goals = self.ft_pre_goals[e])
 
         for agent_id in range(self.num_agents):
-            if not goal_mask[agent_id] or self.all_args.ft_global_mode == 'utility':
+            if not goal_mask[agent_id] or 'utility' in self.all_args.algorithm_name:
                 self.ft_pre_goals[e][agent_id] = np.array(goals[agent_id], dtype=np.int32) # goals before rotation
 
         self.ft_goals[e]=self.rot_ft_goals(e, goals, goal_mask)
@@ -1216,7 +1216,7 @@ class HabitatRunner(Runner):
         
         goals = []
         locations = [(x-lx, y-ly) for x, y in locations]
-        if self.all_args.ft_global_mode == 'utility':
+        if self.all_args.algorithm_name == 'ft_utility':
             pre_goals = pre_goals.copy()
             pre_goals[:, 0] -= lx
             pre_goals[:, 1] -= ly
@@ -1228,13 +1228,13 @@ class HabitatRunner(Runner):
                 if goal_mask[agent_id]:
                     goals.append((-1,-1))
                     continue
-                if self.all_args.ft_global_mode == 'apf':
+                if self.all_args.algorithm_name == 'ft_apf':
                     apf = APF(self.all_args)
                     path = apf.schedule(map, locations, steps, agent_id, clear_disk = True)
                     goal = path[-1]
-                elif self.all_args.ft_global_mode == 'nearest':
+                elif self.all_args.algorithm_name == 'ft_nearest':
                     goal = nearest_frontier(map, locations, steps, agent_id, clear_radius = self.all_args.ft_clear_radius, cluster_radius = self.all_args.ft_cluster_radius)
-                elif self.all_args.ft_global_mode == 'rrt':
+                elif self.all_args.algorithm_name == 'ft_rrt':
                     goal = rrt_global_plan(map, unexplored, locations, agent_id, clear_radius = self.all_args.ft_clear_radius, cluster_radius = self.all_args.ft_cluster_radius, step = self.env_step, utility_radius = self.all_args.utility_radius)
                 else:
                     raise NotImplementedError
