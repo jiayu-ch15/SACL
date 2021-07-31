@@ -63,7 +63,7 @@ class HabitatRunner(Runner):
         self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
         self.init_pos_x = [infos[e]['init_pos_x'] for e in range(self.n_rollout_threads)]
         self.init_pos_y = [infos[e]['init_pos_y'] for e in range(self.n_rollout_threads)]
-
+        
         for agent_id in range(self.num_agents):
             self.intrinsic_gt[ : , agent_id] = np.array(self.explorable_map)[ : , agent_id]
 
@@ -129,6 +129,7 @@ class HabitatRunner(Runner):
                 # Obser reward and next obs
                 self.obs, reward, dones, infos = self.envs.step(actions_env)
                 self.rewards += reward
+                
                 for e in range (self.n_rollout_threads):
                     for key in self.sum_env_info_keys:
                         if key in infos[e].keys():
@@ -457,10 +458,12 @@ class HabitatRunner(Runner):
                 self.global_input['global_merge_goal'] = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.local_w, self.local_h), dtype=np.float32)
             if self.use_single:
                 self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)     
+        
         self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
         self.global_input['other_global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents-1), dtype=np.long)
         self.global_input['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents), dtype=np.float32)
         self.share_global_input = self.global_input.copy()
+        
         if self.use_centralized_V:
             if self.use_resnet:
                 self.share_global_input['gt_map'] = np.zeros((self.n_rollout_threads, self.num_agents, 1, self.res_w, self.res_h), dtype=np.float32)
@@ -650,7 +653,7 @@ class HabitatRunner(Runner):
                 trace = np.zeros((self.full_h, self.full_w), dtype=np.float32)
                 #trace[0][agent_merge_map[0] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
                 #trace[1][agent_merge_map[1] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
-                trace[agent_merge_map[3] > 0] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                trace[agent_merge_map[3] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
                 #agent_merge_map[0:2] = trace[0:2]
                 agent_merge_map[3] = trace
                 if self.use_max:
@@ -1524,8 +1527,8 @@ class HabitatRunner(Runner):
                 self.log_agent(self.env_infos, total_num_steps)
                 
         if self.use_eval and not self.use_wandb:
-                self.log_auc(self.auc_infos)
-                self.log_agent_auc(self.auc_infos)
+            self.log_auc(self.auc_infos)
+            self.log_agent_auc(self.auc_infos)
             
         for k, v in self.env_infos.items():
             print("eval average {}: {}".format(k, np.nanmean(v) if k == 'merge_explored_ratio_step' or k == "merge_explored_ratio_step_0.95"else np.mean(v)))
@@ -1592,6 +1595,7 @@ class HabitatRunner(Runner):
 
                 # Obser reward and next obs
                 self.obs, reward, dones, infos = self.envs.step(actions_env)
+                
                 for e in range(self.n_rollout_threads):
                     for key in self.sum_env_info_keys:
                         if key in infos[e].keys():
