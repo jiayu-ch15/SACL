@@ -190,7 +190,7 @@ class R_MAPPO():
                 train_info['policy_loss'] += policy_loss.item()
                 train_info['dist_entropy'] += dist_entropy.item()
                 
-                if int(torch.__version__[2]) < 7:
+                if int(torch.__version__[2]) < 5:
                     train_info['actor_grad_norm'] += actor_grad_norm
                     train_info['critic_grad_norm'] += critic_grad_norm
                 else:
