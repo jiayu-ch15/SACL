@@ -104,6 +104,8 @@ def parse_args(args, parser):
                         help="horizontal field of view in degrees")
     parser.add_argument('--randomize_env_every', type=int, default=1000,
                         help="randomize scene in a thread every k episodes")
+    parser.add_argument('--map_threshold', type=float, default=0.0,
+                        help="lower than map_threshold will be setted to zero")
     parser.add_argument('--use_different_start_pos', action='store_true',
                         default=False, help="by default True, use random agent position at the initialization")
     parser.add_argument('--use_same_rotation', action='store_true',

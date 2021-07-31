@@ -1,6 +1,7 @@
 import numpy as np
 import gym
 import onpolicy
+import torch
 from .exploration_env import Exploration_Env
 from habitat.config.default import get_config as cfg_env
 from habitat_baselines.config.default import get_config as cfg_baseline
@@ -125,7 +126,7 @@ class MultiHabitatEnv(object):
         if rank > (args.n_rollout_threads)/2 and args.n_rollout_threads > 6:
             gpu_id = 2
         else:
-            gpu_id = 1
+            gpu_id = 0 if torch.cuda.device_count() == 1 else 1
 
         config_env.ENVIRONMENT.MAX_EPISODE_STEPS = args.max_episode_length
         config_env.ENVIRONMENT.ITERATOR_OPTIONS.SHUFFLE = True
