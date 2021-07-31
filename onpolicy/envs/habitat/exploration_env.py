@@ -175,7 +175,7 @@ class Exploration_Env(habitat.RLEnv):
         self.ratio = np.zeros(self.num_agents)
         self.path_length = np.zeros(self.num_agents)
         
-
+        
         if self.args.randomize_env_every > 0:
             if np.mod(self.episode_no, self.args.randomize_env_every) == 0:
                 self.randomize_env()
