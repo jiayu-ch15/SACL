@@ -278,6 +278,7 @@ class HabitatRunner(Runner):
         self.map_size_cm = self.all_args.map_size_cm
         self.map_resolution = self.all_args.map_resolution
         self.global_downscaling = self.all_args.global_downscaling
+        self.map_threshold = self.all_args.map_threshold
 
         self.frame_width = self.all_args.frame_width
        
@@ -613,12 +614,12 @@ class HabitatRunner(Runner):
                     agent_merge_map[0, index_a - 2: index_a + 3, index_b - 2: index_b + 3] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
             
                 trace = np.zeros((self.full_h, self.full_w), dtype=np.float32)
-                #trace[0][agent_merge_map[0] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
-                #trace[1][agent_merge_map[1] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
-                trace[agent_merge_map[1] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                #trace[0][agent_merge_map[0] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                #trace[1][agent_merge_map[1] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                trace[agent_merge_map[1] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
                 #agent_merge_map[0:2] = trace[0:2]
                 agent_merge_map[1] = trace
-                merge_map[e,2:] += agent_merge_map
+                merge_map[e, 2:] += agent_merge_map
             
             
             agent_n_trans = F.grid_sample(torch.from_numpy(merge_map[e,2:]).unsqueeze(0).float(), agent_trans[e][a].float(), align_corners=True)      
@@ -648,9 +649,9 @@ class HabitatRunner(Runner):
                     agent_merge_map[2, index_a - 2: index_a + 3, index_b - 2: index_b + 3] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
             
                 trace = np.zeros((self.full_h, self.full_w), dtype=np.float32)
-                #trace[0][agent_merge_map[0] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
-                #trace[1][agent_merge_map[1] > 0.2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
-                trace[agent_merge_map[3] > 0] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                #trace[0][agent_merge_map[0] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                #trace[1][agent_merge_map[1] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                trace[agent_merge_map[3] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
                 #agent_merge_map[0:2] = trace[0:2]
                 agent_merge_map[3] = trace
                 if self.use_max:
@@ -665,8 +666,8 @@ class HabitatRunner(Runner):
             merge_map[e] = F.grid_sample(agent_n_trans.float(), agent_rotation[e][a].float(), align_corners=True)[0, :, :, :].numpy()
             if not self.use_max:
                 for i in range(2):
-                    merge_map[ e, i][merge_map[ e, i]>1] = 1
-                    merge_map[ e, i][merge_map[ e, i]<0.2] = 0
+                    merge_map[ e, i][merge_map[ e, i] > 1] = 1
+                    merge_map[ e, i][merge_map[ e, i] < self.map_threshold] = 0
 
             local_merge_map[e, :2] = merge_map[e, :2, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]].copy()
             local_merge_map[e, 2:] = self.local_map[e, a, 2:].copy()
@@ -707,7 +708,7 @@ class HabitatRunner(Runner):
                 n_rotated = F.grid_sample(torch.from_numpy(point_map).unsqueeze(0).float(), rotation[e][a].float(), align_corners=True)
                 n_map = F.grid_sample(n_rotated.float(), trans[e][a].float(), align_corners=True)
                 point_map = n_map[0, :, :, :].numpy().copy()
-                point_map[point_map> 0] = (a + 1)/np.array([a+1 for a in range(self.num_agents)]).sum()
+                point_map[point_map > self.map_threshold] = (a + 1)/np.array([a+1 for a in range(self.num_agents)]).sum()
                 merge_map += point_map
             
             agent_n_trans = F.grid_sample(torch.from_numpy(merge_map).unsqueeze(0).float(), agent_trans[e][agent_id].float(), align_corners=True)      
@@ -718,17 +719,6 @@ class HabitatRunner(Runner):
         merge_point_map[:, 1] = self.merge_goal_trace[:, agent_id, :, :].copy()
         
         return merge_point_map
-
-    '''def exp_transform(self, agent_id, inputs, trans, rotation):
-        trans = check(trans)
-        rotation = check(rotation)
-        explorable_map = np.zeros((self.n_rollout_threads, self.full_w, self.full_h), dtype=np.float32)
-        for e in range(self.n_rollout_threads):
-            output = torch.from_numpy(inputs[e])
-            n_rotated = F.grid_sample(output.unsqueeze(0).unsqueeze(0).float(), rotation[e][agent_id].float(), align_corners=True)
-            n_map = F.grid_sample(n_rotated.float(), trans[e][agent_id].float(), align_corners=True)
-            explorable_map[e] = n_map[0, 0].numpy()
-        return explorable_map'''
 
     
     def first_compute_global_input(self):
@@ -1081,8 +1071,8 @@ class HabitatRunner(Runner):
             if self.use_intrinsic_reward and self.env_info['sum_merge_explored_ratio'][e] > 0.9:
                 for agent_id in range(self.num_agents):
                     intrinsic_gt = self.intrinsic_gt[e , agent_id].copy()
-                    intrinsic_gt[intrinsic_gt<0.2] = -1
-                    intrinsic_gt[intrinsic_gt>=0.2] = 1
+                    intrinsic_gt[intrinsic_gt< self.map_threshold] = -1
+                    intrinsic_gt[intrinsic_gt>= self.map_threshold] = 1
                     if self.use_center:
                         reward_map = intrinsic_gt - self.transform_map[e, agent_id, 1]
                     else:
@@ -1187,7 +1177,7 @@ class HabitatRunner(Runner):
 
         for i in range(2):
             self.ft_merge_map[e,i][self.ft_merge_map[e,i] > 1] = 1
-            self.ft_merge_map[e,i][self.ft_merge_map[e,i] < 0.2] = 0
+            self.ft_merge_map[e,i][self.ft_merge_map[e,i] < self.map_threshold] = 0
         
         return locations
     
