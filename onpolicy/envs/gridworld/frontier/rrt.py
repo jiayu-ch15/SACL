@@ -1,5 +1,5 @@
-from envs.gridworld.frontier.utils import generate_square
-from envs.habitat.utils.frontier import find_rectangle_obstacles
+from onpolicy.envs.gridworld.frontier.utils import generate_square
+from onpolicy.envs.habitat.utils.frontier import find_rectangle_obstacles
 from onpolicy.utils.RRT.rrt import RRT
 import numpy as np
 from .utils import *
