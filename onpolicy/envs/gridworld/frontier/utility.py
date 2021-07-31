@@ -1,4 +1,4 @@
-from envs.gridworld.frontier.utils import generate_square
+from onpolicy.envs.gridworld.frontier.utils import generate_square
 import numpy as np
 from .utils import *
 import random

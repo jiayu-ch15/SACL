@@ -77,6 +77,7 @@ class MultiExplorationEnv(MultiRoomEnv):
         self.merge_repeat_area = 0
         self.agent_repeat_area = np.zeros((num_agents))
         self.agent_length = np.zeros((num_agents))
+        self.agent_length_divide_ratio = np.zeros((num_agents))
         self.agent_reward = np.zeros((num_agents))
         self.agent_partial_reward = np.zeros((num_agents))
         self.agent_ratio_step = np.ones((num_agents)) * max_steps
@@ -242,6 +243,7 @@ class MultiExplorationEnv(MultiRoomEnv):
         info['agent_direction'] = np.array(self.agent_dir)
         info['agent_local_map'] = self.agent_local_map
         info['agent_length'] = self.agent_length
+        info['agent_length/ratio'] = self.agent_length_divide_ratio
         info['merge_overlap_ratio'] = self.merge_overlap_ratio
         info['agent_repeat_area'] = self.agent_repeat_area
         info['merge_repeat_area'] = self.merge_repeat_area
@@ -266,6 +268,7 @@ class MultiExplorationEnv(MultiRoomEnv):
         self.merge_reward = 0
         self.merge_overlap_ratio = 0
         self.merge_repeat_area = 0
+        self.agent_length_divide_ratio = np.zeros((self.num_agents))
         self.agent_repeat_area = np.zeros((self.num_agents))
         self.agent_length = np.zeros((self.num_agents))
         self.agent_reward = np.zeros((self.num_agents))
@@ -429,6 +432,10 @@ class MultiExplorationEnv(MultiRoomEnv):
             overlap_delta_map = np.sum(delta_reward_each_map, axis = 0)
             info['merge_overlap_ratio'] = (overlap_delta_map > 1).sum() / delta_reward_all_map.sum()  
             self.merge_overlap_ratio = info['merge_overlap_ratio']
+            info['agent_length/ratio'] = np.zeros((self.num_agents))
+            for agent_id in range(self.num_agents):
+                info['agent_length/ratio'][agent_id] = self.agent_length[agent_id] / (delta_reward_each_map[agent_id].sum()/ self.no_wall_size)
+            self.agent_length_divide_ratio = info['agent_length/ratio']
             
             if self.use_complete_reward:
                 info['merge_explored_reward'] += 0.1 * (delta_reward_all_map.sum() / self.no_wall_size)     
