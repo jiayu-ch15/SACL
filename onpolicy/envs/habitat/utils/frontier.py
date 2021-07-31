@@ -166,6 +166,7 @@ def bfs_distance(map, lx, ly, start, goals):
     while len(que)>0:
         x, y = que.popleft()
         neighbors = [(x+dx, y+dy) for dx, dy in steps]
+        neighbors = [(x, y) for x,y in neighbors if x>=0 and x<H and y>=0 and y<W]
         for u,v in neighbors:
             if map[u,v] in [0,2] and dis[u,v] == 0:
                 dis[u,v] = dis[x,y] + 1
