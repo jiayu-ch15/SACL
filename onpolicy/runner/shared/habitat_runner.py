@@ -785,12 +785,12 @@ class HabitatRunner(Runner):
                     for i in range(4):
                         if self.use_merge:
                             self.global_input['global_merge_obs'][e, a, i] = cv2.resize(self.local_merge_map[e, a, i], (self.res_h, self.res_w))
-                            self.global_input['global_merge_obs'][e, a, i+4] = cv2.resize(self.merge_map[e, a, i], (self.res_h, self.res_w))
+                            self.global_input['global_merge_obs'][e, a, i + 4] = cv2.resize(self.merge_map[e, a, i], (self.res_h, self.res_w))
                         if self.use_merge_goal and i < 2:
                             self.global_input['global_merge_goal'][e, a, i] =  cv2.resize(global_goal_map[e, a, i], (self.res_h, self.res_w))
                         if self.use_single:
                             self.global_input['global_obs'][e, a, i] = cv2.resize(self.local_map[e, a, i], (self.res_h, self.res_w))
-                            self.global_input['global_obs'][e, a, i+4] = cv2.resize(full_map[e, a, i], (self.res_h, self.res_w))
+                            self.global_input['global_obs'][e, a, i + 4] = cv2.resize(full_map[e, a, i], (self.res_h, self.res_w))
                     if self.use_centralized_V:
                         #self.share_global_input['gt_map'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:, a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
                         if self.use_center:
@@ -799,13 +799,13 @@ class HabitatRunner(Runner):
                             self.share_global_input['gt_map'][e, a, 0] = cv2.resize(np.array(self.explorable_map)[e, a], (self.res_h, self.res_w))
             else:
                 if self.use_merge:
-                    self.global_input['global_merge_obs'][:, a, 0:4] = self.local_merge_map[:, a]
-                    self.global_input['global_merge_obs'][:, a, 4:] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
+                    self.global_input['global_merge_obs'][:, a, 0: 4] = self.local_merge_map[:, a]
+                    self.global_input['global_merge_obs'][:, a, 4: ] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
                 if self.use_merge_goal:
                     self.global_input['global_merge_goal'][:, a] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a]))).numpy()
                 if self.use_single:
-                    self.global_input['global_obs'][:, a, 0:4] = self.local_map[:, a]
-                    self.global_input['global_obs'][:, a, 4:] = (nn.MaxPool2d(self.global_downscaling)(check(full_map[:, a]))).numpy()
+                    self.global_input['global_obs'][:, a, 0: 4] = self.local_map[:, a]
+                    self.global_input['global_obs'][:, a, 4: ] = (nn.MaxPool2d(self.global_downscaling)(check(full_map[:, a]))).numpy()
                 if self.use_centralized_V:
                     #self.share_global_input['gt_map'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:, a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
                     if self.use_center:
@@ -909,12 +909,12 @@ class HabitatRunner(Runner):
                     for i in range(4):
                         if self.use_merge:
                             self.global_input['global_merge_obs'][e, a, i] = cv2.resize(self.local_merge_map[e, a, i], (self.res_h, self.res_w))
-                            self.global_input['global_merge_obs'][e, a, i+4] = cv2.resize(self.merge_map[e, a, i], (self.res_h, self.res_w))
-                        if self.use_merge_goal and i<2:
+                            self.global_input['global_merge_obs'][e, a, i + 4] = cv2.resize(self.merge_map[e, a, i], (self.res_h, self.res_w))
+                        if self.use_merge_goal and i < 2:
                             self.global_input['global_merge_goal'][e, a, i] =  cv2.resize(global_goal_map[e, a, i], (self.res_h, self.res_w))
                         if self.use_single:
                             self.global_input['global_obs'][e, a, i] = cv2.resize(self.local_map[e, a, i], (self.res_h, self.res_w))
-                            self.global_input['global_obs'][e, a, i+4] = cv2.resize(full_map[e, a, i], (self.res_h, self.res_w)) 
+                            self.global_input['global_obs'][e, a, i + 4] = cv2.resize(full_map[e, a, i], (self.res_h, self.res_w)) 
                     if self.use_centralized_V:
                         #self.share_global_input['gt_map'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:, a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
                         if self.use_center:
@@ -923,13 +923,13 @@ class HabitatRunner(Runner):
                             self.share_global_input['gt_map'][e, a, 0] = cv2.resize(np.array(self.explorable_map)[e, a], (self.res_h, self.res_w))
             else:
                 if self.use_merge:
-                    self.global_input['global_merge_obs'][:, a, 0:4] = self.local_merge_map[:, a]
-                    self.global_input['global_merge_obs'][:, a, 4:] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
+                    self.global_input['global_merge_obs'][:, a, 0: 4] = self.local_merge_map[:, a]
+                    self.global_input['global_merge_obs'][:, a, 4: ] = (nn.MaxPool2d(self.global_downscaling)(check(self.merge_map[:, a]))).numpy()
                 if self.use_merge_goal:
                     self.global_input['global_merge_goal'][:, a] = (nn.MaxPool2d(self.global_downscaling)(check(global_goal_map[:, a]))).numpy()
                 if self.use_single:
-                    self.global_input['global_obs'][:, a, 0:4] = self.local_map[:, a]
-                    self.global_input['global_obs'][:, a, 4:] = (nn.MaxPool2d(self.global_downscaling)(check(full_map[:, a]))).numpy()
+                    self.global_input['global_obs'][:, a, 0: 4] = self.local_map[:, a]
+                    self.global_input['global_obs'][:, a, 4: ] = (nn.MaxPool2d(self.global_downscaling)(check(full_map[:, a]))).numpy()
                 if self.use_centralized_V:
                     #self.share_global_input['gt_map'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(self.exp_transform(a, np.array(self.explorable_map)[:, a], np.array(self.agent_trans)[:,a], np.array(self.agent_rotation)[:,a])))).numpy()
                     if self.use_center:
@@ -1069,18 +1069,18 @@ class HabitatRunner(Runner):
     def insert_global_policy(self, data):
         dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
         
-        #encourage_place_unexplored_map
+        # encourage_place_unexplored_map
         for e in range(self.n_rollout_threads):
             if self.use_intrinsic_reward and self.env_info['sum_merge_explored_ratio'][e] > 0.9:
                 for agent_id in range(self.num_agents):
-                    intrinsic_gt = self.intrinsic_gt[e , agent_id].copy()
-                    intrinsic_gt[intrinsic_gt< self.map_threshold] = -1
-                    intrinsic_gt[intrinsic_gt>= self.map_threshold] = 1
+                    intrinsic_gt = self.intrinsic_gt[e, agent_id].copy()
+                    intrinsic_gt[intrinsic_gt < self.map_threshold] = -1
+                    intrinsic_gt[intrinsic_gt >= self.map_threshold] = 1
                     if self.use_center:
                         reward_map = intrinsic_gt - self.transform_map[e, agent_id, 1]
                     else:
-                        reward_map = intrinsic_gt - self.merge_map[e, agent_id, 1]
-                    if reward_map[int(self.global_goal[e, agent_id, 0]*self.local_w+self.lmb[e, agent_id, 0]), int(self.global_goal[e, agent_id, 1]*self.local_h+self.lmb[e, agent_id, 2])] > 0.5:
+                        reward_map = intrinsic_gt - self.merge_map[e, agent_id, 1] #
+                    if reward_map[int(self.global_goal[e, agent_id, 0] * self.local_w + self.lmb[e, agent_id, 0]), int(self.global_goal[e, agent_id, 1] * self.local_h + self.lmb[e, agent_id, 2])] > 0.5:
                         self.rewards[e, agent_id] += 0.02
         
         if self.use_delta_reward:

@@ -45,27 +45,7 @@ class MIXBase(nn.Module):
 
         if len(self.cnn_keys) > 0:
             if self.use_resnet:
-                for key in self.cnn_keys:
-                    if key in ['rgb','depth','image','occupy_image']:
-                        self.n_cnn_input += obs_shape[key].shape[2] 
-                    elif key in ['global_map','local_map','global_obs','global_merge_obs','global_merge_goal','gt_map']:
-                        self.n_cnn_input += obs_shape[key].shape[0] 
-                    else:
-                        raise NotImplementedError
-                    
-                cnn_layers = [nn.Conv2d(int(self.n_cnn_input), 64, kernel_size=7, stride=2, padding=3, bias=False)]
-                resnet = models.resnet18(pretrained = self.pretrained_global_resnet)
-                cnn_layers += list(resnet.children())[1:-1]  # 去除最后的fc层
-                cnn_layers += [Flatten(),
-                                nn.Linear(resnet.fc.in_features, self.hidden_size)]
-                self.cnn = nn.Sequential(*cnn_layers)
-                
-                # if self.pretrained_global_resnet:
-                    
-                #     self.cnn= Pre_MapNet(int(self.n_cnn_input), self.hidden_size)
-                # else:
-                #     self.cnn = MapNet(int(self.n_cnn_input), self.hidden_size, [2, 2, 2, 2])
-                
+                self.cnn = self._build_resnet_model(obs_shape, self.hidden_size)
             else:
                 self.cnn = self._build_cnn_model(obs_shape, cnn_layers_params, self.hidden_size, self._use_orthogonal, self._activation_id)
         if len(self.embed_keys) > 0:
@@ -91,6 +71,24 @@ class MIXBase(nn.Module):
             out_x = torch.cat([out_x, mlp_x], dim=1) # ! wrong
 
         return out_x
+
+    def _build_resnet_model(self, obs_shape, hidden_size):
+
+        for key in self.cnn_keys:
+            if key in ['rgb','depth','image','occupy_image']:
+                self.n_cnn_input += obs_shape[key].shape[2] 
+            elif key in ['global_map','local_map','global_obs','global_merge_obs','global_merge_goal','gt_map']:
+                self.n_cnn_input += obs_shape[key].shape[0] 
+            else:
+                raise NotImplementedError
+            
+        cnn_layers = [nn.Conv2d(int(self.n_cnn_input), 64, kernel_size=7, stride=2, padding=3, bias=False)]
+        resnet = models.resnet18(pretrained = self.pretrained_global_resnet)
+        cnn_layers += list(resnet.children())[1:-1]
+        cnn_layers += [Flatten(),
+                        nn.Linear(resnet.fc.in_features, hidden_size)]
+
+        return nn.Sequential(*cnn_layers)
 
     def _build_cnn_model(self, obs_shape, cnn_layers_params, hidden_size, use_orthogonal, activation_id):
         
