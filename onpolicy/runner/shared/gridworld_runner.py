@@ -424,7 +424,7 @@ class GridWorldRunner(Runner):
     def render(self):
         
         auc_infos = {}
-        auc_infos['auc'] = np.zeros((self.all_args.eval_episodes, self.n_rollout_threads, self.episode_length), dtype=np.float32)
+        auc_infos['auc'] = np.zeros((self.all_args.render_episodes, self.n_rollout_threads, self.episode_length), dtype=np.float32)
         envs = self.envs
         
         all_frames = []
