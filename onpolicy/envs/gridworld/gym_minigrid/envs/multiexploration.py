@@ -73,11 +73,11 @@ class MultiExplorationEnv(MultiRoomEnv):
         self.target_ratio = 0.98
         self.merge_ratio = 0
         self.merge_reward = 0
-        self.merge_overlap_ratio = 0
+        self.merge_overlap_ratio = 1.0
         self.merge_repeat_area = 0
         self.agent_repeat_area = np.zeros((num_agents))
         self.agent_length = np.zeros((num_agents))
-        self.agent_length_divide_ratio = np.zeros((num_agents))
+        self.agent_length_divide_ratio = np.ones((num_agents))
         self.agent_reward = np.zeros((num_agents))
         self.agent_partial_reward = np.zeros((num_agents))
         self.agent_ratio_step = np.ones((num_agents)) * max_steps
@@ -266,9 +266,9 @@ class MultiExplorationEnv(MultiRoomEnv):
         self.last_merge_ratio = 0
         self.merge_ratio = 0
         self.merge_reward = 0
-        self.merge_overlap_ratio = 0
+        self.merge_overlap_ratio = 1.0
         self.merge_repeat_area = 0
-        self.agent_length_divide_ratio = np.zeros((self.num_agents))
+        self.agent_length_divide_ratio = np.ones((self.num_agents))
         self.agent_repeat_area = np.zeros((self.num_agents))
         self.agent_length = np.zeros((self.num_agents))
         self.agent_reward = np.zeros((self.num_agents))
@@ -425,7 +425,7 @@ class MultiExplorationEnv(MultiRoomEnv):
             info['agent_explored_reward'] = np.array(each_agent_rewards) * 0.02
             info['merge_explored_reward'] = merge_explored_reward * 0.02
             info['agent_explored_partial_reward'] = np.array(each_agent_partial_rewards) * 0.02
-        
+
         if delta_reward_all_map.sum() / self.no_wall_size >= self.target_ratio:#(self.width * self.height)
             done = True       
             self.merge_ratio_step = self.num_step            
