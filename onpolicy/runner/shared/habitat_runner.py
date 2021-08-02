@@ -1155,47 +1155,6 @@ class HabitatRunner(Runner):
     
     def compute_merge_map_boundary(self, e, a, ft = True):
         return 0, self.full_w, 0, self.full_h
-        map = np.maximum(self.merge_map[e, a, 0, :, :], self.merge_map[e, a, 1, :, :])
-        H, W = map.shape
-
-        row = (map.sum(1)>0).astype(np.int32).tolist()
-        lx = row.index(1)
-        rx = H - 1 - list(reversed(row)).index(1)
-
-        col = (map.sum(0)>0).astype(np.int32).tolist()
-        ly = col.index(1)
-        ry = W - 1 - list(reversed(col)).index(1)
-
-        start_x, start_y, start_o = self.planner_pose_inputs[e,a, :3].copy()
-        r, c = start_y, start_x
-        start = [int(r * 100.0/self.map_resolution),
-                 int(c * 100.0/self.map_resolution)]
-
-        lx = min(lx, start[0])
-        rx = max(rx, start[0])
-        ly = min(ly, start[1])
-        ry = max(ry, start[1])
-
-        goal = (int(self.ft_goals[e, a][0]), int(self.ft_goals[e,a][1]))
-
-        lx = min(lx, goal[0])
-        rx = max(rx, goal[0])
-        ly = min(ly, goal[1])
-        ry = max(ry, goal[1])
-
-        buf = l2distance(start, goal)
-        buf = max(20., buf)
-        lx = int(lx-buf)
-        rx = int(rx+buf)
-        ly = int(ly-buf)
-        ry = int(ry+buf)
-
-        lx = max(0, lx - 3)
-        rx = min(rx+3, H-1)
-        ly = max(0, ly-3)
-        ry = min(ry+3, W-1)
-
-        return (lx, rx+1, ly, ry+1)
 
     def ft_compute_local_input(self):
         assert self.all_args.use_center == False
