@@ -410,7 +410,7 @@ class HabitatRunner(Runner):
         
         # log keys
         self.agents_env_info_keys = ['sum_explored_ratio','sum_explored_reward','sum_intrinsic_merge_explored_reward','sum_repeat_area','explored_ratio_step','init_pos_x','init_pos_y']
-        self.env_info_keys = ['sum_merge_explored_ratio','sum_merge_explored_reward','sum_merge_repeat_area','merge_overlap_ratio', 'merge_explored_ratio_step','merge_explored_ratio_step_0.95']
+        self.env_info_keys = ['sum_merge_explored_ratio','sum_merge_explored_reward','sum_merge_repeat_area','merge_overlap_ratio', 'merge_explored_ratio_step','merge_explored_ratio_step_0.95', 'global_goal_num', 'global_goal_num_%.2f'%self.all_args.explored_ratio_threshold]
              
         if self.use_eval:
             self.agents_env_info_keys += ['sum_path_length', 'path_length/ratio']
@@ -1127,6 +1127,9 @@ class HabitatRunner(Runner):
         else:
             raise NotImplementedError
 
+        num_choose = self.num_agents - sum(goal_mask)
+        self.env_info['global_goal_num'] += num_choose
+
         goals = self.ft_get_goal(inputs, goal_mask, pre_goals = self.ft_pre_goals[e], e=e)
 
         for agent_id in range(self.num_agents):
@@ -1615,9 +1618,11 @@ class HabitatRunner(Runner):
                         else:
                             if key in infos[e].keys():
                                 self.env_info[key][e] = infos[e][key]
-                    
+                    if self.env_info['sum_merge_explored_ratio'][e] <= self.all_args.explored_ratio_threshold:
+                        self.env_info['global_goal_num_%.2f'%self.all_args.explored_ratio_threshold][e] = self.env_info['global_goal_num'][e]
+
                 ic("eval step {}, explored {}".format(self.env_step, self.env_info['sum_merge_explored_ratio']))
-                                
+
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
