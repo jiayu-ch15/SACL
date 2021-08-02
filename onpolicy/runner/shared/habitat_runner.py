@@ -413,7 +413,8 @@ class HabitatRunner(Runner):
         self.env_info_keys = ['sum_merge_explored_ratio','sum_merge_explored_reward','sum_merge_repeat_area','merge_overlap_ratio', 'merge_explored_ratio_step','merge_explored_ratio_step_0.95']
              
         if self.use_eval:
-            self.agents_env_info_keys += ['path_length/ratio']
+            self.agents_env_info_keys += ['sum_path_length', 'path_length/ratio']
+            self.sum_env_info_keys  += ['path_length']
             self.equal_env_info_keys  += ['path_length/ratio']
             self.auc_infos_keys = ['merge_auc','agent_auc']
 

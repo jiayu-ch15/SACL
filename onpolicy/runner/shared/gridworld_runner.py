@@ -304,7 +304,8 @@ class GridWorldRunner(Runner):
                 self.env_infos['merge_overlap_ratio'].append(info['merge_overlap_ratio'])
                 self.env_infos['merge_repeat_area'].append(info['merge_repeat_area'])
                 self.env_infos['agent_repeat_area'].append(info['agent_repeat_area'])
-                self.env_infos['agent_length'].append(info['agent_length'])                
+                self.env_infos['agent_length'].append(info['agent_length'])    
+                self.env_infos['agent_length/ratio'].append(info['agent_length/ratio'])  
                 for agent_id in range(self.num_agents):
                     agent_k = "agent{}_ratio_step".format(agent_id)
                     explored_ratio_step[agent_id] = info[agent_k]
@@ -423,7 +424,7 @@ class GridWorldRunner(Runner):
     def render(self):
         
         auc_infos = {}
-        auc_infos['auc'] = np.zeros((self.all_args.eval_episodes, self.n_rollout_threads, self.episode_length), dtype=np.float32)
+        auc_infos['auc'] = np.zeros((self.all_args.render_episodes, self.n_rollout_threads, self.episode_length), dtype=np.float32)
         envs = self.envs
         
         all_frames = []
