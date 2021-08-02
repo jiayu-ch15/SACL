@@ -130,6 +130,8 @@ def parse_args(args, parser):
                         default=False, help="by default True, use merge goal")
     parser.add_argument('--use_max', action='store_true',
                         default=False, help="by default True, use maximun map or use sum map")
+    parser.add_argument('--use_async', action='store_true',
+                        default=False, help="by default True, use async eval")
     parser.add_argument('--pretrained_global_resnet', type=int, default=1)      
 
 
@@ -272,7 +274,11 @@ def main(args):
         from onpolicy.runner.separated.habitat_runner import HabitatRunner as Runner
 
     runner = Runner(config)
-    runner.eval()
+    if all_args.use_async:
+        runner.eval_test()
+    else:
+        runner.eval()
+    
     
     # post process
     envs.close()

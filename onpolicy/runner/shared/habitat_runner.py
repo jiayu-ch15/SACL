@@ -16,6 +16,7 @@ from torch.nn import functional as F
 from onpolicy.utils.util import update_linear_schedule
 from onpolicy.runner.shared.base_runner import Runner
 from onpolicy.envs.habitat.model.model import Neural_SLAM_Module, Local_IL_Policy
+from onpolicy.envs.habitat.utils import pose as pu
 from onpolicy.envs.habitat.utils.memory import FIFOMemory
 from onpolicy.envs.habitat.utils.frontier import get_frontier, nearest_frontier, max_utility_frontier, bfs_distance, rrt_global_plan, l2distance
 from onpolicy.algorithms.utils.util import init, check
@@ -410,7 +411,7 @@ class HabitatRunner(Runner):
         
         # log keys
         self.agents_env_info_keys = ['sum_explored_ratio','sum_explored_reward','sum_intrinsic_merge_explored_reward','sum_repeat_area','explored_ratio_step','init_pos_x','init_pos_y']
-        self.env_info_keys = ['sum_merge_explored_ratio','sum_merge_explored_reward','sum_merge_repeat_area','merge_overlap_ratio', 'merge_explored_ratio_step','merge_explored_ratio_step_0.95', 'global_goal_num', 'global_goal_num_%.2f'%self.all_args.explored_ratio_threshold]
+        self.env_info_keys = ['sum_merge_explored_ratio','sum_merge_explored_reward','sum_merge_repeat_area','merge_overlap_ratio', 'merge_explored_ratio_step','merge_explored_ratio_step_0.95', 'merge_global_goal_num', 'merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold]
              
         if self.use_eval:
             self.agents_env_info_keys += ['sum_path_length', 'path_length/ratio']
@@ -989,8 +990,26 @@ class HabitatRunner(Runner):
         rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
 
         # Compute planner inputs
-        self.last_global_goal = self.global_goal.copy()
         self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(actions)), self.n_rollout_threads))
+        
+        return rnn_states
+    
+    def eval_compute_single_global_goal(self, e, a, rnn_states):      
+        self.trainer.prep_rollout()
+
+        concat_obs = {}
+        for key in self.global_input.keys():
+            concat_obs[key] = self.global_input[key][e, a][np.newaxis]
+        
+        actions, agent_rnn_states = self.trainer.policy.act(concat_obs,
+                                    rnn_states[e, a][np.newaxis],
+                                    self.global_masks[e, a][np.newaxis],
+                                    deterministic=True)
+        
+        rnn_states[e, a] = np.array(_t2n(agent_rnn_states.squeeze(0)))
+
+        # Compute planner inputs
+        self.global_goal[e, a] = np.array(_t2n(nn.Sigmoid()(actions).squeeze(0)))
         
         return rnn_states
 
@@ -1045,6 +1064,25 @@ class HabitatRunner(Runner):
 
                     self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
                     self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
+    
+    def update_agent_map_and_pose(self, e, a):
+            self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]] = self.local_map[e, a]
+            self.full_pose[e, a] = self.local_pose[e, a] + self.origins[e, a]
+
+            locs = self.full_pose[e, a]
+            r, c = locs[1], locs[0]
+            loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
+                            int(c * 100.0 / self.map_resolution)]
+
+            self.lmb[e, a] = self.get_local_map_boundaries((loc_r, loc_c),
+                                                (self.local_w, self.local_h),
+                                                (self.full_w, self.full_h))
+
+            self.planner_pose_inputs[e, a, 3:] = self.lmb[e, a].copy()
+            self.origins[e, a] = [self.lmb[e, a][2] * self.map_resolution / 100.0,
+                            self.lmb[e, a][0] * self.map_resolution / 100.0, 0.]
+            self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
+            self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
                     
     def update_single_map_and_pose(self, envs = 1000, update = True):
         for a in range(self.num_agents):
@@ -1128,7 +1166,7 @@ class HabitatRunner(Runner):
             raise NotImplementedError
 
         num_choose = self.num_agents - sum(goal_mask)
-        self.env_info['global_goal_num'] += num_choose
+        self.env_info['merge_global_goal_num'] += num_choose
 
         goals = self.ft_get_goal(inputs, goal_mask, pre_goals = self.ft_pre_goals[e], e=e)
 
@@ -1619,7 +1657,7 @@ class HabitatRunner(Runner):
                             if key in infos[e].keys():
                                 self.env_info[key][e] = infos[e][key]
                     if self.env_info['sum_merge_explored_ratio'][e] <= self.all_args.explored_ratio_threshold:
-                        self.env_info['global_goal_num_%.2f'%self.all_args.explored_ratio_threshold][e] = self.env_info['global_goal_num'][e]
+                        self.env_info['merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold][e] = self.env_info['merge_global_goal_num'][e]
 
                 ic("eval step {}, explored {}".format(self.env_step, self.env_info['sum_merge_explored_ratio']))
 
@@ -1645,6 +1683,137 @@ class HabitatRunner(Runner):
                         
                 # Local Policy
                 self.ft_compute_local_input()
+
+                # Output stores local goals as well as the the ground-truth action
+                self.local_output = self.envs.get_short_term_goal(self.local_input)
+                self.local_output = np.array(self.local_output, dtype = np.long)
+            
+            self.convert_info()
+            
+            total_num_steps = (episode + 1) * self.max_episode_length * self.n_rollout_threads
+            if not self.use_render:
+                self.log_env(self.env_infos, total_num_steps)
+                self.log_agent(self.env_infos, total_num_steps)
+                
+        if self.use_eval and not self.use_wandb:
+            self.log_auc(self.auc_infos)
+            self.log_agent_auc(self.auc_infos)
+            
+        for k, v in self.env_infos.items():
+            print("eval average {}: {}".format(k, np.nanmean(v) if k == 'merge_explored_ratio_step' or k == "merge_explored_ratio_step_0.95"else np.mean(v)))
+
+        if self.all_args.save_gifs:
+            print("generating gifs....")
+            self.render_gifs()
+            print("done!")
+            
+            
+    @torch.no_grad()
+    def eval_test(self):
+        self.eval_infos = defaultdict(list)
+
+        for episode in range(self.all_args.eval_episodes):
+            # store each episode ratio or reward
+            self.init_env_info()
+
+            rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+
+            # init map and pose 
+            self.init_map_and_pose() 
+            reset_choose = np.ones(self.n_rollout_threads) == 1.0
+            # reset env
+            self.obs, infos = self.envs.reset(reset_choose)
+            self.trans = [infos[e]['trans'] for e in range(self.n_rollout_threads)]
+            self.rotation = [infos[e]['rotation'] for e in range(self.n_rollout_threads)]
+            self.scene_id = [infos[e]['scene_id'] for e in range(self.n_rollout_threads)]
+            self.agent_trans = [infos[e]['agent_trans'] for e in range(self.n_rollout_threads)]
+            self.agent_rotation = [infos[e]['agent_rotation'] for e in range(self.n_rollout_threads)]
+            self.explorable_map = [infos[e]['explorable_map'] for e in range(self.n_rollout_threads)]
+            self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
+            self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
+
+            # Predict map from frame 1:
+            self.run_slam_module(self.obs, self.obs, infos)
+
+            # Compute Global policy input
+            self.first_compute_global_input()
+
+            # Compute Global goal
+            rnn_states = self.eval_compute_global_goal(rnn_states)
+
+            # compute local input
+            if self.use_merge_local:
+                self.compute_local_input(self.local_merge_map)
+            else:
+                self.compute_local_input(self.local_map)
+
+            # Output stores local goals as well as the the ground-truth action
+            self.local_output = self.envs.get_short_term_goal(self.local_input)
+            self.local_output = np.array(self.local_output, dtype = np.long)
+            
+            for step in range(self.max_episode_length):
+                ic(step)
+                local_step = step % self.num_local_steps
+
+                self.last_obs = self.obs.copy()
+
+                # Sample actions
+                actions_env = self.compute_local_action()
+
+                # Obser reward and next obs
+                self.obs, reward, dones, infos = self.envs.step(actions_env)
+                
+                for e in range(self.n_rollout_threads):
+                    for key in self.sum_env_info_keys:
+                        if key in infos[e].keys():
+                            self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
+                            if key == 'merge_explored_ratio' and self.use_eval:
+                                self.auc_infos['merge_auc'][episode, e, step] = self.auc_infos['merge_auc'][episode, e, step-1] + np.array(infos[e][key])
+                            if key == 'explored_ratio' and self.use_eval:
+                                self.auc_infos['agent_auc'][episode, e, :, step] = self.auc_infos['agent_auc'][episode, e, :, step-1] + np.array(infos[e][key])
+                    for key in self.equal_env_info_keys:
+                        if key == 'explored_ratio_step':
+                            for agent_id in range(self.num_agents):
+                                agent_k = "agent{}_{}".format(agent_id, key)
+                                if agent_k in infos[e].keys():
+                                    self.env_info[key][e][agent_id] = infos[e][agent_k]
+                        else:
+                            if key in infos[e].keys():
+                                self.env_info[key][e] = infos[e][key]
+                    
+                self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+                self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
+
+                self.global_masks *= self.local_masks
+
+                self.run_slam_module(self.last_obs, self.obs, infos)
+                self.update_local_map()
+                self.update_map_and_pose(update = False)
+                for agent_id in range(self.num_agents):
+                    _, self.local_merge_map[:, agent_id] = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, agent_id)
+
+                # Global Policy
+                
+                locs = self.local_pose
+                for e in range(self.n_rollout_threads):
+                    for a in range(self.num_agents):
+                        r, c = locs[e, a, 1], locs[e, a, 0]
+                        loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
+                                        int(c * 100.0 / self.map_resolution)]
+                        dis = pu.get_l2_distance(loc_r, int(self.global_goal[e, a][0] * self.local_w), loc_c, int(self.global_goal[e, a][1] * self.local_h))
+                        if local_step == self.num_local_steps - 1 or dis < 2:
+                            # For every global step, update the full and local maps
+                            self.update_agent_map_and_pose(e, a)
+                            self.compute_global_input()
+                            self.global_masks[e, a, 0] = 1 
+                            # Compute Global goal
+                            rnn_states = self.eval_compute_single_global_goal(e, a, rnn_states)
+                    
+                # Local Policy
+                if self.use_merge_local:
+                    self.compute_local_input(self.local_merge_map)
+                else:
+                    self.compute_local_input(self.local_map)
 
                 # Output stores local goals as well as the the ground-truth action
                 self.local_output = self.envs.get_short_term_goal(self.local_input)

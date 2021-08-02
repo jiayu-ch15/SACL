@@ -300,7 +300,7 @@ class Exploration_Env(habitat.RLEnv):
             if self.use_eval:
                 path_length = self.info['path_length']
                 if 'path_length/ratio' in self.info.keys():
-                    path_length = self.info['path_length/ratio']
+                    path_length_divide_ratio = self.info['path_length/ratio']
                     path_length_flag = True
             
 
@@ -349,7 +349,7 @@ class Exploration_Env(habitat.RLEnv):
             if self.use_eval:
                 self.info['path_length'] = path_length
                 if path_length_flag:
-                    self.info['path_length/ratio'] = path_length
+                    self.info['path_length/ratio'] = path_length_divide_ratio
 
         self.save_position()
 
