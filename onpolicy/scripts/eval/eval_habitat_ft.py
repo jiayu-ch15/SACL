@@ -178,8 +178,8 @@ def parse_args(args, parser):
     # baseline: frontier-based global planner
     parser.add_argument('--local_planner', type=str, default='fmm', choices=['fmm', 'astar', 'rrt'], help = 'choose local planner. [fmm, rrt, astar]')
 
-    parser.add_argument('--ft_num_local_steps', type=int, default = 5)
-    parser.add_argument('--ft_clear_radius',type=float, default = 40)
+    parser.add_argument('--ft_num_local_steps', type=int, default = 15)
+    parser.add_argument('--ft_clear_radius',type=float, default = 50)
     parser.add_argument('--ft_cluster_radius', type=float, default = 5.0)
 
     # apf
@@ -191,11 +191,12 @@ def parse_args(args, parser):
     parser.add_argument('--apf_dis_type', type=str, default = 'l1')
     parser.add_argument('--apf_use_random', default = True, action='store_false')
     parser.add_argument('--apf_kill_frontier_radius', type=float, default = 20)
+    parser.add_argument('--apf_num_clusters', default = 200, type = int)
 
     # nearest
 
     # max utility
-    parser.add_argument('--utility_radius', type = float, default = 50)
+    parser.add_argument('--utility_radius', type = int, default = 30)
 
     # rrt
     parser.add_argument('--rrt_expand_dis', type = float, default = 2.0)

@@ -1,9 +1,7 @@
 import numpy as np
 from queue import deque
 import pyastar2d
-
-def l2distance(a,b):
-    return pow(pow(a[0]-b[0],2)+pow(a[1]-b[1],2),0.5)
+from onpolicy.envs.habitat.utils.frontier import add_clear_disk, l2distance
 
 # class of APF(Artificial Potential Field)
 class APF(object):
@@ -22,6 +20,8 @@ class APF(object):
 
         self.num_agents = args.num_agents
 
+        self.num_clusters = args.apf_num_clusters
+
     def distance(self, a, b):
         a = np.array(a)
         b = np.array(b)
@@ -30,7 +30,7 @@ class APF(object):
         elif self.dis_type == "l1":
             return abs(a-b).sum()
 
-    def schedule(self, map, locations, steps, agent_id, penalty = None, full_path = True, clear_disk = False):
+    def schedule(self, map, unexplored, locations, steps, agent_id, penalty = None, full_path = True, clear_disk = False):
         '''
         APF to schedule path for agent agent_id
         map: H x W
@@ -67,6 +67,7 @@ class APF(object):
         
         targets = []
         if clear_disk:
+            map, unexplored = add_clear_disk(map, unexplored, self.clear_radius, (locx, locy))
             near = []
             max_dist = -1
             for i in range(H):
@@ -119,6 +120,17 @@ class APF(object):
             num_clusters = len(clusters)
         potential = np.zeros((H, W))
         potential[map == 1] = 1e9
+
+        for i in range(num_clusters):
+            for j in range(num_clusters):
+                if i<j and clusters[i]['weight']/(sdis[clusters[i]['center'][0]][clusters[i]['center'][1]]+1) < clusters[j]['weight']/(sdis[clusters[j]['center'][0]][clusters[j]['center'][1]]+1):
+                    tmp = clusters[i]
+                    clusters[i] = clusters[j]
+                    clusters[j] = tmp
+        if num_clusters > self.num_clusters:
+            num_clusters = self.num_clusters
+            clusters = clusters[:num_clusters]
+        print("num clusters:", num_clusters)
 
         # potential of targets & obstacles (wave-front dist)
         for cluster in clusters:

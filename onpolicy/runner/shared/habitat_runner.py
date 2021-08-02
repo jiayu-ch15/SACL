@@ -17,9 +17,9 @@ from onpolicy.utils.util import update_linear_schedule
 from onpolicy.runner.shared.base_runner import Runner
 from onpolicy.envs.habitat.model.model import Neural_SLAM_Module, Local_IL_Policy
 from onpolicy.envs.habitat.utils.memory import FIFOMemory
-from onpolicy.envs.habitat.utils.frontier import get_frontier, nearest_frontier, max_utility_frontier, bfs_distance, rrt_global_plan
+from onpolicy.envs.habitat.utils.frontier import get_frontier, nearest_frontier, max_utility_frontier, bfs_distance, rrt_global_plan, l2distance
 from onpolicy.algorithms.utils.util import init, check
-from onpolicy.utils.apf import APF, l2distance
+from onpolicy.utils.apf import APF
 from icecream import ic
 
 def _t2n(x):
@@ -364,9 +364,9 @@ class HabitatRunner(Runner):
         self.ft_last_merge_explored_ratio = np.zeros((self.n_rollout_threads, 1), dtype= np.float32)
         self.ft_mask = np.ones((self.full_w, self.full_h), dtype=np.int32)
         self.ft_go_steps = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype= np.int32)
-        self.ft_map = None
-        self.ft_lx = None
-        self.ft_ly = None
+        self.ft_map = [None for _ in range(self.n_rollout_threads)]
+        self.ft_lx = [None for _ in range(self.n_rollout_threads)]
+        self.ft_ly = [None for _ in range(self.n_rollout_threads)]
           
     def init_map_and_pose(self):
         self.full_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
@@ -1113,18 +1113,20 @@ class HabitatRunner(Runner):
         }
         # if enough distance or steps, replan
         if 'apf' in self.all_args.algorithm_name:
-           goal_mask = [(self.env_step > 0 and bfs_distance(self.ft_map, self.ft_lx, self.ft_ly, locations[agent_id], self.ft_pre_goals[e][agent_id]) > 50) and self.ft_go_steps[e][agent_id]<10 for agent_id in range(self.num_agents)] #  dist>40 and steps<30? true for not update
+            #goal_mask = [(self.env_step > 0 and bfs_distance(self.ft_map, self.ft_lx[e], self.ft_ly[e], locations[agent_id], self.ft_pre_goals[e][agent_id]) > 50) and self.ft_go_steps[e][agent_id]<10 for agent_id in range(self.num_agents)] #  dist>40 and steps<30? true for not update
+            goal_mask = [(self.env_step > 0 and l2distance(locations[agent_id], self.ft_pre_goals[e][agent_id]) > 20 and self.ft_go_steps[e][agent_id]<15) for agent_id in range(self.num_agents)]
         elif 'nearest' in self.all_args.algorithm_name:
-            # goal_mask = [(self.env_step > 0 and bfs_distance(self.ft_map, self.ft_lx, self.ft_ly, locations[agent_id], self.ft_pre_goals[e][agent_id]) > 70 and self.ft_go_steps[e][agent_id]<10) for agent_id in range(self.num_agents)]
-            goal_mask = [(self.env_step > 0 and l2distance(locations[agent_id], self.ft_pre_goals[e][agent_id]) > 30 and self.ft_go_steps[e][agent_id]<10) for agent_id in range(self.num_agents)]
+            # goal_mask = [(self.env_step > 0 and bfs_distance(self.ft_map, self.ft_lx[e], self.ft_ly[e], locations[agent_id], self.ft_pre_goals[e][agent_id]) > 70 and self.ft_go_steps[e][agent_id]<10) for agent_id in range(self.num_agents)]
+            goal_mask = [(self.env_step > 0 and l2distance(locations[agent_id], self.ft_pre_goals[e][agent_id]) > 20 and self.ft_go_steps[e][agent_id]<15) for agent_id in range(self.num_agents)]
         elif 'utility' in self.all_args.algorithm_name:
-            goal_mask = [(self.env_step > 0 and bfs_distance(self.ft_map, self.ft_lx, self.ft_ly, locations[agent_id], self.ft_pre_goals[e][agent_id]) > 50 and self.ft_go_steps[e][agent_id]<20) for agent_id in range(self.num_agents)]
+            #goal_mask = [(self.env_step > 0 and bfs_distance(self.ft_map, self.ft_lx[e], self.ft_ly[e], locations[agent_id], self.ft_pre_goals[e][agent_id]) > 50 and self.ft_go_steps[e][agent_id]<20) for agent_id in range(self.num_agents)]
+            goal_mask = [(self.env_step > 0 and l2distance(locations[agent_id], self.ft_pre_goals[e][agent_id]) > 20 and self.ft_go_steps[e][agent_id]<20) for agent_id in range(self.num_agents)]
         elif 'rrt' in self.all_args.algorithm_name:
-            goal_mask = [(self.env_step > 0 and l2distance(locations[agent_id], self.ft_pre_goals[e][agent_id]) > 30 and self.ft_go_steps[e][agent_id]<10) for agent_id in range(self.num_agents)]
+            goal_mask = [(self.env_step > 0 and l2distance(locations[agent_id], self.ft_pre_goals[e][agent_id]) > 20 and self.ft_go_steps[e][agent_id]<15) for agent_id in range(self.num_agents)]
         else:
             raise NotImplementedError
-        
-        goals = self.ft_get_goal(inputs, goal_mask, pre_goals = self.ft_pre_goals[e])
+
+        goals = self.ft_get_goal(inputs, goal_mask, pre_goals = self.ft_pre_goals[e], e=e)
 
         for agent_id in range(self.num_agents):
             if not goal_mask[agent_id] or 'utility' in self.all_args.algorithm_name:
@@ -1150,17 +1152,62 @@ class HabitatRunner(Runner):
             ft_goals[agent_id] = np.array([index_a, index_b], dtype = np.float32)
         return ft_goals
     
+    def compute_merge_map_boundary(self, e, a, ft = True):
+        return 0, self.full_w, 0, self.full_h
+        map = np.maximum(self.merge_map[e, a, 0, :, :], self.merge_map[e, a, 1, :, :])
+        H, W = map.shape
+
+        row = (map.sum(1)>0).astype(np.int32).tolist()
+        lx = row.index(1)
+        rx = H - 1 - list(reversed(row)).index(1)
+
+        col = (map.sum(0)>0).astype(np.int32).tolist()
+        ly = col.index(1)
+        ry = W - 1 - list(reversed(col)).index(1)
+
+        start_x, start_y, start_o = self.planner_pose_inputs[e,a, :3].copy()
+        r, c = start_y, start_x
+        start = [int(r * 100.0/self.map_resolution),
+                 int(c * 100.0/self.map_resolution)]
+
+        lx = min(lx, start[0])
+        rx = max(rx, start[0])
+        ly = min(ly, start[1])
+        ry = max(ry, start[1])
+
+        goal = (int(self.ft_goals[e, a][0]), int(self.ft_goals[e,a][1]))
+
+        lx = min(lx, goal[0])
+        rx = max(rx, goal[0])
+        ly = min(ly, goal[1])
+        ry = max(ry, goal[1])
+
+        buf = l2distance(start, goal)
+        buf = max(20., buf)
+        lx = int(lx-buf)
+        rx = int(rx+buf)
+        ly = int(ly-buf)
+        ry = int(ry+buf)
+
+        lx = max(0, lx - 3)
+        rx = min(rx+3, H-1)
+        ly = max(0, ly-3)
+        ry = min(ry+3, W-1)
+
+        return (lx, rx+1, ly, ry+1)
+
     def ft_compute_local_input(self):
         assert self.all_args.use_center == False
         self.local_input = []
         for e in range(self.n_rollout_threads):
             p_input = defaultdict(list)
             for a in range(self.num_agents):
-                p_input['goal'].append([int(self.ft_goals[e, a][0]), int(self.ft_goals[e,a][1])])
+                lx, rx, ly, ry = self.compute_merge_map_boundary(e, a)
+                p_input['goal'].append([int(self.ft_goals[e, a][0])-lx, int(self.ft_goals[e,a][1])-ly])
                 p_input['map_pred'].append(self.merge_map[e, a, 0, :, :].copy())
                 p_input['exp_pred'].append(self.merge_map[e, a, 1, :, :].copy())
                 pose_pred = self.planner_pose_inputs[e, a].copy()
-                pose_pred[3:] = np.array((0, self.full_w, 0, self.full_h))
+                pose_pred[3:] = np.array((lx, rx, ly, ry))
                 p_input['pose_pred'].append(pose_pred)
             self.local_input.append(p_input)
             
@@ -1184,10 +1231,16 @@ class HabitatRunner(Runner):
         
         return locations
     
-    def ft_get_goal(self, inputs, goal_mask, pre_goals = None):
+    def ft_get_goal(self, inputs, goal_mask, pre_goals = None, e=None):
         obstacle = inputs['map_pred']
         explored = inputs['exp_pred']
         locations = inputs['locations']
+
+        if all(goal_mask):
+            goals = []
+            for agent_id in range(self.num_agents):
+                goals.append((self.ft_pre_goals[e,agent_id][0], self.ft_pre_goals[e, agent_id][1]))
+            return goals
 
         obstacle = np.rint(obstacle).astype(np.int32)
         explored = np.rint(explored).astype(np.int32)
@@ -1195,7 +1248,6 @@ class HabitatRunner(Runner):
 
         H, W = explored.shape
         steps = [(-1,0),(1,0),(0,-1),(0,1)]
-
         map, (lx, ly), unexplored = get_frontier(obstacle, explored, locations)
         '''
         map: H x W
@@ -1203,9 +1255,9 @@ class HabitatRunner(Runner):
             - 1 for obstacle
             - 2 for target (frontier)
         '''
-        self.ft_map = map.copy()
-        self.ft_lx = lx
-        self.ft_ly = ly
+        self.ft_map[e] = map.copy()
+        self.ft_lx[e] = lx
+        self.ft_ly[e] = ly
         
         goals = []
         locations = [(x-lx, y-ly) for x, y in locations]
@@ -1223,10 +1275,10 @@ class HabitatRunner(Runner):
                     continue
                 if self.all_args.algorithm_name == 'ft_apf':
                     apf = APF(self.all_args)
-                    path = apf.schedule(map, locations, steps, agent_id, clear_disk = True)
+                    path = apf.schedule(map, unexplored, locations, steps, agent_id, clear_disk = True)
                     goal = path[-1]
                 elif self.all_args.algorithm_name == 'ft_nearest':
-                    goal = nearest_frontier(map, locations, steps, agent_id, clear_radius = self.all_args.ft_clear_radius, cluster_radius = self.all_args.ft_cluster_radius)
+                    goal = nearest_frontier(map, unexplored, locations, steps, agent_id, clear_radius = self.all_args.ft_clear_radius, cluster_radius = self.all_args.ft_cluster_radius)
                 elif self.all_args.algorithm_name == 'ft_rrt':
                     goal = rrt_global_plan(map, unexplored, locations, agent_id, clear_radius = self.all_args.ft_clear_radius, cluster_radius = self.all_args.ft_cluster_radius, step = self.env_step, utility_radius = self.all_args.utility_radius)
                 else:
@@ -1622,10 +1674,9 @@ class HabitatRunner(Runner):
                 self.ft_go_steps += 1
 
                 for e in range (self.n_rollout_threads):
-                    if self.env_info['sum_merge_explored_ratio'][e] - self.ft_last_merge_explored_ratio[e] > 0.01 or step % self.all_args.ft_num_local_steps == 0:
-                        self.update_single_map_and_pose(envs = e)  
-                        self.ft_last_merge_explored_ratio[e] = self.env_info['sum_merge_explored_ratio'][e]
-                        self.ft_compute_global_goal(e) 
+                    self.update_single_map_and_pose(envs = e)  
+                    self.ft_last_merge_explored_ratio[e] = self.env_info['sum_merge_explored_ratio'][e]
+                    self.ft_compute_global_goal(e) 
                         
                 # Local Policy
                 self.ft_compute_local_input()
