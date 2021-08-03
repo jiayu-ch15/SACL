@@ -1069,7 +1069,7 @@ class HabitatRunner(Runner):
                    
                     if pu.get_l2_distance(self.last_pos[e,a,0], self.full_pose[e,a,0], self.last_pos[e,a,1], self.full_pose[e,a,1]) < 0.2:
                         self.stuck_flag[e,a] += 1
-        self.last_pos = self.full_pose
+        self.last_pos = self.full_pose.copy()
                     
     def update_agent_map_and_pose(self, e, a):
             self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]] = self.local_map[e, a]
@@ -1090,8 +1090,9 @@ class HabitatRunner(Runner):
             self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
             self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
             if pu.get_l2_distance(self.last_pos[e,a,0], self.full_pose[e,a,0], self.last_pos[e,a,1], self.full_pose[e,a,1]) < 0.2:
-                self.stuck_flag[e,a] += 1
-            self.last_pos[e,a] = self.full_pose[e,a]
+                self.stuck_flag[e, a] += 1
+                ic(self.stuck_flag[e, a])
+            self.last_pos[e, a] = self.full_pose[e, a].copy()
                     
     def update_single_map_and_pose(self, envs = 1000, update = True):
         for a in range(self.num_agents):
@@ -1115,7 +1116,7 @@ class HabitatRunner(Runner):
                 self.local_pose[envs, a] = self.full_pose[envs, a] - self.origins[envs, a]
                 if pu.get_l2_distance(self.last_pos[envs,a,0], self.full_pose[envs,a,0], self.last_pos[envs,a,1], self.full_pose[envs,a,1]) < 0.2:
                     self.stuck_flag[envs, a] += 1
-        self.last_pos[envs] = self.full_pose[envs]
+        self.last_pos[envs] = self.full_pose[envs].copy()
             
     def insert_global_policy(self, data):
         dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
@@ -1710,7 +1711,7 @@ class HabitatRunner(Runner):
             self.convert_info()
             
             total_num_steps = (episode + 1) * self.max_episode_length * self.n_rollout_threads
-            if not self.use_render:
+            if not self.use_render and np.all(self.stuck_flag) < 3:
                 self.log_env(self.env_infos, total_num_steps)
                 self.log_agent(self.env_infos, total_num_steps)
                 
@@ -1751,7 +1752,7 @@ class HabitatRunner(Runner):
             self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
             self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
             self.stuck_flag = np.zeros((self.n_rollout_threads, self.num_agents))
-            self.last_pos = self.full_pose
+            self.last_pos = self.full_pose.copy()
             # Predict map from frame 1:
             self.run_slam_module(self.obs, self.obs, infos)
 
@@ -1770,10 +1771,11 @@ class HabitatRunner(Runner):
             # Output stores local goals as well as the the ground-truth action
             self.local_output = self.envs.get_short_term_goal(self.local_input)
             self.local_output = np.array(self.local_output, dtype = np.long)
-            
+            async_local_step = np.ones((self.n_rollout_threads, self.num_agents))*-1
             for step in range(self.max_episode_length):
                 ic(step)
                 local_step = step % self.num_local_steps
+                async_local_step += 1
 
                 self.last_obs = self.obs.copy()
 
@@ -1825,13 +1827,14 @@ class HabitatRunner(Runner):
                         loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
                                         int(c * 100.0 / self.map_resolution)]
                         dis = pu.get_l2_distance(loc_r, int(self.global_goal[e, a][0] * self.local_w), loc_c, int(self.global_goal[e, a][1] * self.local_h))
-                        if local_step == self.num_local_steps - 1 or dis < 2:
+                        if async_local_step[e, a] == self.num_local_steps - 1 or dis < 2:
                             # For every global step, update the full and local maps
                             self.update_agent_map_and_pose(e, a)
                             self.compute_global_input()
                             self.global_masks[e, a, 0] = 1 
                             # Compute Global goal
                             rnn_states = self.eval_compute_single_global_goal(e, a, rnn_states)
+                            async_local_step[e, a] = -1
                             self.env_info['merge_global_goal_num'] += 1
                     
                 # Local Policy
@@ -1847,7 +1850,7 @@ class HabitatRunner(Runner):
             self.convert_info()
             
             total_num_steps = (episode + 1) * self.max_episode_length * self.n_rollout_threads
-            if not self.use_render:
+            if not self.use_render and np.all(self.stuck_flag) < 3:
                 self.log_env(self.env_infos, total_num_steps)
                 self.log_agent(self.env_infos, total_num_steps)
                 

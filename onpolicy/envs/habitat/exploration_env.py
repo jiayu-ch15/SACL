@@ -589,7 +589,7 @@ class Exploration_Env(habitat.RLEnv):
                 self.info['merge_repeat_area'] = 0.0
 
             if self.use_repeat_penalty and self.merge_ratio < self.explored_ratio_threshold:
-                self.info['merge_explored_reward'] -= (agents_explored_map[self.prev_merge_explored_map == 1].sum() * (25./10000) * 0.02 *0.5)
+                self.info['merge_explored_reward'] -= (agents_explored_map[self.prev_merge_explored_map == 1].sum() * (25./10000) * 0.02 * 0.5)
             
             self.prev_merge_explored_map = curr_merge_explored_map.copy()
             self.prev_agent_explored_map = deepcopy(curr_agent_explored_map)
