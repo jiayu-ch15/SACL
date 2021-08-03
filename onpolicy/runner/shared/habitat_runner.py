@@ -1801,7 +1801,7 @@ class HabitatRunner(Runner):
                         loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
                                         int(c * 100.0 / self.map_resolution)]
                         dis = pu.get_l2_distance(loc_r, int(self.global_goal[e, a][0] * self.local_w), loc_c, int(self.global_goal[e, a][1] * self.local_h))
-                        if local_step == self.num_local_steps - 1 or dis < 2:
+                        if local_step == self.num_local_steps - 1 or dis < 5:
                             # For every global step, update the full and local maps
                             self.update_agent_map_and_pose(e, a)
                             self.compute_global_input()
