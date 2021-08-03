@@ -148,6 +148,8 @@ class HabitatRunner(Runner):
                         else:
                             if key in infos[e].keys():
                                 self.env_info[key][e] = infos[e][key]
+                    self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
+                    self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
                    
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
@@ -629,8 +631,8 @@ class HabitatRunner(Runner):
             
             agent_n_trans = F.grid_sample(torch.from_numpy(merge_map[e,2:]).unsqueeze(0).float(), agent_trans[e][a].float(), align_corners=True)      
             merge_map[e,2:] = F.grid_sample(agent_n_trans.float(), agent_rotation[e][a].float(), align_corners=True)[0, :, :, :].numpy()
-            merge_map[e,0] = self.merge_obstacle_gt[e,a]
-            merge_map[e,1] = self.merge_explored_gt[e,a]
+            merge_map[e,0] = self.merge_obstacle_gt[e][a]
+            merge_map[e,1] = self.merge_explored_gt[e][a]
 
             local_merge_map[e, :2] = merge_map[e, :2, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]].copy()
             local_merge_map[e, 2:] = self.local_map[e, a, 2:].copy()
@@ -1531,6 +1533,8 @@ class HabitatRunner(Runner):
                         else:
                             if key in infos[e].keys():
                                 self.env_info[key][e] = infos[e][key]
+                    self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
+                    self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
                     if self.env_info['sum_merge_explored_ratio'][e] <= self.all_args.explored_ratio_threshold:
                         self.env_info['merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold][e] = self.env_info['merge_global_goal_num'][e]
                     
@@ -1783,6 +1787,8 @@ class HabitatRunner(Runner):
                         else:
                             if key in infos[e].keys():
                                 self.env_info[key][e] = infos[e][key]
+                    self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
+                    self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
                     if self.env_info['sum_merge_explored_ratio'][e] <= self.all_args.explored_ratio_threshold:
                         self.env_info['merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold][e] = self.env_info['merge_global_goal_num'][e]
                     

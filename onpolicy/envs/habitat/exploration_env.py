@@ -271,8 +271,8 @@ class Exploration_Env(habitat.RLEnv):
             fp_explored.append(fp_explored_t)
             self.explored_map.append(explored_map_t)
             self.current_explored_gt.append(current_explored_gt)
-            merge_explored_gt = np.maximum(merge_explored_gt, self.transform(explored_map_t, agent_id))
-            merge_obstacle_gt = np.maximum(merge_obstacle_gt, self.transform(map_t, agent_id))
+            merge_explored_gt = np.maximum(merge_explored_gt, self.transform(explored_map_t.copy(), agent_id))
+            merge_obstacle_gt = np.maximum(merge_obstacle_gt, self.transform(map_t.copy(), agent_id))
             
         # Initialize variables
         self.merge_pred_map = np.zeros_like(self.explorable_map[0])
@@ -462,8 +462,8 @@ class Exploration_Env(habitat.RLEnv):
             fp_explored.append(fp_explored_t)
             self.explored_map.append(explored_map_t)
             self.current_explored_gt.append(current_explored_gt)
-            merge_explored_gt = np.maximum(merge_explored_gt, self.transform(explored_map_t, agent_id))
-            merge_obstacle_gt = np.maximum(merge_obstacle_gt, self.transform(map_t, agent_id))
+            merge_explored_gt = np.maximum(merge_explored_gt, self.transform(explored_map_t.copy(), agent_id))
+            merge_obstacle_gt = np.maximum(merge_obstacle_gt, self.transform(map_t.copy(), agent_id))
 
         # Update collision map
         for agent_id in range(self.num_agents):
