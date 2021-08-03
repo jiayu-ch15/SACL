@@ -1205,8 +1205,8 @@ class HabitatRunner(Runner):
             for a in range(self.num_agents):
                 lx, rx, ly, ry = self.compute_merge_map_boundary(e, a)
                 p_input['goal'].append([int(self.ft_goals[e, a][0])-lx, int(self.ft_goals[e,a][1])-ly])
-                p_input['map_pred'].append(self.merge_map[e, a, 0, :, :].copy())
-                p_input['exp_pred'].append(self.merge_map[e, a, 1, :, :].copy())
+                p_input['map_pred'].append(self.full_map[e, a, 0, :, :].copy())
+                p_input['exp_pred'].append(self.full_map[e, a, 1, :, :].copy())
                 pose_pred = self.planner_pose_inputs[e, a].copy()
                 pose_pred[3:] = np.array((lx, rx, ly, ry))
                 p_input['pose_pred'].append(pose_pred)
@@ -1531,6 +1531,8 @@ class HabitatRunner(Runner):
                         else:
                             if key in infos[e].keys():
                                 self.env_info[key][e] = infos[e][key]
+                    if self.env_info['sum_merge_explored_ratio'][e] <= self.all_args.explored_ratio_threshold:
+                        self.env_info['merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold][e] = self.env_info['merge_global_goal_num'][e]
                     
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
@@ -1551,6 +1553,7 @@ class HabitatRunner(Runner):
                     self.global_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32) 
                     # Compute Global goal
                     rnn_states = self.eval_compute_global_goal(rnn_states)
+                    self.env_info['merge_global_goal_num'] += self.num_agents
                     
                 # Local Policy
                 if self.use_merge_local:
@@ -1780,6 +1783,8 @@ class HabitatRunner(Runner):
                         else:
                             if key in infos[e].keys():
                                 self.env_info[key][e] = infos[e][key]
+                    if self.env_info['sum_merge_explored_ratio'][e] <= self.all_args.explored_ratio_threshold:
+                        self.env_info['merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold][e] = self.env_info['merge_global_goal_num'][e]
                     
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
@@ -1801,13 +1806,14 @@ class HabitatRunner(Runner):
                         loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
                                         int(c * 100.0 / self.map_resolution)]
                         dis = pu.get_l2_distance(loc_r, int(self.global_goal[e, a][0] * self.local_w), loc_c, int(self.global_goal[e, a][1] * self.local_h))
-                        if local_step == self.num_local_steps - 1 or dis < 5:
+                        if local_step == self.num_local_steps - 1 or dis < 2:
                             # For every global step, update the full and local maps
                             self.update_agent_map_and_pose(e, a)
                             self.compute_global_input()
                             self.global_masks[e, a, 0] = 1 
                             # Compute Global goal
                             rnn_states = self.eval_compute_single_global_goal(e, a, rnn_states)
+                            self.env_info['merge_global_goal_num'] += 1
                     
                 # Local Policy
                 if self.use_merge_local:
