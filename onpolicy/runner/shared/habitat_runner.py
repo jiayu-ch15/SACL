@@ -1066,7 +1066,11 @@ class HabitatRunner(Runner):
 
                     self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
                     self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
-    
+                   
+                    if pu.get_l2_distance(self.last_pos[e,a,0], self.full_pose[e,a,0], self.last_pos[e,a,1], self.full_pose[e,a,1]) < 0.2:
+                        self.stuck_flag[e,a] += 1
+        self.last_pos = self.full_pose
+                    
     def update_agent_map_and_pose(self, e, a):
             self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]] = self.local_map[e, a]
             self.full_pose[e, a] = self.local_pose[e, a] + self.origins[e, a]
@@ -1085,6 +1089,9 @@ class HabitatRunner(Runner):
                             self.lmb[e, a][0] * self.map_resolution / 100.0, 0.]
             self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
             self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
+            if pu.get_l2_distance(self.last_pos[e,a,0], self.full_pose[e,a,0], self.last_pos[e,a,1], self.full_pose[e,a,1]) < 0.2:
+                self.stuck_flag[e,a] += 1
+            self.last_pos[e,a] = self.full_pose[e,a]
                     
     def update_single_map_and_pose(self, envs = 1000, update = True):
         for a in range(self.num_agents):
@@ -1106,6 +1113,9 @@ class HabitatRunner(Runner):
 
                 self.local_map[envs, a] = self.full_map[envs, a, :, self.lmb[envs, a, 0]:self.lmb[envs, a, 1], self.lmb[envs, a, 2]:self.lmb[envs, a, 3]]
                 self.local_pose[envs, a] = self.full_pose[envs, a] - self.origins[envs, a]
+                if pu.get_l2_distance(self.last_pos[envs,a,0], self.full_pose[envs,a,0], self.last_pos[envs,a,1], self.full_pose[envs,a,1]) < 0.2:
+                    self.stuck_flag[envs, a] += 1
+        self.last_pos[envs] = self.full_pose[envs]
             
     def insert_global_policy(self, data):
         dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic = data
@@ -1484,6 +1494,8 @@ class HabitatRunner(Runner):
             self.explorable_map = [infos[e]['explorable_map'] for e in range(self.n_rollout_threads)]
             self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
             self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
+            self.stuck_flag = np.zeros((self.n_rollout_threads, self.num_agents))
+            self.last_pos = self.full_pose
 
             # Predict map from frame 1:
             self.run_slam_module(self.obs, self.obs, infos)
@@ -1503,7 +1515,6 @@ class HabitatRunner(Runner):
             # Output stores local goals as well as the the ground-truth action
             self.local_output = self.envs.get_short_term_goal(self.local_input)
             self.local_output = np.array(self.local_output, dtype = np.long)
-            
             for step in range(self.max_episode_length):
                 ic(step)
                 local_step = step % self.num_local_steps
@@ -1572,7 +1583,7 @@ class HabitatRunner(Runner):
             self.convert_info()
             
             total_num_steps = (episode + 1) * self.max_episode_length * self.n_rollout_threads
-            if not self.use_render:
+            if not self.use_render and np.all(self.stuck_flag) < 3:
                 self.log_env(self.env_infos, total_num_steps)
                 self.log_agent(self.env_infos, total_num_steps)
                 
@@ -1611,7 +1622,8 @@ class HabitatRunner(Runner):
             self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
             self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
             self.merge_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
-            
+            self.stuck_flag = np.zeros((self.n_rollout_threads, self.num_agents))
+            self.last_pos = self.full_pose
             # Predict map from frame 1:
             self.run_slam_module(self.obs, self.obs, infos)
 
@@ -1738,7 +1750,8 @@ class HabitatRunner(Runner):
             self.explorable_map = [infos[e]['explorable_map'] for e in range(self.n_rollout_threads)]
             self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
             self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
-
+            self.stuck_flag = np.zeros((self.n_rollout_threads, self.num_agents))
+            self.last_pos = self.full_pose
             # Predict map from frame 1:
             self.run_slam_module(self.obs, self.obs, infos)
 
