@@ -1067,7 +1067,7 @@ class HabitatRunner(Runner):
                     self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
                     self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
                    
-                    if pu.get_l2_distance(self.last_pos[e,a,0], self.full_pose[e,a,0], self.last_pos[e,a,1], self.full_pose[e,a,1]) < 0.2:
+                    if pu.get_l2_distance(self.last_pos[e,a,0], self.full_pose[e,a,0], self.last_pos[e,a,1], self.full_pose[e,a,1]) < 0.1:
                         self.stuck_flag[e,a] += 1
         self.last_pos = self.full_pose.copy()
                     
@@ -1089,7 +1089,8 @@ class HabitatRunner(Runner):
                             self.lmb[e, a][0] * self.map_resolution / 100.0, 0.]
             self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
             self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
-            if pu.get_l2_distance(self.last_pos[e,a,0], self.full_pose[e,a,0], self.last_pos[e,a,1], self.full_pose[e,a,1]) < 0.2:
+            
+            if pu.get_l2_distance(self.last_pos[e,a,0], self.full_pose[e,a,0], self.last_pos[e,a,1], self.full_pose[e,a,1]) < 0.1:
                 self.stuck_flag[e, a] += 1
                 ic(self.stuck_flag[e, a])
             self.last_pos[e, a] = self.full_pose[e, a].copy()
@@ -1114,7 +1115,7 @@ class HabitatRunner(Runner):
 
                 self.local_map[envs, a] = self.full_map[envs, a, :, self.lmb[envs, a, 0]:self.lmb[envs, a, 1], self.lmb[envs, a, 2]:self.lmb[envs, a, 3]]
                 self.local_pose[envs, a] = self.full_pose[envs, a] - self.origins[envs, a]
-                if pu.get_l2_distance(self.last_pos[envs,a,0], self.full_pose[envs,a,0], self.last_pos[envs,a,1], self.full_pose[envs,a,1]) < 0.2:
+                if pu.get_l2_distance(self.last_pos[envs,a,0], self.full_pose[envs,a,0], self.last_pos[envs,a,1], self.full_pose[envs,a,1]) < 0.1:
                     self.stuck_flag[envs, a] += 1
         self.last_pos[envs] = self.full_pose[envs].copy()
             
@@ -1584,7 +1585,7 @@ class HabitatRunner(Runner):
             self.convert_info()
             
             total_num_steps = (episode + 1) * self.max_episode_length * self.n_rollout_threads
-            if not self.use_render and np.all(self.stuck_flag) < 3:
+            if not self.use_render and np.all(self.stuck_flag < 3):
                 self.log_env(self.env_infos, total_num_steps)
                 self.log_agent(self.env_infos, total_num_steps)
                 
@@ -1711,7 +1712,7 @@ class HabitatRunner(Runner):
             self.convert_info()
             
             total_num_steps = (episode + 1) * self.max_episode_length * self.n_rollout_threads
-            if not self.use_render and np.all(self.stuck_flag) < 3:
+            if not self.use_render and np.all(self.stuck_flag < 3):
                 self.log_env(self.env_infos, total_num_steps)
                 self.log_agent(self.env_infos, total_num_steps)
                 
@@ -1772,10 +1773,13 @@ class HabitatRunner(Runner):
             self.local_output = self.envs.get_short_term_goal(self.local_input)
             self.local_output = np.array(self.local_output, dtype = np.long)
             async_local_step = np.ones((self.n_rollout_threads, self.num_agents))*-1
+            period_step = np.zeros((self.n_rollout_threads, self.num_agents))
+            agent_period_ratio = np.zeros((self.n_rollout_threads, self.num_agents))
             for step in range(self.max_episode_length):
                 ic(step)
                 local_step = step % self.num_local_steps
                 async_local_step += 1
+                period_step += 1
 
                 self.last_obs = self.obs.copy()
 
@@ -1791,8 +1795,10 @@ class HabitatRunner(Runner):
                             self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
                             if key == 'merge_explored_ratio' and self.use_eval:
                                 self.auc_infos['merge_auc'][episode, e, step] = self.auc_infos['merge_auc'][episode, e, step-1] + np.array(infos[e][key])
-                            if key == 'explored_ratio' and self.use_eval:
-                                self.auc_infos['agent_auc'][episode, e, :, step] = self.auc_infos['agent_auc'][episode, e, :, step-1] + np.array(infos[e][key])
+                            if key == 'explored_ratio' :
+                                agent_period_ratio[e] += infos[e]['explored_ratio']
+                                if self.use_eval:
+                                    self.auc_infos['agent_auc'][episode, e, :, step] = self.auc_infos['agent_auc'][episode, e, :, step-1] + np.array(infos[e][key])
                     for key in self.equal_env_info_keys:
                         if key == 'explored_ratio_step':
                             for agent_id in range(self.num_agents):
@@ -1827,7 +1833,9 @@ class HabitatRunner(Runner):
                         loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
                                         int(c * 100.0 / self.map_resolution)]
                         dis = pu.get_l2_distance(loc_r, int(self.global_goal[e, a][0] * self.local_w), loc_c, int(self.global_goal[e, a][1] * self.local_h))
-                        if async_local_step[e, a] == self.num_local_steps - 1 or dis < 2:
+                        
+                        if async_local_step[e, a] == self.num_local_steps - 1 or dis < 2 or \
+                            (agent_period_ratio[e, a] < 0.001 and period_step[e, a] % 5 == 0 and self.stuck_flag[e, a] < 3):
                             # For every global step, update the full and local maps
                             self.update_agent_map_and_pose(e, a)
                             self.compute_global_input()
@@ -1835,6 +1843,8 @@ class HabitatRunner(Runner):
                             # Compute Global goal
                             rnn_states = self.eval_compute_single_global_goal(e, a, rnn_states)
                             async_local_step[e, a] = -1
+                            agent_period_ratio[e, a] = 0
+                            period_step[e, a] = 0
                             self.env_info['merge_global_goal_num'] += 1
                     
                 # Local Policy
@@ -1850,7 +1860,7 @@ class HabitatRunner(Runner):
             self.convert_info()
             
             total_num_steps = (episode + 1) * self.max_episode_length * self.n_rollout_threads
-            if not self.use_render and np.all(self.stuck_flag) < 3:
+            if not self.use_render and np.all(self.stuck_flag < 15):
                 self.log_env(self.env_infos, total_num_steps)
                 self.log_agent(self.env_infos, total_num_steps)
                 
