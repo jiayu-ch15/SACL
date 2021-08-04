@@ -332,7 +332,10 @@ def max_utility_frontier(map, unexplored, locations,  clear_radius = 40, cluster
         ret[i] = goals[tar[i]]
     return ret
 
+
 def find_rectangle_obstacles(map):
+    map = map.copy().astype(np.int32)
+    map[map == 2] = 0
     H, W = map.shape
     obstacles = []
     covered = np.zeros((H, W), dtype = np.int32)
@@ -342,11 +345,11 @@ def find_rectangle_obstacles(map):
             if map[x,y] == 1 and covered[x,y] == 0:
                 x1 = x
                 x2 = x
-                while map[x2, y] == 1 and x2 < H-1:
+                while x2 < H-1 and map[x2 + 1, y] == 1:
                     x2 = x2 + 1
                 y1 = y
                 y2 = y
-                while map[x1 : x2+1, y2].sum() == x2-x1+1 and y2 < W-1:
+                while y2 < W-1 and map[x1 : x2+1, y2 + 1].sum() == x2-x1+1:
                     y2 = y2 + 1
                 covered[x1 : x2 + 1, y1 : y2 + 1] = 1
                 obstacles.append((x1-pad, y1-pad, x2 + 1 + pad, y2 + 1 + pad))    
