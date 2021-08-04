@@ -150,10 +150,10 @@ class HabitatRunner(Runner):
                         else:
                             if key in infos[e].keys():
                                 self.env_info[key][e] = infos[e][key]
-                    self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
-                    self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
-                    self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
-                    self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]
+                self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
+                self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
+                self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
+                self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]
                    
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
@@ -1557,13 +1557,13 @@ class HabitatRunner(Runner):
                         else:
                             if key in infos[e].keys():
                                 self.env_info[key][e] = infos[e][key]
-                    self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
-                    self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
-                    self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
-                    self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]
                     if self.env_info['sum_merge_explored_ratio'][e] <= self.all_args.explored_ratio_threshold:
                         self.env_info['merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold][e] = self.env_info['merge_global_goal_num'][e]
-                    
+                
+                self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
+                self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
+                self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
+                self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]  
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
@@ -1818,13 +1818,13 @@ class HabitatRunner(Runner):
                         else:
                             if key in infos[e].keys():
                                 self.env_info[key][e] = infos[e][key]
-                    self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
-                    self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
-                    self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
-                    self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]
                     if self.env_info['sum_merge_explored_ratio'][e] <= self.all_args.explored_ratio_threshold:
                         self.env_info['merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold][e] = self.env_info['merge_global_goal_num'][e]
-                    
+
+                self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
+                self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
+                self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
+                self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]   
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
