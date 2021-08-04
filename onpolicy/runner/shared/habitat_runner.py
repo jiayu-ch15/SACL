@@ -64,6 +64,8 @@ class HabitatRunner(Runner):
         self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
         self.init_pos_x = [infos[e]['init_pos_x'] for e in range(self.n_rollout_threads)]
         self.init_pos_y = [infos[e]['init_pos_y'] for e in range(self.n_rollout_threads)]
+        self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
+        self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]
         
         for agent_id in range(self.num_agents):
             self.intrinsic_gt[ : , agent_id] = np.array(self.explorable_map)[ : , agent_id]
@@ -150,6 +152,8 @@ class HabitatRunner(Runner):
                                 self.env_info[key][e] = infos[e][key]
                     self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
                     self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
+                    self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
+                    self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]
                    
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
@@ -171,6 +175,8 @@ class HabitatRunner(Runner):
                     self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
                     self.init_pos_x = [infos[e]['init_pos_x'] for e in range(self.n_rollout_threads)]
                     self.init_pos_y = [infos[e]['init_pos_y'] for e in range(self.n_rollout_threads)]
+                    self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
+                    self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]
                     for agent_id in range(self.num_agents):
                         self.intrinsic_gt[:, agent_id] = np.array(self.explorable_map)[:, agent_id]
 
@@ -631,8 +637,10 @@ class HabitatRunner(Runner):
             
             agent_n_trans = F.grid_sample(torch.from_numpy(merge_map[e,2:]).unsqueeze(0).float(), agent_trans[e][a].float(), align_corners=True)      
             merge_map[e,2:] = F.grid_sample(agent_n_trans.float(), agent_rotation[e][a].float(), align_corners=True)[0, :, :, :].numpy()
-            merge_map[e,0] = self.merge_obstacle_gt[e][a]
-            merge_map[e,1] = self.merge_explored_gt[e][a]
+            #merge_map[e,0] = self.merge_obstacle_gt[e][a]
+            #merge_map[e,1] = self.merge_explored_gt[e][a]
+            merge_map[e,0] = self.obstacle_map[e][a]
+            merge_map[e,1] = self.explored_map[e][a]
 
             local_merge_map[e, :2] = merge_map[e, :2, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]].copy()
             local_merge_map[e, 2:] = self.local_map[e, a, 2:].copy()
@@ -1066,8 +1074,8 @@ class HabitatRunner(Runner):
 
                     self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
                     self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
-                   
-                    if pu.get_l2_distance(self.last_pos[e,a,0], self.full_pose[e,a,0], self.last_pos[e,a,1], self.full_pose[e,a,1]) < 0.2:
+                    
+                    if self.use_eval and pu.get_l2_distance(self.last_pos[e,a,0], self.full_pose[e,a,0], self.last_pos[e,a,1], self.full_pose[e,a,1]) < 0.1:
                         self.stuck_flag[e,a] += 1
         self.last_pos = self.full_pose.copy()
                     
@@ -1089,7 +1097,7 @@ class HabitatRunner(Runner):
                             self.lmb[e, a][0] * self.map_resolution / 100.0, 0.]
             self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
             self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
-            if pu.get_l2_distance(self.last_pos[e,a,0], self.full_pose[e,a,0], self.last_pos[e,a,1], self.full_pose[e,a,1]) < 0.2:
+            if self.use_eval and pu.get_l2_distance(self.last_pos[e,a,0], self.full_pose[e,a,0], self.last_pos[e,a,1], self.full_pose[e,a,1]) < 0.1:
                 self.stuck_flag[e, a] += 1
                 ic(self.stuck_flag[e, a])
             self.last_pos[e, a] = self.full_pose[e, a].copy()
@@ -1114,7 +1122,7 @@ class HabitatRunner(Runner):
 
                 self.local_map[envs, a] = self.full_map[envs, a, :, self.lmb[envs, a, 0]:self.lmb[envs, a, 1], self.lmb[envs, a, 2]:self.lmb[envs, a, 3]]
                 self.local_pose[envs, a] = self.full_pose[envs, a] - self.origins[envs, a]
-                if pu.get_l2_distance(self.last_pos[envs,a,0], self.full_pose[envs,a,0], self.last_pos[envs,a,1], self.full_pose[envs,a,1]) < 0.2:
+                if self.use_eval and pu.get_l2_distance(self.last_pos[envs,a,0], self.full_pose[envs,a,0], self.last_pos[envs,a,1], self.full_pose[envs,a,1]) < 0.1:
                     self.stuck_flag[envs, a] += 1
         self.last_pos[envs] = self.full_pose[envs].copy()
             
@@ -1461,9 +1469,11 @@ class HabitatRunner(Runner):
                 sub_ax[i].set_yticklabels([])
                 sub_ax[i].set_xticklabels([])
                 if agent_id < self.num_agents and i<4:
-                    sub_ax[i].imshow(self.full_map[0, agent_id, i])
-                elif agent_id >= self.num_agents:
-                    sub_ax[i].imshow(obs['global_merge_obs'][0, agent_id-self.num_agents, i])
+                    sub_ax[i].imshow(self.local_map[0, agent_id, i])
+                elif agent_id >= self.num_agents and i<4:
+                    sub_ax[i].imshow(self.local_merge[0, agent_id-self.num_agents,i])
+                # elif agent_id >= self.num_agents and i<2:
+                #     sub_ax[i].imshow(self.obstacle_map[0][agent_id-self.num_agents])
                 #elif i < 5:
                     #sub_ax[i].imshow(obs['global_merge_goal'][0, agent_id-self.num_agents, i-4])
                     #sub_ax[i].imshow(obs['gt_map'][0, agent_id - self.num_agents, i-4])
@@ -1495,6 +1505,8 @@ class HabitatRunner(Runner):
             self.explorable_map = [infos[e]['explorable_map'] for e in range(self.n_rollout_threads)]
             self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
             self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
+            self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
+            self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]
             self.stuck_flag = np.zeros((self.n_rollout_threads, self.num_agents))
             self.last_pos = self.full_pose
 
@@ -1506,7 +1518,7 @@ class HabitatRunner(Runner):
 
             # Compute Global goal
             rnn_states = self.eval_compute_global_goal(rnn_states)
-
+            
             # compute local input
             if self.use_merge_local:
                 self.compute_local_input(self.local_merge_map)
@@ -1527,7 +1539,7 @@ class HabitatRunner(Runner):
 
                 # Obser reward and next obs
                 self.obs, reward, dones, infos = self.envs.step(actions_env)
-                
+               
                 for e in range(self.n_rollout_threads):
                     for key in self.sum_env_info_keys:
                         if key in infos[e].keys():
@@ -1547,6 +1559,8 @@ class HabitatRunner(Runner):
                                 self.env_info[key][e] = infos[e][key]
                     self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
                     self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
+                    self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
+                    self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]
                     if self.env_info['sum_merge_explored_ratio'][e] <= self.all_args.explored_ratio_threshold:
                         self.env_info['merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold][e] = self.env_info['merge_global_goal_num'][e]
                     
@@ -1570,7 +1584,7 @@ class HabitatRunner(Runner):
                     # Compute Global goal
                     rnn_states = self.eval_compute_global_goal(rnn_states)
                     self.env_info['merge_global_goal_num'] += self.num_agents
-                    
+                
                 # Local Policy
                 if self.use_merge_local:
                     self.compute_local_input(self.local_merge_map)
@@ -1584,7 +1598,7 @@ class HabitatRunner(Runner):
             self.convert_info()
             
             total_num_steps = (episode + 1) * self.max_episode_length * self.n_rollout_threads
-            if not self.use_render and np.all(self.stuck_flag) < 3:
+            if not self.use_render and np.all(self.stuck_flag< 3) :
                 self.log_env(self.env_infos, total_num_steps)
                 self.log_agent(self.env_infos, total_num_steps)
                 
@@ -1658,7 +1672,7 @@ class HabitatRunner(Runner):
 
                 # Obser reward and next obs
                 self.obs, reward, dones, infos = self.envs.step(actions_env)
-                
+
                 for e in range(self.n_rollout_threads):
                     for key in self.sum_env_info_keys:
                         if key in infos[e].keys():
@@ -1711,7 +1725,7 @@ class HabitatRunner(Runner):
             self.convert_info()
             
             total_num_steps = (episode + 1) * self.max_episode_length * self.n_rollout_threads
-            if not self.use_render and np.all(self.stuck_flag) < 3:
+            if not self.use_render and np.all(self.stuck_flag < 3):
                 self.log_env(self.env_infos, total_num_steps)
                 self.log_agent(self.env_infos, total_num_steps)
                 
@@ -1751,6 +1765,8 @@ class HabitatRunner(Runner):
             self.explorable_map = [infos[e]['explorable_map'] for e in range(self.n_rollout_threads)]
             self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
             self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
+            self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
+            self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]
             self.stuck_flag = np.zeros((self.n_rollout_threads, self.num_agents))
             self.last_pos = self.full_pose.copy()
             # Predict map from frame 1:
@@ -1761,7 +1777,7 @@ class HabitatRunner(Runner):
 
             # Compute Global goal
             rnn_states = self.eval_compute_global_goal(rnn_states)
-
+            
             # compute local input
             if self.use_merge_local:
                 self.compute_local_input(self.local_merge_map)
@@ -1778,13 +1794,13 @@ class HabitatRunner(Runner):
                 async_local_step += 1
 
                 self.last_obs = self.obs.copy()
-
+                
                 # Sample actions
                 actions_env = self.compute_local_action()
 
                 # Obser reward and next obs
                 self.obs, reward, dones, infos = self.envs.step(actions_env)
-                
+
                 for e in range(self.n_rollout_threads):
                     for key in self.sum_env_info_keys:
                         if key in infos[e].keys():
@@ -1804,6 +1820,8 @@ class HabitatRunner(Runner):
                                 self.env_info[key][e] = infos[e][key]
                     self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
                     self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
+                    self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
+                    self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]
                     if self.env_info['sum_merge_explored_ratio'][e] <= self.all_args.explored_ratio_threshold:
                         self.env_info['merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold][e] = self.env_info['merge_global_goal_num'][e]
                     
@@ -1836,7 +1854,7 @@ class HabitatRunner(Runner):
                             rnn_states = self.eval_compute_single_global_goal(e, a, rnn_states)
                             async_local_step[e, a] = -1
                             self.env_info['merge_global_goal_num'] += 1
-                    
+                
                 # Local Policy
                 if self.use_merge_local:
                     self.compute_local_input(self.local_merge_map)
@@ -1850,7 +1868,7 @@ class HabitatRunner(Runner):
             self.convert_info()
             
             total_num_steps = (episode + 1) * self.max_episode_length * self.n_rollout_threads
-            if not self.use_render and np.all(self.stuck_flag) < 3:
+            if not self.use_render and np.all(self.stuck_flag< 3) :
                 self.log_env(self.env_infos, total_num_steps)
                 self.log_agent(self.env_infos, total_num_steps)
                 
