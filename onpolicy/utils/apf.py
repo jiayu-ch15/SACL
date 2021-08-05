@@ -30,7 +30,7 @@ class APF(object):
         elif self.dis_type == "l1":
             return abs(a-b).sum()
 
-    def schedule(self, map, unexplored, locations, steps, agent_id, penalty = None, full_path = True, clear_disk = False):
+    def schedule(self, map, unexplored, locations, steps, agent_id, penalty = None, full_path = True, clear_disk = False, random_goal = False):
         '''
         APF to schedule path for agent agent_id
         map: H x W
@@ -208,7 +208,7 @@ class APF(object):
             if locations[i][0]==locations[agent_id][0] and locations[i][1]==locations[agent_id][1]:
                 random_plan = True # two agents are at the same location, replan
         random_plan = random_plan and self.use_random
-        if random_plan:
+        if random_plan and random_goal:
             # if not reaching a frontier, randomly pick a traget as goal
             if len(random_targets) == 0:
                 random_targets.append((np.random.randint(0,H), np.random.randint(0,W)))

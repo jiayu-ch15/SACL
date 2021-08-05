@@ -38,7 +38,8 @@ class MultiExplorationEnv(MultiRoomEnv):
         use_complete_reward = True,
         use_multiroom = False,
         use_time_penalty = False,
-        use_agent_id = False
+        use_agent_id = False,
+        astar_cost_mode = 'normal'
     ):
         self.grid_size = grid_size
         self._agent_default_pos = agent_pos
@@ -51,6 +52,8 @@ class MultiExplorationEnv(MultiRoomEnv):
         self.use_time_penalty = use_time_penalty
         self.maxNum = 5
         self.minNum = 2
+        self.astar_cost_mode = astar_cost_mode
+        self.astar_utility_radius = agent_view_size // 2 + 1
 
         if num_obstacles <= grid_size/2 + 1:
             self.num_obstacles = int(num_obstacles)
@@ -510,36 +513,9 @@ class MultiExplorationEnv(MultiRoomEnv):
                 goals.append(self.ft_goals[agent_id])
         self.ft_goals = goals.copy()
 
-        '''for x in range(H):
-            for y in range(W):
-                o = ' '
-                if map[x,y] == 2:
-                    o = 'o'
-                if map[x,y] == 1:
-                    o = '#'
-                s = 0
-                for i in range(self.num_agents):
-                    if current_agent_pos[i][0] == x and current_agent_pos[i][1] == y:
-                        s += i+1
-                if s>0:
-                    o = chr(ord('a') + s - 1)
-                s = 0
-                for i in range(self.num_agents):
-                    if goals[i][0] == x and goals[i][1] == y:
-                        s += i+1
-                if s>0:
-                    o = chr(ord('A') + s-1)
-                print(o, end='')
-            print()'''
-
-        actions = self.ft_get_short_term_action(map, current_agent_pos, goals)
+        actions = self.ft_get_short_term_action(map, unexplored, current_agent_pos, goals, mode = args.astar_cost_mode, radius = args.astar_utility_radius)
         actions = np.array(actions, dtype=np.int32)
         goals = np.array(goals, dtype=np.int32)
-        '''print('Actions', actions)
-        print('Directions', self.agent_dir)
-        print('Locations', current_agent_pos)
-        print('Goals', [(x,y,unexplored[x,y],map[x,y]) for x,y in goals])
-        print('replan', replan)'''
         return actions, goals
 
     def relative_pose2action(self, agent_dir, relative_pos):
@@ -608,12 +584,26 @@ class MultiExplorationEnv(MultiRoomEnv):
                 return 1
         return None
 
-    def ft_get_short_term_action(self, map, current_agent_pos, goals):
+    def ft_get_short_term_action(self, map, unexplored, current_agent_pos, goals, mode = 'normal', radius = 4):
         actions = []
         temp_map = map.copy().astype(np.float32)
         temp_map[map == 0] = 1 # free
         temp_map[map == 2] = 1 # frontiers
         temp_map[map == 1] = np.inf # obstacles
+        if mode == 'normal':
+            pass
+        elif mode == 'utility':
+            # cost = 1 - unexplored%
+            H, W = map.shape
+            for x in range(H):
+                for y in range(W):
+                    if map[x,y] == 1:
+                        temp_map[x,y] = np.inf
+                    else:
+                        utility = unexplored[x-radius:x+radius+1, y-radius:y+radius+1].sum() / (math.pow(radius*2+1, 2))
+                        temp_map[x,y] = 1.0 + (1.0 - utility) * 2.0
+        else:
+            raise NotImplementedError
         for i in range(self.num_agents):
             goal = [goals[i][0], goals[i][1]]
             agent_pos = [current_agent_pos[i][0], current_agent_pos[i][1]]
@@ -629,9 +619,27 @@ class MultiExplorationEnv(MultiRoomEnv):
         return actions
 
     def get_short_term_action(self, inputs):
+        explored = (self.ft_info['explored_all_map']>0).astype(np.int32)[self.agent_view_size:self.agent_view_size+self.width, self.agent_view_size:self.agent_view_size+self.height]
+        obstacle = (self.ft_info['obstacle_all_map']>0).astype(np.int32)[self.agent_view_size:self.agent_view_size+self.width, self.agent_view_size:self.agent_view_size+self.height]
         actions = []
-        temp_map = self.gt_map.astype(np.float32)
-        temp_map[temp_map == 40] = np.inf
+        temp_map = np.ones((self.width, self.height), dtype=np.float32)
+        temp_map[obstacle == 1] = np.inf
+        if self.astar_cost_mode == 'normal':
+            pass
+        elif self.astar_cost_mode == 'utility':
+            # cost = 1 - unexplored%
+            unexplored = 1 - explored
+            radius = self.astar_utility_radius
+            H, W = explored.shape
+            for x in range(H):
+                for y in range(W):
+                    if obstacle[x,y] == 1:
+                        temp_map[x,y] = np.inf
+                    else:
+                        utility = unexplored[x-radius:x+radius+1, y-radius:y+radius+1].sum() / (math.pow(radius*2+1, 2))
+                        temp_map[x,y] = 1.0 + (1.0 - utility) * 2.0
+        else:
+            raise NotImplementedError
         for i in range(self.num_agents):
             goal = [inputs[i][1], inputs[i][0]]
             agent_pos = [self.agent_pos[i][1], self.agent_pos[i][0]]

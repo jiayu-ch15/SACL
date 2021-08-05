@@ -158,7 +158,7 @@ def get_frontier_cluster(frontiers, cluster_radius = 5.0):
                 clusters.append({'center': center, 'weight': len(neigh)})
     return clusters
 
-def nearest_frontier(map, unexplored, locations, steps, agent_id, clear_radius = 40, cluster_radius = 5):
+def nearest_frontier(map, unexplored, locations, steps, agent_id, clear_radius = 40, cluster_radius = 5, random_goal = False):
     map, unexplored = add_clear_disk(map, unexplored, clear_radius, locations[agent_id])
     H, W = map.shape
     que = deque([locations[agent_id]])
@@ -192,11 +192,13 @@ def nearest_frontier(map, unexplored, locations, steps, agent_id, clear_radius =
                 min_dis = dis[p[0], p[1]]
     if min_x == None:
         # no valid target
-        print("random goal")
-        x, y = np.random.randint(0, H), np.random.randint(0, W)
-        while map[x,y] == 1:
+        if random_goal:
             x, y = np.random.randint(0, H), np.random.randint(0, W)
-        min_x, min_y = x, y
+            while map[x,y] == 1:
+                x, y = np.random.randint(0, H), np.random.randint(0, W)
+            min_x, min_y = x, y
+        else:
+            min_x, min_y = locations[agent_id][0], locations[agent_id][1]
     return min_x, min_y
 
 def circle_matrix(H, W, p, radius):
@@ -254,7 +256,7 @@ def bfs_distance(map, lx, ly, start, goals):
         return ret[0]
     return np.array(ret)
 
-def max_utility_frontier(map, unexplored, locations,  clear_radius = 40, cluster_radius = 5, utility_radius = 50, pre_goals = None, goal_mask = None):
+def max_utility_frontier(map, unexplored, locations,  clear_radius = 40, cluster_radius = 5, utility_radius = 50, pre_goals = None, goal_mask = None, random_goal = False):
     H, W = map.shape
     num_agents = len(locations)
 
@@ -303,11 +305,13 @@ def max_utility_frontier(map, unexplored, locations,  clear_radius = 40, cluster
                 max_utility = tmp
                 tar = p
         if tar == None:
-            print("random target")
-            x, y = np.random.randint(0, H), np.random.randint(0, W)
-            while map[x,y] == 1:
+            if random_goal:
                 x, y = np.random.randint(0, H), np.random.randint(0, W)
-            tar = (x,y)
+                while map[x,y] == 1:
+                    x, y = np.random.randint(0, H), np.random.randint(0, W)
+                tar = (x,y)
+            else:
+                tar = (locations[agent_id][0], locations[agent_id][1])
         goals[agent_id] = np.array(tar)
         # print(locations[agent_id], tar, l2distance(locations[agent_id], tar), unexplored.sum(), max_utility)
         mat = circle_matrix(H, W, tar, utility_radius)
@@ -355,7 +359,7 @@ def find_rectangle_obstacles(map):
                 obstacles.append((x1-pad, y1-pad, x2 + 1 + pad, y2 + 1 + pad))    
     return obstacles
 
-def rrt_global_plan(map, unexplored, locations, agent_id, clear_radius = 40, cluster_radius = 5, step = 0, utility_radius = 50):
+def rrt_global_plan(map, unexplored, locations, agent_id, clear_radius = 40, cluster_radius = 5, step = 0, utility_radius = 50, random_goal = False):
     map, unexplored = add_clear_disk(map, unexplored, clear_radius, locations[agent_id])
     H, W = map.shape
     map = map.astype(np.int32)
@@ -385,10 +389,13 @@ def rrt_global_plan(map, unexplored, locations, agent_id, clear_radius = 40, clu
 
     if len(clusters) == 0:
         # print('no available frontier')
-        x, y = np.random.randint(0, H), np.random.randint(0, W)
-        while map[x,y] == 1:
+        if random_goal:
             x, y = np.random.randint(0, H), np.random.randint(0, W)
-        goal = (x,y)
+            while map[x,y] == 1:
+                x, y = np.random.randint(0, H), np.random.randint(0, W)
+            goal = (x,y)
+        else:
+            goal = (loc[0], loc[1])
         return goal
 
     for cluster in clusters:

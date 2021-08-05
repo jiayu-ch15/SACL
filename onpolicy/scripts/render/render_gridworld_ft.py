@@ -75,6 +75,10 @@ def parse_args(args, parser):
     parser.add_argument("--apf_repeat_penalty", type=float, default=0.0, help="APF. penalty for repeat cell")
     parser.add_argument("--apf_dis_type", type=str, default="l1", help="APF. type of distance, l1 or l2")
     parser.add_argument('--apf_boundary', default=False, action='store_true')
+
+    parser.add_argument('--astar_cost_mode', type=str, default='normal', choices=['normal','utility'])
+    parser.add_argument('--astar_utility_radius', type=int, default=4)
+
     all_args = parser.parse_known_args(args)[0]
 
     return all_args

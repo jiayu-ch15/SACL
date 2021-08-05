@@ -41,6 +41,9 @@ def parse_args(args, parser):
     parser.add_argument('--num_agents', type=int,
                         default=1, help="number of players")
 
+    parser.add_argument('--train_global', action='store_false',
+                        default=True, help="""0: Do not train the Global Policy
+                                1: Train the Global Policy (default: 1)""")
     parser.add_argument('--train_local', action='store_true',
                         default=False, help="""0: Do not train the Local Policy
                                 1: Train the Local Policy (default: 1)""")
@@ -112,6 +115,9 @@ def parse_args(args, parser):
                         default=False, help="by default True, use fixed agent rotation at the initialization")
     parser.add_argument('--use_random_rotation', action='store_true',
                         default=False, help="by default True, use random agent rotation at the initialization")
+    parser.add_argument('--use_fixed_start_pos', action='store_true',
+                        default=False, help="by default True, use random agent position at the initialization")
+    
     parser.add_argument('--use_abs_orientation', action='store_true',
                         default=False, help="by default True, use abs orientation at the initialization")
     parser.add_argument('--use_center', action='store_true',

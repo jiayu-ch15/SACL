@@ -5,6 +5,7 @@ import sys
 import gym
 import numpy as np
 import quaternion
+import json
 
 import torch
 from torch.nn import functional as F
@@ -107,6 +108,9 @@ class Exploration_Env(habitat.RLEnv):
         self.mapper = []
         for _ in range(self.num_agents):
             self.mapper.append(self.build_mapper())
+
+        self.agent_start_position = []
+        self.agent_start_rotation = []
         self.curr_loc = []
         self.last_loc = []
         self.curr_loc_gt = []
@@ -139,7 +143,7 @@ class Exploration_Env(habitat.RLEnv):
         self._env._episode_iterator._shuffle_iterator()
 
     def save_trajectory_data(self):
-        traj_dir = '{}/trajectory/{}/'.format(self.run_dir, self.scene_id)
+        traj_dir = '{}/seed{}/trajectory/{}/'.format(self.run_dir, self.args.seed, self.scene_id)
         if not os.path.exists(traj_dir):
             os.makedirs(traj_dir)
 
@@ -150,6 +154,23 @@ class Exploration_Env(habitat.RLEnv):
                 for state in self.trajectory_states[i]:
                     f.write(str(state)+"\n")
                     f.flush()
+
+    def save_position_data(self):
+        pos_dir = '{}/state/seed{}/{}/'.format(self.run_dir, self.args.seed, self.scene_id)
+        if not os.path.exists(pos_dir):
+            os.makedirs(pos_dir)
+
+        pair_start_position = np.array(self.agent_start_position).reshape(-1, self.num_agents, 3).tolist()
+        pair_start_rotation = np.array(self.agent_start_rotation).reshape(-1, self.num_agents, 4).tolist()
+        
+        filepath = pos_dir + "start_position.json"
+        with open(filepath,'w',encoding='utf-8') as json_file:
+            json.dump(pair_start_position,json_file,ensure_ascii=False)
+
+        filepath = pos_dir + "start_rotation.json"
+
+        with open(filepath,'w',encoding='utf-8') as json_file:
+            json.dump(pair_start_rotation,json_file,ensure_ascii=False)
 
     def save_position(self):
         self.agent_state = []
@@ -355,6 +376,7 @@ class Exploration_Env(habitat.RLEnv):
                     self.info['path_length/ratio'] = path_length_divide_ratio
 
         self.save_position()
+        self.save_position_data()
 
         return state, self.info 
 
@@ -920,7 +942,12 @@ class Exploration_Env(habitat.RLEnv):
             logger.error("Invalid map: {}/{}".format(self.scene_name, self.episode_no))
             return None
 
-        agent_y = self._env.sim.get_agent_state(agent_id).position.tolist()[1] * 100.
+        start_position = self._env.sim.get_agent_state(agent_id).position.tolist()
+        start_rotation = np.roll(self._env.sim.get_agent_state(agent_id).rotation.components, -1).tolist()
+        self.agent_start_position.append(start_position)
+        self.agent_start_rotation.append(start_rotation)
+
+        agent_y = start_position[1] * 100.
 
         if self.use_restrict_map:
             sim_map = self.map_obj.get_restrict_map(agent_y, -50., 50.0)
