@@ -4,7 +4,6 @@ scenario="pointnav_gibson"
 num_agents=4
 algo="mappo"
 exp="new_time_penalty_merge_partial_reward_rand55_rot_pos_center_single_local_4agents_ppo4"
-exp="debug"
 seed_max=1
 
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"

@@ -136,6 +136,10 @@ def parse_args(args, parser):
                         default=False, help="by default True, use merge goal")
     parser.add_argument('--use_max', action='store_true',
                         default=False, help="by default True, use maximun map or use sum map")
+    parser.add_argument('--use_filter', action='store_true',
+                        default=False, help="by default True, use filter map")
+    parser.add_argument('--use_sum', action='store_true',
+                        default=False, help="by default True, use sum map")
     parser.add_argument('--pretrained_global_resnet', type=int, default=1)
 
 
@@ -157,6 +161,7 @@ def parse_args(args, parser):
                         help="use classical deterministic local policy")
 
     # Neural SLAM Module
+    parser.add_argument('--slam_keys', default=['rgb'], nargs='+', help = '\'depth\' or \'rgb\' or \'depth rgb\'')
     parser.add_argument('--slam_lr', type=float, default=0.0001)
     parser.add_argument('--slam_opti_eps', type=float, default=1e-5)
     parser.add_argument('--use_pose_estimation', type=int, default=2)
@@ -171,6 +176,9 @@ def parse_args(args, parser):
     parser.add_argument('--exp_loss_coeff', type=float, default=1.0)
     parser.add_argument('--global_downscaling', type=int, default=2)
     parser.add_argument('--map_pred_threshold', type=float, default=0.5)
+    parser.add_argument('--memory_rate', type=float, default=0.5)
+    parser.add_argument('--use_max_map', action='store_true',
+                        default=False, help="by default True, use maximun map or use sum map")
 
     parser.add_argument('--vision_range', type=int, default=64)
     parser.add_argument('--obstacle_boundary', type=int, default=5)
@@ -187,6 +195,9 @@ def parse_args(args, parser):
     parser.add_argument('--ft_num_local_steps', type=int, default = 15)
     parser.add_argument('--ft_clear_radius',type=float, default = 50)
     parser.add_argument('--ft_cluster_radius', type=float, default = 5.0)
+
+    # frontier-based method
+    parser.add_argument('--ft_use_random', default = False, action='store_true')
 
     # apf
     parser.add_argument('--apf_k_attract', type=float, default = 1.0)

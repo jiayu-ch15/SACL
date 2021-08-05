@@ -157,7 +157,11 @@ def parse_args(args, parser):
     parser.add_argument('--use_merge_goal', action='store_true',
                         default=False, help="by default True, use merge goal")
     parser.add_argument('--use_max', action='store_true',
-                        default=False, help="by default True, use maximun map or use sum map")
+                        default=False, help="by default True, use maximun map")
+    parser.add_argument('--use_filter', action='store_true',
+                        default=False, help="by default True, use filter map")
+    parser.add_argument('--use_sum', action='store_true',
+                        default=False, help="by default True, use sum map")
     parser.add_argument('--pretrained_global_resnet', type=int, default=1)     
                         
 
@@ -203,6 +207,9 @@ def parse_args(args, parser):
     parser.add_argument('--obs_threshold', type=float, default=1)
     parser.add_argument('--collision_threshold', type=float, default=0.20)
     parser.add_argument('--noise_level', type=float, default=1.0)
+    parser.add_argument('--memory_rate', type=float, default=0.5)
+    parser.add_argument('--use_max_map', action='store_true',
+                        default=False, help="by default True, use maximun map or use sum map")
 
     parser.add_argument('--local_planner', type=str, default='fmm', choices=['fmm', 'astar', 'rrt'], help = 'choose local planner. [fmm, rrt, astar]')
     all_args = parser.parse_known_args(args)[0]
