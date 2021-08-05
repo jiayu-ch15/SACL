@@ -344,6 +344,7 @@ class Exploration_Env(habitat.RLEnv):
             self.info['pose_err'].append([0., 0., 0.])
             self.info['merge_explored_gt'].append(self.agent_transform(merge_explored_gt, agent_id))
             self.info['merge_obstacle_gt'].append(self.agent_transform(merge_obstacle_gt, agent_id))
+            
             if self.use_eval:
                 self.info['path_length'].append(pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][1]))
             
@@ -356,6 +357,8 @@ class Exploration_Env(habitat.RLEnv):
         self.info['agent_rotation'] = self.agent_n_rot
         self.info['explorable_map'] = self.explorable_map       
         self.info['scene_id'] = self.scene_id
+        self.info['explored_map'] = [self.explored_map[a] * self.explorable_map[a] for a  in range(self.num_agents)]
+        self.info['obstacle_map'] = [self.map[a] * self.explored_map[a] for a  in range(self.num_agents)]
         
         if self.episode_no > 1:
             self.info['merge_explored_reward'] = merge_reward
@@ -544,9 +547,14 @@ class Exploration_Env(habitat.RLEnv):
                                           do_gt[agent_id] - do_base[agent_id]])
             self.info['merge_explored_gt'].append(self.agent_transform(merge_explored_gt, agent_id))
             self.info['merge_obstacle_gt'].append(self.agent_transform(merge_obstacle_gt, agent_id))
+       
             if self.use_eval:
                 self.info['path_length'].append(pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][1]))
                 self.path_length[agent_id] += pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][1])
+
+        self.info['explored_map'] = [self.explored_map[a] * self.explorable_map[a] for a  in range(self.num_agents)]
+        self.info['obstacle_map'] = [self.map[a] * self.explored_map[a] for a  in range(self.num_agents)]
+
         agent_explored_area, agent_explored_ratio, merge_explored_area, merge_explored_ratio, \
             agent_trans_reward, curr_merge_explored_map, curr_agent_explored_map = self.get_global_reward()
         
@@ -837,7 +845,7 @@ class Exploration_Env(habitat.RLEnv):
             self.visited[agent_id][gx1:gx2, gy1:gy2][start[0]-2:start[0]+3,
                                               start[1]-2:start[1]+3] = 1
 
-            steps = 25 # ! wrong
+            steps = 15 # ! wrong
             for i in range(steps):
                 x = int(last_start[0] + (start[0] -
                                          last_start[0]) * (i+1) / steps)
@@ -861,7 +869,7 @@ class Exploration_Env(habitat.RLEnv):
                         int(c * 100.0/self.map_resolution)]
             start_gt = pu.threshold_poses(start_gt, self.visited_gt[agent_id].shape)
 
-            steps = 25 # ! wrong
+            steps = 15 # ! wrong
             for i in range(steps):
                 x = int(last_start[0] + (start_gt[0] -
                                          last_start[0]) * (i+1) / steps)
@@ -1067,7 +1075,7 @@ class Exploration_Env(habitat.RLEnv):
                         int(goal[1]-y1)-2:int(goal[1]-y1)+3] = 1
         else:
             goal[0] = min(max(x1, goal[0]), x2)
-            goal[1] = min(max(y1, goal[1]), y2)
+            goal[1] = min(max(y1, goal[1]), y2)  
 
         def add_boundary(mat):
             h, w = mat.shape
@@ -1097,7 +1105,7 @@ class Exploration_Env(habitat.RLEnv):
             stg_x, stg_y = start[0], start[1]
         else:
             stg_x, stg_y = stg_x + x1 - 1, stg_y + y1 - 1
-
+        
         return (stg_x, stg_y)
 
     def _get_gt_action(self, grid, start, goal, planning_window, start_o, agent_id):
@@ -1184,7 +1192,7 @@ class Exploration_Env(habitat.RLEnv):
             start_x, start_y, start_o, gx1, gx2, gy1, gy2 = inputs['pose_pred'][agent_id]
             gx1, gx2, gy1, gy2 = int(gx1), int(gx2), int(gy1), int(gy2)
             start_x_gt, start_y_gt, start_o_gt = self.curr_loc_gt[agent_id]
-
+    
             # predicted map and pose
             vis_grid_local = vu.get_colored_map(np.rint(map_pred[agent_id]),
                                             self.collison_map[agent_id][gx1:gx2, gy1:gy2],
