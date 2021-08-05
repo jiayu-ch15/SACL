@@ -510,36 +510,9 @@ class MultiExplorationEnv(MultiRoomEnv):
                 goals.append(self.ft_goals[agent_id])
         self.ft_goals = goals.copy()
 
-        '''for x in range(H):
-            for y in range(W):
-                o = ' '
-                if map[x,y] == 2:
-                    o = 'o'
-                if map[x,y] == 1:
-                    o = '#'
-                s = 0
-                for i in range(self.num_agents):
-                    if current_agent_pos[i][0] == x and current_agent_pos[i][1] == y:
-                        s += i+1
-                if s>0:
-                    o = chr(ord('a') + s - 1)
-                s = 0
-                for i in range(self.num_agents):
-                    if goals[i][0] == x and goals[i][1] == y:
-                        s += i+1
-                if s>0:
-                    o = chr(ord('A') + s-1)
-                print(o, end='')
-            print()'''
-
         actions = self.ft_get_short_term_action(map, current_agent_pos, goals)
         actions = np.array(actions, dtype=np.int32)
         goals = np.array(goals, dtype=np.int32)
-        '''print('Actions', actions)
-        print('Directions', self.agent_dir)
-        print('Locations', current_agent_pos)
-        print('Goals', [(x,y,unexplored[x,y],map[x,y]) for x,y in goals])
-        print('replan', replan)'''
         return actions, goals
 
     def relative_pose2action(self, agent_dir, relative_pos):
