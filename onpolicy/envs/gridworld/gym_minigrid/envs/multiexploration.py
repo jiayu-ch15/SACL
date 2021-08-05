@@ -512,8 +512,6 @@ class MultiExplorationEnv(MultiRoomEnv):
             else:
                 goals.append(self.ft_goals[agent_id])
         self.ft_goals = goals.copy()
-        
-        self.get_short_term_action(self.agent_pos)
 
         actions = self.ft_get_short_term_action(map, unexplored, current_agent_pos, goals, mode = args.astar_cost_mode, radius = args.astar_utility_radius)
         actions = np.array(actions, dtype=np.int32)
