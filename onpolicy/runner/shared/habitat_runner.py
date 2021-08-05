@@ -1651,8 +1651,6 @@ class HabitatRunner(Runner):
             self.local_output = np.array(self.local_output, dtype = np.long)
             
             for step in range(self.max_episode_length):
-                if step > 1:
-                    break
                 ic(step)
                 self.env_step = step + 1
 
