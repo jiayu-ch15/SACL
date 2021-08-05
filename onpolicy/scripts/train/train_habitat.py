@@ -179,6 +179,7 @@ def parse_args(args, parser):
                         help="use classical deterministic local policy")
 
     # Neural SLAM Module
+    parser.add_argument('--slam_keys', default=['rgb'], nargs='+', help = '\'depth\' or \'rgb\' or \'depth rgb\'')
     parser.add_argument('--slam_lr', type=float, default=0.0001)
     parser.add_argument('--slam_opti_eps', type=float, default=1e-5)
     parser.add_argument('--use_pose_estimation', type=int, default=2)

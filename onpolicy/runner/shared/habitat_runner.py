@@ -117,7 +117,7 @@ class HabitatRunner(Runner):
                 self.trainer.policy.lr_decay(episode, episodes)
             
             for step in range(self.max_episode_length):
-
+                ic(step)
                 local_step = step % self.num_local_steps
                 global_step = (step // self.num_local_steps) % self.episode_length
 
@@ -590,19 +590,45 @@ class HabitatRunner(Runner):
                 env_gt_fp_projs = np.expand_dims(infos[env_idx]['fp_proj'][agent_id], 0)
                 env_gt_fp_explored = np.expand_dims(infos[env_idx]['fp_explored'][agent_id], 0)
                 env_gt_pose_err = infos[env_idx]['pose_err'][agent_id]
+
+                key_num = 0
+                for key in self.all_args.slam_keys:
+                    obs_tmp = np.array(self.obs[env_idx][agent_id][key])
+                    last_obs_tmp = np.array(self.last_obs[env_idx][agent_id][key])
+                    if key_num == 0:
+                        obs_choose = obs_tmp.copy()
+                        last_obs_choose = last_obs_tmp.copy()
+                    else:
+                        obs_choose = np.concatenate((obs_choose, obs_tmp), axis=0)
+                        last_obs_choose = np.concatenate((last_obs_choose, last_obs_tmp), axis=0)
+                    key_num += 1
+
                 self.slam_memory.push(
-                    (self.last_obs[env_idx][agent_id], self.obs[env_idx][agent_id], env_poses),
+                    (obs_choose, last_obs_choose, env_poses),
                     (env_gt_fp_projs, env_gt_fp_explored, env_gt_pose_err))
 
     def run_slam_module(self, last_obs, obs, infos, build_maps=True):
         for a in range(self.num_agents):
+            
             poses = np.array([infos[e]['sensor_pose'][a] for e in range(self.n_rollout_threads)])
+ 
+            key_num = 0
+            for key in self.all_args.slam_keys:
+                obs_tmp = np.array([obs[e][a][key] for e in range(self.n_rollout_threads)])
+                last_obs_tmp = np.array([last_obs[e][a][key] for e in range(self.n_rollout_threads)])
+                if key_num == 0:
+                    obs_choose = obs_tmp.copy()
+                    last_obs_choose = last_obs_tmp.copy()
+                else:
+                    obs_choose = np.concatenate((obs_choose, obs_tmp), axis=1)
+                    last_obs_choose = np.concatenate((last_obs_choose, last_obs_tmp), axis=1)
+                key_num += 1
 
-            _, _, self.local_map[:, a, 0, :, :], self.local_map[:, a, 1, :, :], _, self.local_pose[:, a, :] = \
-                self.nslam_module(last_obs[:, a, :, :, :], obs[:, a, :, :, :], poses, 
-                                self.local_map[:, a, 0, :, :],
-                                self.local_map[:, a, 1, :, :], 
-                                self.local_pose[:, a, :],
+            _, _, self.local_map[:, a, 0], self.local_map[:, a, 1], _, self.local_pose[:, a] = \
+                self.nslam_module(last_obs_choose, obs_choose, poses, 
+                                self.local_map[:, a, 0],
+                                self.local_map[:, a, 1], 
+                                self.local_pose[:, a],
                                 build_maps = build_maps)
 
     def oracle_transform(self, inputs, trans, rotation, agent_trans, agent_rotation, a):
@@ -831,9 +857,10 @@ class HabitatRunner(Runner):
 
             if self.train_local:
                 torch.set_grad_enabled(True)
-        
+
+            obs = np.array([self.obs[e, a]['rgb'] for e in range(self.n_rollout_threads)])
             action, action_prob, self.local_rnn_states[:, a] =\
-                self.local_policy(self.obs[:, a],
+                self.local_policy(obs,
                                     self.local_rnn_states[:, a],
                                     self.local_masks[:, a],
                                     extras=local_goals)
@@ -1069,32 +1096,33 @@ class HabitatRunner(Runner):
                     self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
                     self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
                    
-                    if pu.get_l2_distance(self.last_pos[e,a,0], self.full_pose[e,a,0], self.last_pos[e,a,1], self.full_pose[e,a,1]) < 0.2:
+                    if self.use_eval and pu.get_l2_distance(self.last_pos[e,a,0], self.full_pose[e,a,0], self.last_pos[e,a,1], self.full_pose[e,a,1]) < 0.2:
                         self.stuck_flag[e,a] += 1
+        
         self.last_pos = self.full_pose.copy()
                     
     def update_agent_map_and_pose(self, e, a):
-            self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]] = self.local_map[e, a]
-            self.full_pose[e, a] = self.local_pose[e, a] + self.origins[e, a]
+        self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]] = self.local_map[e, a]
+        self.full_pose[e, a] = self.local_pose[e, a] + self.origins[e, a]
 
-            locs = self.full_pose[e, a]
-            r, c = locs[1], locs[0]
-            loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
-                            int(c * 100.0 / self.map_resolution)]
+        locs = self.full_pose[e, a]
+        r, c = locs[1], locs[0]
+        loc_r, loc_c = [int(r * 100.0 / self.map_resolution),
+                        int(c * 100.0 / self.map_resolution)]
 
-            self.lmb[e, a] = self.get_local_map_boundaries((loc_r, loc_c),
-                                                (self.local_w, self.local_h),
-                                                (self.full_w, self.full_h))
+        self.lmb[e, a] = self.get_local_map_boundaries((loc_r, loc_c),
+                                            (self.local_w, self.local_h),
+                                            (self.full_w, self.full_h))
 
-            self.planner_pose_inputs[e, a, 3:] = self.lmb[e, a].copy()
-            self.origins[e, a] = [self.lmb[e, a][2] * self.map_resolution / 100.0,
-                            self.lmb[e, a][0] * self.map_resolution / 100.0, 0.]
-            self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
-            self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
-            if pu.get_l2_distance(self.last_pos[e,a,0], self.full_pose[e,a,0], self.last_pos[e,a,1], self.full_pose[e,a,1]) < 0.2:
-                self.stuck_flag[e, a] += 1
-                ic(self.stuck_flag[e, a])
-            self.last_pos[e, a] = self.full_pose[e, a].copy()
+        self.planner_pose_inputs[e, a, 3:] = self.lmb[e, a].copy()
+        self.origins[e, a] = [self.lmb[e, a][2] * self.map_resolution / 100.0,
+                        self.lmb[e, a][0] * self.map_resolution / 100.0, 0.]
+        self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
+        self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
+        if pu.get_l2_distance(self.last_pos[e,a,0], self.full_pose[e,a,0], self.last_pos[e,a,1], self.full_pose[e,a,1]) < 0.2:
+            self.stuck_flag[e, a] += 1
+            ic(self.stuck_flag[e, a])
+        self.last_pos[e, a] = self.full_pose[e, a].copy()
                     
     def update_single_map_and_pose(self, envs = 1000, update = True):
         for a in range(self.num_agents):
