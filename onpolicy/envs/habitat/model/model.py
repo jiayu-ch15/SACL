@@ -22,8 +22,11 @@ class ChannelPool(nn.MaxPool1d):
         return pooled.view(n, c, w, h)
     
 class ChannelFilter(nn.MaxPool1d):
-    def forward(self, x, p):
-        x_out = torch.where((x[:,0]!= 0) & (x[:,1]!=0), p*x[:,0] + (1-p)*x[:,1],  torch.maximum(x[:,0], x[:,1]))        
+    def forward(self, exp, obs, p):
+        x_out = torch.where((exp[:,0] >= 0.5) & (exp[:,1] >= 0.5), p*obs[:,0] + (1-p)*obs[:,1],  obs[:,0]) 
+        x_out = torch.where(((exp[:,0] < 0.5) & (exp[:,1] >= 0.5)) , obs[:,1],  x_out)  
+        x_out = torch.where(((exp[:,0] < 0.5) & (exp[:,1] < 0.5) & (exp[:,1] >= exp[:,0])), obs[:,1],  x_out)  
+                       
         return x_out
 
 # https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail/blob/master/a2c_ppo_acktr/model.py#L10
@@ -346,8 +349,8 @@ class Neural_SLAM_Module(nn.Module):
                     map_pred = self.pool(maps2).squeeze(1)
                     exp_pred = self.pool(explored2).squeeze(1)
                 else:
-                    map_pred = self.filter(maps2, self.memory_rate)
-                    exp_pred = self.filter(explored2, self.memory_rate)
+                    map_pred = self.filter(explored2, maps2, self.memory_rate)
+                    exp_pred = self.pool(explored2).squeeze(1)
                     
         else:
             map_pred = None
