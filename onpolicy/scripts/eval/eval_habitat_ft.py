@@ -188,6 +188,9 @@ def parse_args(args, parser):
     parser.add_argument('--ft_clear_radius',type=float, default = 50)
     parser.add_argument('--ft_cluster_radius', type=float, default = 5.0)
 
+    # frontier-based method
+    parser.add_argument('--ft_use_random', default = False, action='store_true')
+
     # apf
     parser.add_argument('--apf_k_attract', type=float, default = 1.0)
     parser.add_argument('--apf_k_agents', type=float, default = 1.0)

@@ -38,7 +38,8 @@ class MultiExplorationEnv(MultiRoomEnv):
         use_complete_reward = True,
         use_multiroom = False,
         use_time_penalty = False,
-        use_agent_id = False
+        use_agent_id = False,
+        astar_cost_mode = 'normal'
     ):
         self.grid_size = grid_size
         self._agent_default_pos = agent_pos
@@ -51,6 +52,7 @@ class MultiExplorationEnv(MultiRoomEnv):
         self.use_time_penalty = use_time_penalty
         self.maxNum = 5
         self.minNum = 2
+        self.astar_cost_mode = 'normal'
 
         if num_obstacles <= grid_size/2 + 1:
             self.num_obstacles = int(num_obstacles)

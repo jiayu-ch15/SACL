@@ -1289,7 +1289,7 @@ class HabitatRunner(Runner):
             pre_goals = pre_goals.copy()
             pre_goals[:, 0] -= lx
             pre_goals[:, 1] -= ly
-            goals = max_utility_frontier(map, unexplored, locations, clear_radius = self.all_args.ft_clear_radius, cluster_radius = self.all_args.ft_cluster_radius, utility_radius = self.all_args.utility_radius, pre_goals = pre_goals, goal_mask = goal_mask)
+            goals = max_utility_frontier(map, unexplored, locations, clear_radius = self.all_args.ft_clear_radius, cluster_radius = self.all_args.ft_cluster_radius, utility_radius = self.all_args.utility_radius, pre_goals = pre_goals, goal_mask = goal_mask, random_goal=self.all_args.ft_use_random)
             goals[:, 0] += lx
             goals[:, 1] += ly
         else:
@@ -1299,12 +1299,12 @@ class HabitatRunner(Runner):
                     continue
                 if self.all_args.algorithm_name == 'ft_apf':
                     apf = APF(self.all_args)
-                    path = apf.schedule(map, unexplored, locations, steps, agent_id, clear_disk = True)
+                    path = apf.schedule(map, unexplored, locations, steps, agent_id, clear_disk = True, random_goal=self.all_args.ft_use_random)
                     goal = path[-1]
                 elif self.all_args.algorithm_name == 'ft_nearest':
-                    goal = nearest_frontier(map, unexplored, locations, steps, agent_id, clear_radius = self.all_args.ft_clear_radius, cluster_radius = self.all_args.ft_cluster_radius)
+                    goal = nearest_frontier(map, unexplored, locations, steps, agent_id, clear_radius = self.all_args.ft_clear_radius, cluster_radius = self.all_args.ft_cluster_radius, random_goal=self.all_args.ft_use_random)
                 elif self.all_args.algorithm_name == 'ft_rrt':
-                    goal = rrt_global_plan(map, unexplored, locations, agent_id, clear_radius = self.all_args.ft_clear_radius, cluster_radius = self.all_args.ft_cluster_radius, step = self.env_step, utility_radius = self.all_args.utility_radius)
+                    goal = rrt_global_plan(map, unexplored, locations, agent_id, clear_radius = self.all_args.ft_clear_radius, cluster_radius = self.all_args.ft_cluster_radius, step = self.env_step, utility_radius = self.all_args.utility_radius, random_goal=self.all_args.ft_use_random)
                 else:
                     raise NotImplementedError
                 goals.append((goal[0] + lx, goal[1] + ly))
@@ -1695,7 +1695,6 @@ class HabitatRunner(Runner):
                                 self.env_info[key][e] = infos[e][key]
                     if self.env_info['sum_merge_explored_ratio'][e] <= self.all_args.explored_ratio_threshold:
                         self.env_info['merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold][e] = self.env_info['merge_global_goal_num'][e]
-
                 print("eval step {}, explored {}".format(self.env_step, self.env_info['sum_merge_explored_ratio']))
 
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
