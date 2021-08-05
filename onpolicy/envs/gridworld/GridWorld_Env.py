@@ -33,7 +33,8 @@ class GridWorldEnv(object):
             use_agent_id = args.use_agent_id,
             use_multiroom = self.use_multiroom,
             use_time_penalty = args.use_time_penalty,
-            entry_point = 'onpolicy.envs.gridworld.gym_minigrid.envs:MultiExplorationEnv'
+            entry_point = 'onpolicy.envs.gridworld.gym_minigrid.envs:MultiExplorationEnv',
+            astar_cost_mode = args.astar_cost_mode
         )
 
         self.env = gym.make(self.scenario_name)
