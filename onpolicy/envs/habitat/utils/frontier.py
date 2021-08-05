@@ -369,7 +369,7 @@ def rrt_global_plan(map, unexplored, locations, agent_id, clear_radius = 40, clu
     # greedily assemble obstacles into rectangles to reduce the number of obstacles
     obstacles = find_rectangle_obstacles(map)
     
-    print("num of obstacles", len(obstacles))
+    # print("num of obstacles", len(obstacles))
 
     rrt = RRT(start=loc,
         goals=[],
@@ -385,7 +385,7 @@ def rrt_global_plan(map, unexplored, locations, agent_id, clear_radius = 40, clu
 
     clusters = get_frontier_cluster(targets, cluster_radius = cluster_radius)
 
-    print("num of clusters", len(clusters))
+    # print("num of clusters", len(clusters))
 
     if len(clusters) == 0:
         # print('no available frontier')

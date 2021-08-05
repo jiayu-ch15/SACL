@@ -1722,7 +1722,7 @@ class HabitatRunner(Runner):
                                 self.env_info[key][e] = infos[e][key]
                     if self.env_info['sum_merge_explored_ratio'][e] <= self.all_args.explored_ratio_threshold:
                         self.env_info['merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold][e] = self.env_info['merge_global_goal_num'][e]
-                print("eval step {}, explored {}".format(self.env_step, self.env_info['sum_merge_explored_ratio']))
+                # print("eval step {}, explored {}".format(self.env_step, self.env_info['sum_merge_explored_ratio']))
 
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)

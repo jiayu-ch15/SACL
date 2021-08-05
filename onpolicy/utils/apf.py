@@ -130,7 +130,7 @@ class APF(object):
         if num_clusters > self.num_clusters:
             num_clusters = self.num_clusters
             clusters = clusters[:num_clusters]
-        print("num clusters:", num_clusters)
+        # print("num clusters:", num_clusters)
 
         # potential of targets & obstacles (wave-front dist)
         for cluster in clusters:
