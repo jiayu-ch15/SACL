@@ -20,6 +20,11 @@ class ChannelPool(nn.MaxPool1d):
         _, _, c = pooled.size()
         pooled = pooled.permute(0, 2, 1)
         return pooled.view(n, c, w, h)
+    
+class ChannelFilter(nn.MaxPool1d):
+    def forward(self, x, p):
+        x_out = torch.where((x[:,0]!= 0) & (x[:,1]!=0), p*x[:,0] + (1-p)*x[:,1],  torch.maximum(x[:,0], x[:,1]))        
+        return x_out
 
 # https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail/blob/master/a2c_ppo_acktr/model.py#L10
 class Flatten(nn.Module):
@@ -96,6 +101,8 @@ class Neural_SLAM_Module(nn.Module):
         self.screen_w = args.frame_width
         self.resolution = args.map_resolution
         self.map_size_cm = args.map_size_cm // args.global_downscaling
+        self.use_max_map = args.use_max_map
+        self.memory_rate = args.memory_rate
         self.n_channels = 3
         self.vision_range = args.vision_range
         self.dropout = 0.5
@@ -118,6 +125,7 @@ class Neural_SLAM_Module(nn.Module):
         conv_output = self.conv(self.resnet_l5(input_test))
 
         self.pool = ChannelPool(1)
+        self.filter = ChannelFilter(1)
         self.conv_output_size = conv_output.view(-1).size(0)
 
         # projection layer
@@ -334,10 +342,13 @@ class Neural_SLAM_Module(nn.Module):
                                    translated[:, :1, :, :]), 1)
                 explored2 = torch.cat((explored.unsqueeze(1),
                                        translated[:, 1:, :, :]), 1)
-
-                map_pred = self.pool(maps2).squeeze(1)
-                exp_pred = self.pool(explored2).squeeze(1)
-
+                if self.use_max_map:
+                    map_pred = self.pool(maps2).squeeze(1)
+                    exp_pred = self.pool(explored2).squeeze(1)
+                else:
+                    map_pred = self.filter(maps2, self.memory_rate)
+                    exp_pred = self.filter(explored2, self.memory_rate)
+                    
         else:
             map_pred = None
             exp_pred = None

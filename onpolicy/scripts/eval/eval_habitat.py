@@ -130,6 +130,10 @@ def parse_args(args, parser):
                         default=False, help="by default True, use merge goal")
     parser.add_argument('--use_max', action='store_true',
                         default=False, help="by default True, use maximun map or use sum map")
+    parser.add_argument('--use_filter', action='store_true',
+                        default=False, help="by default True, use filter map")
+    parser.add_argument('--use_sum', action='store_true',
+                        default=False, help="by default True, use sum map")
     parser.add_argument('--use_async', action='store_true',
                         default=False, help="by default True, use async eval")
     parser.add_argument('--pretrained_global_resnet', type=int, default=1)      
@@ -167,6 +171,9 @@ def parse_args(args, parser):
     parser.add_argument('--exp_loss_coeff', type=float, default=1.0)
     parser.add_argument('--global_downscaling', type=int, default=2)
     parser.add_argument('--map_pred_threshold', type=float, default=0.5)
+    parser.add_argument('--memory_rate', type=float, default=0.5)
+    parser.add_argument('--use_max_map', action='store_true',
+                        default=False, help="by default True, use maximun map or use sum map")
 
     parser.add_argument('--vision_range', type=int, default=64)
     parser.add_argument('--obstacle_boundary', type=int, default=5)
