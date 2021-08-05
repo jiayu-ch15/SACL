@@ -216,7 +216,7 @@ class HabitatRunner(Runner):
                     self.train_local_policy()
                     
                 # Train Global Policy
-                if global_step % self.episode_length == self.episode_length - 1 \
+                if self.train_global and global_step % self.episode_length == self.episode_length - 1 \
                         and local_step == self.num_local_steps - 1:
                     self.train_global_policy()
                     
@@ -288,6 +288,7 @@ class HabitatRunner(Runner):
        
         self.load_local = self.all_args.load_local
         self.load_slam = self.all_args.load_slam
+        self.train_global = self.all_args.train_global
         self.train_local = self.all_args.train_local
         self.train_slam = self.all_args.train_slam
         
@@ -603,6 +604,7 @@ class HabitatRunner(Runner):
                                 self.local_map[:, a, 1, :, :], 
                                 self.local_pose[:, a, :],
                                 build_maps = build_maps)
+
     def oracle_transform(self, inputs, trans, rotation, agent_trans, agent_rotation, a):
         merge_map = np.zeros((self.n_rollout_threads, 4, self.full_w, self.full_h), dtype=np.float32)
         local_merge_map = np.zeros((self.n_rollout_threads, 4, self.local_w, self.local_h), dtype=np.float32)
@@ -1371,14 +1373,15 @@ class HabitatRunner(Runner):
             torch.save(self.local_policy.state_dict(), str(self.save_dir) + "local_periodic_{}.pt".format(step))
     
     def save_global_model(self, step):
-        if len(self.env_infos["sum_merge_explored_reward"]) >= self.all_args.eval_episodes and \
-            (np.mean(self.env_infos["sum_merge_explored_reward"]) >= self.best_gobal_reward):
-            self.best_gobal_reward = np.mean(self.env_infos["sum_merge_explored_reward"])
-            torch.save(self.trainer.policy.actor.state_dict(), str(self.save_dir) + "/global_actor_best.pt")
-            torch.save(self.trainer.policy.critic.state_dict(), str(self.save_dir) + "/global_critic_best.pt")
-        torch.save(self.trainer.policy.actor.state_dict(), str(self.save_dir) + "/global_actor_periodic_{}.pt".format(step))
-        torch.save(self.trainer.policy.critic.state_dict(), str(self.save_dir) + "/global_critic_periodic_{}.pt".format(step))
-    
+        if self.train_global:
+            if len(self.env_infos["sum_merge_explored_reward"]) >= self.all_args.eval_episodes and \
+                (np.mean(self.env_infos["sum_merge_explored_reward"]) >= self.best_gobal_reward):
+                self.best_gobal_reward = np.mean(self.env_infos["sum_merge_explored_reward"])
+                torch.save(self.trainer.policy.actor.state_dict(), str(self.save_dir) + "/global_actor_best.pt")
+                torch.save(self.trainer.policy.critic.state_dict(), str(self.save_dir) + "/global_critic_best.pt")
+            torch.save(self.trainer.policy.actor.state_dict(), str(self.save_dir) + "/global_actor_periodic_{}.pt".format(step))
+            torch.save(self.trainer.policy.critic.state_dict(), str(self.save_dir) + "/global_critic_periodic_{}.pt".format(step))
+        
     def log_env(self, env_infos, total_num_steps):
         for k, v in env_infos.items():
             if len(v) > 0:
@@ -1648,6 +1651,8 @@ class HabitatRunner(Runner):
             self.local_output = np.array(self.local_output, dtype = np.long)
             
             for step in range(self.max_episode_length):
+                if step > 1:
+                    break
                 ic(step)
                 self.env_step = step + 1
 
@@ -1679,7 +1684,7 @@ class HabitatRunner(Runner):
                     if self.env_info['sum_merge_explored_ratio'][e] <= self.all_args.explored_ratio_threshold:
                         self.env_info['merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold][e] = self.env_info['merge_global_goal_num'][e]
 
-                ic("eval step {}, explored {}".format(self.env_step, self.env_info['sum_merge_explored_ratio']))
+                print("eval step {}, explored {}".format(self.env_step, self.env_info['sum_merge_explored_ratio']))
 
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
