@@ -253,12 +253,12 @@ class Neural_SLAM_Module(nn.Module):
             conv_output = []
             c_num = 0
             for key in self.slam_keys:
-                bs, c, h, w = obs.size()
+                bs, c, h, w = obs_last.size()
                 if key == "rgb":
-                    resnet_output = self.conv(self.resnet_l5(obs[:, c_num:c_num+3])).view(bs, -1)
+                    resnet_output = self.conv(self.resnet_l5(obs_last[:, c_num:c_num+3])).view(bs, -1)
                     c_num += 3
                 if key == "depth":
-                    resnet_output = self.depth_conv(self.depth_resnet_l5(obs[:, c_num:c_num+1])).view(bs, -1)
+                    resnet_output = self.depth_conv(self.depth_resnet_l5(obs_last[:, c_num:c_num+1])).view(bs, -1)
                     c_num += 1    
                 conv_output.append(resnet_output)
             
