@@ -119,7 +119,6 @@ class HabitatRunner(Runner):
                 self.trainer.policy.lr_decay(episode, episodes)
             
             for step in range(self.max_episode_length):
-                ic(step)
                 local_step = step % self.num_local_steps
                 global_step = (step // self.num_local_steps) % self.episode_length
 

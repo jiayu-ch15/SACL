@@ -246,20 +246,21 @@ class Exploration_Env(habitat.RLEnv):
         # Preprocess observations
         rgb = [obs[agent_id]['rgb'].astype(np.uint8) for agent_id in range(self.num_agents)]
         depth = [_preprocess_depth(obs[agent_id]['depth']) for agent_id in range(self.num_agents)]
+        env_depth = [obs[agent_id]['depth'] for agent_id in range(self.num_agents)]
+        
         self.obs = rgb  # For visualization
-
         states = []
         for agent_id in range(self.num_agents):
             state = {}
             if self.args.frame_width != self.args.env_frame_width:
                 res_rgb = self.res(rgb[agent_id])
-                res_depth = self.res(depth[agent_id])
+                res_depth = self.res(env_depth[agent_id])
             else:
                 res_rgb = rgb[agent_id]
-                res_depth = depth[agent_id]
-
+                res_depth = env_depth[agent_id]
+            
             state['rgb'] = np.asarray(res_rgb).transpose(2, 0, 1)
-            state['depth'] = np.asarray(res_depth)[np.newaxis, :, :]
+            state['depth'] = np.asarray(res_depth)[np.newaxis, :, :] * 255.0
 
             states.append(state)
 
@@ -431,6 +432,8 @@ class Exploration_Env(habitat.RLEnv):
         # Preprocess observations
         rgb = [obs[agent_id]['rgb'].astype(np.uint8) for agent_id in range(self.num_agents)]
         depth = [_preprocess_depth(obs[agent_id]['depth']) for agent_id in range(self.num_agents)]
+        env_depth = [obs[agent_id]['depth'] for agent_id in range(self.num_agents)]
+        
         self.obs = rgb  # For visualization
 
         states = []
@@ -438,14 +441,14 @@ class Exploration_Env(habitat.RLEnv):
             state = {}
             if self.args.frame_width != self.args.env_frame_width:
                 res_rgb = self.res(rgb[agent_id])
-                res_depth = self.res(depth[agent_id])
+                res_depth = self.res(env_depth[agent_id])
             else:
                 res_rgb = rgb[agent_id]
-                res_depth = depth[agent_id]
+                res_depth = env_depth[agent_id]
 
             state['rgb'] = np.asarray(res_rgb).transpose(2, 0, 1)
-            state['depth'] = np.asarray(res_depth)[np.newaxis, :, :]
-
+            state['depth'] = np.asarray(res_depth)[np.newaxis, :, :] * 255.0
+            
             states.append(state)
 
         # Get base sensor and ground-truth pose
@@ -653,7 +656,7 @@ class Exploration_Env(habitat.RLEnv):
                 self.save_trajectory_data()
         else:
             done = [False for _ in range(self.num_agents)]
-
+        
         return states, rew, done, self.info
 
     def get_reward_range(self):
