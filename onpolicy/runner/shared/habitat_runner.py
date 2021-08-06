@@ -728,7 +728,7 @@ class HabitatRunner(Runner):
                     merge_map[e, i] = np.maximum(agent_loc[i], merge_map[e, i])
                     merge_map[e, i+2] += agent_loc[i+2]
             elif self.use_sum:
-                merge_map[e] += agent_loc[e]
+                merge_map[e] += agent_loc
                 for i in range(2):
                     merge_map[ e, i][merge_map[ e, i] > 1] = 1
                     merge_map[ e, i][merge_map[ e, i] < self.map_threshold] = 0
