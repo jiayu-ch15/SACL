@@ -368,7 +368,7 @@ class Exploration_Env(habitat.RLEnv):
         self.info['agent_rotation'] = self.agent_n_rot
         self.info['explorable_map'] = self.explorable_map       
         self.info['scene_id'] = self.scene_id
-        self.info['explored_map'] = [self.explored_map[a] * self.explorable_map[a] for a  in range(self.num_agents)]
+        self.info['explored_map'] = [self.explored_map[a] for a  in range(self.num_agents)]
         self.info['obstacle_map'] = [self.map[a] * self.explored_map[a] for a  in range(self.num_agents)]
         
         if self.episode_no > 1:
@@ -570,7 +570,7 @@ class Exploration_Env(habitat.RLEnv):
                 self.info['path_length'].append(pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][1]))
                 self.path_length[agent_id] += pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][1])
 
-        self.info['explored_map'] = [self.explored_map[a] * self.explorable_map[a] for a  in range(self.num_agents)]
+        self.info['explored_map'] = [self.explored_map[a]for a  in range(self.num_agents)]
         self.info['obstacle_map'] = [self.map[a] * self.explored_map[a] for a  in range(self.num_agents)]
 
         agent_explored_area, agent_explored_ratio, merge_explored_area, merge_explored_ratio, \
