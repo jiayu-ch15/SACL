@@ -1161,10 +1161,10 @@ class Exploration_Env(habitat.RLEnv):
         ey1 = min(int(start[1]) - 2, ey1)
         ey2 = max(int(start[1]) + 2, ey2)
 
-        x1 = max(x1, ex1)
-        x2 = min(x2, ex2)
-        y1 = max(y1, ey1)
-        y2 = min(y2, ey2)
+        x1 = max(1, min(x1, ex1))
+        x2 = min(grid.shape[0]-1, max(x2, ex2))
+        y1 = max(1, min(y1, ey1))
+        y2 = min(grid.shape[1]-1, max(y2, ey2))
 
         traversible = skimage.morphology.binary_dilation(
             grid[x1:x2, y1:y2],
