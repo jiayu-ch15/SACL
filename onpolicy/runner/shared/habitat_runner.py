@@ -18,6 +18,7 @@ from onpolicy.runner.shared.base_runner import Runner
 from onpolicy.envs.habitat.model.model import Neural_SLAM_Module, Local_IL_Policy
 from onpolicy.envs.habitat.utils import pose as pu
 from onpolicy.envs.habitat.utils.memory import FIFOMemory
+from onpolicy.envs.habitat.utils.pose import get_rel_pose_change
 from onpolicy.envs.habitat.utils.frontier import get_frontier, nearest_frontier, max_utility_frontier, bfs_distance, rrt_global_plan, l2distance
 from onpolicy.algorithms.utils.util import init, check
 from onpolicy.utils.apf import APF
@@ -176,6 +177,7 @@ class HabitatRunner(Runner):
                     self.init_pos_y = [infos[e]['init_pos_y'] for e in range(self.n_rollout_threads)]
                     self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
                     self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]
+                    self.init_pose = [infos[e]['init_pose'] for e in range(self.n_rollout_threads)]
                     for agent_id in range(self.num_agents):
                         self.intrinsic_gt[:, agent_id] = np.array(self.explorable_map)[:, agent_id]
 
@@ -681,6 +683,56 @@ class HabitatRunner(Runner):
             local_merge_map[e, 2:] = self.local_map[e, a, 2:].copy()
         return merge_map, local_merge_map
     
+    def direct_transform(self, inputs, a):
+        '''
+        transform other agents' single map into agent a's view
+        '''
+        ret_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype = np.float32)
+        for e in range(self.n_rollout_threads):
+            for agent_id in range(self.num_agents):
+                if agent_id == a:
+                    ret_map[e, a] = inputs[e, a]
+                else:    
+                    rel_pose = get_rel_pose_change(self.init_pose[e][agent_id], self.init_pose[e][a])
+                    pose = torch.tensor(rel_pose).resize(1, 3)
+
+                    map = inputs[e, agent_id]
+                    _, full_w, full_h = map.shape
+                    full_size = (1, 1, full_w, full_h)
+
+                    x = pose[:, 0]
+                    y = pose[:, 1]
+                    t = pose[:, 2]
+
+                    bs = x.size(0)
+                    # t is already rad
+                        
+                    cos_t = t.cos()
+                    sin_t = t.sin()
+
+                    device = torch.device('cpu')
+
+                    theta31 = torch.stack([cos_t, sin_t,
+                                            torch.zeros(cos_t.shape).float().to(device)], 1)
+                    theta32 = torch.stack([-sin_t, cos_t,
+                                            torch.zeros(cos_t.shape).float().to(device)], 1)
+                    theta3 = torch.stack([theta31, theta32], 1)
+                        
+                    theta41 = torch.stack([torch.ones(x.shape).to(device),
+                                            -torch.zeros(x.shape).to(device), -x*100.0/self.map_resolution/full_w * 2], 1)
+                    theta42 = torch.stack([torch.zeros(x.shape).to(device),
+                                            torch.ones(x.shape).to(device), -y*100.0/self.map_resolution/full_h * 2], 1)
+                    theta4 = torch.stack([theta41, theta42], 1)
+
+                    n_rot_grid = F.affine_grid(theta3, torch.Size(full_size), align_corners=True)
+                    n_trans_grid = F.affine_grid(theta4, torch.Size(full_size), align_corners=True)
+
+                    output = torch.from_numpy(map)
+                    n_rotated = F.grid_sample(output.unsqueeze(0).float(), n_rot_grid.float(), align_corners=True)
+                    n_map = F.grid_sample(n_rotated.float(), n_trans_grid.float(), align_corners=True)
+                    ret_map[e, agent_id] = n_map
+        return ret_map
+
     def transform(self, inputs, trans, rotation, agent_trans, agent_rotation, a):
         merge_map = np.zeros((self.n_rollout_threads, 4, self.full_w, self.full_h), dtype=np.float32)
         local_merge_map = np.zeros((self.n_rollout_threads, 4, self.local_w, self.local_h), dtype=np.float32)
@@ -1564,6 +1616,7 @@ class HabitatRunner(Runner):
             self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
             self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
             self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]
+            self.init_pose = [infos[e]['init_pose'] for e in range(self.n_rollout_threads)]
             self.stuck_flag = np.zeros((self.n_rollout_threads, self.num_agents))
             self.last_pos = self.full_pose
 
@@ -1693,6 +1746,7 @@ class HabitatRunner(Runner):
             self.explorable_map = [infos[e]['explorable_map'] for e in range(self.n_rollout_threads)]
             self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
             self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
+            self.init_pose = [infos[e]['init_pose'] for e in range(self.n_rollout_threads)]
             self.merge_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
             self.stuck_flag = np.zeros((self.n_rollout_threads, self.num_agents))
             self.last_pos = self.full_pose
@@ -1823,6 +1877,7 @@ class HabitatRunner(Runner):
             self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
             self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
             self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]
+            self.init_pose = [infos[e]['init_pose'] for e in range(self.n_rollout_threads)]
             self.stuck_flag = np.zeros((self.n_rollout_threads, self.num_agents))
             self.last_pos = self.full_pose.copy()
             # Predict map from frame 1:

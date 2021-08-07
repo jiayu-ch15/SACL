@@ -396,6 +396,7 @@ class Exploration_Env(habitat.RLEnv):
             'path_length': [],
             'merge_obstacle_gt': [],
             'merge_explored_gt': [],
+            'init_pose': self.init_pose,
         }
         for agent_id in range(self.num_agents):
             self.info['time'].append(self.timestep)
