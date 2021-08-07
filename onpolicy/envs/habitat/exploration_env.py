@@ -421,7 +421,7 @@ class Exploration_Env(habitat.RLEnv):
         self.info['explorable_map'] = self.explorable_map       
         self.info['scene_id'] = self.scene_id
         self.info['explored_map'] = [self.explored_map[a] for a  in range(self.num_agents)]
-        self.info['obstacle_map'] = [self.map[a] * self.explored_map[a] for a  in range(self.num_agents)]
+        self.info['obstacle_map'] = [self.map[a] for a  in range(self.num_agents)]
         
         if self.episode_no > 1:
             self.info['merge_explored_reward'] = merge_reward
@@ -661,7 +661,7 @@ class Exploration_Env(habitat.RLEnv):
                 self.path_length[agent_id] += pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][1])
 
         self.info['explored_map'] = [self.explored_map[a] for a  in range(self.num_agents)]
-        self.info['obstacle_map'] = [self.map[a] * self.explored_map[a] for a  in range(self.num_agents)]
+        self.info['obstacle_map'] = [self.map[a] for a  in range(self.num_agents)]
 
         agent_explored_area, agent_explored_ratio, merge_explored_area, merge_explored_ratio, \
             agent_trans_reward, curr_merge_explored_map, curr_agent_explored_map = self.get_global_reward() # @CHAO will change of gt merge map influence global reward?
