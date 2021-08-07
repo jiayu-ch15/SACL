@@ -67,6 +67,7 @@ class HabitatRunner(Runner):
         self.init_pos_y = [infos[e]['init_pos_y'] for e in range(self.n_rollout_threads)]
         self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
         self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]
+        self.init_pose = [infos[e]['init_pose'] for e in range(self.n_rollout_threads)]
         
         for agent_id in range(self.num_agents):
             self.intrinsic_gt[ : , agent_id] = np.array(self.explorable_map)[ : , agent_id]
@@ -189,7 +190,7 @@ class HabitatRunner(Runner):
                 self.update_local_map()
                 self.update_map_and_pose(update = False)
                 for agent_id in range(self.num_agents):
-                    _, self.local_merge_map[:, agent_id] = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, agent_id)
+                    _, self.local_merge_map[:, agent_id] = self.transform(self.full_map, agent_id)
 
                 # Global Policy
                 if local_step == self.num_local_steps - 1:
@@ -694,7 +695,7 @@ class HabitatRunner(Runner):
                     ret_map[e, a] = inputs[e, a]
                 else:    
                     rel_pose = get_rel_pose_change(self.init_pose[e][agent_id], self.init_pose[e][a])
-                    pose = torch.tensor(rel_pose).resize(1, 3)
+                    pose = torch.tensor(rel_pose).resize(1, 3).float()
 
                     map = inputs[e, agent_id]
                     _, full_w, full_h = map.shape
@@ -733,59 +734,45 @@ class HabitatRunner(Runner):
                     ret_map[e, agent_id] = n_map
         return ret_map
 
-    def transform(self, inputs, trans, rotation, agent_trans, agent_rotation, a):
+    def transform(self, inputs, a):
         merge_map = np.zeros((self.n_rollout_threads, 4, self.full_w, self.full_h), dtype=np.float32)
         local_merge_map = np.zeros((self.n_rollout_threads, 4, self.local_w, self.local_h), dtype=np.float32)
-        for e in range(self.n_rollout_threads):
-            for agent_id in range(self.num_agents):
-                if a != agent_id:
-                    output = torch.from_numpy(inputs[e, agent_id])
-                    n_rotated = F.grid_sample(output.unsqueeze(0).float(), rotation[e][agent_id].float(), align_corners=True)
-                    n_map = F.grid_sample(n_rotated.float(), trans[e][agent_id].float(), align_corners=True)
-                    agent_merge_map = n_map[0, :, :, :].numpy()
+                    
+        agent_merge_map = self.direct_transform(inputs, a)
+        for agent_id in range(self.num_agents):
+            for e in range(self.n_rollout_threads):
+                (index_a, index_b) = np.unravel_index(np.argmax(agent_merge_map[e, agent_id, 2, :, :], axis=None), agent_merge_map[e, agent_id, 2, :, :].shape)
+                agent_merge_map[e, agent_id, 2, :, :] = np.zeros((self.full_h, self.full_w), dtype=np.float32)
+                if self.first_compute:
+                    agent_merge_map[e, agent_id, 2, index_a - 1: index_a + 2, index_b - 1: index_b + 2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                else: 
+                    agent_merge_map[e, agent_id, 2, index_a - 2: index_a + 3, index_b - 2: index_b + 3] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+    
+            trace = np.zeros((self.n_rollout_threads, self.full_h, self.full_w), dtype=np.float32)
+        #trace[0][agent_merge_map[0] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+        #trace[1][agent_merge_map[1] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+            trace[agent_merge_map[:, agent_id, 3] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+        #agent_merge_map[0:2] = trace[0:2]
+            agent_merge_map[:, agent_id, 3] = trace
+            if self.use_sum:
+                merge_map += agent_merge_map[:, agent_id]
+            elif self.use_max:
+                for i in range(2):
+                    merge_map[:, i] = np.maximum(agent_merge_map[:, agent_id, i], merge_map[:, i])
+                    merge_map[:, i+2] += agent_merge_map[:, agent_id, i+2] 
+            elif self.use_filter:   
+                for i in range(2):
+                    merge_map[:, i] = np.where((merge_map[:, 1]!= 0) & (agent_merge_map[:, a, 1]!=0), np.zeros_like(agent_merge_map[:, a, 1]),  merge_map[:, i])
+                    merge_map[:, i] = np.maximum(agent_merge_map[:, a, i], merge_map[:, i])
+                    merge_map[:, i+2] += agent_merge_map[:, agent_id, i+2]                    
+                    
+        if self.use_sum:        
+            for i in range(2):           
+                merge_map[ :, i][merge_map[ :, i] > 1] = 1
+                merge_map[ :, i][merge_map[ :, i] < self.map_threshold] = 0
 
-                    (index_a, index_b) = np.unravel_index(np.argmax(agent_merge_map[2, :, :], axis=None), agent_merge_map[2, :, :].shape)
-                    agent_merge_map[2, :, :] = np.zeros((self.full_h, self.full_w), dtype=np.float32)
-                    if self.first_compute:
-                        agent_merge_map[2, index_a - 1: index_a + 2, index_b - 1: index_b + 2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
-                    else: 
-                        agent_merge_map[2, index_a - 2: index_a + 3, index_b - 2: index_b + 3] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
-                
-                    trace = np.zeros((self.full_h, self.full_w), dtype=np.float32)
-                    #trace[0][agent_merge_map[0] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
-                    #trace[1][agent_merge_map[1] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
-                    trace[agent_merge_map[3] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
-                    #agent_merge_map[0:2] = trace[0:2]
-                    agent_merge_map[3] = trace
-                    if self.use_sum:
-                        merge_map[e] += agent_merge_map
-                    else:
-                        for i in range(2):
-                            merge_map[e, i] = np.maximum(agent_merge_map[i], merge_map[e, i])
-                            merge_map[e, i+2] += agent_merge_map[i+2]                        
-            
-            agent_n_trans = F.grid_sample(torch.from_numpy(merge_map[e]).unsqueeze(0).float(), agent_trans[e][a].float(), align_corners=True)      
-            merge_map[e] = F.grid_sample(agent_n_trans.float(), agent_rotation[e][a].float(), align_corners=True)[0, :, :, :].numpy()
-            
-            agent_loc = inputs[e, a].copy()
-            agent_loc[2:][agent_loc[2:] != 0] = (a + 1)/np.array([agent_id +1 for agent_id in range(self.num_agents)]).sum()
-            if self.use_max:
-                for i in range(2):
-                    merge_map[e, i] = np.maximum(agent_loc[i], merge_map[e, i])
-                    merge_map[e, i+2] += agent_loc[i+2]
-            elif self.use_filter:
-                for i in range(2):
-                    merge_map[e, i] = np.where((merge_map[e, 1]!= 0) & (agent_loc[1]!=0), np.zeros_like(agent_loc[i]),  merge_map[e, i])
-                    merge_map[e, i] = np.maximum(agent_loc[i], merge_map[e, i])
-                    merge_map[e, i+2] += agent_loc[i+2]
-            elif self.use_sum:
-                merge_map[e] += agent_loc
-                for i in range(2):
-                    merge_map[ e, i][merge_map[ e, i] > 1] = 1
-                    merge_map[ e, i][merge_map[ e, i] < self.map_threshold] = 0
-
-            local_merge_map[e, :2] = merge_map[e, :2, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]].copy()
-            local_merge_map[e, 2:] = self.local_map[e, a, 2:].copy()
+        local_merge_map[:, :2] = merge_map[:, :2, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]].copy()
+        local_merge_map[:, 2:] = self.local_map[:, a, 2:].copy()
         return merge_map, local_merge_map
 
     def center_transform(self, inputs, a, nums=4):
@@ -872,11 +859,11 @@ class HabitatRunner(Runner):
                     full_map[:, a] = self.full_map[:, a].copy()
             else:
                 if self.use_center:
-                    self.transform_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
+                    self.transform_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, a)
                     self.merge_map[:, a] = self.center_transform(self.transform_map[:,a], a)
                     full_map[:, a] = self.center_transform(self.full_map[:, a], a)
                 else:
-                    self.merge_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
+                    self.merge_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, a)
                     full_map[:, a] = self.full_map[:, a].copy()
             #self.global_input['global_obs'][:, a, 0:4] = self.local_map[:, a].copy()
             #self.global_input['global_obs'][:, a, 4:8] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a]))).numpy()
@@ -996,11 +983,11 @@ class HabitatRunner(Runner):
                     full_map[:, a] = self.full_map[:, a].copy()
             else:
                 if self.use_center:
-                    self.transform_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
+                    self.transform_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, a)
                     self.merge_map[:, a] = self.center_transform(self.transform_map[:, a], a)
                     full_map[:, a] = self.center_transform(self.full_map[:, a], a)
                 else:
-                    self.merge_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
+                    self.merge_map[:, a], self.local_merge_map[:, a] = self.transform(self.full_map, a)
                     full_map[:, a] = self.full_map[:, a].copy()
             #self.global_input['global_obs'][:, a, 0:4] = self.local_map[:, a]
             #self.global_input['global_obs'][:, a, 4:8] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a]))).numpy()
@@ -1578,13 +1565,12 @@ class HabitatRunner(Runner):
                 sub_ax[i].set_yticklabels([])
                 sub_ax[i].set_xticklabels([])
                 if agent_id < self.num_agents and i<4:
-                    sub_ax[i].imshow(self.local_map[0, agent_id, i])
-                elif agent_id >= self.num_agents and i<4:
-                    sub_ax[i].imshow(self.local_merge[0, agent_id-self.num_agents,i])
+                    sub_ax[i].imshow(self.full_map[0, agent_id, i])
+                elif agent_id >= self.num_agents:
+                    sub_ax[i].imshow(obs['global_merge_obs'][0, agent_id-self.num_agents, i])
                 # elif agent_id >= self.num_agents and i<2:
                 #     sub_ax[i].imshow(self.obstacle_map[0][agent_id-self.num_agents])
                 #elif i < 5:
-                    #sub_ax[i].imshow(obs['global_merge_goal'][0, agent_id-self.num_agents, i-4])
                     #sub_ax[i].imshow(obs['gt_map'][0, agent_id - self.num_agents, i-4])
         plt.gcf().canvas.flush_events()
         # plt.pause(0.1)
@@ -1683,7 +1669,7 @@ class HabitatRunner(Runner):
                 self.update_local_map()
                 self.update_map_and_pose(update = False)
                 for agent_id in range(self.num_agents):
-                    _, self.local_merge_map[:, agent_id] = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, agent_id)
+                    _, self.local_merge_map[:, agent_id] = self.transform(self.full_map, agent_id)
 
                 # Global Policy
                 if local_step == self.num_local_steps - 1:
@@ -1759,7 +1745,7 @@ class HabitatRunner(Runner):
                 self.update_single_map_and_pose(envs = e, update=False)
             
             for a in range(self.num_agents):
-                self.merge_map[:, a], _ = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
+                self.merge_map[:, a], _ = self.transform(self.full_map, a)
 
             # Compute Global goal
             for e in range(self.n_rollout_threads):
@@ -1815,7 +1801,7 @@ class HabitatRunner(Runner):
                 for e in range(self.n_rollout_threads):
                     self.update_single_map_and_pose(envs = e, update=False)
                 for a in range(self.num_agents):
-                    self.merge_map[:, a], _ = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
+                    self.merge_map[:, a], _ = self.transform(self.full_map, a)
                 
                 # Global Policy
                 self.ft_go_steps += 1
@@ -1950,7 +1936,7 @@ class HabitatRunner(Runner):
                 self.update_local_map()
                 self.update_map_and_pose(update = False)
                 for agent_id in range(self.num_agents):
-                    _, self.local_merge_map[:, agent_id] = self.transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, agent_id)
+                    _, self.local_merge_map[:, agent_id] = self.transform(self.full_map, agent_id)
 
                 # Global Policy
                 
