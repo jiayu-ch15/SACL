@@ -121,6 +121,7 @@ class HabitatRunner(Runner):
                 self.trainer.policy.lr_decay(episode, episodes)
             
             for step in range(self.max_episode_length):
+                
                 local_step = step % self.num_local_steps
                 global_step = (step // self.num_local_steps) % self.episode_length
 
@@ -771,17 +772,19 @@ class HabitatRunner(Runner):
                     merge_map[:, i+2] += agent_merge_map[:, agent_id, i+2] 
             elif self.use_filter:   
                 for i in range(2):
-                    merge_map[:, i] = np.where((merge_map[:, 1]!= 0) & (agent_merge_map[:, a, 1]!=0), np.zeros_like(agent_merge_map[:, a, 1]),  merge_map[:, i])
-                    merge_map[:, i] = np.maximum(agent_merge_map[:, a, i], merge_map[:, i])
+                    agent_map = np.where((agent_merge_map[:, agent_id, 1]!=0) & (agent_merge_map[:, a, 1]!=0), agent_merge_map[:, a, i],  np.maximum(agent_merge_map[:, agent_id, i], agent_merge_map[:, a, i]))
+                    merge_map[:, i] = np.maximum(agent_map, merge_map[:, i])
                     merge_map[:, i+2] += agent_merge_map[:, agent_id, i+2]                    
                     
         if self.use_sum:        
             for i in range(2):           
                 merge_map[ :, i][merge_map[ :, i] > 1] = 1
                 merge_map[ :, i][merge_map[ :, i] < self.map_threshold] = 0
-
-        local_merge_map[:, :2] = merge_map[:, :2, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]].copy()
-        local_merge_map[:, 2:] = self.local_map[:, a, 2:].copy()
+        
+        for e in range(self.n_rollout_threads):
+            local_merge_map[e, :2] = merge_map[e, :2, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]].copy()
+            local_merge_map[e, 2:] = self.local_map[e, a, 2:].copy()
+        
         return merge_map, local_merge_map
 
     def center_transform(self, inputs, a, nums=4):
