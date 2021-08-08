@@ -18,7 +18,7 @@ from onpolicy.runner.shared.base_runner import Runner
 from onpolicy.envs.habitat.model.model import Neural_SLAM_Module, Local_IL_Policy
 from onpolicy.envs.habitat.utils import pose as pu
 from onpolicy.envs.habitat.utils.memory import FIFOMemory
-from onpolicy.envs.habitat.utils.pose import get_rel_pose_change
+from onpolicy.envs.habitat.utils.pose import get_rel_pose_change, get_new_pose
 from onpolicy.envs.habitat.utils.frontier import get_frontier, nearest_frontier, max_utility_frontier, bfs_distance, rrt_global_plan, l2distance
 from onpolicy.algorithms.utils.util import init, check
 from onpolicy.utils.apf import APF
@@ -741,7 +741,16 @@ class HabitatRunner(Runner):
         agent_merge_map = self.direct_transform(inputs, a)
         for agent_id in range(self.num_agents):
             for e in range(self.n_rollout_threads):
-                (index_a, index_b) = np.unravel_index(np.argmax(agent_merge_map[e, agent_id, 2, :, :], axis=None), agent_merge_map[e, agent_id, 2, :, :].shape)
+                rel_pose1 = get_rel_pose_change(self.init_pose[e][agent_id], self.init_pose[e][a]) #rad
+                rel_pose1 = np.array(rel_pose1)
+                rel_pose1[2] = np.rad2deg(rel_pose1[2])
+                rel_pose2 = self.full_pose[e,agent_id] - np.array([self.map_size_cm/100.0/2, self.map_size_cm/100.0/2, 0.0]) # deg
+                rel_pose2[2] = np.deg2rad(rel_pose2[2])
+                pose = pu.get_new_pose(rel_pose1, rel_pose2)
+                pose = pose + np.array([self.map_size_cm/100.0/2, self.map_size_cm/100.0/2, 0.0])
+                x, y = int(pose[1] * 100.0 / self.map_resolution), int(pose[0] * 100.0 / self.map_resolution)
+                #(index_a, index_b) = np.unravel_index(np.argmax(agent_merge_map[e, agent_id, 2, :, :], axis=None), agent_merge_map[e, agent_id, 2, :, :].shape)
+                index_a, index_b = x, y
                 agent_merge_map[e, agent_id, 2, :, :] = np.zeros((self.full_h, self.full_w), dtype=np.float32)
                 if self.first_compute:
                     agent_merge_map[e, agent_id, 2, index_a - 1: index_a + 2, index_b - 1: index_b + 2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
