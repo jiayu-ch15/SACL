@@ -70,6 +70,7 @@ class Exploration_Env(habitat.RLEnv):
         self.map_resolution = args.map_resolution
         self.map_size_cm = args.map_size_cm
         self.use_eval = args.use_eval
+        self.use_proj_map = args.use_proj_map
 
         self.num_actions = 3
         self.dt = 10
@@ -256,20 +257,6 @@ class Exploration_Env(habitat.RLEnv):
         env_depth = [obs[agent_id]['depth'] for agent_id in range(self.num_agents)]
         
         self.obs = rgb  # For visualization
-        states = []
-        for agent_id in range(self.num_agents):
-            state = {}
-            if self.args.frame_width != self.args.env_frame_width:
-                res_rgb = self.res(rgb[agent_id])
-                res_depth = self.res(env_depth[agent_id])
-            else:
-                res_rgb = rgb[agent_id]
-                res_depth = env_depth[agent_id]
-            
-            state['rgb'] = np.asarray(res_rgb).transpose(2, 0, 1)
-            state['depth'] = np.asarray(res_depth)[np.newaxis, :, :] * 255.0
-
-            states.append(state)
 
         # Initialize map and pose
         self.curr_loc = []
@@ -305,6 +292,7 @@ class Exploration_Env(habitat.RLEnv):
         self.map = []
         self.explored_map = []
         self.current_explored_gt = []
+        states = []
         # Update ground_truth map and explored area
         for agent_id in range(self.num_agents):
             fp_proj_t, map_t, fp_explored_t, explored_map_t, current_explored_gt = \
@@ -316,6 +304,23 @@ class Exploration_Env(habitat.RLEnv):
             self.current_explored_gt.append(current_explored_gt)
             merge_explored_gt = np.maximum(merge_explored_gt, self.transform(explored_map_t.copy(), agent_id))
             merge_obstacle_gt = np.maximum(merge_obstacle_gt, self.transform(map_t.copy(), agent_id))
+
+            state = {}
+            if self.args.frame_width != self.args.env_frame_width:
+                res_rgb = self.res(rgb[agent_id])
+                res_depth = self.res(env_depth[agent_id])
+            else:
+                res_rgb = rgb[agent_id]
+                res_depth = env_depth[agent_id]
+            
+            state['rgb'] = np.asarray(res_rgb).transpose(2, 0, 1)
+            state['depth'] = np.asarray(res_depth)[np.newaxis, :, :] * 255.0
+            if self.use_proj_map:
+                state['depth_proj'] = np.stack((fp_proj_t, fp_explored_t), axis=0)
+            else:
+                state['depth_proj'] = np.asarray(fp_proj_t)[np.newaxis, :, :]
+
+            states.append(state)
         # merge mapper
         self.init_pose = []
         for agent_id in range(self.num_agents):
@@ -351,6 +356,7 @@ class Exploration_Env(habitat.RLEnv):
                 each_explored_map.append(explored_map_t)
                 new_merge_explored_gt = np.maximum(new_merge_explored_gt, explored_map_t)
                 new_merge_obstacle_gt = np.maximum(new_merge_obstacle_gt, map_t)
+
             self.each_obstacle_map.append(each_obstacle_map)
             self.each_explored_map.append(each_explored_map)
             self.new_merge_obstacle_gt.append(new_merge_obstacle_gt)
@@ -488,21 +494,6 @@ class Exploration_Env(habitat.RLEnv):
         
         self.obs = rgb  # For visualization
 
-        states = []
-        for agent_id in range(self.num_agents):
-            state = {}
-            if self.args.frame_width != self.args.env_frame_width:
-                res_rgb = self.res(rgb[agent_id])
-                res_depth = self.res(env_depth[agent_id])
-            else:
-                res_rgb = rgb[agent_id]
-                res_depth = env_depth[agent_id]
-
-            state['rgb'] = np.asarray(res_rgb).transpose(2, 0, 1)
-            state['depth'] = np.asarray(res_depth)[np.newaxis, :, :] * 255.0
-            
-            states.append(state)
-
         # Get base sensor and ground-truth pose
         dx_gt = []
         dy_gt = []
@@ -551,6 +542,7 @@ class Exploration_Env(habitat.RLEnv):
         self.map = []
         self.explored_map = []
         self.current_explored_gt = []
+        states = []
         # Update ground_truth map and explored area
         for agent_id in range(self.num_agents):
             fp_proj_t, map_t, fp_explored_t, explored_map_t, current_explored_gt = \
@@ -562,6 +554,23 @@ class Exploration_Env(habitat.RLEnv):
             self.current_explored_gt.append(current_explored_gt)
             merge_explored_gt = np.maximum(merge_explored_gt, self.transform(explored_map_t.copy(), agent_id))
             merge_obstacle_gt = np.maximum(merge_obstacle_gt, self.transform(map_t.copy(), agent_id))
+            state = {}
+            if self.args.frame_width != self.args.env_frame_width:
+                res_rgb = self.res(rgb[agent_id])
+                res_depth = self.res(env_depth[agent_id])
+            else:
+                res_rgb = rgb[agent_id]
+                res_depth = env_depth[agent_id]
+            
+            state['rgb'] = np.asarray(res_rgb).transpose(2, 0, 1)
+            state['depth'] = np.asarray(res_depth)[np.newaxis, :, :] * 255.0
+            if self.use_proj_map:
+                state['depth_proj'] = np.stack((fp_proj_t, fp_explored_t), axis=0)
+            else:
+                state['depth_proj'] = np.asarray(fp_proj_t)[np.newaxis, :, :]
+
+            states.append(state)
+
         # merge mapper
         merge_mapper_gt_pose = []
         for agent_i in range(self.num_agents):

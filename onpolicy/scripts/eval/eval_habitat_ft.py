@@ -119,6 +119,8 @@ def parse_args(args, parser):
                         default=False, help="by default True, use abs orientation at the initialization")
     parser.add_argument('--use_fixed_start_pos', action='store_true',
                         default=False, help="by default True, use random agent position at the initialization")
+    parser.add_argument('--use_proj_map', action='store_true',
+                        default=False, help="by default True, use maximun map or use sum map")
     
     parser.add_argument('--use_center', action='store_true',
                         default=False, help="by default True, use agent center point as input")

@@ -210,6 +210,8 @@ def parse_args(args, parser):
     parser.add_argument('--memory_rate', type=float, default=0.5)
     parser.add_argument('--use_max_map', action='store_true',
                         default=False, help="by default True, use maximun map or use sum map")
+    parser.add_argument('--use_proj_map', action='store_true',
+                        default=False, help="by default True, use maximun map or use sum map")
 
     parser.add_argument('--local_planner', type=str, default='fmm', choices=['fmm', 'astar', 'rrt'], help = 'choose local planner. [fmm, rrt, astar]')
     all_args = parser.parse_known_args(args)[0]

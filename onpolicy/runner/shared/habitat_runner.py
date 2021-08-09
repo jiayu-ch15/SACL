@@ -613,9 +613,11 @@ class HabitatRunner(Runner):
                         obs_choose = np.concatenate((obs_choose, obs_tmp), axis=0)
                         last_obs_choose = np.concatenate((last_obs_choose, last_obs_tmp), axis=0)
                     key_num += 1
+                obs_proj = np.array(self.obs[env_idx][agent_id]['depth_proj']).copy()
+                obs_proj_last = np.array(self.last_obs[env_idx][agent_id]['depth_proj']).copy()
 
                 self.slam_memory.push(
-                    (obs_choose, last_obs_choose, env_poses),
+                    (obs_choose, last_obs_choose, env_poses, obs_proj, obs_proj_last),
                     (env_gt_fp_projs, env_gt_fp_explored, env_gt_pose_err))
 
     def run_slam_module(self, last_obs, obs, infos, build_maps=True):
@@ -635,11 +637,16 @@ class HabitatRunner(Runner):
                     last_obs_choose = np.concatenate((last_obs_choose, last_obs_tmp), axis=1)
                 key_num += 1
 
+            obs_proj = np.array([obs[e][a]['depth_proj'] for e in range(self.n_rollout_threads)]).copy()
+            obs_proj_last = np.array([last_obs[e][a]['depth_proj'] for e in range(self.n_rollout_threads)]).copy()
+
             _, _, self.local_map[:, a, 0], self.local_map[:, a, 1], _, self.local_pose[:, a] = \
                 self.nslam_module(last_obs_choose, obs_choose, poses, 
                                 self.local_map[:, a, 0],
                                 self.local_map[:, a, 1], 
                                 self.local_pose[:, a],
+                                obs_proj,
+                                obs_proj_last,
                                 build_maps = build_maps)
 
     def oracle_transform(self, inputs, trans, rotation, agent_trans, agent_rotation, a):
@@ -1333,8 +1340,12 @@ class HabitatRunner(Runner):
             for a in range(self.num_agents):
                 lx, rx, ly, ry = self.compute_merge_map_boundary(e, a)
                 p_input['goal'].append([int(self.ft_goals[e, a][0])-lx, int(self.ft_goals[e,a][1])-ly])
-                p_input['map_pred'].append(self.full_map[e, a, 0, :, :].copy())
-                p_input['exp_pred'].append(self.full_map[e, a, 1, :, :].copy())
+                if self.use_merge_local:
+                    p_input['map_pred'].append(self.merge_map[e, a, 0, :, :].copy())
+                    p_input['exp_pred'].append(self.merge_map[e, a, 1, :, :].copy())
+                else:
+                    p_input['map_pred'].append(self.full_map[e, a, 0, :, :].copy())
+                    p_input['exp_pred'].append(self.full_map[e, a, 1, :, :].copy())
                 pose_pred = self.planner_pose_inputs[e, a].copy()
                 pose_pred[3:] = np.array((lx, rx, ly, ry))
                 p_input['pose_pred'].append(pose_pred)
@@ -1419,12 +1430,13 @@ class HabitatRunner(Runner):
     def train_slam_module(self):
         for _ in range(self.slam_iterations):
             inputs, outputs = self.slam_memory.sample(self.slam_batch_size)
-            b_obs_last, b_obs, b_poses = inputs
+            b_obs_last, b_obs, b_poses, obs_proj, obs_proj_last= inputs
             gt_fp_projs, gt_fp_explored, gt_pose_err = outputs
             
             b_proj_pred, b_fp_exp_pred, _, _, b_pose_err_pred, _ = \
                 self.nslam_module(b_obs_last, b_obs, b_poses,
                             None, None, None,
+                            obs_proj, obs_proj_last,
                             build_maps=False)
             
             gt_fp_projs = check(gt_fp_projs).to(self.device)

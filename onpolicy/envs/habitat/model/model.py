@@ -112,6 +112,7 @@ class Neural_SLAM_Module(nn.Module):
         self.use_pe = args.use_pose_estimation
         self.tpdv = dict(dtype=torch.float32, device=device)
         self.slam_keys = args.slam_keys
+        self.use_proj_map = args.use_proj_map
         ic(self.slam_keys)
 
         resnet = models.resnet18(pretrained=args.pretrained_resnet)
@@ -209,11 +210,13 @@ class Neural_SLAM_Module(nn.Module):
 
         self.to(device)
 
-    def forward(self, obs_last, obs, poses, maps, explored, current_poses, build_maps=True):
+    def forward(self, obs_last, obs, poses, maps, explored, current_poses, obs_proj, obs_proj_last, build_maps=True):
 
         obs = check(obs).to(**self.tpdv)
         obs_last = check(obs_last).to(**self.tpdv)
         poses = check(poses).to(**self.tpdv)
+        obs_proj = check(obs_proj).to(**self.tpdv)
+        obs_proj_last = check(obs_proj_last).to(**self.tpdv)
         if maps is not None:
             maps = check(maps).to(**self.tpdv)
         if explored is not None:
@@ -244,9 +247,11 @@ class Neural_SLAM_Module(nn.Module):
         deconv_input = proj3.view(bs, 64, 8, 8)
         deconv_output = self.deconv(deconv_input)
         pred = torch.sigmoid(deconv_output)
-
+        if self.use_proj_map:
+            pred = obs_proj
         proj_pred = pred[:, :1, :, :]
         fp_exp_pred = pred[:, 1:, :, :]
+        
 
         with torch.no_grad():
             # Get egocentric map prediction for the last obs
@@ -272,6 +277,8 @@ class Neural_SLAM_Module(nn.Module):
             deconv_input = proj3.view(bs, 64, 8, 8)
             deconv_output = self.deconv(deconv_input)
             pred_last = torch.sigmoid(deconv_output)
+            if self.use_proj_map:
+                pred_last = obs_proj_last
 
             # ST of proj
             vr = self.vision_range

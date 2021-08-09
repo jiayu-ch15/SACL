@@ -181,6 +181,8 @@ def parse_args(args, parser):
     parser.add_argument('--memory_rate', type=float, default=0.5)
     parser.add_argument('--use_max_map', action='store_true',
                         default=False, help="by default True, use maximun map or use sum map")
+    parser.add_argument('--use_proj_map', action='store_true',
+                        default=False, help="by default True, use maximun map or use sum map")
 
     parser.add_argument('--vision_range', type=int, default=64)
     parser.add_argument('--obstacle_boundary', type=int, default=5)
