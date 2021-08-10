@@ -35,6 +35,8 @@ def add_clear_disk(map, unexplored, r, loc):
 
 def get_boundary(map, v):
     row = ((map==v).astype(np.int32).sum(1)>0).astype(np.int32).tolist()
+    if 1 not in row:
+        return map.shape[0], 0, map.shape[1], 0
     x1 = row.index(1)
     x2 = map.shape[0] - 1 - list(reversed(row)).index(1)
 
