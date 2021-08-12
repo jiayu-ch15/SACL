@@ -1295,20 +1295,18 @@ class HabitatRunner(Runner):
             'exp_pred' : self.ft_merge_map[e,1],
             'locations' : locations
         }
-        # if enough distance or steps, replan
+        '''# if enough distance or steps, replan
         if 'apf' in self.all_args.algorithm_name:
-            #goal_mask = [(self.env_step > 0 and bfs_distance(self.ft_map, self.ft_lx[e], self.ft_ly[e], locations[agent_id], self.ft_pre_goals[e][agent_id]) > 50) and self.ft_go_steps[e][agent_id]<10 for agent_id in range(self.num_agents)] #  dist>40 and steps<30? true for not update
             goal_mask = [(self.env_step > 0 and l2distance(locations[agent_id], self.ft_pre_goals[e][agent_id]) > 20 and self.ft_go_steps[e][agent_id]<15) for agent_id in range(self.num_agents)]
         elif 'nearest' in self.all_args.algorithm_name:
-            # goal_mask = [(self.env_step > 0 and bfs_distance(self.ft_map, self.ft_lx[e], self.ft_ly[e], locations[agent_id], self.ft_pre_goals[e][agent_id]) > 70 and self.ft_go_steps[e][agent_id]<10) for agent_id in range(self.num_agents)]
             goal_mask = [(self.env_step > 0 and l2distance(locations[agent_id], self.ft_pre_goals[e][agent_id]) > 20 and self.ft_go_steps[e][agent_id]<15) for agent_id in range(self.num_agents)]
         elif 'utility' in self.all_args.algorithm_name:
-            #goal_mask = [(self.env_step > 0 and bfs_distance(self.ft_map, self.ft_lx[e], self.ft_ly[e], locations[agent_id], self.ft_pre_goals[e][agent_id]) > 50 and self.ft_go_steps[e][agent_id]<20) for agent_id in range(self.num_agents)]
             goal_mask = [(self.env_step > 0 and l2distance(locations[agent_id], self.ft_pre_goals[e][agent_id]) > 20 and self.ft_go_steps[e][agent_id]<20) for agent_id in range(self.num_agents)]
         elif 'rrt' in self.all_args.algorithm_name:
             goal_mask = [(self.env_step > 0 and l2distance(locations[agent_id], self.ft_pre_goals[e][agent_id]) > 20 and self.ft_go_steps[e][agent_id]<15) for agent_id in range(self.num_agents)]
         else:
-            raise NotImplementedError
+            raise NotImplementedError'''
+        goal_mask = [self.ft_go_steps[e][agent_id]<15 for agent_id in range(self.num_agents)]
 
         num_choose = self.num_agents - sum(goal_mask)
         self.env_info['merge_global_goal_num'] += num_choose
