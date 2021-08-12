@@ -432,6 +432,7 @@ class HabitatRunner(Runner):
             self.sum_env_info_keys  += ['path_length']
             self.equal_env_info_keys  += ['path_length/ratio']
             self.auc_infos_keys = ['merge_auc','agent_auc']
+            self.env_info_keys += ['merge_runtime'] 
 
         # convert keys
         self.env_infos_keys = self.agents_env_info_keys + self.env_info_keys + \
@@ -797,7 +798,7 @@ class HabitatRunner(Runner):
         for e in range(self.n_rollout_threads):
             local_merge_map[e, :2] = merge_map[e, :2, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]].copy()
             local_merge_map[e, 2:] = self.local_map[e, a, 2:].copy()
-            filter_local_map[e] = filter_merge_map[e, :2, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]].copy()
+            filter_local_map[e] = filter_merge_map[e, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]].copy()
         
         return merge_map, local_merge_map, filter_local_map
 
@@ -1561,11 +1562,17 @@ class HabitatRunner(Runner):
             policy_model_state_dict = torch.load(str(self.model_dir))
             self.policy.model.load_state_dict(policy_model_state_dict)
         else:
-            policy_actor_state_dict = torch.load(str(self.model_dir))
-            self.policy.actor.load_state_dict(policy_actor_state_dict)
-            if not self.all_args.use_render and not self.all_args.use_eval:
-                policy_critic_state_dict = torch.load(str(self.model_dir))
-                self.policy.critic.load_state_dict(policy_critic_state_dict)
+            if not (self.use_eval or self.use_render): 
+                self.model_dir_actor = self.all_args.model_dir_actor
+                self.model_dir_critic = self.all_args.model_dir_critic
+                policy_actor_state_dict = torch.load(str(self.model_dir_actor))
+                self.policy.actor.load_state_dict(policy_actor_state_dict)
+                if not self.all_args.use_render and not self.all_args.use_eval:
+                    policy_critic_state_dict = torch.load(str(self.model_dir_critic))
+                    self.policy.critic.load_state_dict(policy_critic_state_dict)
+            else:
+                policy_actor_state_dict = torch.load(str(self.model_dir))
+                self.policy.actor.load_state_dict(policy_actor_state_dict)
     
     def render_gifs(self):
         gif_dir = str(self.run_dir / 'gifs')
@@ -1598,9 +1605,9 @@ class HabitatRunner(Runner):
                 sub_ax[i].set_yticklabels([])
                 sub_ax[i].set_xticklabels([])
                 if agent_id < self.num_agents and i<4:
-                    sub_ax[i].imshow(self.full_map[0, agent_id, i])
-                elif agent_id >= self.num_agents:
-                    sub_ax[i].imshow(obs['global_merge_obs'][0, agent_id-self.num_agents, i])
+                    sub_ax[i].imshow(self.local_map[0, agent_id, i])
+                elif agent_id >= self.num_agents and i<2:
+                    sub_ax[i].imshow(self.filter_local_map[0, agent_id-self.num_agents, i])
                 # elif agent_id >= self.num_agents and i<2:
                 #     sub_ax[i].imshow(self.obstacle_map[0][agent_id-self.num_agents])
                 #elif i < 5:
@@ -1615,6 +1622,7 @@ class HabitatRunner(Runner):
         self.eval_infos = defaultdict(list)
 
         for episode in range(self.all_args.eval_episodes):
+            start = time.time()
             # store each episode ratio or reward
             self.init_env_info()
 
@@ -1727,9 +1735,17 @@ class HabitatRunner(Runner):
             self.convert_info()
             
             total_num_steps = (episode + 1) * self.max_episode_length * self.n_rollout_threads
-            if not self.use_render and np.all(self.stuck_flag< 3) :
-                self.log_env(self.env_infos, total_num_steps)
-                self.log_agent(self.env_infos, total_num_steps)
+            if not self.use_render :
+                if self.use_stuck_detection and np.all(self.stuck_flag < 10):
+                    end = time.time()
+                    self.env_infos['merge_runtime'].append((end-start)/self.max_episode_length)
+                    self.log_env(self.env_infos, total_num_steps)
+                    self.log_agent(self.env_infos, total_num_steps)
+                else:
+                    end = time.time()
+                    self.env_infos['merge_runtime'].append((end-start)/self.max_episode_length)
+                    self.log_env(self.env_infos, total_num_steps)
+                    self.log_agent(self.env_infos, total_num_steps)
                 
         if self.use_eval and not self.use_wandb:
             self.log_auc(self.auc_infos)
@@ -1748,6 +1764,7 @@ class HabitatRunner(Runner):
         self.eval_infos = defaultdict(list)
 
         for episode in range(self.all_args.eval_episodes):
+            start = time.time()
             # store each episode ratio or reward
             self.env_step = 0
             self.init_env_info()
@@ -1854,9 +1871,17 @@ class HabitatRunner(Runner):
             self.convert_info()
             
             total_num_steps = (episode + 1) * self.max_episode_length * self.n_rollout_threads
-            if not self.use_render and np.all(self.stuck_flag < 3):
-                self.log_env(self.env_infos, total_num_steps)
-                self.log_agent(self.env_infos, total_num_steps)
+            if not self.use_render :
+                if self.use_stuck_detection and np.all(self.stuck_flag < 10):
+                    end = time.time()
+                    self.env_infos['merge_runtime'].append((end-start)/self.max_episode_length)
+                    self.log_env(self.env_infos, total_num_steps)
+                    self.log_agent(self.env_infos, total_num_steps)
+                else:
+                    end = time.time()
+                    self.env_infos['merge_runtime'].append((end-start)/self.max_episode_length)
+                    self.log_env(self.env_infos, total_num_steps)
+                    self.log_agent(self.env_infos, total_num_steps)
                 
         if self.use_eval and not self.use_wandb:
             self.log_auc(self.auc_infos)
@@ -1876,6 +1901,7 @@ class HabitatRunner(Runner):
         self.eval_infos = defaultdict(list)
 
         for episode in range(self.all_args.eval_episodes):
+            start = time.time()
             # store each episode ratio or reward
             self.init_env_info()
 
@@ -1910,7 +1936,7 @@ class HabitatRunner(Runner):
             
             # compute local input
             if self.use_merge_local:
-                self.compute_local_input(self.local_merge_map)
+                self.compute_local_input(self.filter_local_map)
             else:
                 self.compute_local_input(self.local_map)
 
@@ -1981,8 +2007,7 @@ class HabitatRunner(Runner):
                                         int(c * 100.0 / self.map_resolution)]
                         dis = pu.get_l2_distance(loc_r, int(self.global_goal[e, a][0] * self.local_w), loc_c, int(self.global_goal[e, a][1] * self.local_h))
                         
-                        if async_local_step[e, a] == self.num_local_steps - 1 or dis < 2 or \
-                            (agent_period_ratio[e, a] < 0.001 and period_step[e, a] % 5 == 0 and self.stuck_flag[e, a] < 3):
+                        if async_local_step[e, a] == self.num_local_steps - 1 or dis < 2:
                             # For every global step, update the full and local maps
                             self.update_agent_map_and_pose(e, a)
                             self.compute_global_input()
@@ -2007,9 +2032,17 @@ class HabitatRunner(Runner):
             self.convert_info()
             
             total_num_steps = (episode + 1) * self.max_episode_length * self.n_rollout_threads
-            if not self.use_render and np.all(self.stuck_flag< 3) :
-                self.log_env(self.env_infos, total_num_steps)
-                self.log_agent(self.env_infos, total_num_steps)
+            if not self.use_render :
+                if self.use_stuck_detection and np.all(self.stuck_flag < 10):
+                    end = time.time()
+                    self.env_infos['merge_runtime'].append((end-start)/self.max_episode_length)
+                    self.log_env(self.env_infos, total_num_steps)
+                    self.log_agent(self.env_infos, total_num_steps)
+                else:
+                    end = time.time()
+                    self.env_infos['merge_runtime'].append((end-start)/self.max_episode_length)
+                    self.log_env(self.env_infos, total_num_steps)
+                    self.log_agent(self.env_infos, total_num_steps)
                 
         if self.use_eval and not self.use_wandb:
             self.log_auc(self.auc_infos)

@@ -81,6 +81,12 @@ def parse_args(args, parser):
     parser.add_argument('--load_local', type=str, default="0",
                         help="""model path to load,
                                 0 to not reload (default: 0)""")
+    parser.add_argument('--model_dir_actor', type=str, default="0",
+                        help="""model path to load,
+                                0 to not reload (default: 0)""")
+    parser.add_argument('--model_dir_critic', type=str, default="0",
+                        help="""model path to load,
+                                0 to not reload (default: 0)""")
 
     # visual params
     parser.add_argument("--render_merge", action='store_false', default=True,
