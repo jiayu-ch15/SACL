@@ -334,6 +334,8 @@ class HabitatRunner(Runner):
         self.use_max = self.all_args.use_max
         self.use_filter = self.all_args.use_filter
         self.use_sum = self.all_args.use_sum
+        if self.use_eval:
+            self.use_stuck_detection = self.all_args.use_stuck_detection
 
     def init_map_variables(self):
         ### Full map consists of 4 channels containing the following:
