@@ -19,6 +19,7 @@ class MultiHabitatEnv(object):
         self.use_merge = args.use_merge
         self.use_single = args.use_single
         self.use_merge_goal = args.use_merge_goal
+        self.use_orientation = args.use_orientation
 
         config_env, config_baseline, dataset = self.get_config(args, rank)
 
@@ -54,11 +55,11 @@ class MultiHabitatEnv(object):
             else:
                 global_observation_space['global_obs'] = gym.spaces.Box(
                     low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
-            
-        global_observation_space['global_orientation'] = gym.spaces.Box(
-            low=-1, high=1, shape=(1,), dtype='long')
-        global_observation_space['other_global_orientation'] = gym.spaces.Box(
-            low=-1, high=1, shape=(self.num_agents-1,), dtype='long')
+        if self.use_orientation:
+            global_observation_space['global_orientation'] = gym.spaces.Box(
+                low=-1, high=1, shape=(1,), dtype='long')
+            global_observation_space['other_global_orientation'] = gym.spaces.Box(
+                low=-1, high=1, shape=(self.num_agents-1,), dtype='long')
         global_observation_space['vector'] = gym.spaces.Box(
             low=-1, high=1, shape=(self.num_agents,), dtype='float')
        
@@ -139,7 +140,7 @@ class MultiHabitatEnv(object):
         config_env.SIMULATOR.USE_RANDOM_ROTATION = args.use_random_rotation
         config_env.SIMULATOR.USE_DIFFERENT_START_POS = args.use_different_start_pos
         config_env.SIMULATOR.USE_FIXED_START_POS = args.use_fixed_start_pos
-        config_env.SIMULATOR.FIXED_MODEL_PATH = onpolicy.__path__[0] + "/envs/habitat/data/state/seed{}/{}agents/".format(args.seed, args.num_agents)
+        config_env.SIMULATOR.FIXED_MODEL_PATH = onpolicy.__path__[0] + "/envs/habitat/data/state/seed{}/".format(args.seed)
 
         config_env.SIMULATOR.AGENT.SENSORS = ['RGB_SENSOR', 'DEPTH_SENSOR']
 

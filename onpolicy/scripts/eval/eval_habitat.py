@@ -144,6 +144,8 @@ def parse_args(args, parser):
                         default=False, help="by default True, use async eval")
     parser.add_argument('--use_stuck_detection', action='store_true',
                         default=False, help="by default True, use sum map")
+    parser.add_argument('--use_orientation', action='store_true',
+                        default=False, help="by default True, use sum map")
     parser.add_argument('--pretrained_global_resnet', type=int, default=1)      
 
 

@@ -334,6 +334,7 @@ class HabitatRunner(Runner):
         self.use_max = self.all_args.use_max
         self.use_filter = self.all_args.use_filter
         self.use_sum = self.all_args.use_sum
+        self.use_orientation = self.all_args.use_orientation
         if self.use_eval:
             self.use_stuck_detection = self.all_args.use_stuck_detection
 
@@ -478,9 +479,9 @@ class HabitatRunner(Runner):
                 self.global_input['global_merge_goal'] = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.local_w, self.local_h), dtype=np.float32)
             if self.use_single:
                 self.global_input['global_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, self.local_w, self.local_h), dtype=np.float32)     
-        
-        self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
-        self.global_input['other_global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents-1), dtype=np.long)
+        if self.use_orientation:
+            self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
+            self.global_input['other_global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents-1), dtype=np.long)
         self.global_input['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents), dtype=np.float32)
         self.share_global_input = self.global_input.copy()
         
@@ -876,8 +877,9 @@ class HabitatRunner(Runner):
                                 int(c * 100.0 / self.map_resolution)]
 
                 self.local_map[e, a, 2:, loc_r - 1:loc_r + 2, loc_c - 1:loc_c + 2] = 1
-                self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
-                self.other_agent_rotation[e, a, 0] = locs[e, a, 2]
+                if self.use_orientation:
+                    self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
+                    self.other_agent_rotation[e, a, 0] = locs[e, a, 2]
                 self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
             if self.use_oracle:
                 if self.use_center:
@@ -903,16 +905,17 @@ class HabitatRunner(Runner):
                     global_goal_map[:, a] = self.center_transform(merge_point_map, a, 2)
                 else:
                     global_goal_map[:, a] = self.point_transform(self.global_goal, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
-        for e in range(self.n_rollout_threads):
-            for a in range(self.num_agents):
-                i = 0
-                for l in range(self.num_agents):
-                    if l!= a:   
-                        if self.use_abs_orientation:
-                            self.global_input['other_global_orientation'][e, a, i] = int((self.other_agent_rotation[e, l, 0] + 180.0) / 5.)
-                        else:
-                            self.global_input['other_global_orientation'][e, a, i] = int(((self.other_agent_rotation[e, l, 0] - self.other_agent_rotation[e, a, 0] + 360.0 + 180.0) % 360) / 5.)
-                        i += 1
+        if self.use_orientation:
+            for e in range(self.n_rollout_threads):
+                for a in range(self.num_agents):
+                    i = 0
+                    for l in range(self.num_agents):
+                        if l!= a:   
+                            if self.use_abs_orientation:
+                                self.global_input['other_global_orientation'][e, a, i] = int((self.other_agent_rotation[e, l, 0] + 180.0) / 5.)
+                            else:
+                                self.global_input['other_global_orientation'][e, a, i] = int(((self.other_agent_rotation[e, l, 0] - self.other_agent_rotation[e, a, 0] + 360.0 + 180.0) % 360) / 5.)
+                            i += 1
 
         for a in range(self.num_agents): # TODO @CHAO
             if self.use_resnet:
@@ -1001,9 +1004,10 @@ class HabitatRunner(Runner):
             global_goal_map = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.full_w, self.full_h), dtype=np.float32)
         for a in range(self.num_agents):
             for e in range(self.n_rollout_threads):
-                self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
+                if self.use_orientation:
+                    self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
+                    self.other_agent_rotation[e, a, 0] = locs[e, a, 2]
                 self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
-                self.other_agent_rotation[e, a, 0] = locs[e, a, 2]
             if self.use_oracle:
                 if self.use_center:
                     self.transform_map[:, a], self.local_merge_map[:, a] = self.oracle_transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
@@ -1029,16 +1033,17 @@ class HabitatRunner(Runner):
                 else:
                     global_goal_map[:, a] = self.point_transform(self.global_goal, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
         
-        for e in range(self.n_rollout_threads):
-            for a in range(self.num_agents):
-                i = 0
-                for l in range(self.num_agents):
-                    if l!= a:   
-                        if self.use_abs_orientation:
-                            self.global_input['other_global_orientation'][e, a, i] = int((self.other_agent_rotation[e, l, 0] + 180.0) / 5.)
-                        else:
-                            self.global_input['other_global_orientation'][e, a, i] = int(((self.other_agent_rotation[e, l, 0] - self.other_agent_rotation[e, a, 0] + 360.0 + 180.0) % 360) / 5.)
-                        i += 1 
+        if self.use_orientation:
+            for e in range(self.n_rollout_threads):
+                for a in range(self.num_agents):
+                    i = 0
+                    for l in range(self.num_agents):
+                        if l!= a:   
+                            if self.use_abs_orientation:
+                                self.global_input['other_global_orientation'][e, a, i] = int((self.other_agent_rotation[e, l, 0] + 180.0) / 5.)
+                            else:
+                                self.global_input['other_global_orientation'][e, a, i] = int(((self.other_agent_rotation[e, l, 0] - self.other_agent_rotation[e, a, 0] + 360.0 + 180.0) % 360) / 5.)
+                            i += 1 
         
         for a in range(self.num_agents):
             if self.use_resnet:
