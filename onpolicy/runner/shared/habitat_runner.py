@@ -909,7 +909,7 @@ class HabitatRunner(Runner):
                         
             if self.use_oracle:
                 if self.use_center:
-                    self.transform_map[:, a], self.local_merge_map[:, a] = self.oracle_transform(agent_id, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
+                    self.transform_map[:, a], self.local_merge_map[:, a] = self.oracle_transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
                     self.merge_map[:, a] = self.center_transform(self.transform_map[:,a], a)
                     full_map[:, a] = self.center_transform(self.full_map[:, a], a)
                 else:
