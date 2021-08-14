@@ -169,7 +169,11 @@ def parse_args(args, parser):
     parser.add_argument('--use_sum', action='store_true',
                         default=False, help="by default True, use sum map")
     parser.add_argument('--use_orientation', action='store_true',
-                        default=False, help="by default True, use sum map")
+                        default=False, help="by default True, use agent orientation info")
+    parser.add_argument('--use_filter_local', action='store_true',
+                        default=False, help="by default True, use filter local map to planning")
+    parser.add_argument('--use_fc_net', action='store_true',
+                        default=False, help="by default True, use fc net")
     parser.add_argument('--pretrained_global_resnet', type=int, default=1)     
                         
 

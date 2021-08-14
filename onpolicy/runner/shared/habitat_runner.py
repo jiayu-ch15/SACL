@@ -91,7 +91,10 @@ class HabitatRunner(Runner):
 
         # compute local input
         if self.use_merge_local:
-            self.compute_local_input(self.filter_local_map)
+            if self.use_filter_local:
+                self.compute_local_input(self.filter_local_map)
+            else:
+                self.compute_local_input(self.local_merge_map)
         else:
             self.compute_local_input(self.local_map)
 
@@ -191,7 +194,7 @@ class HabitatRunner(Runner):
                 self.update_local_map()
                 self.update_map_and_pose(update = False)
                 for agent_id in range(self.num_agents):
-                    _, _, self.filter_local_map[:, agent_id] = self.transform(self.full_map, agent_id)
+                    _, self.local_merge_map[:, agent_id], self.filter_local_map[:, agent_id] = self.transform(self.full_map, agent_id)
 
                 # Global Policy
                 if local_step == self.num_local_steps - 1:
@@ -205,7 +208,10 @@ class HabitatRunner(Runner):
 
                 # Local Policy
                 if self.use_merge_local:
-                    self.compute_local_input(self.filter_local_map)
+                    if self.use_filter_local:
+                        self.compute_local_input(self.filter_local_map)
+                    else:
+                        self.compute_local_input(self.local_merge_map)
                 else:
                     self.compute_local_input(self.local_map)
 
@@ -335,6 +341,8 @@ class HabitatRunner(Runner):
         self.use_filter = self.all_args.use_filter
         self.use_sum = self.all_args.use_sum
         self.use_orientation = self.all_args.use_orientation
+        self.use_filter_local = self.all_args.use_filter_local
+        self.use_fc_net = self.all_args.use_fc_net
         if self.use_eval:
             self.use_stuck_detection = self.all_args.use_stuck_detection
 
@@ -482,7 +490,13 @@ class HabitatRunner(Runner):
         if self.use_orientation:
             self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
             self.global_input['other_global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents-1), dtype=np.long)
-        self.global_input['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents), dtype=np.float32)
+        if self.use_fc_net:    
+            self.global_input['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents), dtype=np.float32)
+        else:
+            if self.use_resnet:
+                self.global_input['vector_cnn'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents+1, 224, 224), dtype=np.float32)
+            else:
+                self.global_input['vector_cnn'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents+1, self.local_w, self.local_h), dtype=np.float32)
         self.share_global_input = self.global_input.copy()
         
         if self.use_centralized_V:
@@ -667,14 +681,14 @@ class HabitatRunner(Runner):
                     (index_a, index_b) = np.unravel_index(np.argmax(agent_merge_map[0, :, :], axis=None), agent_merge_map[0, :, :].shape)
                     agent_merge_map[0, :, :] = np.zeros((self.full_h, self.full_w), dtype=np.float32)
                     if self.first_compute:
-                        agent_merge_map[0, index_a - 1: index_a + 2, index_b - 1: index_b + 2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                        agent_merge_map[0, index_a - 1: index_a + 2, index_b - 1: index_b + 2] = (agent_id + 1)/np.array([aa+1 for aa in range(self.num_agents)]).sum()
                     else: 
-                        agent_merge_map[0, index_a - 2: index_a + 3, index_b - 2: index_b + 3] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                        agent_merge_map[0, index_a - 2: index_a + 3, index_b - 2: index_b + 3] = (agent_id + 1)/np.array([aa+1 for aa in range(self.num_agents)]).sum()
                 
                     trace = np.zeros((self.full_h, self.full_w), dtype=np.float32)
                     #trace[0][agent_merge_map[0] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
                     #trace[1][agent_merge_map[1] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
-                    trace[agent_merge_map[1] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                    trace[agent_merge_map[1] > self.map_threshold] = (agent_id + 1)/np.array([aa+1 for aa in range(self.num_agents)]).sum()
                     #agent_merge_map[0:2] = trace[0:2]
                     agent_merge_map[1] = trace
                     merge_map[e, 2:] += agent_merge_map
@@ -684,7 +698,7 @@ class HabitatRunner(Runner):
             merge_map[e, 2:] = F.grid_sample(agent_n_trans.float(), agent_rotation[e][a].float(), align_corners=True)[0, :, :, :].numpy()
             
             agent_loc = inputs[e, a, 2:].copy()
-            agent_loc[agent_loc != 0] = (a + 1)/np.array([agent_id +1 for agent_id in range(self.num_agents)]).sum()
+            agent_loc[agent_loc != 0] = (a + 1)/np.array([aa +1 for aa in range(self.num_agents)]).sum()
             merge_map[e, 2:] += agent_loc
             
             #merge_map[e,0] = self.merge_obstacle_gt[e][a]
@@ -767,14 +781,14 @@ class HabitatRunner(Runner):
                 index_a, index_b = x, y
                 agent_merge_map[e, agent_id, 2, :, :] = np.zeros((self.full_h, self.full_w), dtype=np.float32)
                 if self.first_compute:
-                    agent_merge_map[e, agent_id, 2, index_a - 1: index_a + 2, index_b - 1: index_b + 2] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                    agent_merge_map[e, agent_id, 2, index_a - 1: index_a + 2, index_b - 1: index_b + 2] = (agent_id + 1)/np.array([aa+1 for aa in range(self.num_agents)]).sum()
                 else: 
-                    agent_merge_map[e, agent_id, 2, index_a - 2: index_a + 3, index_b - 2: index_b + 3] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+                    agent_merge_map[e, agent_id, 2, index_a - 2: index_a + 3, index_b - 2: index_b + 3] = (agent_id + 1)/np.array([aa+1 for aa in range(self.num_agents)]).sum()
     
             trace = np.zeros((self.n_rollout_threads, self.full_h, self.full_w), dtype=np.float32)
         #trace[0][agent_merge_map[0] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
         #trace[1][agent_merge_map[1] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
-            trace[agent_merge_map[:, agent_id, 3] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
+            trace[agent_merge_map[:, agent_id, 3] > self.map_threshold] = (agent_id + 1)/np.array([aa+1 for aa in range(self.num_agents)]).sum()
         #agent_merge_map[0:2] = trace[0:2]
             agent_merge_map[:, agent_id, 3] = trace
             filter_agent_merge_map = agent_merge_map.copy()
@@ -841,7 +855,7 @@ class HabitatRunner(Runner):
                     n_rotated = F.grid_sample(torch.from_numpy(point_map).unsqueeze(0).float(), rotation[e][a].float(), align_corners=True)
                     n_map = F.grid_sample(n_rotated.float(), trans[e][a].float(), align_corners=True)
                     point_map = n_map[0, :, :, :].numpy().copy()
-                    point_map[point_map > self.map_threshold] = (a + 1)/np.array([a+1 for a in range(self.num_agents)]).sum()
+                    point_map[point_map > self.map_threshold] = (a + 1)/np.array([aa+1 for aa in range(self.num_agents)]).sum()
                     merge_map += point_map
             
             agent_n_trans = F.grid_sample(torch.from_numpy(merge_map).unsqueeze(0).float(), agent_trans[e][agent_id].float(), align_corners=True)      
@@ -850,7 +864,7 @@ class HabitatRunner(Runner):
             point_map = np.zeros((1, self.full_w, self.full_h), dtype=np.float32)
             point_map[0, int(point[e, agent_id, 0]*self.local_w+self.lmb[e, agent_id, 0]-2): int(point[e, agent_id, 0]*self.local_w+self.lmb[e, agent_id, 0]+3), \
                         int(point[e, agent_id, 1]*self.local_w+self.lmb[e, agent_id, 2]-2): int(point[e, agent_id, 1]*self.local_w+self.lmb[e, agent_id, 2]+3)] \
-                            = (agent_id + 1)/np.array([a+1 for a in range(self.num_agents)]).sum()
+                            = (agent_id + 1)/np.array([aa+1 for aa in range(self.num_agents)]).sum()
             merge_point_map[e, 0] += point_map[0]
             
         self.merge_goal_trace[:, agent_id, :, :] =  np.maximum(self.merge_goal_trace[:, agent_id, :, :], merge_point_map[:, 0])
@@ -880,10 +894,22 @@ class HabitatRunner(Runner):
                 if self.use_orientation:
                     self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
                     self.other_agent_rotation[e, a, 0] = locs[e, a, 2]
-                self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
+                if self.use_fc_net:
+                    self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
+            if not self.use_fc_net:
+                if self.use_resnet:
+                    self.global_input['vector_cnn'][:, a, 0] = np.ones((self.n_rollout_threads, 224, 224)) * ((a+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) 
+                    for agent_id in range(self.num_agents):
+                        for e in range(self.n_rollout_threads):
+                            self.global_input['vector_cnn'][e, a, agent_id+1] = np.resize(self.full_map[e, a, 2] * ((agent_id+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()), (self.res_w, self.res_h))
+                else:
+                    self.global_input['vector_cnn'][:, a, 0] = np.ones((self.n_rollout_threads, self.local_w, self.local_h)) * ((a+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) 
+                    for agent_id in range(self.num_agents):
+                        self.global_input['vector_cnn'][:, a, agent_id+1] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a, 2] * ((agent_id+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) ))).numpy()
+                        
             if self.use_oracle:
                 if self.use_center:
-                    self.transform_map[:, a], self.local_merge_map[:, a] = self.oracle_transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
+                    self.transform_map[:, a], self.local_merge_map[:, a] = self.oracle_transform(agent_id, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
                     self.merge_map[:, a] = self.center_transform(self.transform_map[:,a], a)
                     full_map[:, a] = self.center_transform(self.full_map[:, a], a)
                 else:
@@ -1007,7 +1033,18 @@ class HabitatRunner(Runner):
                 if self.use_orientation:
                     self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
                     self.other_agent_rotation[e, a, 0] = locs[e, a, 2]
-                self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
+                if self.use_fc_net:
+                    self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
+            if not self.use_fc_net:
+                if self.use_resnet:
+                    self.global_input['vector_cnn'][:, a, 0] = np.ones((self.n_rollout_threads, 224, 224)) * ((a+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) 
+                    for agent_id in range(self.num_agents):
+                        for e in range(self.n_rollout_threads):
+                            self.global_input['vector_cnn'][e, a, agent_id+1] = np.resize(self.full_map[e, a, 2] * ((agent_id+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()), (self.res_w, self.res_h))
+                else:
+                    self.global_input['vector_cnn'][:, a, 0] = np.ones((self.n_rollout_threads, self.local_w, self.local_h)) * ((a+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) 
+                    for agent_id in range(self.num_agents):
+                        self.global_input['vector_cnn'][:, a, agent_id+1] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a, 2] * ((agent_id+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) ))).numpy()
             if self.use_oracle:
                 if self.use_center:
                     self.transform_map[:, a], self.local_merge_map[:, a] = self.oracle_transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
@@ -1663,7 +1700,10 @@ class HabitatRunner(Runner):
             
             # compute local input
             if self.use_merge_local:
-                self.compute_local_input(self.filter_local_map)
+                if self.use_filter_local:
+                    self.compute_local_input(self.filter_local_map)
+                else:
+                    self.compute_local_input(self.local_merge_map)
             else:
                 self.compute_local_input(self.local_map)
 
@@ -1715,7 +1755,7 @@ class HabitatRunner(Runner):
                 self.update_local_map()
                 self.update_map_and_pose(update = False)
                 for agent_id in range(self.num_agents):
-                    _, _, self.filter_local_map[:, agent_id] = self.transform(self.full_map, agent_id)
+                    _, self.local_merge_map[:, agent_id], self.filter_local_map[:, agent_id] = self.transform(self.full_map, agent_id)
 
                 # Global Policy
                 if local_step == self.num_local_steps - 1:
@@ -1729,7 +1769,10 @@ class HabitatRunner(Runner):
                 
                 # Local Policy
                 if self.use_merge_local:
-                    self.compute_local_input(self.filter_local_map)
+                    if self.use_filter_local:
+                        self.compute_local_input(self.filter_local_map)
+                    else:
+                        self.compute_local_input(self.local_merge_map)
                 else:
                     self.compute_local_input(self.local_map)
 
@@ -1941,7 +1984,10 @@ class HabitatRunner(Runner):
             
             # compute local input
             if self.use_merge_local:
-                self.compute_local_input(self.filter_local_map)
+                if self.use_filter_local:
+                    self.compute_local_input(self.filter_local_map)
+                else:
+                    self.compute_local_input(self.local_merge_map)
             else:
                 self.compute_local_input(self.local_map)
 
@@ -2000,7 +2046,7 @@ class HabitatRunner(Runner):
                 self.update_local_map()
                 self.update_map_and_pose(update = False)
                 for agent_id in range(self.num_agents):
-                    _, _, self.filter_local_map[:, agent_id] = self.transform(self.full_map, agent_id)
+                    _, self.local_merge_map[:, agent_id], self.filter_local_map[:, agent_id] = self.transform(self.full_map, agent_id)
 
                 # Global Policy
                 
@@ -2026,7 +2072,10 @@ class HabitatRunner(Runner):
                 
                 # Local Policy
                 if self.use_merge_local:
-                    self.compute_local_input(self.filter_local_map)
+                    if self.use_filter_local:
+                        self.compute_local_input(self.filter_local_map)
+                    else:
+                        self.compute_local_input(self.local_merge_map)
                 else:
                     self.compute_local_input(self.local_map)
 

@@ -20,6 +20,7 @@ class MultiHabitatEnv(object):
         self.use_single = args.use_single
         self.use_merge_goal = args.use_merge_goal
         self.use_orientation = args.use_orientation
+        self.use_fc_net = args.use_fc_net
 
         config_env, config_baseline, dataset = self.get_config(args, rank)
 
@@ -60,8 +61,16 @@ class MultiHabitatEnv(object):
                 low=-1, high=1, shape=(1,), dtype='long')
             global_observation_space['other_global_orientation'] = gym.spaces.Box(
                 low=-1, high=1, shape=(self.num_agents-1,), dtype='long')
-        global_observation_space['vector'] = gym.spaces.Box(
-            low=-1, high=1, shape=(self.num_agents,), dtype='float')
+        if self.use_fc_net:
+            global_observation_space['vector'] = gym.spaces.Box(
+                low=-1, high=1, shape=(self.num_agents,), dtype='float')
+        else:
+            if self.use_resnet:
+                global_observation_space['vector_cnn'] = gym.spaces.Box(
+                        low=0, high=1, shape=(self.num_agents+1, 224, 224), dtype='uint8')
+            else:
+                global_observation_space['vector_cnn'] = gym.spaces.Box(
+                        low=0, high=1, shape=(self.num_agents+1, local_w, local_h), dtype='uint8')
        
         share_global_observation_space = global_observation_space.copy()
         if self.use_centralized_V:
