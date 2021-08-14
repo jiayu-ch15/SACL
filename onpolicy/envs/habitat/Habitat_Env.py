@@ -134,7 +134,7 @@ class MultiHabitatEnv(object):
             
 
         if rank > (args.n_rollout_threads)/2 and args.n_rollout_threads > 6:
-            gpu_id = 0
+            gpu_id = 2
         else:
             gpu_id = 0 if torch.cuda.device_count() == 1 else 1
 
