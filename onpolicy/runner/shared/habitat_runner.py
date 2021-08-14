@@ -766,7 +766,7 @@ class HabitatRunner(Runner):
         local_merge_map = np.zeros((self.n_rollout_threads, 4, self.local_w, self.local_h), dtype=np.float32)
         filter_local_map = np.zeros((self.n_rollout_threads, 2, self.local_w, self.local_h), dtype=np.float32)
                     
-        agent_merge_map = self.direct_transform(inputs, a)
+        self.agent_merge_map = self.direct_transform(inputs, a)
         for agent_id in range(self.num_agents):
             for e in range(self.n_rollout_threads):
                 rel_pose1 = get_rel_pose_change(self.init_pose[e][agent_id], self.init_pose[e][a]) #rad
@@ -779,30 +779,30 @@ class HabitatRunner(Runner):
                 x, y = int(pose[1] * 100.0 / self.map_resolution), int(pose[0] * 100.0 / self.map_resolution)
                 #(index_a, index_b) = np.unravel_index(np.argmax(agent_merge_map[e, agent_id, 2, :, :], axis=None), agent_merge_map[e, agent_id, 2, :, :].shape)
                 index_a, index_b = x, y
-                agent_merge_map[e, agent_id, 2, :, :] = np.zeros((self.full_h, self.full_w), dtype=np.float32)
+                self.agent_merge_map[e, agent_id, 2, :, :] = np.zeros((self.full_h, self.full_w), dtype=np.float32)
                 if self.first_compute:
-                    agent_merge_map[e, agent_id, 2, index_a - 1: index_a + 2, index_b - 1: index_b + 2] = (agent_id + 1)/np.array([aa+1 for aa in range(self.num_agents)]).sum()
+                    self.agent_merge_map[e, agent_id, 2, index_a - 1: index_a + 2, index_b - 1: index_b + 2] = (agent_id + 1)/np.array([aa+1 for aa in range(self.num_agents)]).sum()
                 else: 
-                    agent_merge_map[e, agent_id, 2, index_a - 2: index_a + 3, index_b - 2: index_b + 3] = (agent_id + 1)/np.array([aa+1 for aa in range(self.num_agents)]).sum()
+                    self.agent_merge_map[e, agent_id, 2, index_a - 2: index_a + 3, index_b - 2: index_b + 3] = (agent_id + 1)/np.array([aa+1 for aa in range(self.num_agents)]).sum()
     
             trace = np.zeros((self.n_rollout_threads, self.full_h, self.full_w), dtype=np.float32)
         #trace[0][agent_merge_map[0] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
         #trace[1][agent_merge_map[1] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
-            trace[agent_merge_map[:, agent_id, 3] > self.map_threshold] = (agent_id + 1)/np.array([aa+1 for aa in range(self.num_agents)]).sum()
+            trace[self.agent_merge_map[:, agent_id, 3] > self.map_threshold] = (agent_id + 1)/np.array([aa+1 for aa in range(self.num_agents)]).sum()
         #agent_merge_map[0:2] = trace[0:2]
-            agent_merge_map[:, agent_id, 3] = trace
-            filter_agent_merge_map = agent_merge_map.copy()
+            self.agent_merge_map[:, agent_id, 3] = trace
+            filter_agent_merge_map = self.agent_merge_map.copy()
             if self.use_sum:
-                merge_map += agent_merge_map[:, agent_id]
+                merge_map += self.agent_merge_map[:, agent_id]
             elif self.use_max:
                 for i in range(2):
-                    merge_map[:, i] = np.maximum(agent_merge_map[:, agent_id, i], merge_map[:, i])
-                    merge_map[:, i+2] += agent_merge_map[:, agent_id, i+2] 
+                    merge_map[:, i] = np.maximum(self.agent_merge_map[:, agent_id, i], merge_map[:, i])
+                    merge_map[:, i+2] += self.agent_merge_map[:, agent_id, i+2] 
             elif self.use_filter:   
                 for i in range(2):
-                    agent_map = np.where((agent_merge_map[:, agent_id, 1]!=0) & (agent_merge_map[:, a, 1]!=0), agent_merge_map[:, a, i],  np.maximum(agent_merge_map[:, agent_id, i], agent_merge_map[:, a, i]))
+                    agent_map = np.where((self.agent_merge_map[:, agent_id, 1]!=0) & (self.agent_merge_map[:, a, 1]!=0), self.agent_merge_map[:, a, i],  np.maximum(self.agent_merge_map[:, agent_id, i], self.agent_merge_map[:, a, i]))
                     merge_map[:, i] = np.maximum(agent_map, merge_map[:, i])
-                    merge_map[:, i+2] += agent_merge_map[:, agent_id, i+2] 
+                    merge_map[:, i+2] += self.agent_merge_map[:, agent_id, i+2] 
             for i in range(2):  
                 filter_agent_map = np.where((filter_agent_merge_map[:, agent_id, 1]!=0) & (filter_agent_merge_map[:, a, 1]!=0), filter_agent_merge_map[:, a, i],  np.maximum(filter_agent_merge_map[:, agent_id, i], filter_agent_merge_map[:, a, i]))
                 filter_merge_map[:, i] = np.maximum(filter_agent_map, filter_merge_map[:, i])                              
@@ -896,16 +896,6 @@ class HabitatRunner(Runner):
                     self.other_agent_rotation[e, a, 0] = locs[e, a, 2]
                 if self.use_fc_net:
                     self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
-            if not self.use_fc_net:
-                if self.use_resnet:
-                    self.global_input['vector_cnn'][:, a, 0] = np.ones((self.n_rollout_threads, 224, 224)) * ((a+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) 
-                    for agent_id in range(self.num_agents):
-                        for e in range(self.n_rollout_threads):
-                            self.global_input['vector_cnn'][e, a, agent_id+1] = np.resize(self.full_map[e, a, 2] * ((agent_id+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()), (self.res_w, self.res_h))
-                else:
-                    self.global_input['vector_cnn'][:, a, 0] = np.ones((self.n_rollout_threads, self.local_w, self.local_h)) * ((a+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) 
-                    for agent_id in range(self.num_agents):
-                        self.global_input['vector_cnn'][:, a, agent_id+1] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a, 2] * ((agent_id+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) ))).numpy()
                         
             if self.use_oracle:
                 if self.use_center:
@@ -944,6 +934,17 @@ class HabitatRunner(Runner):
                             i += 1
 
         for a in range(self.num_agents): # TODO @CHAO
+            if not self.use_fc_net:
+                if self.use_resnet:
+                    self.global_input['vector_cnn'][:, a, 0] = np.ones((self.n_rollout_threads, 224, 224)) * ((a+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) 
+                    for agent_id in range(self.num_agents):
+                        for e in range(self.n_rollout_threads):
+                            self.global_input['vector_cnn'][e, a, agent_id+1] = np.resize(self.agent_merge_map[e, a, 2] * ((agent_id+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()), (self.res_w, self.res_h))
+                else:
+                    self.global_input['vector_cnn'][:, a, 0] = np.ones((self.n_rollout_threads, self.local_w, self.local_h)) * ((a+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) 
+                    for agent_id in range(self.num_agents):
+                        self.global_input['vector_cnn'][:, a, agent_id+1] = (nn.MaxPool2d(self.global_downscaling)(check(self.agent_merge_map[:, a, 2] * ((agent_id+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) ))).numpy()
+            
             if self.use_resnet:
                 for e in range(self.n_rollout_threads):
                     for i in range(4):
@@ -1035,16 +1036,6 @@ class HabitatRunner(Runner):
                     self.other_agent_rotation[e, a, 0] = locs[e, a, 2]
                 if self.use_fc_net:
                     self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
-            if not self.use_fc_net:
-                if self.use_resnet:
-                    self.global_input['vector_cnn'][:, a, 0] = np.ones((self.n_rollout_threads, 224, 224)) * ((a+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) 
-                    for agent_id in range(self.num_agents):
-                        for e in range(self.n_rollout_threads):
-                            self.global_input['vector_cnn'][e, a, agent_id+1] = np.resize(self.full_map[e, a, 2] * ((agent_id+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()), (self.res_w, self.res_h))
-                else:
-                    self.global_input['vector_cnn'][:, a, 0] = np.ones((self.n_rollout_threads, self.local_w, self.local_h)) * ((a+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) 
-                    for agent_id in range(self.num_agents):
-                        self.global_input['vector_cnn'][:, a, agent_id+1] = (nn.MaxPool2d(self.global_downscaling)(check(self.full_map[:, a, 2] * ((agent_id+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) ))).numpy()
             if self.use_oracle:
                 if self.use_center:
                     self.transform_map[:, a], self.local_merge_map[:, a] = self.oracle_transform(self.full_map, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
@@ -1083,6 +1074,17 @@ class HabitatRunner(Runner):
                             i += 1 
         
         for a in range(self.num_agents):
+            if not self.use_fc_net:
+                if self.use_resnet:
+                    self.global_input['vector_cnn'][:, a, 0] = np.ones((self.n_rollout_threads, 224, 224)) * ((a+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) 
+                    for agent_id in range(self.num_agents):
+                        for e in range(self.n_rollout_threads):
+                            self.global_input['vector_cnn'][e, a, agent_id+1] = np.resize(self.agent_merge_map[e, a, 2] * ((agent_id+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()), (self.res_w, self.res_h))
+                else:
+                    self.global_input['vector_cnn'][:, a, 0] = np.ones((self.n_rollout_threads, self.local_w, self.local_h)) * ((a+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) 
+                    for agent_id in range(self.num_agents):
+                        self.global_input['vector_cnn'][:, a, agent_id+1] = (nn.MaxPool2d(self.global_downscaling)(check(self.agent_merge_map[:, a, 2] * ((agent_id+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) ))).numpy()
+            
             if self.use_resnet:
                 for e in range(self.n_rollout_threads):
                     for i in range(4):
