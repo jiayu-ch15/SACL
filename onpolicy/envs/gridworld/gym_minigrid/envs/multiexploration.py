@@ -437,6 +437,8 @@ class MultiExplorationEnv(MultiRoomEnv):
             info['merge_explored_reward'] = merge_explored_reward * 0.02
             info['agent_explored_partial_reward'] = np.array(each_agent_partial_rewards) * 0.02
 
+        if self.use_irregular_room:
+            self.no_wall_size = self.explorable_size
         if delta_reward_all_map.sum() / self.no_wall_size >= self.target_ratio:#(self.width * self.height)
             done = True       
             self.merge_ratio_step = self.num_step            
