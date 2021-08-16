@@ -34,6 +34,9 @@ class MultiExplorationEnv(MultiRoomEnv):
         use_merge = True,
         use_local = True,
         use_single = True,
+        use_irregular_room = False,
+        use_fc_net = False,
+        use_orientation = False,
         use_same_location = True,
         use_complete_reward = True,
         use_multiroom = False,
@@ -49,6 +52,7 @@ class MultiExplorationEnv(MultiRoomEnv):
         self.use_same_location = use_same_location
         self.use_complete_reward = use_complete_reward
         self.use_multiroom = use_multiroom
+        self.use_irregular_room = use_irregular_room
         self.use_time_penalty = use_time_penalty
         self.maxNum = 5
         self.minNum = 2
@@ -68,6 +72,8 @@ class MultiExplorationEnv(MultiRoomEnv):
                         num_agents = num_agents, 
                         agent_view_size = agent_view_size, 
                         use_merge = use_merge,
+                        use_fc_net = use_fc_net,
+                        use_orientation = use_orientation,
                         use_local = use_local,
                         use_single = use_single,
                         )
@@ -90,7 +96,9 @@ class MultiExplorationEnv(MultiRoomEnv):
     def overall_gen_grid(self, width, height):
 
         if self.use_multiroom:
-            self._gen_grid(width, height)
+            self.multiroom_gen_grid(width, height)
+        elif self.use_irregular_room:
+            self.irregular_room_gen_grid(width, height)
         else:
             # Create the grid
             self.grid = Grid(width, height)
@@ -429,6 +437,8 @@ class MultiExplorationEnv(MultiRoomEnv):
             info['merge_explored_reward'] = merge_explored_reward * 0.02
             info['agent_explored_partial_reward'] = np.array(each_agent_partial_rewards) * 0.02
 
+        if self.use_irregular_room:
+            self.no_wall_size = self.explorable_size
         if delta_reward_all_map.sum() / self.no_wall_size >= self.target_ratio:#(self.width * self.height)
             done = True       
             self.merge_ratio_step = self.num_step            

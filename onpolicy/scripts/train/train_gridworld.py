@@ -74,6 +74,13 @@ def parse_args(args, parser):
                         help="use local information")
     parser.add_argument("--use_multiroom", action='store_true', default=False,
                         help="use multiroom")
+    parser.add_argument("--use_fc_net", action='store_true', default=False,
+                        help="use mlp net")  
+    parser.add_argument("--use_orientation", action='store_true', default=False,
+                        help="use agents' orientation info") 
+    parser.add_argument("--use_irregular_room", action='store_true', default=False,
+                        help="use irregular room")
+    parser.add_argument('--astar_cost_mode', type=str, default='normal', choices=['normal','utility'])
     parser.add_argument("--use_random_pos", action='store_true', default=False,
                         help="use complete reward")   
     parser.add_argument("--use_time_penalty", action='store_true', default=False,

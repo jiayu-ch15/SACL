@@ -19,7 +19,10 @@ def register(
     use_complete_reward = True,
     use_multiroom = False,
     use_time_penalty = False,
+    use_fc_net = False,
+    use_orientation = False,
     use_agent_id = False,
+    use_irregular_room = False,
     astar_cost_mode = "normal"
 ):
     assert id.startswith("MiniGrid-")
@@ -38,10 +41,13 @@ def register(
         'agent_pos': agent_pos,
         'use_merge': use_merge,
         'use_local': use_local,
+        'use_fc_net':use_fc_net,
+        'use_orientation':use_orientation,
         'use_single': use_single,
         'use_same_location': use_same_location,
         'use_complete_reward': use_complete_reward,
         'use_multiroom': use_multiroom,
+        'use_irregular_room': use_irregular_room,
         'use_time_penalty': use_time_penalty,
         'use_agent_id': use_agent_id,
         'astar_cost_mode' : astar_cost_mode

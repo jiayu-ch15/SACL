@@ -3,14 +3,14 @@ env="Habitat"
 scenario="pointnav_gibson"
 num_agents=2
 algo="mappo"
-exp="new_no_orientation_time_penalty_merge_partial_reward_rand55_rot_pos_center_merge_filter_local_ppo4"
+exp="new_no_orientation_nofc_time_penalty_merge_partial_reward_rand55_rot_pos_center_merge_local_ppo4"
 seed_max=1
 
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
 for seed in `seq ${seed_max}`;
 do
     echo "seed is ${seed}:"
-    CUDA_VISIBLE_DEVICES=0,1 python train/train_habitat.py --scenario_name ${scenario} \
+    CUDA_VISIBLE_DEVICES=1,2,0 python train/train_habitat.py --scenario_name ${scenario} \
     --env_name ${env} --algorithm_name ${algo} --experiment_name ${exp} --num_agents ${num_agents} \
     --split "train" --seed 1 --n_training_threads 1 --n_rollout_threads 9 --num_mini_batch 5 \
     --num_local_steps 15 --max_episode_length 300 --num_env_steps 3000000 --ppo_epoch 4 --gain 0.01 \
