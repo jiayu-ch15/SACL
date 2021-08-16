@@ -15,7 +15,7 @@ class GridWorldEnv(object):
         self.num_obstacles = args.num_obstacles
         self.use_single_reward = args.use_single_reward
         self.use_partial_reward = args.use_partial_reward
-        self.use_multiroom = args.use_multiroom
+        
         
         register(
             id = self.scenario_name,
@@ -28,10 +28,13 @@ class GridWorldEnv(object):
             use_merge = args.use_merge,
             use_local = args.use_local,
             use_single = args.use_single,
+            use_fc_net = args.use_fc_net,
+            use_orientation = args.use_orientation,
             use_same_location = args.use_same_location,
             use_complete_reward = args.use_complete_reward,
             use_agent_id = args.use_agent_id,
-            use_multiroom = self.use_multiroom,
+            use_multiroom = args.use_multiroom,
+            use_irregular_room = args.use_irregular_room,
             use_time_penalty = args.use_time_penalty,
             entry_point = 'onpolicy.envs.gridworld.gym_minigrid.envs:MultiExplorationEnv',
             astar_cost_mode = args.astar_cost_mode

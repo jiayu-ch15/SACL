@@ -800,7 +800,7 @@ class HabitatRunner(Runner):
                     merge_map[:, i+2] += self.agent_merge_map[:, agent_id, i+2] 
             elif self.use_filter:   
                 for i in range(2):
-                    agent_map = np.where((self.agent_merge_map[:, agent_id, 1]!=0) & (self.agent_merge_map[:, a, 1]!=0), self.agent_merge_map[:, a, i],  np.maximum(self.agent_merge_map[:, agent_id, i], self.agent_merge_map[:, a, i]))
+                    agent_map = np.where( self.agent_merge_map[:, a, 1]!=0 , self.agent_merge_map[:, a, i],  self.agent_merge_map[:, agent_id, i])
                     merge_map[:, i] = np.maximum(agent_map, merge_map[:, i])
                     merge_map[:, i+2] += self.agent_merge_map[:, agent_id, i+2] 
             for i in range(2):  

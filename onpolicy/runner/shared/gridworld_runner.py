@@ -37,6 +37,7 @@ class GridWorldRunner(Runner):
                 self.trainer.policy.lr_decay(episode, episodes)
 
             for step in range(self.episode_length):
+                ic(step)
                 # Sample actions
                 values, actions, action_log_probs, rnn_states, rnn_states_critic = self.collect(step)
                     
@@ -91,12 +92,17 @@ class GridWorldRunner(Runner):
         if self.use_merge:
             obs['global_merge_obs'] = np.zeros((len(dict_obs), self.num_agents, 4, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size), dtype=np.float32)
             merge_pos_map = np.zeros((len(dict_obs), self.full_w, self.full_h), dtype=np.float32)
-            obs['global_direction'] = np.zeros((len(dict_obs), self.num_agents, self.num_agents, 4), dtype=np.float32)
-        else:
-            obs['global_direction'] = np.zeros((len(dict_obs), self.num_agents, 1, 4), dtype=np.float32)
+        if self.use_orientation:
+            if self.use_merge:
+                obs['global_direction'] = np.zeros((len(dict_obs), self.num_agents, self.num_agents, 4), dtype=np.float32)
+            else:
+                obs['global_direction'] = np.zeros((len(dict_obs), self.num_agents, 1, 4), dtype=np.float32)
         if self.use_single:
             obs['global_obs'] = np.zeros((len(dict_obs), self.num_agents, 4, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size), dtype=np.float32)
-        obs['vector'] = np.zeros((len(dict_obs), self.num_agents, self.num_agents), dtype=np.float32)        
+        if self.use_fc_net:
+            obs['vector'] = np.zeros((len(dict_obs), self.num_agents, self.num_agents), dtype=np.float32)
+        else:
+            obs['vector_cnn'] = np.zeros((len(dict_obs), self.num_agents, self.num_agents+1, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size), dtype=np.float32)     
         agent_pos_map = np.zeros((len(dict_obs), self.num_agents, self.full_w, self.full_h), dtype=np.float32)
         if self.use_merge:
             obs['global_merge_obs'] = np.zeros((len(dict_obs), self.num_agents, 4, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size), dtype=np.float32)
@@ -130,16 +136,21 @@ class GridWorldRunner(Runner):
                     obs['global_obs'][e, agent_id, 2] = agent_pos_map[e, agent_id][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size] / 255.0
                     obs['global_obs'][e, agent_id, 3] = self.eval_all_agent_pos_map[e, agent_id][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size] / 255.0
                 
-                obs['vector'][e, agent_id] = np.eye(self.num_agents)[agent_id]
-                i = 0
-                obs['global_direction'][e, agent_id, i] = np.eye(4)[infos[e]['agent_direction'][agent_id]]
-                if self.use_merge:
-                    for l in range(self.num_agents):
-                        if l!= agent_id: 
-                            i += 1 
-                            obs['global_direction'][e, agent_id, i] = np.eye(4)[infos[e]['agent_direction'][l]]                  
+                if self.use_fc_net:
+                    obs['vector'][e, agent_id] = np.eye(self.num_agents)[agent_id]
+                else:
+                    obs['vector_cnn'][e, agent_id, 0] = np.ones((self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size))* (agent_id+1) / np.array([aa+1 for aa in range(self.num_agents)]).sum()
+                if self.use_orientation:
+                    i = 0
+                    obs['global_direction'][e, agent_id, i] = np.eye(4)[infos[e]['agent_direction'][agent_id]]
+                    if self.use_merge:
+                        for l in range(self.num_agents):
+                            if l!= agent_id: 
+                                i += 1 
+                                obs['global_direction'][e, agent_id, i] = np.eye(4)[infos[e]['agent_direction'][l]]                  
 
-        
+            if not self.use_fc_net:
+                obs['vector_cnn'][e, :, 1:] = np.expand_dims(obs['global_obs'][e, :, 2], 1).repeat(self.num_agents, axis=1)
         if self.visualize_input:
             self.visualize_obs(self.fig, self.ax, obs)
 
@@ -151,16 +162,25 @@ class GridWorldRunner(Runner):
             obs['image'] = np.zeros((len(dict_obs), self.num_agents, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size, 3), dtype=np.float32)
 
         if self.use_merge:
-            obs['global_direction'] = np.zeros((len(dict_obs), self.num_agents, self.num_agents, 4), dtype=np.float32)
             obs['global_merge_obs'] = np.zeros((len(dict_obs), self.num_agents, 4, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size), dtype=np.float32)
             merge_pos_map = np.zeros((len(dict_obs), self.full_w, self.full_h), dtype=np.float32)
+            self.merge_map = np.zeros((len(dict_obs), self.full_w, self.full_h), dtype=np.float32)
+            if self.use_orientation:
+                obs['global_direction'] = np.zeros((len(dict_obs), self.num_agents, self.num_agents, 4), dtype=np.float32)
+                #obs['global_merge_goal'] = np.zeros((len(dict_obs), self.num_agents, 2, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size), dtype=np.float32)
         else:
-            obs['global_direction'] = np.zeros((len(dict_obs), self.num_agents, 1, 4), dtype=np.float32)
+            if self.use_orientation:
+                obs['global_direction'] = np.zeros((len(dict_obs), self.num_agents, 1, 4), dtype=np.float32)
+        
         if self.use_single:
             obs['global_obs'] = np.zeros((len(dict_obs), self.num_agents, 4, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size), dtype=np.float32)
 
-        obs['vector'] = np.zeros((len(dict_obs), self.num_agents, self.num_agents), dtype=np.float32)
+        if self.use_fc_net:
+            obs['vector'] = np.zeros((len(dict_obs), self.num_agents, self.num_agents), dtype=np.float32)
+        else:
+            obs['vector_cnn'] = np.zeros((len(dict_obs), self.num_agents, self.num_agents+1, self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size), dtype=np.float32)
         agent_pos_map = np.zeros((len(dict_obs), self.num_agents, self.full_w, self.full_h), dtype=np.float32)
+        
         for e in range(len(dict_obs)):
             for agent_id in range(self.num_agents):
                 agent_pos_map[e , agent_id, infos[e]['current_agent_pos'][agent_id][0], infos[e]['current_agent_pos'][agent_id][1]] = (agent_id + 1) * self.augment
@@ -172,6 +192,7 @@ class GridWorldRunner(Runner):
                         self.all_merge_pos_map[e, infos[e]['current_agent_pos'][agent_id][0], infos[e]['current_agent_pos'][agent_id][1]] += (agent_id + 1) * self.augment
 
         for e in range(len(dict_obs)):
+            self.merge_map = infos[e]['explored_all_map'][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size] / 255.0
             for agent_id in range(self.num_agents):
                 if self.use_local:
                     obs['image'][e, agent_id] = cv2.resize(infos[e]['agent_local_map'][agent_id], (self.full_w - 2*self.agent_view_size, self.full_h - 2*self.agent_view_size))
@@ -186,16 +207,22 @@ class GridWorldRunner(Runner):
                     obs['global_obs'][e, agent_id, 2] = agent_pos_map[e, agent_id][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size] / 255.0
                     obs['global_obs'][e, agent_id, 3] = self.all_agent_pos_map[e, agent_id][self.agent_view_size:self.full_w-self.agent_view_size, self.agent_view_size:self.full_w-self.agent_view_size] / 255.0
 
-                obs['vector'][e, agent_id] = np.eye(self.num_agents)[agent_id]
+                if self.use_fc_net:
+                    obs['vector'][e, agent_id] = np.eye(self.num_agents)[agent_id]
+                else:
+                    obs['vector_cnn'][e, agent_id, 0] = np.ones((self.full_w-2*self.agent_view_size, self.full_h-2*self.agent_view_size))* (agent_id+1) / np.array([aa+1 for aa in range(self.num_agents)]).sum()
 
-                i = 0
-                obs['global_direction'][e, agent_id, i] = np.eye(4)[infos[e]['agent_direction'][agent_id]]
-                if self.use_merge:
-                    for l in range(self.num_agents):
-                        if l!= agent_id: 
-                            i += 1 
-                            obs['global_direction'][e, agent_id, i] = np.eye(4)[infos[e]['agent_direction'][l]]                  
+                if self.use_orientation:
 
+                    i = 0
+                    obs['global_direction'][e, agent_id, i] = np.eye(4)[infos[e]['agent_direction'][agent_id]]
+                    if self.use_merge:
+                        for l in range(self.num_agents):
+                            if l!= agent_id: 
+                                i += 1 
+                                obs['global_direction'][e, agent_id, i] = np.eye(4)[infos[e]['agent_direction'][l]]                  
+            if not self.use_fc_net:
+                obs['vector_cnn'][e, :, 1:] = np.expand_dims(obs['global_obs'][e, :, 2], 1).repeat(self.num_agents, axis=1)
         if self.visualize_input:
             self.visualize_obs(self.fig, self.ax, obs)
 
@@ -222,6 +249,8 @@ class GridWorldRunner(Runner):
         self.use_single = self.all_args.use_single
         self.use_local = self.all_args.use_local
         self.visualize_input = self.all_args.visualize_input
+        self.use_orientation = self.all_args.use_orientation
+        self.use_fc_net = self.all_args.use_fc_net
         self.augment = 255 // (np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum())
         if self.visualize_input:
             plt.ion()
