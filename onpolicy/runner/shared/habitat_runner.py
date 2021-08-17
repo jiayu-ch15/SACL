@@ -12,6 +12,7 @@ import cv2
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+import copy
 
 from onpolicy.utils.util import update_linear_schedule
 from onpolicy.runner.shared.base_runner import Runner
@@ -77,6 +78,7 @@ class HabitatRunner(Runner):
 
         # Compute Global policy input
         self.first_compute_global_input()
+        
         if not self.use_centralized_V:
             self.share_global_input = self.global_input.copy()
 
@@ -129,8 +131,7 @@ class HabitatRunner(Runner):
                 global_step = (step // self.num_local_steps) % self.episode_length
 
                 del self.last_obs
-                self.last_obs = self.obs.copy()
-
+                self.last_obs = copy.deepcopy(self.obs)
                 # Sample actions
                 actions_env = self.compute_local_action()
 
@@ -169,7 +170,7 @@ class HabitatRunner(Runner):
                 if step == self.max_episode_length - 1:
                     self.init_map_and_pose()
                     del self.last_obs
-                    self.last_obs = self.obs.copy()
+                    self.last_obs = copy.deepcopy(self.obs)
                     self.trans = [infos[e]['trans'] for e in range(self.n_rollout_threads)]
                     self.rotation = [infos[e]['rotation'] for e in range(self.n_rollout_threads)]
                     self.agent_trans = [infos[e]['agent_trans'] for e in range(self.n_rollout_threads)]
@@ -1162,13 +1163,13 @@ class HabitatRunner(Runner):
         actions, rnn_states = self.trainer.policy.act(concat_obs,
                                     np.concatenate(rnn_states),
                                     np.concatenate(self.global_masks),
-                                    deterministic=True)
+                                    deterministic = True)
         
         rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
 
         # Compute planner inputs
         self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(actions)), self.n_rollout_threads))
-        
+        print(self.global_goal)
         return rnn_states
     
     def eval_compute_single_global_goal(self, e, a, rnn_states):      
@@ -1648,8 +1649,8 @@ class HabitatRunner(Runner):
                 sub_ax[i].set_xticklabels([])
                 if agent_id < self.num_agents and i<4:
                     sub_ax[i].imshow(self.local_map[0, agent_id, i])
-                elif agent_id >= self.num_agents and i<2:
-                    sub_ax[i].imshow(self.filter_local_map[0, agent_id-self.num_agents, i])
+                elif agent_id >= self.num_agents and i<4:
+                    sub_ax[i].imshow(self.local_merge_map[0, agent_id-self.num_agents, i])
                 # elif agent_id >= self.num_agents and i<2:
                 #     sub_ax[i].imshow(self.obstacle_map[0][agent_id-self.num_agents])
                 #elif i < 5:
@@ -1687,7 +1688,7 @@ class HabitatRunner(Runner):
             self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]
             self.init_pose = [infos[e]['init_pose'] for e in range(self.n_rollout_threads)]
             self.stuck_flag = np.zeros((self.n_rollout_threads, self.num_agents))
-            self.last_pos = self.full_pose
+            self.last_pos = self.full_pose.copy()
 
             # Predict map from frame 1:
             self.run_slam_module(self.obs, self.obs, infos)
@@ -1713,15 +1714,15 @@ class HabitatRunner(Runner):
             for step in range(self.max_episode_length):
                 ic(step)
                 local_step = step % self.num_local_steps
-
-                self.last_obs = self.obs.copy()
+                
+                self.last_obs = copy.deepcopy(self.obs)
 
                 # Sample actions
                 actions_env = self.compute_local_action()
 
                 # Obser reward and next obs
                 self.obs, reward, dones, infos = self.envs.step(actions_env)
-               
+                
                 for e in range(self.n_rollout_threads):
                     for key in self.sum_env_info_keys:
                         if key in infos[e].keys():
@@ -1741,7 +1742,7 @@ class HabitatRunner(Runner):
                                 self.env_info[key][e] = infos[e][key]
                     if self.env_info['sum_merge_explored_ratio'][e] <= self.all_args.explored_ratio_threshold:
                         self.env_info['merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold][e] = self.env_info['merge_global_goal_num'][e]
-                
+               
                 self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
                 self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
                 self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
@@ -1751,7 +1752,7 @@ class HabitatRunner(Runner):
 
                 self.global_masks *= self.local_masks
 
-                self.run_slam_module(self.last_obs, self.obs, infos)
+                self.run_slam_module(self.last_obs, self.obs, infos) 
                 self.update_local_map()
                 self.update_map_and_pose(update = False)
                 for agent_id in range(self.num_agents):
@@ -1833,7 +1834,7 @@ class HabitatRunner(Runner):
             self.init_pose = [infos[e]['init_pose'] for e in range(self.n_rollout_threads)]
             self.merge_map = np.zeros((self.n_rollout_threads, self.num_agents, 4, self.full_w, self.full_h), dtype=np.float32)
             self.stuck_flag = np.zeros((self.n_rollout_threads, self.num_agents))
-            self.last_pos = self.full_pose
+            self.last_pos = self.full_pose.copy()
             # Predict map from frame 1:
             self.run_slam_module(self.obs, self.obs, infos)
 
@@ -1855,12 +1856,11 @@ class HabitatRunner(Runner):
             # Output stores local goals as well as the the ground-truth action
             self.local_output = self.envs.get_short_term_goal(self.local_input)
             self.local_output = np.array(self.local_output, dtype = np.long)
-            
             for step in range(self.max_episode_length):
                 ic(step)
                 self.env_step = step + 1
 
-                self.last_obs = self.obs.copy()
+                self.last_obs = copy.deepcody(self.obs)
 
                 # Sample actions
                 actions_env = self.compute_local_action()
@@ -1995,15 +1995,12 @@ class HabitatRunner(Runner):
             self.local_output = self.envs.get_short_term_goal(self.local_input)
             self.local_output = np.array(self.local_output, dtype = np.long)
             async_local_step = np.ones((self.n_rollout_threads, self.num_agents))*-1
-            period_step = np.zeros((self.n_rollout_threads, self.num_agents))
-            agent_period_ratio = np.zeros((self.n_rollout_threads, self.num_agents))
             for step in range(self.max_episode_length):
                 ic(step)
                 local_step = step % self.num_local_steps
                 async_local_step += 1
-                period_step += 1
 
-                self.last_obs = self.obs.copy()
+                self.last_obs = copy.deepcopy(self.obs)
                 
                 # Sample actions
                 actions_env = self.compute_local_action()
@@ -2018,7 +2015,6 @@ class HabitatRunner(Runner):
                             if key == 'merge_explored_ratio' and self.use_eval:
                                 self.auc_infos['merge_auc'][episode, e, step] = self.auc_infos['merge_auc'][episode, e, step-1] + np.array(infos[e][key])
                             if key == 'explored_ratio' :
-                                agent_period_ratio[e] += infos[e]['explored_ratio']
                                 if self.use_eval:
                                     self.auc_infos['agent_auc'][episode, e, :, step] = self.auc_infos['agent_auc'][episode, e, :, step-1] + np.array(infos[e][key])
                     for key in self.equal_env_info_keys:
@@ -2066,8 +2062,6 @@ class HabitatRunner(Runner):
                             # Compute Global goal
                             rnn_states = self.eval_compute_single_global_goal(e, a, rnn_states)
                             async_local_step[e, a] = -1
-                            agent_period_ratio[e, a] = 0
-                            period_step[e, a] = 0
                             self.env_info['merge_global_goal_num'] += 1
                 
                 # Local Policy

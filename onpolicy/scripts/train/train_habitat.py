@@ -137,6 +137,10 @@ def parse_args(args, parser):
                         help="randomize scene in a thread every k episodes")
     parser.add_argument('--map_threshold', type=float, default=0.0,
                         help="lower than map_threshold will be setted to zero")
+    parser.add_argument('--explored_ratio_down_threshold', type=float, default=0.9,
+                        help="explored_ratio_down_threshold")
+    parser.add_argument('--explored_ratio_up_threshold', type=float, default=0.95,
+                        help="explored_ratio_up_threshold")
     parser.add_argument('--use_different_start_pos', action='store_true',
                         default=False, help="by default True, use random agent position at the initialization")
     parser.add_argument('--use_fixed_start_pos', action='store_true',

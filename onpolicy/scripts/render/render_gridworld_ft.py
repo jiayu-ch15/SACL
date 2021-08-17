@@ -72,6 +72,7 @@ def parse_args(args, parser):
     parser.add_argument("--visualize_input", action='store_true', default=False,
                         help="by default, do not render the env during training. If set, start render. Note: something, the environment has internal render process which is not controlled by this hyperparam.")
     parser.add_argument('--pretrained_global_resnet', type=int, default=1)
+    
 
     parser.add_argument("--apf_cluster_radius", type=float, default=0, help="APF. radius of clusters")
     parser.add_argument("--apf_k_attract", type=float, default=1.0, help="APF. coefficient of attract by frontiers")
