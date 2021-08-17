@@ -1858,6 +1858,8 @@ class HabitatRunner(Runner):
             self.local_output = np.array(self.local_output, dtype = np.long)
             for step in range(self.max_episode_length):
                 ic(step)
+                if step > 0:
+                    break
                 self.env_step = step + 1
 
                 self.last_obs = copy.deepcody(self.obs)

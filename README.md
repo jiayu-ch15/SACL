@@ -44,7 +44,7 @@
    pip install torch==1.5.1+cu101 torchvision==0.6.1+cu101 -f https://download.pytorch.org/whl/torch_stable.html
    cd onpolicy
    pip install -e . 
-   pip install wandb icecream setproctitle gym seaborn tensorboardX slackweb psutil
+   pip install wandb icecream setproctitle gym seaborn tensorboardX slackweb psutil slackweb pyastar2d einops
 ```
 
 ### 1.2 hyperparameters
