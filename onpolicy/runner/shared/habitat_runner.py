@@ -1858,6 +1858,8 @@ class HabitatRunner(Runner):
             
             for step in range(self.max_episode_length):
                 ic(step)
+                if step > 0:
+                    break
                 self.env_step = step + 1
 
                 self.last_obs = self.obs.copy()
