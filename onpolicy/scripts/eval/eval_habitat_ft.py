@@ -154,6 +154,8 @@ def parse_args(args, parser):
                         default=False, help="by default True, use filter local map to planning")
     parser.add_argument('--use_fc_net', action='store_true',
                         default=False, help="by default True, use fc net")
+    parser.add_argument('--use_own', action='store_true',
+                        default=False, help="by default True, use own vector cnn")
     parser.add_argument('--pretrained_global_resnet', type=int, default=1)
 
 
