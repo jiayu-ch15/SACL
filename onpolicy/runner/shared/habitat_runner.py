@@ -1879,7 +1879,7 @@ class HabitatRunner(Runner):
                 ic(step)
                 self.env_step = step + 1
 
-                self.last_obs = copy.deepcody(self.obs)
+                self.last_obs = copy.deepcopy(self.obs)
 
                 # Sample actions
                 actions_env = self.compute_local_action()
