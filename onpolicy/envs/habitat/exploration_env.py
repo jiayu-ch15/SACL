@@ -202,6 +202,10 @@ class Exploration_Env(habitat.RLEnv):
         merge_overlap = False
         self.path_length_flag = True
         path_length_flag = False
+        self.complete_up_flag = -1
+        self.complete_down_flag = -1
+        self.agent_complete_up_flag = np.ones(self.num_agents)*-1
+        self.agent_complete_down_flag = np.ones(self.num_agents)*-1
         self.ratio = np.zeros(self.num_agents)
         self.path_length = np.zeros(self.num_agents)
         
@@ -681,14 +685,16 @@ class Exploration_Env(habitat.RLEnv):
         self.merge_ratio += merge_explored_ratio
         
         if self.merge_ratio >= self.explored_ratio_up_threshold:
-            if self.use_complete_reward:
+            if self.use_complete_reward and self.complete_up_flag == -1:
                 self.info['merge_explored_reward'] += 10.0 * self.merge_ratio
+                self.complete_up_flag = 1
             if self.merge_explored_ratio_step_95 == -1.0:
                 self.merge_explored_ratio_step_95 = self.timestep
                 self.info['merge_explored_ratio_step_0.95'] = self.timestep
         elif self.merge_ratio >= self.explored_ratio_down_threshold:
-            if self.use_complete_reward:
+            if self.use_complete_reward and self.complete_down_flag == -1:
                 self.info['merge_explored_reward'] += 2.0 * self.merge_ratio
+                self.complete_down_flag = 1
             if self.merge_explored_ratio_step == -1.0:
                 self.merge_explored_ratio_step = self.timestep
                 self.info['merge_explored_ratio_step'] = self.timestep
@@ -696,11 +702,13 @@ class Exploration_Env(habitat.RLEnv):
         for agent_id in range(self.num_agents):
             self.ratio[agent_id] += agent_explored_ratio[agent_id]
             if self.ratio[agent_id] >= self.explored_ratio_up_threshold:
-                if self.use_complete_reward:
+                if self.use_complete_reward and self.agent_complete_up_flag[agent_id] == -1:
                     self.info['explored_reward'][agent_id] += 10.0 * self.ratio[agent_id]
+                    self.agent_complete_up_flag[agent_id] = 1
             elif self.ratio[agent_id] >= self.explored_ratio_down_threshold:
-                if self.use_complete_reward:
+                if self.use_complete_reward and self.agent_complete_down_flag[agent_id] == -1:
                     self.info['explored_reward'][agent_id] += 2.0 * self.ratio[agent_id]
+                    self.agent_complete_down_flag[agent_id] = 1
                 if self.explored_ratio_step[agent_id] == -1.0:
                     self.explored_ratio_step[agent_id] = self.timestep
                     self.info["agent{}_explored_ratio_step".format(agent_id)] = self.timestep
