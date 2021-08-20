@@ -176,7 +176,9 @@ def parse_args(args, parser):
                         default=False, help="by default True, use agent orientation info")
     parser.add_argument('--use_filter_local', action='store_true',
                         default=False, help="by default True, use filter local map to planning")
-    parser.add_argument('--use_fc_net', action='store_true',
+    parser.add_argument('--use_vector_agent_id', action='store_true',
+                        default=False, help="by default True, use fc net")
+    parser.add_argument('--use_cnn_agent_id', action='store_true',
                         default=False, help="by default True, use fc net")
     parser.add_argument('--use_own', action='store_true',
                         default=False, help="by default True, use own vector cnn")

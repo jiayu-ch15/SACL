@@ -20,7 +20,8 @@ class MultiHabitatEnv(object):
         self.use_single = args.use_single
         self.use_merge_goal = args.use_merge_goal
         self.use_orientation = args.use_orientation
-        self.use_fc_net = args.use_fc_net
+        self.use_vector_agent_id = args.use_vector_agent_id
+        self.use_cnn_agent_id = args.use_cnn_agent_id
         self.use_own = args.use_own
         self.use_one = args.use_one
         
@@ -35,68 +36,41 @@ class MultiHabitatEnv(object):
         local_w, local_h = int(full_w / args.global_downscaling), \
             int(full_h / args.global_downscaling)
 
+        space_w, space_h = 224, 224 if self.use_resnet else local_w, local_h 
         global_observation_space = {}
-        #global_observation_space['global_obs'] = gym.spaces.Box(
-            #low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
+        
         if self.use_merge:
-            if self.use_resnet:
-                global_observation_space['global_merge_obs'] = gym.spaces.Box(
-                    low=0, high=1, shape=(8, 224, 224), dtype='uint8')
-            else:
-                global_observation_space['global_merge_obs'] = gym.spaces.Box(
-                    low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
+            global_observation_space['global_merge_obs'] = gym.spaces.Box(
+                    low=0, high=1, shape=(8, space_w, space_h), dtype='uint8')
         if self.use_merge_goal:
-            if self.use_resnet:
-                global_observation_space['global_merge_goal'] = gym.spaces.Box(
-                    low=0, high=1, shape=(2, 224, 224), dtype='uint8')
-            else:
-                global_observation_space['global_merge_goal'] = gym.spaces.Box(
-                    low=0, high=1, shape=(2, local_w, local_h), dtype='uint8')
+            global_observation_space['global_merge_goal'] = gym.spaces.Box(
+                    low=0, high=1, shape=(2, space_w, space_h), dtype='uint8')
         if self.use_single:
-            if self.use_resnet:
-                global_observation_space['global_obs'] = gym.spaces.Box(
-                    low=0, high=1, shape=(8, 224, 224), dtype='uint8')
-            else:
-                global_observation_space['global_obs'] = gym.spaces.Box(
-                    low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
+            global_observation_space['global_obs'] = gym.spaces.Box(
+                    low=0, high=1, shape=(8, space_w, space_h), dtype='uint8')
         if self.use_orientation:
             global_observation_space['global_orientation'] = gym.spaces.Box(
                 low=-1, high=1, shape=(1,), dtype='long')
             global_observation_space['other_global_orientation'] = gym.spaces.Box(
                 low=-1, high=1, shape=(self.num_agents-1,), dtype='long')
-        if self.use_fc_net:
+        if self.use_vector_agent_id:
             global_observation_space['vector'] = gym.spaces.Box(
                 low=-1, high=1, shape=(self.num_agents,), dtype='float')
-        else:
-            if self.use_resnet:
-                if self.use_one:
-                    global_observation_space['vector_cnn'] = gym.spaces.Box(
-                        low=0, high=1, shape=(1, 224, 224), dtype='uint8')
-                elif self.use_own:
-                    global_observation_space['vector_cnn'] = gym.spaces.Box(
-                        low=0, high=1, shape=(2, 224, 224), dtype='uint8')
-                else:
-                    global_observation_space['vector_cnn'] = gym.spaces.Box(
-                            low=0, high=1, shape=(self.num_agents+1, 224, 224), dtype='uint8')
+        if self.use_cnn_agent_id:
+            if self.use_one:
+                vector_cnn_channel = 1
+            elif self.use_own:
+                vector_cnn_channel = 2
             else:
-                if self.use_one:
-                    global_observation_space['vector_cnn'] = gym.spaces.Box(
-                        low=0, high=1, shape=(1, local_w, local_h), dtype='uint8')
-                elif self.use_own:
-                    global_observation_space['vector_cnn'] = gym.spaces.Box(
-                            low=0, high=1, shape=(2, local_w, local_h), dtype='uint8')
-                else:
-                    global_observation_space['vector_cnn'] = gym.spaces.Box(
-                            low=0, high=1, shape=(self.num_agents+1, local_w, local_h), dtype='uint8')
+                vector_cnn_channel = self.num_agents + 1
+
+            global_observation_space['vector_cnn'] = gym.spaces.Box(
+                            low=0, high=1, shape=(vector_cnn_channel, space_w, space_h), dtype='uint8')
        
         share_global_observation_space = global_observation_space.copy()
         if self.use_centralized_V:
-            if self.use_resnet:
-                share_global_observation_space['gt_map'] = gym.spaces.Box(
-                    low=0, high=1, shape=(1, 224, 224), dtype='uint8')
-            else:
-                share_global_observation_space['gt_map'] = gym.spaces.Box(
-                    low=0, high=1, shape=(1, local_w, local_h), dtype='uint8')
+            share_global_observation_space['gt_map'] = gym.spaces.Box(
+                    low=0, high=1, shape=(1, space_w, space_h), dtype='uint8')
             
         global_observation_space = gym.spaces.Dict(global_observation_space)
         share_global_observation_space = gym.spaces.Dict(share_global_observation_space)

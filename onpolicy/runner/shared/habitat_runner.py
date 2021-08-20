@@ -346,7 +346,8 @@ class HabitatRunner(Runner):
         self.use_sum = self.all_args.use_sum
         self.use_orientation = self.all_args.use_orientation
         self.use_filter_local = self.all_args.use_filter_local
-        self.use_fc_net = self.all_args.use_fc_net
+        self.use_vector_agent_id = self.all_args.use_vector_agent_id
+        self.use_cnn_agent_id = self.all_args.use_cnn_agent_id
         self.use_own = self.all_args.use_own
         self.use_one = self.all_args.use_one
         self.use_new_trace = self.all_args.use_new_trace
@@ -500,9 +501,9 @@ class HabitatRunner(Runner):
         if self.use_orientation:
             self.global_input['global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, 1), dtype=np.long)
             self.global_input['other_global_orientation'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents-1), dtype=np.long)
-        if self.use_fc_net:    
+        if self.use_vector_agent_id:    
             self.global_input['vector'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents), dtype=np.float32)
-        else:
+        if self.use_cnn_agent_id:
             if self.use_resnet:
                 if self.use_one:
                     self.global_input['vector_cnn'] = np.zeros((self.n_rollout_threads, self.num_agents, 1, 224, 224), dtype=np.float32)
@@ -517,6 +518,7 @@ class HabitatRunner(Runner):
                     self.global_input['vector_cnn'] = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.local_w, self.local_h), dtype=np.float32)
                 else:
                     self.global_input['vector_cnn'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents+1, self.local_w, self.local_h), dtype=np.float32)
+        
         self.share_global_input = self.global_input.copy()
         
         if self.use_centralized_V:
@@ -914,7 +916,7 @@ class HabitatRunner(Runner):
                 if self.use_orientation:
                     self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
                     self.other_agent_rotation[e, a, 0] = locs[e, a, 2]
-                if self.use_fc_net:
+                if self.use_vector_agent_id:
                     self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
                         
             if self.use_oracle:
@@ -941,9 +943,9 @@ class HabitatRunner(Runner):
                     global_goal_map[:, a] = self.center_transform(merge_point_map, a, 2)
                 else:
                     global_goal_map[:, a] = self.point_transform(self.global_goal, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
-            if not self.use_fc_net:
+            if self.use_cnn_agent_id:
                 if self.use_resnet:
-                    self.global_input['vector_cnn'][:, a, 0] = np.ones((self.n_rollout_threads, 224, 224)) * ((a+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) 
+                    self.global_input['vector_cnn'][:, a, 0] = np.ones((self.n_rollout_threads, self.res_h, self.res_h)) * ((a+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) 
                     for e in range(self.n_rollout_threads):
                         if not self.use_one:
                             if self.use_own:
@@ -1061,7 +1063,7 @@ class HabitatRunner(Runner):
                 if self.use_orientation:
                     self.global_input['global_orientation'][e, a, 0] = int((locs[e, a, 2] + 180.0) / 5.)
                     self.other_agent_rotation[e, a, 0] = locs[e, a, 2]
-                if self.use_fc_net:
+                if self.use_vector_agent_id:
                     self.global_input['vector'][e, a] = np.eye(self.num_agents)[a]
             if self.use_oracle:
                 if self.use_center:
@@ -1088,7 +1090,7 @@ class HabitatRunner(Runner):
                 else:
                     global_goal_map[:, a] = self.point_transform(self.global_goal, self.trans, self.rotation, self.agent_trans, self.agent_rotation, a)
 
-            if not self.use_fc_net:
+            if self.use_cnn_agent_id:
                 if self.use_resnet:
                     self.global_input['vector_cnn'][:, a, 0] = np.ones((self.n_rollout_threads, 224, 224)) * ((a+1) /np.array([aa+1 for aa in range(self.num_agents)]).sum()) 
                     for e in range(self.n_rollout_threads):
