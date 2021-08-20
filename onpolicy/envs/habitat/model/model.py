@@ -215,8 +215,9 @@ class Neural_SLAM_Module(nn.Module):
         obs = check(obs).to(**self.tpdv)
         obs_last = check(obs_last).to(**self.tpdv)
         poses = check(poses).to(**self.tpdv)
-        obs_proj = check(obs_proj).to(**self.tpdv)
-        obs_proj_last = check(obs_proj_last).to(**self.tpdv)
+        if self.use_proj_map:
+            obs_proj = check(obs_proj).to(**self.tpdv)
+            obs_proj_last = check(obs_proj_last).to(**self.tpdv)
         if maps is not None:
             maps = check(maps).to(**self.tpdv)
         if explored is not None:

@@ -22,6 +22,7 @@ class MultiHabitatEnv(object):
         self.use_orientation = args.use_orientation
         self.use_fc_net = args.use_fc_net
         self.use_own = args.use_own
+        self.use_one = args.use_one
         
 
         config_env, config_baseline, dataset = self.get_config(args, rank)
@@ -68,14 +69,20 @@ class MultiHabitatEnv(object):
                 low=-1, high=1, shape=(self.num_agents,), dtype='float')
         else:
             if self.use_resnet:
-                if self.use_own:
+                if self.use_one:
+                    global_observation_space['vector_cnn'] = gym.spaces.Box(
+                        low=0, high=1, shape=(1, 224, 224), dtype='uint8')
+                elif self.use_own:
                     global_observation_space['vector_cnn'] = gym.spaces.Box(
                         low=0, high=1, shape=(2, 224, 224), dtype='uint8')
                 else:
                     global_observation_space['vector_cnn'] = gym.spaces.Box(
                             low=0, high=1, shape=(self.num_agents+1, 224, 224), dtype='uint8')
             else:
-                if self.use_own:
+                if self.use_one:
+                    global_observation_space['vector_cnn'] = gym.spaces.Box(
+                        low=0, high=1, shape=(1, local_w, local_h), dtype='uint8')
+                elif self.use_own:
                     global_observation_space['vector_cnn'] = gym.spaces.Box(
                             low=0, high=1, shape=(2, local_w, local_h), dtype='uint8')
                 else:

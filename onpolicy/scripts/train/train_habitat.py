@@ -180,6 +180,14 @@ def parse_args(args, parser):
                         default=False, help="by default True, use fc net")
     parser.add_argument('--use_own', action='store_true',
                         default=False, help="by default True, use own vector cnn")
+    parser.add_argument('--use_merge_mapper', action='store_true',
+                        default=False, help="by default True, use merge_mapper")
+    parser.add_argument('--use_depth_proj', action='store_true',
+                        default=False, help="by default True, use_depth_proj")
+    parser.add_argument('--use_depth', action='store_true',
+                        default=False, help="by default True, use_depth_info")
+    parser.add_argument('--use_one', action='store_true',
+                        default=False, help="by default True, use_one_vector cnn")
     parser.add_argument('--pretrained_global_resnet', type=int, default=1)     
                         
 

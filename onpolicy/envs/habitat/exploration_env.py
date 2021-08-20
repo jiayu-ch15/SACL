@@ -73,6 +73,9 @@ class Exploration_Env(habitat.RLEnv):
         self.use_proj_map = args.use_proj_map
         self.explored_ratio_down_threshold = args.explored_ratio_down_threshold
         self.explored_ratio_up_threshold = args.explored_ratio_up_threshold
+        self.use_merge_mapper = args.use_merge_mapper
+        self.use_depth_proj = args.use_depth_proj
+        self.use_depth = args.use_depth
 
         self.num_actions = 3
         self.dt = 10
@@ -113,11 +116,12 @@ class Exploration_Env(habitat.RLEnv):
         self.mapper = []
         for _ in range(self.num_agents):
             self.mapper.append(self.build_mapper())
-        self.merge_mapper = []
-        for i in range(self.num_agents):
-            self.merge_mapper.append([])
-            for j in range(self.num_agents):
-                self.merge_mapper[i].append(self.build_mapper())
+        if self.use_merge_mapper:
+            self.merge_mapper = []
+            for i in range(self.num_agents):
+                self.merge_mapper.append([])
+                for j in range(self.num_agents):
+                    self.merge_mapper[i].append(self.build_mapper())
 
         self.agent_start_position = []
         self.agent_start_rotation = []
@@ -251,8 +255,6 @@ class Exploration_Env(habitat.RLEnv):
         self.prev_agent_explored_map = [np.zeros_like(self.explorable_map[0]) for _ in range(self.num_agents)]
         self.prev_explored_area = [0. for _ in range(self.num_agents)]
         self.pre_agent_trans_map = [np.zeros_like(self.explorable_map[0]) for _ in range(self.num_agents)]
-        merge_explored_gt = np.zeros_like(self.explorable_map[0])
-        merge_obstacle_gt = np.zeros_like(self.explorable_map[0])
 
         self.prev_merge_explored_area = 0
 
@@ -279,9 +281,11 @@ class Exploration_Env(habitat.RLEnv):
                                      self.map_size_cm/100.0/2.0, 0.])
             self.last_loc.append(self.curr_loc[agent_id])
             self.last_sim_location.append(self.get_sim_location(agent_id))
-        for agent_i in range(self.num_agents):
-            for agent_j in range(self.num_agents):
-                self.merge_mapper[agent_i][agent_j].reset_map(self.map_size_cm)
+        
+        if self.use_merge_mapper:
+            for agent_i in range(self.num_agents):
+                for agent_j in range(self.num_agents):
+                    self.merge_mapper[agent_i][agent_j].reset_map(self.map_size_cm)
 
         # Convert pose to cm and degrees for mapper
         mapper_gt_pose = []
@@ -307,8 +311,6 @@ class Exploration_Env(habitat.RLEnv):
             fp_explored.append(fp_explored_t)
             self.explored_map.append(explored_map_t)
             self.current_explored_gt.append(current_explored_gt)
-            merge_explored_gt = np.maximum(merge_explored_gt, self.transform(explored_map_t.copy(), agent_id))
-            merge_obstacle_gt = np.maximum(merge_obstacle_gt, self.transform(map_t.copy(), agent_id))
 
             state = {}
             if self.args.frame_width != self.args.env_frame_width:
@@ -319,53 +321,63 @@ class Exploration_Env(habitat.RLEnv):
                 res_depth = env_depth[agent_id]
             
             state['rgb'] = np.asarray(res_rgb).transpose(2, 0, 1)
-            state['depth'] = np.asarray(res_depth)[np.newaxis, :, :] * 255.0
-            if self.use_proj_map:
-                state['depth_proj'] = np.stack((fp_proj_t, fp_explored_t), axis=0)
+            if self.use_depth:
+                state['depth'] = np.asarray(res_depth)[np.newaxis, :, :] * 255.0
+            if self.use_depth_proj:
+                if self.use_proj_map:
+                    state['depth_proj'] = np.stack((fp_proj_t, fp_explored_t), axis=0)
+                else:
+                    state['depth_proj'] = np.asarray(fp_proj_t)[np.newaxis, :, :]
             else:
-                state['depth_proj'] = np.asarray(fp_proj_t)[np.newaxis, :, :]
+                state['depth_proj'] = None
 
             states.append(state)
         # merge mapper
         self.init_pose = []
         for agent_id in range(self.num_agents):
             self.init_pose.append(self.get_sim_location(agent_id))
-        merge_mapper_gt_pose = []
-        for agent_i in range(self.num_agents):
-            rel_poses = []
-            for agent_j in range(self.num_agents):
-                rel_pose = pu.get_rel_pose_change(self.get_sim_location(agent_j), self.init_pose[agent_i])
-                rel_pose = list(rel_pose)
-                rel_pose[0] += self.map_size_cm/100.0/2.0
-                rel_pose[1] += self.map_size_cm/100.0/2.0
-                rel_poses.append((
-                    rel_pose[0]*100.0,
-                    rel_pose[1]*100.0,
-                    rel_pose[2]
-                ))
-            merge_mapper_gt_pose.append(rel_poses)
-        # Update merge gt map
-        self.each_obstacle_map = []
-        self.each_explored_map = []
         self.new_merge_explored_gt = []
         self.new_merge_obstacle_gt = []
-        for agent_i in range(self.num_agents):
-            each_obstacle_map = []
-            each_explored_map = []
-            new_merge_explored_gt = np.zeros_like(self.explorable_map[0])
-            new_merge_obstacle_gt = np.zeros_like(self.explorable_map[0])
-            for agent_j in range(self.num_agents):
-                fp_proj_t, map_t, fp_explored_t, explored_map_t, current_explored_gt = \
-                    self.merge_mapper[agent_i][agent_j].update_map(depth[agent_j], merge_mapper_gt_pose[agent_i][agent_j])
-                each_obstacle_map.append(map_t)
-                each_explored_map.append(explored_map_t)
-                new_merge_explored_gt = np.maximum(new_merge_explored_gt, explored_map_t)
-                new_merge_obstacle_gt = np.maximum(new_merge_obstacle_gt, map_t)
+        if self.use_merge_mapper:
+            merge_mapper_gt_pose = []
+            for agent_i in range(self.num_agents):
+                rel_poses = []
+                for agent_j in range(self.num_agents):
+                    rel_pose = pu.get_rel_pose_change(self.get_sim_location(agent_j), self.init_pose[agent_i])
+                    rel_pose = list(rel_pose)
+                    rel_pose[0] += self.map_size_cm/100.0/2.0
+                    rel_pose[1] += self.map_size_cm/100.0/2.0
+                    rel_poses.append((
+                        rel_pose[0]*100.0,
+                        rel_pose[1]*100.0,
+                        rel_pose[2]
+                    ))
+                merge_mapper_gt_pose.append(rel_poses)
+            # Update merge gt map
+            self.each_obstacle_map = []
+            self.each_explored_map = []
+            
+            for agent_i in range(self.num_agents):
+                each_obstacle_map = []
+                each_explored_map = []
+                new_merge_explored_gt = np.zeros_like(self.explorable_map[0])
+                new_merge_obstacle_gt = np.zeros_like(self.explorable_map[0])
+                for agent_j in range(self.num_agents):
+                    fp_proj_t, map_t, fp_explored_t, explored_map_t, current_explored_gt = \
+                        self.merge_mapper[agent_i][agent_j].update_map(depth[agent_j], merge_mapper_gt_pose[agent_i][agent_j])
+                    each_obstacle_map.append(map_t)
+                    each_explored_map.append(explored_map_t)
+                    new_merge_explored_gt = np.maximum(new_merge_explored_gt, explored_map_t)
+                    new_merge_obstacle_gt = np.maximum(new_merge_obstacle_gt, map_t)
 
-            self.each_obstacle_map.append(each_obstacle_map)
-            self.each_explored_map.append(each_explored_map)
-            self.new_merge_obstacle_gt.append(new_merge_obstacle_gt)
-            self.new_merge_explored_gt.append(new_merge_explored_gt)
+                self.each_obstacle_map.append(each_obstacle_map)
+                self.each_explored_map.append(each_explored_map)
+                self.new_merge_obstacle_gt.append(new_merge_obstacle_gt)
+                self.new_merge_explored_gt.append(new_merge_explored_gt)
+        else:
+            for _ in range(self.num_agents):
+                self.new_merge_obstacle_gt.append(None)
+                self.new_merge_explored_gt.append(None)
 
         # Initialize variables
         self.merge_pred_map = np.zeros_like(self.explorable_map[0])
@@ -415,9 +427,8 @@ class Exploration_Env(habitat.RLEnv):
             self.info['fp_explored'].append(fp_explored[agent_id])
             self.info['sensor_pose'].append([0., 0., 0.])
             self.info['pose_err'].append([0., 0., 0.])
-            # self.info['merge_explored_gt'].append(self.agent_transform(merge_explored_gt, agent_id))
+           
             self.info['merge_explored_gt'].append(copy.deepcopy(self.new_merge_explored_gt[agent_id]))
-            # self.info['merge_obstacle_gt'].append(self.agent_transform(merge_obstacle_gt, agent_id))
             self.info['merge_obstacle_gt'].append(copy.deepcopy(self.new_merge_obstacle_gt[agent_id]))
 
             if self.use_eval:
@@ -450,8 +461,8 @@ class Exploration_Env(habitat.RLEnv):
                 if path_length_flag:
                     self.info['path_length/ratio'] = path_length_divide_ratio
 
-        self.save_position()
-        self.save_position_data()
+        # self.save_position()
+        # self.save_position_data()
 
         return states, self.info 
 
@@ -540,8 +551,6 @@ class Exploration_Env(habitat.RLEnv):
                  np.deg2rad(self.curr_loc_gt[agent_id][2]))
             )
             
-        merge_explored_gt = np.zeros_like(self.explorable_map[0])
-        merge_obstacle_gt = np.zeros_like(self.explorable_map[0])
         fp_proj = []
         fp_explored = []
         self.map = []
@@ -557,8 +566,7 @@ class Exploration_Env(habitat.RLEnv):
             fp_explored.append(fp_explored_t)
             self.explored_map.append(explored_map_t)
             self.current_explored_gt.append(current_explored_gt)
-            merge_explored_gt = np.maximum(merge_explored_gt, self.transform(explored_map_t.copy(), agent_id))
-            merge_obstacle_gt = np.maximum(merge_obstacle_gt, self.transform(map_t.copy(), agent_id))
+
             state = {}
             if self.args.frame_width != self.args.env_frame_width:
                 res_rgb = self.res(rgb[agent_id])
@@ -568,49 +576,59 @@ class Exploration_Env(habitat.RLEnv):
                 res_depth = env_depth[agent_id]
             
             state['rgb'] = np.asarray(res_rgb).transpose(2, 0, 1)
-            state['depth'] = np.asarray(res_depth)[np.newaxis, :, :] * 255.0
-            if self.use_proj_map:
-                state['depth_proj'] = np.stack((fp_proj_t, fp_explored_t), axis=0)
+            if self.use_depth:
+                state['depth'] = np.asarray(res_depth)[np.newaxis, :, :] * 255.0
+            if self.use_depth_proj:
+                if self.use_proj_map:
+                    state['depth_proj'] = np.stack((fp_proj_t, fp_explored_t), axis=0)
+                else:
+                    state['depth_proj'] = np.asarray(fp_proj_t)[np.newaxis, :, :]
             else:
-                state['depth_proj'] = np.asarray(fp_proj_t)[np.newaxis, :, :]
+                state['depth_proj'] = None
 
             states.append(state)
 
         # merge mapper
-        merge_mapper_gt_pose = []
-        for agent_i in range(self.num_agents):
-            rel_poses = []
-            for agent_j in range(self.num_agents):
-                rel_pose = pu.get_rel_pose_change(self.get_sim_location(agent_j), self.init_pose[agent_i])
-                rel_pose = list(rel_pose)
-                rel_pose[0] += self.map_size_cm/100.0/2.0
-                rel_pose[1] += self.map_size_cm/100.0/2.0
-                rel_poses.append((
-                    rel_pose[0]*100.0,
-                    rel_pose[1]*100.0,
-                    rel_pose[2]
-                ))
-            merge_mapper_gt_pose.append(rel_poses)
-        self.each_obstacle_map = []
-        self.each_explored_map = []
         self.new_merge_explored_gt = []
         self.new_merge_obstacle_gt = []
-        for agent_i in range(self.num_agents):
-            each_obstacle_map = []
-            each_explored_map = []
-            new_merge_explored_gt = np.zeros_like(self.explorable_map[0])
-            new_merge_obstacle_gt = np.zeros_like(self.explorable_map[0])
-            for agent_j in range(self.num_agents):
-                fp_proj_t, map_t, fp_explored_t, explored_map_t, current_explored_gt = \
-                    self.merge_mapper[agent_i][agent_j].update_map(depth[agent_j], merge_mapper_gt_pose[agent_i][agent_j])
-                each_obstacle_map.append(map_t)
-                each_explored_map.append(explored_map_t)
-                new_merge_explored_gt = np.maximum(new_merge_explored_gt, explored_map_t)
-                new_merge_obstacle_gt = np.maximum(new_merge_obstacle_gt, map_t)
-            self.each_obstacle_map.append(each_obstacle_map)
-            self.each_explored_map.append(each_explored_map)
-            self.new_merge_obstacle_gt.append(new_merge_obstacle_gt)
-            self.new_merge_explored_gt.append(new_merge_explored_gt)
+        if self.use_merge_mapper:
+            merge_mapper_gt_pose = []
+            for agent_i in range(self.num_agents):
+                rel_poses = []
+                for agent_j in range(self.num_agents):
+                    rel_pose = pu.get_rel_pose_change(self.get_sim_location(agent_j), self.init_pose[agent_i])
+                    rel_pose = list(rel_pose)
+                    rel_pose[0] += self.map_size_cm/100.0/2.0
+                    rel_pose[1] += self.map_size_cm/100.0/2.0
+                    rel_poses.append((
+                        rel_pose[0]*100.0,
+                        rel_pose[1]*100.0,
+                        rel_pose[2]
+                    ))
+                merge_mapper_gt_pose.append(rel_poses)
+            self.each_obstacle_map = []
+            self.each_explored_map = []
+            
+            for agent_i in range(self.num_agents):
+                each_obstacle_map = []
+                each_explored_map = []
+                new_merge_explored_gt = np.zeros_like(self.explorable_map[0])
+                new_merge_obstacle_gt = np.zeros_like(self.explorable_map[0])
+                for agent_j in range(self.num_agents):
+                    fp_proj_t, map_t, fp_explored_t, explored_map_t, current_explored_gt = \
+                        self.merge_mapper[agent_i][agent_j].update_map(depth[agent_j], merge_mapper_gt_pose[agent_i][agent_j])
+                    each_obstacle_map.append(map_t)
+                    each_explored_map.append(explored_map_t)
+                    new_merge_explored_gt = np.maximum(new_merge_explored_gt, explored_map_t)
+                    new_merge_obstacle_gt = np.maximum(new_merge_obstacle_gt, map_t)
+                self.each_obstacle_map.append(each_obstacle_map)
+                self.each_explored_map.append(each_explored_map)
+                self.new_merge_obstacle_gt.append(new_merge_obstacle_gt)
+                self.new_merge_explored_gt.append(new_merge_explored_gt)
+        else:
+            for _ in range(self.num_agents):
+                self.new_merge_obstacle_gt.append(None)
+                self.new_merge_explored_gt.append(None)
 
         # Update collision map
         for agent_id in range(self.num_agents):
@@ -667,9 +685,8 @@ class Exploration_Env(habitat.RLEnv):
             self.info['pose_err'].append([dx_gt[agent_id] - dx_base[agent_id],
                                           dy_gt[agent_id] - dy_base[agent_id],
                                           do_gt[agent_id] - do_base[agent_id]])
-            # self.info['merge_explored_gt'].append(self.agent_transform(merge_explored_gt, agent_id))
+            
             self.info['merge_explored_gt'].append(copy.deepcopy(self.new_merge_explored_gt[agent_id]))
-            # self.info['merge_obstacle_gt'].append(self.agent_transform(merge_obstacle_gt, agent_id))
             self.info['merge_obstacle_gt'].append(copy.deepcopy(self.new_merge_obstacle_gt[agent_id]))
             if self.use_eval:
                 self.info['path_length'].append(pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][1]))
