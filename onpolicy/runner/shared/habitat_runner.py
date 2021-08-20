@@ -350,6 +350,9 @@ class HabitatRunner(Runner):
         self.use_own = self.all_args.use_own
         self.use_one = self.all_args.use_one
         self.use_new_trace = self.all_args.use_new_trace
+        self.use_weight_trace = self.all_args.use_weight_trace
+        self.decay_weight = self.all_args.decay_weight
+        
         if self.use_eval:
             self.use_stuck_detection = self.all_args.use_stuck_detection
 
@@ -1251,6 +1254,8 @@ class HabitatRunner(Runner):
                                 int(c * 100.0 / self.map_resolution)]
 
                 self.local_map[e, a, 2:, loc_r - 2:loc_r + 3, loc_c - 2:loc_c + 3] = 1
+                if self.use_new_trace and self.use_weight_trace:
+                    self.local_map[e, a, 3] *= self.decay_weight
 
     def update_map_and_pose(self, update = True):
         for e in range(self.n_rollout_threads):
