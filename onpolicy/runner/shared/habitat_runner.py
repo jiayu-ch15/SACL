@@ -192,6 +192,7 @@ class HabitatRunner(Runner):
                     self.insert_slam_module(infos)
                 
                 self.run_slam_module(self.last_obs, self.obs, infos, True)
+                    
                 self.update_local_map()
                 self.update_map_and_pose(update = False)
                 for agent_id in range(self.num_agents):
@@ -206,7 +207,9 @@ class HabitatRunner(Runner):
                     # insert data into buffer
                     self.insert_global_policy(data)
                     values, actions, action_log_probs, rnn_states, rnn_states_critic = self.compute_global_goal(step = global_step + 1)
-
+                
+                if self.visualize_input:
+                    self.visualize_obs(self.fig, self.ax, self.global_input)
                 # Local Policy
                 if self.use_merge_local:
                     if self.use_filter_local:
@@ -346,6 +349,7 @@ class HabitatRunner(Runner):
         self.use_fc_net = self.all_args.use_fc_net
         self.use_own = self.all_args.use_own
         self.use_one = self.all_args.use_one
+        self.use_new_trace = self.all_args.use_new_trace
         if self.use_eval:
             self.use_stuck_detection = self.all_args.use_stuck_detection
 
@@ -1147,7 +1151,7 @@ class HabitatRunner(Runner):
 
         for key in self.global_input.keys():
             self.share_global_input[key] = self.global_input[key].copy()
-
+        
         if self.visualize_input:
             self.visualize_obs(self.fig, self.ax, self.global_input)
             
@@ -1253,6 +1257,9 @@ class HabitatRunner(Runner):
             for a in range(self.num_agents):
                 self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]] = self.local_map[e, a]
                 if update:
+                    if self.use_new_trace:
+                        self.full_map[e, a, 3] = np.zeros((self.full_w, self.full_h), dtype=np.float32)
+                        self.full_map[e, a, 3, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]] = self.local_map[e, a, 3]
                     self.full_pose[e, a] = self.local_pose[e, a] + self.origins[e, a]
 
                     locs = self.full_pose[e, a]
@@ -1270,13 +1277,16 @@ class HabitatRunner(Runner):
 
                     self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
                     self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
-                    
+                    if self.use_new_trace:
+                        self.local_map[e, a, 3] = np.zeros((self.local_w, self.local_h), dtype=np.float32)
                     if self.use_eval and pu.get_l2_distance(self.last_pos[e,a,0], self.full_pose[e,a,0], self.last_pos[e,a,1], self.full_pose[e,a,1]) < 0.1:
                         self.stuck_flag[e,a] += 1
         
         self.last_pos = self.full_pose.copy()
                     
     def update_agent_map_and_pose(self, e, a):
+        if self.use_new_trace:
+            self.full_map[e, a, 3] = np.zeros((self.full_w, self.full_h), dtype=np.float32)
         self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]] = self.local_map[e, a]
         self.full_pose[e, a] = self.local_pose[e, a] + self.origins[e, a]
 
@@ -1293,6 +1303,8 @@ class HabitatRunner(Runner):
         self.origins[e, a] = [self.lmb[e, a][2] * self.map_resolution / 100.0,
                         self.lmb[e, a][0] * self.map_resolution / 100.0, 0.]
         self.local_map[e, a] = self.full_map[e, a, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]]
+        if self.use_new_trace:
+            self.local_map[e, a, 3] = np.zeros((self.local_w, self.local_h), dtype=np.float32)
         self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
         if self.use_eval and pu.get_l2_distance(self.last_pos[e,a,0], self.full_pose[e,a,0], self.last_pos[e,a,1], self.full_pose[e,a,1]) < 0.1:
             self.stuck_flag[e, a] += 1
@@ -1302,6 +1314,9 @@ class HabitatRunner(Runner):
         for a in range(self.num_agents):
             self.full_map[envs, a, :, self.lmb[envs, a, 0]:self.lmb[envs, a, 1], self.lmb[envs, a, 2]:self.lmb[envs, a, 3]] = self.local_map[envs, a]
             if update:
+                if self.use_new_trace:
+                    self.full_map[envs, a, 3] = np.zeros((self.full_w, self.full_h), dtype=np.float32)
+                    self.full_map[envs, a, 3, self.lmb[envs, a, 0]:self.lmb[envs, a, 1], self.lmb[envs, a, 2]:self.lmb[envs, a, 3]] = self.local_map[envs, a, 3]
                 self.full_pose[envs, a] = self.local_pose[envs, a] + self.origins[envs, a]
                 locs = self.full_pose[envs, a]
                 r, c = locs[1], locs[0]
@@ -1317,6 +1332,8 @@ class HabitatRunner(Runner):
                                 self.lmb[envs, a][0] * self.map_resolution / 100.0, 0.]
 
                 self.local_map[envs, a] = self.full_map[envs, a, :, self.lmb[envs, a, 0]:self.lmb[envs, a, 1], self.lmb[envs, a, 2]:self.lmb[envs, a, 3]]
+                if self.use_new_trace:
+                    self.local_map[envs, a, 3] = np.zeros((self.local_w, self.local_h), dtype=np.float32)
                 self.local_pose[envs, a] = self.full_pose[envs, a] - self.origins[envs, a]
                 if self.use_eval and pu.get_l2_distance(self.last_pos[envs,a,0], self.full_pose[envs,a,0], self.last_pos[envs,a,1], self.full_pose[envs,a,1]) < 0.1:
                     self.stuck_flag[envs, a] += 1
@@ -1677,7 +1694,7 @@ class HabitatRunner(Runner):
                 if agent_id < self.num_agents and i<4:
                     sub_ax[i].imshow(self.local_map[0, agent_id, i])
                 elif agent_id >= self.num_agents and i<4:
-                    sub_ax[i].imshow(self.local_merge_map[0, agent_id-self.num_agents, i])
+                    sub_ax[i].imshow(self.merge_map[0, agent_id-self.num_agents, i])
                 # elif agent_id >= self.num_agents and i<2:
                 #     sub_ax[i].imshow(self.obstacle_map[0][agent_id-self.num_agents])
                 #elif i < 5:

@@ -164,6 +164,8 @@ def parse_args(args, parser):
                         default=False, help="by default True, use_depth_info")
     parser.add_argument('--use_one', action='store_true',
                         default=False, help="by default True, use_one_vector cnn")
+    parser.add_argument('--use_new_trace', action='store_true',
+                        default=False, help="by default True, the trace channel only has last goal steps' trace")
     parser.add_argument('--pretrained_global_resnet', type=int, default=1)      
 
 
