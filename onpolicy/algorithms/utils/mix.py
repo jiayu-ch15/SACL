@@ -21,6 +21,7 @@ class MIXBase(nn.Module):
         self._activation_id = args.activation_id
         self._use_maxpool2d = args.use_maxpool2d
         self.hidden_size = args.hidden_size
+        self.mlp_hidden_size = args.mlp_hidden_size
         self.use_resnet = args.use_resnet
         self.pretrained_global_resnet = args.pretrained_global_resnet
         self.cnn_keys = []
@@ -51,7 +52,7 @@ class MIXBase(nn.Module):
         if len(self.embed_keys) > 0:
             self.embed = self._build_embed_model(obs_shape)
         if len(self.mlp_keys) > 0:
-            self.mlp = self._build_mlp_model(obs_shape, self.hidden_size, self._use_orthogonal, self._activation_id)
+            self.mlp = self._build_mlp_model(obs_shape, self.mlp_hidden_size, self._use_orthogonal, self._activation_id)
 
     def forward(self, x):
         out_x = x
