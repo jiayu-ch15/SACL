@@ -22,7 +22,7 @@ do
     --load_slam "../envs/habitat/model/pretrained_models/slam_best.pt" \
     --eval_episodes 1 --use_selected_middle_scenes\
     --use_delta_reward --use_different_start_pos --use_complete_reward --use_merge_partial_reward \
-    --use_center --use_merge --use_time_penalty --wandb_name "mapping" --user_name "yang-xy20"\
-    --slam_keys rgb --use_max --use_max_map --use_merge_local --use_one --use_wandb
+    --use_merge --use_time_penalty --wandb_name "mapping" --user_name "yang-xy20"\
+    --slam_keys rgb --use_max --use_max_map --use_merge_local --use_one --use_wandb --visualize_input --use_new_trace
     echo "training is done!"
 done
