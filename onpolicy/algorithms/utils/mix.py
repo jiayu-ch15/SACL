@@ -257,5 +257,5 @@ class MIXBase(nn.Module):
             output_size += 8 * self.embed_dim
 
         if len(self.mlp_keys) > 0:
-            output_size += self.hidden_size
+            output_size += self.mlp_hidden_size
         return output_size
