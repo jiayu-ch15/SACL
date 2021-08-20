@@ -1287,7 +1287,6 @@ class HabitatRunner(Runner):
         self.local_pose[e, a] = self.full_pose[e, a] - self.origins[e, a]
         if self.use_eval and pu.get_l2_distance(self.last_pos[e,a,0], self.full_pose[e,a,0], self.last_pos[e,a,1], self.full_pose[e,a,1]) < 0.1:
             self.stuck_flag[e, a] += 1
-            ic(self.stuck_flag[e, a])
         self.last_pos[e, a] = self.full_pose[e, a].copy()
                     
     def update_single_map_and_pose(self, envs = 1000, update = True):
@@ -1731,7 +1730,7 @@ class HabitatRunner(Runner):
             self.local_output = self.envs.get_short_term_goal(self.local_input)
             self.local_output = np.array(self.local_output, dtype = np.long)
             for step in range(self.max_episode_length):
-                ic(step)
+                print("step {}".format(step))
                 local_step = step % self.num_local_steps
                 
                 self.last_obs = copy.deepcopy(self.obs)
@@ -1876,7 +1875,7 @@ class HabitatRunner(Runner):
             self.local_output = self.envs.get_short_term_goal(self.local_input)
             self.local_output = np.array(self.local_output, dtype = np.long)
             for step in range(self.max_episode_length):
-                ic(step)
+                print("step {}".format(step))
                 self.env_step = step + 1
 
                 self.last_obs = copy.deepcopy(self.obs)
@@ -2015,7 +2014,7 @@ class HabitatRunner(Runner):
             self.local_output = np.array(self.local_output, dtype = np.long)
             async_local_step = np.ones((self.n_rollout_threads, self.num_agents))*-1
             for step in range(self.max_episode_length):
-                ic(step)
+                print("step {}".format(step))
                 local_step = step % self.num_local_steps
                 async_local_step += 1
 
