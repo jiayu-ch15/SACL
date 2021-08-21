@@ -23,6 +23,7 @@ class MIXBase(nn.Module):
         self.hidden_size = args.hidden_size
         self.mlp_hidden_size = args.mlp_hidden_size
         self.use_resnet = args.use_resnet
+        self.use_original_size = args.use_original_size
         self.pretrained_global_resnet = args.pretrained_global_resnet
         self.cnn_keys = []
         self.local_cnn_keys = []
@@ -52,6 +53,8 @@ class MIXBase(nn.Module):
             if self.use_resnet:
                 self.cnn = self._build_resnet_model(obs_shape, self.cnn_keys, self.hidden_size)
             else:
+                if self.use_original_size:
+                    cnn_layers_params = '32,7,1,1 64,5,1,1 128,3,1,1 64,3,1,1 32,3,1,1'
                 self.cnn = self._build_cnn_model(obs_shape, self.cnn_keys, cnn_layers_params, self.hidden_size, self._use_orthogonal, self._activation_id)
 
         if len(self.local_cnn_keys) > 0:
@@ -172,14 +175,24 @@ class MIXBase(nn.Module):
                 kernel_size=np.array([kernel_size, kernel_size], dtype=np.float32),
                 stride=np.array([stride, stride], dtype=np.float32),
             )
-            
-        cnn_layers += [
+        
+        if (cnn_layers_params[-1][0] * cnn_dims[0] * cnn_dims[1]) > 20000:
+            cnn_layers += [
             Flatten(),
-            init_(nn.Linear(cnn_layers_params[-1][0] * cnn_dims[0] * cnn_dims[1],
-                        hidden_size)),
+            init_(nn.Linear(cnn_layers_params[-1][0] * cnn_dims[0] * cnn_dims[1], 2048)),
+            active_func,
+            nn.LayerNorm(2048),
+            init_(nn.Linear(2048, hidden_size)),
             active_func,
             nn.LayerNorm(hidden_size),
         ]
+        else:
+            cnn_layers += [
+                Flatten(),
+                init_(nn.Linear(cnn_layers_params[-1][0] * cnn_dims[0] * cnn_dims[1], hidden_size)),
+                active_func,
+                nn.LayerNorm(hidden_size),
+            ]
         return nn.Sequential(*cnn_layers)
 
     def _build_embed_model(self, obs_shape):
