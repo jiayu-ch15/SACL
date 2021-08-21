@@ -51,7 +51,8 @@ class PopArt(torch.nn.Module):
             input_vector = torch.from_numpy(input_vector)
         input_vector = input_vector.to(**self.tpdv)
         
-        old_mean, old_stddev = self.debiased_mean_var()
+        old_mean, old_var = self.debiased_mean_var()
+        old_stddev = torch.sqrt(old_var)
 
         batch_mean = input_vector.mean(dim=tuple(range(self.norm_axes)))
         batch_sq_mean = (input_vector ** 2).mean(dim=tuple(range(self.norm_axes)))
@@ -62,7 +63,8 @@ class PopArt(torch.nn.Module):
 
         self.stddev = (self.mean_sq - self.mean ** 2).sqrt().clamp(min=1e-4)
         
-        new_mean, new_stddev = self.debiased_mean_var()
+        new_mean, new_var = self.debiased_mean_var()
+        new_stddev = torch.sqrt(new_var)
         
         self.weight = self.weight * old_stddev / new_stddev
         self.bias = (old_stddev * self.bias + old_mean - new_mean) / new_stddev
