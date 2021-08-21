@@ -4,7 +4,7 @@ import numpy as np
 # if sys.platform == 'darwin':
 #matplotlib.use("tkagg")
 # else:
-#matplotlib.use('Agg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 import seaborn as sns

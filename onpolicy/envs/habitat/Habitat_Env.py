@@ -36,7 +36,8 @@ class MultiHabitatEnv(object):
         local_w, local_h = int(full_w / args.global_downscaling), \
             int(full_h / args.global_downscaling)
 
-        space_w, space_h = 224, 224 if self.use_resnet else local_w, local_h 
+        space_w = 224 if self.use_resnet else local_w
+        space_h = 224 if self.use_resnet else local_h 
         global_observation_space = {}
         
         if self.use_merge:

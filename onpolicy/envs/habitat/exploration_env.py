@@ -703,14 +703,14 @@ class Exploration_Env(habitat.RLEnv):
         
         if self.merge_ratio >= self.explored_ratio_up_threshold:
             if self.use_complete_reward and self.complete_up_flag == -1:
-                self.info['merge_explored_reward'] += 10.0 * self.merge_ratio
+                self.info['merge_explored_reward'] += 0.5 * self.merge_ratio
                 self.complete_up_flag = 1
             if self.merge_explored_ratio_step_95 == -1.0:
                 self.merge_explored_ratio_step_95 = self.timestep
                 self.info['merge_explored_ratio_step_0.95'] = self.timestep
         elif self.merge_ratio >= self.explored_ratio_down_threshold:
             if self.use_complete_reward and self.complete_down_flag == -1:
-                self.info['merge_explored_reward'] += 2.0 * self.merge_ratio
+                self.info['merge_explored_reward'] += 0.2 * self.merge_ratio
                 self.complete_down_flag = 1
             if self.merge_explored_ratio_step == -1.0:
                 self.merge_explored_ratio_step = self.timestep

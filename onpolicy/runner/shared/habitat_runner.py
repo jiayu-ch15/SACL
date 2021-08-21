@@ -484,7 +484,8 @@ class HabitatRunner(Runner):
                     self.auc_infos[key] = np.zeros((self.all_args.eval_episodes,  self.n_rollout_threads, self.num_agents, self.max_episode_length), dtype=np.float32)
 
         self.global_input = {}
-        space_w, space_h = self.res_w, self.res_h if self.use_resnet else self.local_w, self.local_h 
+        space_w = self.res_w if self.use_resnet else self.local_w
+        space_h = self.res_h if self.use_resnet else self.local_h 
         if self.use_merge:
             self.global_input['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, space_w, space_h), dtype=np.float32)
         if self.use_merge_goal:
