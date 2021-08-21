@@ -170,6 +170,8 @@ def parse_args(args, parser):
                         default=False, help="by default True, the trace channel only has last goal steps' trace")
     parser.add_argument('--use_weight_trace', action='store_true',
                         default=False, help="by default True, use_weight_trace")
+    parser.add_argument('--use_seperated_cnn_model', action='store_true',
+                        default=False, help="by default True, use_weight_trace")
     parser.add_argument('--decay_weight', type=float, default=0.9,
                         help="decay_weight of new weight trace")
     parser.add_argument('--pretrained_global_resnet', type=int, default=1)      
