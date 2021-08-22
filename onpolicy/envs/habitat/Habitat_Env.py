@@ -26,6 +26,8 @@ class MultiHabitatEnv(object):
         self.use_one = args.use_one
         self.use_seperated_cnn_model = args.use_seperated_cnn_model
         self.use_original_size = args.use_original_size
+        self.use_single_agent_trace = args.use_single_agent_trace
+
         
 
         config_env, config_baseline, dataset = self.get_config(args, rank)
@@ -100,7 +102,19 @@ class MultiHabitatEnv(object):
             else:
                 global_observation_space['vector_cnn'] = gym.spaces.Box(
                             low=0, high=1, shape=(vector_cnn_channel, space_w, space_h), dtype='uint8')
-       
+        
+        if self.use_single_agent_trace:
+            if self.use_own:
+                vector_cnn_channel = 1
+            else:
+                vector_cnn_channel = self.num_agents
+            if self.use_original_size:
+                global_observation_space['trace_image'] = gym.spaces.Box(
+                    low=0, high=1, shape=(vector_cnn_channel, full_w, full_h), dtype='uint8')
+            else:
+                global_observation_space['trace_image'] = gym.spaces.Box(
+                    low=0, high=1, shape=(vector_cnn_channel, space_w, space_h), dtype='uint8')
+    
         share_global_observation_space = global_observation_space.copy()
         if self.use_centralized_V:
             if self.use_original_size:

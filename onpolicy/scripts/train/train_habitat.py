@@ -200,7 +200,9 @@ def parse_args(args, parser):
                         default=False, help="by default True, use original global map size")
     parser.add_argument('--decay_weight', type=float, default=0.9,
                         help="decay_weight of new weight trace")
-    parser.add_argument('--pretrained_global_resnet', type=int, default=1)     
+    parser.add_argument('--pretrained_global_resnet', type=int, default=1)
+    parser.add_argument('--use_single_agent_trace', action='store_true',
+                        default=False, help="by default True, use_single_agent_weight_trace")     
                         
 
     # Local Policy

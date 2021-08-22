@@ -348,6 +348,7 @@ class HabitatRunner(Runner):
         self.use_seperated_cnn_model = self.all_args.use_seperated_cnn_model
         self.use_original_size = self.all_args.use_original_size
         self.decay_weight = self.all_args.decay_weight
+        self.use_single_agent_trace = self.all_args.use_single_agent_trace
         
         if self.use_eval:
             self.use_stuck_detection = self.all_args.use_stuck_detection
@@ -492,9 +493,12 @@ class HabitatRunner(Runner):
                 self.global_input['local_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 4, space_w, space_h), dtype=np.float32)
             else:
                 self.global_input['global_merge_obs'] = np.zeros((self.n_rollout_threads, self.num_agents, 8, space_w, space_h), dtype=np.float32)
-        
+                
         if self.use_merge_goal:
-            self.global_input['global_merge_goal'] = np.zeros((self.n_rollout_threads, self.num_agents, 2, space_w, space_h), dtype=np.float32)
+            if self.use_original_size:
+                self.global_input['global_merge_goal'] = np.zeros((self.n_rollout_threads, self.num_agents, 2, self.full_w, self.full_h), dtype=np.float32)
+            else:
+                self.global_input['global_merge_goal'] = np.zeros((self.n_rollout_threads, self.num_agents, 2, space_w, space_h), dtype=np.float32)
         
         if self.use_single:
             if self.use_seperated_cnn_model:
@@ -520,8 +524,20 @@ class HabitatRunner(Runner):
                 vector_cnn_channel = 2
             else:
                 vector_cnn_channel = self.num_agents + 1
-
-            self.global_input['vector_cnn'] = np.zeros((self.n_rollout_threads, self.num_agents, vector_cnn_channel, space_w, space_h), dtype=np.float32)
+            if self.use_original_size:
+                self.global_input['vector_cnn'] = np.zeros((self.n_rollout_threads, self.num_agents, vector_cnn_channel, self.full_w, self.full_h), dtype=np.float32)
+            else:
+                self.global_input['vector_cnn'] = np.zeros((self.n_rollout_threads, self.num_agents, vector_cnn_channel, space_w, space_h), dtype=np.float32)
+        
+        if self.use_single_agent_trace:
+            if self.use_own:
+                vector_cnn_channel = 1
+            else:
+                vector_cnn_channel = self.num_agents
+            if self.use_original_size:
+                self.global_input['trace_image'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents, self.full_w, self.full_h), dtype=np.float32)
+            else:
+                self.global_input['trace_image'] = np.zeros((self.n_rollout_threads, self.num_agents, self.num_agents, space_w, space_h), dtype=np.float32)
         
         self.share_global_input = self.global_input.copy()
         
@@ -976,6 +992,31 @@ class HabitatRunner(Runner):
                                     else:
                                         self.global_input['vector_cnn'][:, a, channel_i + 1] = (nn.MaxPool2d(self.global_downscaling)(check(self.agent_merge_map[:, agent_id, 2]))).numpy()
             
+            if self.use_single_agent_trace:
+                if self.use_resnet:
+                    for e in range(self.n_rollout_threads):
+                        self.global_input['trace_image'][e, a, 0] = np.resize(self.agent_merge_map[e, a, 3], (self.res_w, self.res_h))
+                        if not self.use_own:
+                            channel_i = 0
+                            for agent_id in range(self.num_agents):
+                                if agent_id != a:
+                                    channel_i += 1
+                                    self.global_input['trace_image'][e, a, channel_i] = np.resize(self.agent_merge_map[e, agent_id, 3], (self.res_w, self.res_h))
+                else:
+                    if self.use_original_size:
+                        self.global_input['trace_image'][:, a, 0] = self.agent_merge_map[:, a, 3]
+                    else:
+                        self.global_input['trace_image'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(self.agent_merge_map[:, a, 3]))).numpy()
+                    if not self.use_own:
+                        channel_i = 0
+                        for agent_id in range(self.num_agents):
+                            if agent_id != a:
+                                channel_i += 1
+                                if self.use_original_size:
+                                    self.global_input['trace_image'][:, a, channel_i] = self.agent_merge_map[:, agent_id, 3]
+                                else:
+                                    self.global_input['trace_image'][:, a, channel_i] = (nn.MaxPool2d(self.global_downscaling)(check(self.agent_merge_map[:, agent_id, 3]))).numpy()
+                                            
         if self.use_orientation:
             for e in range(self.n_rollout_threads):
                 for a in range(self.num_agents):
@@ -1168,7 +1209,32 @@ class HabitatRunner(Runner):
                                         self.global_input['vector_cnn'][:, a, 1 + channel_i] = self.agent_merge_map[:, agent_id, 2]
                                     else:
                                         self.global_input['vector_cnn'][:, a, 1 + channel_i] = (nn.MaxPool2d(self.global_downscaling)(check(self.agent_merge_map[:, agent_id, 2]))).numpy()
-                    
+            
+            if self.use_single_agent_trace:
+                if self.use_resnet:
+                    for e in range(self.n_rollout_threads):
+                        self.global_input['trace_image'][e, a, 0] = np.resize(self.agent_merge_map[e, a, 3], (self.res_w, self.res_h))
+                        if not self.use_own:
+                            channel_i = 0
+                            for agent_id in range(self.num_agents):
+                                if agent_id != a:
+                                    channel_i += 1
+                                    self.global_input['trace_image'][e, a, channel_i] = np.resize(self.agent_merge_map[e, agent_id, 3], (self.res_w, self.res_h))
+                else:
+                    if self.use_original_size:
+                        self.global_input['trace_image'][:, a, 0] = self.agent_merge_map[:, a, 3]
+                    else:
+                        self.global_input['trace_image'][:, a, 0] = (nn.MaxPool2d(self.global_downscaling)(check(self.agent_merge_map[:, a, 3]))).numpy()
+                    if not self.use_own:
+                        channel_i = 0
+                        for agent_id in range(self.num_agents):
+                            if agent_id != a:
+                                channel_i += 1
+                                if self.use_original_size:
+                                    self.global_input['trace_image'][:, a, channel_i] = self.agent_merge_map[:, agent_id, 3]
+                                else:
+                                    self.global_input['trace_image'][:, a, channel_i] = (nn.MaxPool2d(self.global_downscaling)(check(self.agent_merge_map[:, agent_id, 3]))).numpy()       
+        
         if self.use_orientation:
             for e in range(self.n_rollout_threads):
                 for a in range(self.num_agents):
