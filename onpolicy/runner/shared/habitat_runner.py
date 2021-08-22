@@ -823,8 +823,11 @@ class HabitatRunner(Runner):
         #trace[1][agent_merge_map[1] > self.map_threshold] = (agent_id + 1)/np.array([agent_id+1 for agent_id in range(self.num_agents)]).sum()
             trace[self.agent_merge_map[:, agent_id, 3] > self.map_threshold] = (agent_id + 1)/np.array([aa+1 for aa in range(self.num_agents)]).sum()
         #agent_merge_map[0:2] = trace[0:2]
-            self.agent_merge_map[:, agent_id, 3] = trace
-            filter_agent_merge_map = self.agent_merge_map.copy()
+            if self.use_new_trace and self.use_weight_trace:
+                self.agent_merge_map[:, agent_id, 3] *= trace
+            else: 
+                self.agent_merge_map[:, agent_id, 3] = trace
+            
             if self.use_sum:
                 merge_map += self.agent_merge_map[:, agent_id]
             elif self.use_max:
@@ -836,9 +839,7 @@ class HabitatRunner(Runner):
                     agent_map = np.where( self.agent_merge_map[:, a, 1]!=0 , self.agent_merge_map[:, a, i],  self.agent_merge_map[:, agent_id, i])
                     merge_map[:, i] = np.maximum(agent_map, merge_map[:, i])
                     merge_map[:, i+2] += self.agent_merge_map[:, agent_id, i+2] 
-            for i in range(2):  
-                filter_agent_map = np.where((filter_agent_merge_map[:, agent_id, 1]!=0) & (filter_agent_merge_map[:, a, 1]!=0), filter_agent_merge_map[:, a, i],  np.maximum(filter_agent_merge_map[:, agent_id, i], filter_agent_merge_map[:, a, i]))
-                filter_merge_map[:, i] = np.maximum(filter_agent_map, filter_merge_map[:, i])                              
+                                   
         if self.use_sum:        
             for i in range(2):           
                 merge_map[ :, i][merge_map[ :, i] > 1] = 1
@@ -848,9 +849,8 @@ class HabitatRunner(Runner):
         for e in range(self.n_rollout_threads):
             local_merge_map[e, :2] = merge_map[e, :2, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]].copy()
             local_merge_map[e, 2:] = self.local_map[e, a, 2:].copy()
-            filter_local_map[e] = filter_merge_map[e, :, self.lmb[e, a, 0]:self.lmb[e, a, 1], self.lmb[e, a, 2]:self.lmb[e, a, 3]].copy()
         
-        return merge_map, local_merge_map, filter_local_map
+        return merge_map, local_merge_map
 
     def center_transform(self, inputs, a, nums=4):
         merge_map = np.zeros((self.n_rollout_threads, nums, self.full_w, self.full_h), dtype=np.float32)
