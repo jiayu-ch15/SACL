@@ -28,7 +28,7 @@ class MultiHabitatEnv(object):
         self.use_original_size = args.use_original_size
         self.use_single_agent_trace = args.use_single_agent_trace
         self.use_competitive_reward = args.use_competitive_reward
-
+        self.use_discrete_goal = args.use_discrete_goal
 
         config_env, config_baseline, dataset = self.get_config(args, rank)
 
@@ -134,8 +134,10 @@ class MultiHabitatEnv(object):
         for agent_id in range(self.num_agents):
             self.observation_space.append(global_observation_space)
             self.share_observation_space.append(share_global_observation_space)
-            self.action_space.append(gym.spaces.Box(
-                low=0.0, high=1.0, shape=(2,), dtype=np.float32))
+            if self.use_discrete_goal:
+                self.action_space.append(gym.spaces.Discrete(args.grid_size)))
+            else:
+                self.action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(2,), dtype=np.float32))
 
     def get_config(self, args, rank):
         config_env = cfg_env(config_paths=[onpolicy.__path__[0] + "/envs/habitat/habitat-lab/configs/" + args.task_config])

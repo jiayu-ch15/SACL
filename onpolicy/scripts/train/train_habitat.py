@@ -188,9 +188,15 @@ def parse_args(args, parser):
                         help="decay_weight of new weight trace")
     parser.add_argument('--pretrained_global_resnet', type=int, default=1)
     parser.add_argument('--use_single_agent_trace', action='store_true',
-                        default=False, help="by default True, use_single_agent_weight_trace")     
+                        default=False, help="by default True, use_single_agent_weight_trace")
+    # grid goal
+    parser.add_argument('--use_discrete_goal', action='store_true',
+                        default=False, help="by default True, use_discrete_goal")
+    parser.add_argument('--use_goal_penalty', action='store_true',
+                        default=False, help="by default True, use_discrete_goal")
+    parser.add_argument('--grid_size', type=int, default=8, help="xxxx")    
     
-    #map builder
+    # map builder
     parser.add_argument('--use_oracle', action='store_true',
                         default=False, help="by default True, use oracle information")
     parser.add_argument('--use_max', action='store_true',

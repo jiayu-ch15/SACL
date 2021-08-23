@@ -349,6 +349,9 @@ class HabitatRunner(Runner):
         self.use_original_size = self.all_args.use_original_size
         self.decay_weight = self.all_args.decay_weight
         self.use_single_agent_trace = self.all_args.use_single_agent_trace
+        self.use_discrete_goal = self.all_args.use_discrete_goal
+        self.use_goal_penalty = self.all_args.use_goal_penalty
+        self.grid_size = self.all_args.grid_size
         
         if self.use_eval:
             self.use_stuck_detection = self.all_args.use_stuck_detection
@@ -912,6 +915,13 @@ class HabitatRunner(Runner):
         
         return merge_point_map
 
+    def point_a2w_transform(self, point, trans, rotation):
+        point_merge_map_world = np.zeros((self.full_w, self.full_h), dtype=np.float32)
+        
+        
+     
+        return point_merge_map_world
+
     
     def first_compute_global_input(self):
         locs = self.local_pose
@@ -1343,7 +1353,12 @@ class HabitatRunner(Runner):
         rnn_states_critic = np.array(np.split(_t2n(rnn_states_critic), self.n_rollout_threads))
         
         # Compute planner inputs
-        self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(action)), self.n_rollout_threads))
+        if self.use_discrete_goal:
+            r, c = actions[:, :, 0].astype(np.int32) // self.grid_size, actions[:, :, 0].astype(np.int32) % self.grid_size
+            self.global_goal[:, :, 0] = (0.5 + r) / self.grid_size
+            self.global_goal[:, :, 1] = (0.5 + c) / self.grid_size
+        else:
+            self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(action)), self.n_rollout_threads))
  
         return values, actions, action_log_probs, rnn_states, rnn_states_critic
     
@@ -1362,7 +1377,13 @@ class HabitatRunner(Runner):
         rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
 
         # Compute planner inputs
-        self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(actions)), self.n_rollout_threads))
+        if self.use_discrete_goal:
+            actions = np.array(np.split(_t2n(actions), self.n_rollout_threads))
+            r, c = actions[:, :, 0].astype(np.int32) // self.grid_size, actions[:, :, 0].astype(np.int32) % self.grid_size
+            self.global_goal[:, :, 0] = (0.5 + r) / self.grid_size
+            self.global_goal[:, :, 1] = (0.5 + c) / self.grid_size
+        else:
+            self.global_goal = np.array(np.split(_t2n(nn.Sigmoid()(actions)), self.n_rollout_threads))
         
         return rnn_states
     
@@ -1381,7 +1402,13 @@ class HabitatRunner(Runner):
         rnn_states[e, a] = np.array(_t2n(agent_rnn_states.squeeze(0)))
 
         # Compute planner inputs
-        self.global_goal[e, a] = np.array(_t2n(nn.Sigmoid()(actions).squeeze(0)))
+        if self.use_discrete_goal:
+            actions = np.array(_t2n(actions.squeeze(0)))
+            r, c = actions[0].astype(np.int32) // self.grid_size, actions[0].astype(np.int32) % self.grid_size
+            self.global_goal[e, a, 0] = (0.5 + r) / self.grid_size
+            self.global_goal[e, a, 1] = (0.5 + c) / self.grid_size
+        else:
+            self.global_goal[e, a] = np.array(_t2n(nn.Sigmoid()(actions).squeeze(0)))
         
         return rnn_states
 
@@ -1519,7 +1546,24 @@ class HabitatRunner(Runner):
                         reward_map = intrinsic_gt - self.merge_map[e, agent_id, 1] #
                     if reward_map[int(self.global_goal[e, agent_id, 0] * self.local_w + self.lmb[e, agent_id, 0]), int(self.global_goal[e, agent_id, 1] * self.local_h + self.lmb[e, agent_id, 2])] > 0.5:
                         self.rewards[e, agent_id] += 0.02
-        
+            if self.use_goal_penalty:
+                goal_world = []
+                for agent_id in range(self.num_agents):
+                    goal_map = np.zeros((1, 1, self.full_w, self.full_h), dtype=np.float32)
+                    goal_map[0, 0, int(self.global_goal[e, agent_id, 0]*self.local_w+self.lmb[e, agent_id, 0]): int(self.global_goal[e, agent_id, 0]*self.local_w+self.lmb[e, agent_id, 0]), \
+                        int(self.global_goal[e, agent_id, 1]*self.local_w+self.lmb[e, agent_id, 2]): int(self.global_goal[e, agent_id, 1]*self.local_w+self.lmb[e, agent_id, 2])] = 1
+                    goal_map_rotated = F.grid_sample(torch.from_numpy(goal_map).float(), rotation[e][agent_id].float(), align_corners=True)
+                    goal_map_world = F.grid_sample(goal_map_rotated.float(), trans[e][agent_id].float(), align_corners=True)[0, 0, :, :].numpy()
+                    
+                    (index_a, index_b) = np.unravel_index(np.argmax(goal_map_world, axis=None), goal_map_world.shape) # might be wrong!!
+                    goal_world.append(np.array([index_a, index_b], dtype = np.float32))
+
+                for p_a in range(self.num_agents):
+                    for p_b in range(self.num_agents):
+                        if p_b != p_a:
+                            if abs(goal_world[p_a][0] - goal_world[p_b][0]) + abs(goal_world[p_a][1] - goal_world[p_b][1]) < 2:
+                                self.rewards[e, p_a] -= 0.05
+                
         if self.use_delta_reward:
             self.env_info['sum_intrinsic_merge_explored_reward'] += self.rewards[:,:,0]
         else:
