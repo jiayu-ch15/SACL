@@ -1547,12 +1547,13 @@ class HabitatRunner(Runner):
                         reward_map = intrinsic_gt - self.merge_map[e, agent_id, 1] #
                     if reward_map[int(self.global_goal[e, agent_id, 0] * self.local_w + self.lmb[e, agent_id, 0]), int(self.global_goal[e, agent_id, 1] * self.local_h + self.lmb[e, agent_id, 2])] > 0.5:
                         self.rewards[e, agent_id] += 0.02
+
             if self.use_goal_penalty:
                 goal_world = []
                 for agent_id in range(self.num_agents):
                     goal_map = np.zeros((1, 1, self.full_w, self.full_h), dtype=np.float32)
-                    goal_map[0, 0, int(self.global_goal[e, agent_id, 0]*self.local_w+self.lmb[e, agent_id, 0]): int(self.global_goal[e, agent_id, 0]*self.local_w+self.lmb[e, agent_id, 0]), \
-                        int(self.global_goal[e, agent_id, 1]*self.local_w+self.lmb[e, agent_id, 2]): int(self.global_goal[e, agent_id, 1]*self.local_w+self.lmb[e, agent_id, 2])] = 1
+                    goal_map[0, 0, int(self.global_goal[e, agent_id, 0]*self.local_w+self.lmb[e, agent_id, 0]), \
+                        int(self.global_goal[e, agent_id, 1]*self.local_w+self.lmb[e, agent_id, 2])] = 1
                     goal_map_rotated = F.grid_sample(torch.from_numpy(goal_map).float(), rotation[e][agent_id].float(), align_corners=True)
                     goal_map_world = F.grid_sample(goal_map_rotated.float(), trans[e][agent_id].float(), align_corners=True)[0, 0, :, :].numpy()
                     

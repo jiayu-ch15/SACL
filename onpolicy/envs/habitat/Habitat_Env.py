@@ -135,7 +135,7 @@ class MultiHabitatEnv(object):
             self.observation_space.append(global_observation_space)
             self.share_observation_space.append(share_global_observation_space)
             if self.discrete_goal:
-                self.action_space.append(gym.spaces.Discrete(args.grid_size ** 2)))
+                self.action_space.append(gym.spaces.Discrete(args.grid_size ** 2))
             else:
                 self.action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(2,), dtype=np.float32))
 
