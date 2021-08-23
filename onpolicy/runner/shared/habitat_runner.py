@@ -1852,23 +1852,6 @@ class HabitatRunner(Runner):
                     for i in range(self.max_episode_length):
                         self.writter.add_scalars(agent_k, {agent_k: np.mean(np.array(v)[ :, :, agent_id])}, i+1)
 
-    def restore(self):
-        if self.use_single_network:
-            policy_model_state_dict = torch.load(str(self.model_dir))
-            self.policy.model.load_state_dict(policy_model_state_dict)
-        else:
-            if not (self.use_eval or self.use_render): 
-                self.model_dir_actor = self.all_args.model_dir_actor
-                self.model_dir_critic = self.all_args.model_dir_critic
-                policy_actor_state_dict = torch.load(str(self.model_dir_actor))
-                self.policy.actor.load_state_dict(policy_actor_state_dict)
-                if not self.all_args.use_render and not self.all_args.use_eval:
-                    policy_critic_state_dict = torch.load(str(self.model_dir_critic))
-                    self.policy.critic.load_state_dict(policy_critic_state_dict)
-            else:
-                policy_actor_state_dict = torch.load(str(self.model_dir))
-                self.policy.actor.load_state_dict(policy_actor_state_dict)
-    
     def render_gifs(self):
         gif_dir = str(self.run_dir / 'gifs')
 
