@@ -349,7 +349,8 @@ class HabitatRunner(Runner):
         self.use_original_size = self.all_args.use_original_size
         self.decay_weight = self.all_args.decay_weight
         self.use_single_agent_trace = self.all_args.use_single_agent_trace
-        self.use_discrete_goal = self.all_args.use_discrete_goal
+
+        self.discrete_goal = self.all_args.discrete_goal
         self.use_goal_penalty = self.all_args.use_goal_penalty
         self.grid_size = self.all_args.grid_size
         
@@ -1353,7 +1354,7 @@ class HabitatRunner(Runner):
         rnn_states_critic = np.array(np.split(_t2n(rnn_states_critic), self.n_rollout_threads))
         
         # Compute planner inputs
-        if self.use_discrete_goal:
+        if self.discrete_goal:
             r, c = actions[:, :, 0].astype(np.int32) // self.grid_size, actions[:, :, 0].astype(np.int32) % self.grid_size
             self.global_goal[:, :, 0] = (0.5 + r) / self.grid_size
             self.global_goal[:, :, 1] = (0.5 + c) / self.grid_size
@@ -1377,7 +1378,7 @@ class HabitatRunner(Runner):
         rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
 
         # Compute planner inputs
-        if self.use_discrete_goal:
+        if self.discrete_goal:
             actions = np.array(np.split(_t2n(actions), self.n_rollout_threads))
             r, c = actions[:, :, 0].astype(np.int32) // self.grid_size, actions[:, :, 0].astype(np.int32) % self.grid_size
             self.global_goal[:, :, 0] = (0.5 + r) / self.grid_size
@@ -1402,7 +1403,7 @@ class HabitatRunner(Runner):
         rnn_states[e, a] = np.array(_t2n(agent_rnn_states.squeeze(0)))
 
         # Compute planner inputs
-        if self.use_discrete_goal:
+        if self.discrete_goal:
             actions = np.array(_t2n(actions.squeeze(0)))
             r, c = actions[0].astype(np.int32) // self.grid_size, actions[0].astype(np.int32) % self.grid_size
             self.global_goal[e, a, 0] = (0.5 + r) / self.grid_size
