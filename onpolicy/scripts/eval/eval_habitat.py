@@ -79,6 +79,7 @@ def parse_args(args, parser):
     parser.add_argument('--use_intrinsic_reward', action='store_true', default=False)
     parser.add_argument('--use_delta_reward', action='store_true', default=False)
     parser.add_argument('--use_partial_reward', action='store_true', default=False)
+    parser.add_argument('--use_competitive_reward', action='store_true', default=False)
     parser.add_argument('--use_merge_partial_reward', action='store_true', default=False)
 
 
@@ -122,6 +123,7 @@ def parse_args(args, parser):
     parser.add_argument('--use_fixed_start_pos', action='store_true',
                         default=False, help="by default True, use random agent position at the initialization")
     
+    #network input
     parser.add_argument('--use_abs_orientation', action='store_true',
                         default=False, help="by default True, use abs orientation at the initialization")
     parser.add_argument('--use_center', action='store_true',
@@ -134,36 +136,16 @@ def parse_args(args, parser):
                         default=False, help="by default True, use single information")
     parser.add_argument('--use_merge_local', action='store_true',
                         default=False, help="by default True, use single information")
-    parser.add_argument('--use_oracle', action='store_true',
-                        default=False, help="by default True, use oracle information") 
     parser.add_argument('--use_merge_goal', action='store_true',
                         default=False, help="by default True, use merge goal")
-    parser.add_argument('--use_max', action='store_true',
-                        default=False, help="by default True, use maximun map or use sum map")
-    parser.add_argument('--use_filter', action='store_true',
-                        default=False, help="by default True, use filter map")
-    parser.add_argument('--use_sum', action='store_true',
-                        default=False, help="by default True, use sum map")
-    parser.add_argument('--use_async', action='store_true',
-                        default=False, help="by default True, use async eval")
-    parser.add_argument('--use_stuck_detection', action='store_true',
-                        default=False, help="by default True, use sum map")
     parser.add_argument('--use_orientation', action='store_true',
                         default=False, help="by default True, use agent's orientation info")
-    parser.add_argument('--use_filter_local', action='store_true',
-                        default=False, help="by default True, use filter local map to planning")
     parser.add_argument('--use_vector_agent_id', action='store_true',
                         default=False, help="by default True, use fc net")
     parser.add_argument('--use_cnn_agent_id', action='store_true',
                         default=False, help="by default True, use fc net")
     parser.add_argument('--use_own', action='store_true',
                         default=False, help="by default True, use own vector cnn")
-    parser.add_argument('--use_merge_mapper', action='store_true',
-                        default=False, help="by default True, use merge_mapper")
-    parser.add_argument('--use_depth_proj', action='store_true',
-                        default=False, help="by default True, use_depth_proj")
-    parser.add_argument('--use_depth', action='store_true',
-                        default=False, help="by default True, use_depth_info")
     parser.add_argument('--use_one', action='store_true',
                         default=False, help="by default True, use_one_vector cnn")
     parser.add_argument('--use_new_trace', action='store_true',
@@ -179,7 +161,18 @@ def parse_args(args, parser):
     parser.add_argument('--pretrained_global_resnet', type=int, default=1)     
     parser.add_argument('--use_single_agent_trace', action='store_true',
                         default=False, help="by default True, use_single_agent_weight_trace") 
-
+    
+    #map build
+    parser.add_argument('--use_oracle', action='store_true',
+                        default=False, help="by default True, use oracle information") 
+    parser.add_argument('--use_merge_mapper', action='store_true',
+                        default=False, help="by default True, use merge_mapper")
+    parser.add_argument('--use_max', action='store_true',
+                        default=False, help="by default True, use maximun map or use sum map")
+    parser.add_argument('--use_filter', action='store_true',
+                        default=False, help="by default True, use filter map")
+    parser.add_argument('--use_sum', action='store_true',
+                        default=False, help="by default True, use sum map")
 
     # Local Policy
     parser.add_argument('--local_lr', type=float, default=0.0001)
@@ -219,6 +212,10 @@ def parse_args(args, parser):
                         default=False, help="by default True, use maximun map or use sum map")
     parser.add_argument('--use_proj_map', action='store_true',
                         default=False, help="by default True, use maximun map or use sum map")
+    parser.add_argument('--use_depth', action='store_true',
+                        default=False, help="by default True, use_depth_info")
+    parser.add_argument('--use_depth_proj', action='store_true',
+                        default=False, help="by default True, use_depth_proj")
 
     parser.add_argument('--vision_range', type=int, default=64)
     parser.add_argument('--obstacle_boundary', type=int, default=5)
@@ -230,7 +227,13 @@ def parse_args(args, parser):
     parser.add_argument('--noise_level', type=float, default=1.0)
     
     parser.add_argument('--local_planner', type=str, default='fmm', choices=['fmm', 'astar', 'rrt'], help = 'choose local planner. [fmm, rrt, astar]')
-
+    
+    #render mode
+    parser.add_argument('--use_stuck_detection', action='store_true',
+                        default=False, help="by default True, use sum map")
+    parser.add_argument('--use_async', action='store_true',
+                        default=False, help="by default True, use async eval")
+    
     all_args = parser.parse_known_args(args)[0]
 
     return all_args

@@ -400,6 +400,7 @@ class Exploration_Env(habitat.RLEnv):
                 merge_overlap = True
             reward = self.info['explored_reward']
             partial_reward = self.info['explored_merge_reward']
+            competitive_reward = self.info['explored_competitve_reward']
             ratio = self.info['explored_ratio']
             repeat_area = self.info['repeat_area']
             if self.use_eval:
@@ -453,6 +454,7 @@ class Exploration_Env(habitat.RLEnv):
             self.info['explored_ratio'] = ratio
             self.info['merge_repeat_area'] = merge_repeat_area
             self.info['explored_merge_reward'] = partial_reward
+            self.info['explored_competitve_reward'] = competitive_reward
             if merge_overlap:
                 self.info['merge_overlap_ratio'] = merge_overlap_ratio
             self.info['repeat_area'] = repeat_area
@@ -671,6 +673,7 @@ class Exploration_Env(habitat.RLEnv):
             'path_length': [],
             'explored_reward': [0.0 for _ in range(self.num_agents)],
             'explored_merge_reward':[0.0 for _ in range(self.num_agents)],
+            'explored_competitve_reward':[0.0 for _ in range(self.num_agents)],
             'explored_ratio': [],
             'repeat_area': [0.0 for _ in range(self.num_agents)],
             'merge_explored_reward': 0.0,
@@ -738,6 +741,8 @@ class Exploration_Env(habitat.RLEnv):
         for agent_id in range(self.num_agents):
             self.info['explored_reward'][agent_id] += agent_explored_area[agent_id]
             self.info['explored_merge_reward'][agent_id] += agent_trans_reward[agent_id]
+            self.info['explored_competitve_reward'][agent_id] += (self.info['explored_merge_reward'][agent_id] - \
+                (np.sum(np.array(agent_trans_reward))- self.info['explored_merge_reward'][agent_id])/(self.num_agents-1))
             self.info['explored_ratio'].append(agent_explored_ratio[agent_id])
             if self.timestep % self.args.num_local_steps == 0:
                 agents_explored_map = np.maximum(agents_explored_map, self.transform(self.current_explored_gt[agent_id]*self.explorable_map[agent_id], agent_id))

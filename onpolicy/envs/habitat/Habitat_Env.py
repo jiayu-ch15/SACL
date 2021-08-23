@@ -27,8 +27,8 @@ class MultiHabitatEnv(object):
         self.use_seperated_cnn_model = args.use_seperated_cnn_model
         self.use_original_size = args.use_original_size
         self.use_single_agent_trace = args.use_single_agent_trace
+        self.use_competitive_reward = args.use_competitive_reward
 
-        
 
         config_env, config_baseline, dataset = self.get_config(args, rank)
 
@@ -244,6 +244,9 @@ class MultiHabitatEnv(object):
             rewards = 0.5 * np.expand_dims(np.array(infos['explored_reward']), axis=1) + 0.5 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         elif self.use_merge_partial_reward:
             rewards = 0.5 * np.expand_dims(np.array(infos['explored_merge_reward']), axis=1) + 0.5 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+        elif self.use_competitive_reward:
+            rewards = 0.4 * np.expand_dims(np.array(infos['explored_merge_reward']), axis=1) + 0.3 * np.expand_dims(np.array(infos['explored_competitve_reward']), axis=1)  + \
+                0.3 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         else:
             rewards = np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         return obs, rewards, dones, infos
