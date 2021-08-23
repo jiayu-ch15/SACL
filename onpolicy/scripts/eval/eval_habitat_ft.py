@@ -140,6 +140,10 @@ def parse_args(args, parser):
                         default=False, help="by default True, use merge goal")    
     parser.add_argument('--use_orientation', action='store_true',
                         default=False, help="by default True, use agent's orientation info")
+    parser.add_argument('--use_vector_agent_id', action='store_true',
+                        default=False, help="by default True, use fc net")
+    parser.add_argument('--use_cnn_agent_id', action='store_true',
+                        default=False, help="by default True, use fc net")
     parser.add_argument('--use_own', action='store_true',
                         default=False, help="by default True, use own vector cnn")
     parser.add_argument('--use_one', action='store_true',
@@ -153,6 +157,10 @@ def parse_args(args, parser):
     parser.add_argument('--pretrained_global_resnet', type=int, default=1)
     parser.add_argument('--use_single_agent_trace', action='store_true',
                         default=False, help="by default True, use_single_agent_weight_trace")
+    parser.add_argument('--use_seperated_cnn_model', action='store_true',
+                        default=False, help="by default True, seperated_cnn_model")
+    parser.add_argument('--use_original_size', action='store_true',
+                        default=False, help="by default True, use original global map size")
 
     #map build
     parser.add_argument('--use_oracle', action='store_true',
