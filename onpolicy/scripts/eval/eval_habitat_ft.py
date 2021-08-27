@@ -261,6 +261,14 @@ def parse_args(args, parser):
     #render mode
     parser.add_argument('--use_stuck_detection', action='store_true',
                         default=False, help="by default True, use sum map")
+    # grid goal
+    parser.add_argument('--discrete_goal', action='store_true',
+                        default=False, help="by default True, use_discrete_goal")
+    parser.add_argument('--use_goal_penalty', action='store_true',
+                        default=False, help="by default True, use_discrete_goal")
+    parser.add_argument('--grid_size', type=int, default=8, help="xxxx")                 
+                        
+                        
     all_args = parser.parse_known_args(args)[0]
 
     return all_args
