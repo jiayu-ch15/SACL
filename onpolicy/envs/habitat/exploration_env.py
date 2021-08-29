@@ -463,8 +463,8 @@ class Exploration_Env(habitat.RLEnv):
                 if path_length_flag:
                     self.info['path_length/ratio'] = path_length_divide_ratio
 
-        # self.save_position()
-        # self.save_position_data()
+        self.save_position()
+        self.save_position_data()
 
         return states, self.info 
 

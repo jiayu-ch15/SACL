@@ -144,7 +144,8 @@ def parse_args(args, parser):
                         default=False, help="by default True, use fixed agent rotation at the initialization")
     parser.add_argument('--use_random_rotation', action='store_true',
                         default=False, help="by default True, use random agent rotation at the initialization")
-    
+    parser.add_argument('--use_full_rand_state', action='store_true',
+                        default=False, help="by default True, use_discrete_goal")
     #network input
     parser.add_argument('--use_center', action='store_true',
                         default=False, help="by default True, use agent center point as input")
