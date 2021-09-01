@@ -452,9 +452,9 @@ class HabitatRunner(Runner):
         if self.use_eval:
             self.agents_env_info_keys += ['sum_path_length', 'path_length/ratio']
             self.sum_env_info_keys  += ['path_length']
-            self.equal_env_info_keys  += ['path_length/ratio']
+            self.equal_env_info_keys  += ['path_length/ratio', '50step_merge_auc','100step_merge_auc','120step_merge_auc','150step_merge_auc','180step_merge_auc','200step_merge_auc','250step_merge_auc']
             self.auc_infos_keys = ['merge_auc','agent_auc']
-            self.env_info_keys += ['merge_runtime'] 
+            self.env_info_keys += ['merge_runtime', '50step_merge_auc','100step_merge_auc','120step_merge_auc','150step_merge_auc','180step_merge_auc','200step_merge_auc','250step_merge_auc']
 
         # convert keys
         self.env_infos_keys = self.agents_env_info_keys + self.env_info_keys + \
@@ -1945,6 +1945,7 @@ class HabitatRunner(Runner):
             # Output stores local goals as well as the the ground-truth action
             self.local_output = self.envs.get_short_term_goal(self.local_input)
             self.local_output = np.array(self.local_output, dtype = np.long)
+            auc_area = np.zeros((self.n_rollout_threads, self.max_episode_length), dtype=np.float32)
             for step in range(self.max_episode_length):
                 print("step {}".format(step))
                 local_step = step % self.num_local_steps
@@ -1963,6 +1964,7 @@ class HabitatRunner(Runner):
                             self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
                             if key == 'merge_explored_ratio' and self.use_eval:
                                 self.auc_infos['merge_auc'][episode, e, step] = self.auc_infos['merge_auc'][episode, e, step-1] + np.array(infos[e][key])
+                                auc_area[e, step] = auc_area[e, step-1] + np.array(infos[e][key])
                             if key == 'explored_ratio' and self.use_eval:
                                 self.auc_infos['agent_auc'][episode, e, :, step] = self.auc_infos['agent_auc'][episode, e, :, step-1] + np.array(infos[e][key])
                     for key in self.equal_env_info_keys:
@@ -1976,6 +1978,20 @@ class HabitatRunner(Runner):
                                 self.env_info[key][e] = infos[e][key]
                     if self.env_info['sum_merge_explored_ratio'][e] <= self.all_args.explored_ratio_threshold:
                         self.env_info['merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold][e] = self.env_info['merge_global_goal_num'][e]
+                    if step == 49:
+                        self.env_info['50step_merge_auc'][e] = auc_area[e,:step+1].sum()
+                    if step == 99:
+                        self.env_info['100step_merge_auc'][e] = auc_area[e,:step+1].sum()
+                    if step == 119:
+                        self.env_info['120step_merge_auc'][e] = auc_area[e,:step+1].sum()
+                    if step == 149:
+                        self.env_info['150step_merge_auc'][e] = auc_area[e,:step+1].sum()
+                    if step == 179:
+                        self.env_info['180step_merge_auc'][e] = auc_area[e,:step+1].sum()
+                    if step == 199:
+                        self.env_info['200step_merge_auc'][e] = auc_area[e,:step+1].sum()
+                    if step == 249:
+                        self.env_info['250step_merge_auc'][e] = auc_area[e,:step+1].sum()
                
                 self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
                 self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
@@ -2087,6 +2103,7 @@ class HabitatRunner(Runner):
             # Output stores local goals as well as the the ground-truth action
             self.local_output = self.envs.get_short_term_goal(self.local_input)
             self.local_output = np.array(self.local_output, dtype = np.long)
+            auc_area = np.zeros((self.n_rollout_threads, self.max_episode_length), dtype=np.float32)
             for step in range(self.max_episode_length):
                 print("step {}".format(step))
                 self.env_step = step + 1
@@ -2105,6 +2122,7 @@ class HabitatRunner(Runner):
                             self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
                             if key == 'merge_explored_ratio' and self.use_eval:
                                 self.auc_infos['merge_auc'][episode, e, step] = self.auc_infos['merge_auc'][episode, e, step-1] + np.array(infos[e][key])
+                                auc_area[e, step] = auc_area[e, step-1] + np.array(infos[e][key])
                             if key == 'explored_ratio' and self.use_eval:
                                 self.auc_infos['agent_auc'][episode, e, :, step] = self.auc_infos['agent_auc'][episode, e, :, step-1] + np.array(infos[e][key])
                     for key in self.equal_env_info_keys:
@@ -2118,7 +2136,21 @@ class HabitatRunner(Runner):
                                 self.env_info[key][e] = infos[e][key]
                     if self.env_info['sum_merge_explored_ratio'][e] <= self.all_args.explored_ratio_threshold:
                         self.env_info['merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold][e] = self.env_info['merge_global_goal_num'][e]
-                # print("eval step {}, explored {}".format(self.env_step, self.env_info['sum_merge_explored_ratio']))
+                    if step == 49:
+                        self.env_info['50step_merge_auc'][e] = auc_area[e,:step+1].sum()
+                    if step == 99:
+                        self.env_info['100step_merge_auc'][e] = auc_area[e,:step+1].sum()
+                    if step == 119:
+                        self.env_info['120step_merge_auc'][e] = auc_area[e,:step+1].sum()
+                    if step == 149:
+                        self.env_info['150step_merge_auc'][e] = auc_area[e,:step+1].sum()
+                    if step == 179:
+                        self.env_info['180step_merge_auc'][e] = auc_area[e,:step+1].sum()
+                    if step == 199:
+                        self.env_info['200step_merge_auc'][e] = auc_area[e,:step+1].sum()
+                    if step == 249:
+                        self.env_info['250step_merge_auc'][e] = auc_area[e,:step+1].sum()
+                
 
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 self.local_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
