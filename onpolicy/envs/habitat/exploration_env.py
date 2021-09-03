@@ -824,6 +824,8 @@ class Exploration_Env(habitat.RLEnv):
             for a in range(self.num_agents):
                 if a != agent_id:
                     agent_trans_merge_map = np.maximum(self.transform(curr_agent_explored_map[agent_id], agent_id), self.pre_agent_trans_map[a])
+                else:
+                    agent_trans_merge_map = self.pre_agent_trans_map[a]
             agent_trans_reward.append((agent_trans_merge_map.sum()- self.prev_merge_explored_area) * 1.0 * (25./10000.) * 0.02)
             
             curr_agent_explored_area = curr_agent_explored_map[agent_id].sum()
