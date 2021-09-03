@@ -218,8 +218,6 @@ def bfs_distance(map, lx, ly, start, goals):
     sx, sy = start[0], start[1]
     sx -= lx
     sy -= ly
-    if np.array(goals).size == 2:
-        goals = [goals]
     goals = [(max(0,min(x - lx, H-1)), max(0, min(y - ly, W-1)) ) for x, y in goals]
     num_goals = len(goals)
     # print(gx, gy)
