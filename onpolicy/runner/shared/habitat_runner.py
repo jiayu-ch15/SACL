@@ -64,8 +64,6 @@ class HabitatRunner(Runner):
         self.explorable_map = [infos[e]['explorable_map'] for e in range(self.n_rollout_threads)]
         self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
         self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
-        self.init_pos_x = [infos[e]['init_pos_x'] for e in range(self.n_rollout_threads)]
-        self.init_pos_y = [infos[e]['init_pos_y'] for e in range(self.n_rollout_threads)]
         self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
         self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]
         self.init_pose = [infos[e]['init_pose'] for e in range(self.n_rollout_threads)]
@@ -122,6 +120,7 @@ class HabitatRunner(Runner):
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
             
+            auc_area = np.zeros((self.n_rollout_threads, self.max_episode_length), dtype=np.float32)
             for step in range(self.max_episode_length):
                 
                 local_step = step % self.num_local_steps
@@ -140,6 +139,8 @@ class HabitatRunner(Runner):
                     for key in self.sum_env_info_keys:
                         if key in infos[e].keys():
                             self.env_info['sum_{}'.format(key)][e] += np.array(infos[e][key])
+                            if key == 'merge_explored_ratio':
+                                auc_area[e, step] = auc_area[e, step-1] + np.array(infos[e][key])
                     for key in self.equal_env_info_keys:
                         if key == 'explored_ratio_step':
                             for agent_id in range(self.num_agents):
@@ -153,6 +154,20 @@ class HabitatRunner(Runner):
                         else:
                             if key in infos[e].keys():
                                 self.env_info[key][e] = infos[e][key]
+                    if step == 49:
+                        self.env_info['50step_merge_auc'][e] = auc_area[e,:step+1].sum()
+                    if step == 99:
+                        self.env_info['100step_merge_auc'][e] = auc_area[e,:step+1].sum()
+                    if step == 119:
+                        self.env_info['120step_merge_auc'][e] = auc_area[e,:step+1].sum()
+                    if step == 149:
+                        self.env_info['150step_merge_auc'][e] = auc_area[e,:step+1].sum()
+                    if step == 179:
+                        self.env_info['180step_merge_auc'][e] = auc_area[e,:step+1].sum()
+                    if step == 199:
+                        self.env_info['200step_merge_auc'][e] = auc_area[e,:step+1].sum()
+                    if step == 249:
+                        self.env_info['250step_merge_auc'][e] = auc_area[e,:step+1].sum()
                 self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
                 self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
                 self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
@@ -176,8 +191,6 @@ class HabitatRunner(Runner):
                     self.scene_id = [infos[e]['scene_id'] for e in range(self.n_rollout_threads)]
                     self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
                     self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
-                    self.init_pos_x = [infos[e]['init_pos_x'] for e in range(self.n_rollout_threads)]
-                    self.init_pos_y = [infos[e]['init_pos_y'] for e in range(self.n_rollout_threads)]
                     self.explored_map = [infos[e]['explored_map'] for e in range(self.n_rollout_threads)]
                     self.obstacle_map = [infos[e]['obstacle_map'] for e in range(self.n_rollout_threads)]
                     self.init_pose = [infos[e]['init_pose'] for e in range(self.n_rollout_threads)]
@@ -443,18 +456,19 @@ class HabitatRunner(Runner):
 
         # info keys
         self.sum_env_info_keys = ['explored_ratio', 'merge_explored_ratio', 'merge_explored_reward', 'explored_reward', 'repeat_area', 'merge_repeat_area']
-        self.equal_env_info_keys = ['merge_overlap_ratio', 'merge_explored_ratio_step', 'merge_explored_ratio_step_0.95', 'explored_ratio_step','init_pos_x','init_pos_y']
+        self.equal_env_info_keys = ['merge_overlap_ratio', 'merge_explored_ratio_step', 'merge_explored_ratio_step_0.95', 'explored_ratio_step']
         
         # log keys
-        self.agents_env_info_keys = ['sum_explored_ratio','sum_explored_reward','sum_intrinsic_merge_explored_reward','sum_repeat_area','explored_ratio_step','init_pos_x','init_pos_y']
-        self.env_info_keys = ['sum_merge_explored_ratio','sum_merge_explored_reward','sum_merge_repeat_area','merge_overlap_ratio', 'merge_explored_ratio_step','merge_explored_ratio_step_0.95', 'merge_global_goal_num', 'merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold]
+        self.agents_env_info_keys = ['sum_explored_ratio','sum_explored_reward','sum_intrinsic_merge_explored_reward','sum_repeat_area','explored_ratio_step']
+        self.env_info_keys = ['sum_merge_explored_ratio','sum_merge_explored_reward','sum_merge_repeat_area','merge_overlap_ratio', 'merge_explored_ratio_step','merge_explored_ratio_step_0.95', 'merge_global_goal_num', 'merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold,\
+            '50step_merge_auc','100step_merge_auc','120step_merge_auc','150step_merge_auc','180step_merge_auc','200step_merge_auc','250step_merge_auc']
              
         if self.use_eval:
             self.agents_env_info_keys += ['sum_path_length', 'path_length/ratio']
             self.sum_env_info_keys  += ['path_length']
-            self.equal_env_info_keys  += ['path_length/ratio', '50step_merge_auc','100step_merge_auc','120step_merge_auc','150step_merge_auc','180step_merge_auc','200step_merge_auc','250step_merge_auc']
+            self.equal_env_info_keys  += ['path_length/ratio']
             self.auc_infos_keys = ['merge_auc','agent_auc']
-            self.env_info_keys += ['merge_runtime', '50step_merge_auc','100step_merge_auc','120step_merge_auc','150step_merge_auc','180step_merge_auc','200step_merge_auc','250step_merge_auc']
+            self.env_info_keys += ['merge_runtime']
 
         # convert keys
         self.env_infos_keys = self.agents_env_info_keys + self.env_info_keys + \
