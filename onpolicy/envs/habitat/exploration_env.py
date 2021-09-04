@@ -203,6 +203,9 @@ class Exploration_Env(habitat.RLEnv):
         self.merge_explored_ratio_step_95 = -1.0
         self.merge_ratio = 0
         self.overlap_flag = True
+        self.overlap_flag_30 = True
+        self.overlap_flag_50 = True
+        self.overlap_flag_70 = True
         merge_overlap = False
         self.path_length_flag = True
         path_length_flag = False
@@ -747,6 +750,27 @@ class Exploration_Env(habitat.RLEnv):
             if self.timestep % self.args.num_local_steps == 0:
                 agents_explored_map = np.maximum(agents_explored_map, self.transform(self.current_explored_gt[agent_id]*self.explorable_map[agent_id], agent_id))
         
+        if (self.merge_ratio >= 0.3 or self.timestep >= self.args.max_episode_length) :
+            if self.overlap_flag_30:
+                overlap_map = np.sum(self.pre_agent_trans_map, axis=0)
+                # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
+                self.info['merge_overlap_ratio_0.3'] = curr_merge_explored_map[overlap_map > 1.2].sum() / curr_merge_explored_map.sum()
+                self.overlap_flag_30 = False
+
+        if (self.merge_ratio >= 0.5 or self.timestep >= self.args.max_episode_length) :
+            if self.overlap_flag_50:
+                overlap_map = np.sum(self.pre_agent_trans_map, axis=0)
+                # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
+                self.info['merge_overlap_ratio_0.5'] = curr_merge_explored_map[overlap_map > 1.2].sum() / curr_merge_explored_map.sum()
+                self.overlap_flag_50 = False
+        
+        if (self.merge_ratio >= 0.7 or self.timestep >= self.args.max_episode_length) :
+            if self.overlap_flag_70:
+                overlap_map = np.sum(self.pre_agent_trans_map, axis=0)
+                # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
+                self.info['merge_overlap_ratio_0.7'] = curr_merge_explored_map[overlap_map > 1.2].sum() / curr_merge_explored_map.sum()
+                self.overlap_flag_70 = False
+
         if (self.merge_ratio >= self.explored_ratio_down_threshold or self.timestep >= self.args.max_episode_length) :
             if self.overlap_flag:
                 overlap_map = np.sum(self.pre_agent_trans_map, axis=0)
