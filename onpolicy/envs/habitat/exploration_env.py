@@ -209,6 +209,9 @@ class Exploration_Env(habitat.RLEnv):
         merge_overlap = False
         self.path_length_flag = True
         path_length_flag = False
+        merge_overlap_30 = False
+        merge_overlap_50 = False
+        merge_overlap_70 = False
         self.complete_up_flag = -1
         self.complete_down_flag = -1
         self.agent_complete_up_flag = np.ones(self.num_agents)*-1
@@ -401,6 +404,15 @@ class Exploration_Env(habitat.RLEnv):
             if 'merge_overlap_ratio' in self.info.keys():
                 merge_overlap_ratio = self.info['merge_overlap_ratio']
                 merge_overlap = True
+            if 'merge_overlap_ratio_0.3' in self.info.keys():
+                merge_overlap_ratio_30 = self.info['merge_overlap_ratio_0.3']
+                merge_overlap_30 = True
+            if 'merge_overlap_ratio_0.5' in self.info.keys():
+                merge_overlap_ratio_50 = self.info['merge_overlap_ratio_0.5']
+                merge_overlap_50 = True
+            if 'merge_overlap_ratio_0.7' in self.info.keys():
+                merge_overlap_ratio_70 = self.info['merge_overlap_ratio_0.7']
+                merge_overlap_70 = True
             reward = self.info['explored_reward']
             partial_reward = self.info['explored_merge_reward']
             competitive_reward = self.info['explored_competitve_reward']
@@ -460,6 +472,12 @@ class Exploration_Env(habitat.RLEnv):
             self.info['explored_competitve_reward'] = competitive_reward
             if merge_overlap:
                 self.info['merge_overlap_ratio'] = merge_overlap_ratio
+            if merge_overlap_30:
+                self.info['merge_overlap_ratio_0.3'] = merge_overlap_ratio_30
+            if merge_overlap_50:
+                self.info['merge_overlap_ratio_0.5'] = merge_overlap_ratio_50
+            if merge_overlap_70:
+                self.info['merge_overlap_ratio_0.7'] = merge_overlap_ratio_70
             self.info['repeat_area'] = repeat_area
             if self.use_eval:
                 self.info['path_length'] = path_length
