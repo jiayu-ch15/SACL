@@ -213,12 +213,15 @@ class Exploration_Env(habitat.RLEnv):
         merge_overlap_30 = False
         merge_overlap_50 = False
         merge_overlap_70 = False
+        self.balanced_flag = True
+        balanced = False
         self.complete_up_flag = -1
         self.complete_down_flag = -1
         self.agent_complete_up_flag = np.ones(self.num_agents)*-1
         self.agent_complete_down_flag = np.ones(self.num_agents)*-1
         self.ratio = np.zeros(self.num_agents)
         self.path_length = np.zeros(self.num_agents)
+        balanced_ratio = np.zeros(self.num_agents)
         
         
         if self.args.randomize_env_every > 0:
@@ -413,7 +416,7 @@ class Exploration_Env(habitat.RLEnv):
                 merge_overlap_50 = True
             if 'merge_overlap_ratio_0.7' in self.info.keys():
                 merge_overlap_ratio_70 = self.info['merge_overlap_ratio_0.7']
-                merge_overlap_70 = True
+                merge_overlap_70 = True          
             reward = self.info['explored_reward']
             partial_reward = self.info['explored_merge_reward']
             competitive_reward = self.info['explored_competitve_reward']
@@ -424,6 +427,11 @@ class Exploration_Env(habitat.RLEnv):
                 if 'path_length/ratio' in self.info.keys():
                     path_length_divide_ratio = self.info['path_length/ratio']
                     path_length_flag = True
+                for agent_id in range(self.num_agents):
+                    for a in range(self.num_agents):
+                        if 'agent{}/{}_balanced_ratio'.format(agent_id, a) in self.info.keys():
+                            balanced_ratio[agent_id] = self.info['agent{}/{}_balanced_ratio'.format(agent_id, a)]
+                            balanced = True
             
 
         # Set info
@@ -484,9 +492,11 @@ class Exploration_Env(habitat.RLEnv):
                 self.info['path_length'] = path_length
                 if path_length_flag:
                     self.info['path_length/ratio'] = path_length_divide_ratio
-
-        self.save_position()
-        self.save_position_data()
+                if balanced:
+                    for agent_id in range(self.num_agents):
+                        for a in range(self.num_agents):
+                            if 'agent{}/{}_balanced_ratio'.format(agent_id, a) in self.info.keys():
+                                self.info['agent{}/{}_balanced_ratio'.format(agent_id, a)] = balanced_ratio[agent_id]
 
         return states, self.info 
 
@@ -800,6 +810,13 @@ class Exploration_Env(habitat.RLEnv):
                 self.overlap_flag_70 = False
 
         if (self.merge_ratio >= self.explored_ratio_down_threshold or self.timestep >= self.args.max_episode_length) :
+            if self.balanced_flag:
+                for agent_id in range(self.num_agents):
+                    for a in range(self.num_agents):
+                        if a != agent_id:
+                            self.info['agent{}/{}_balanced_ratio'.format(agent_id, a)] = self.ratio[agent_id]/self.ratio[a]
+                self.balanced_flag = False
+            
             if self.overlap_flag:
                 overlap_map = np.sum(self.pre_agent_trans_map, axis=0)
                 # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
