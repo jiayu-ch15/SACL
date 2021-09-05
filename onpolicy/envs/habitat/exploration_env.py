@@ -745,11 +745,11 @@ class Exploration_Env(habitat.RLEnv):
             self.ratio[agent_id] += agent_explored_ratio[agent_id]
             if self.ratio[agent_id] >= self.explored_ratio_up_threshold:
                 if self.use_complete_reward and self.agent_complete_up_flag[agent_id] == -1:
-                    self.info['explored_reward'][agent_id] += 10.0 * self.ratio[agent_id]
+                    self.info['explored_reward'][agent_id] += 0.5 * self.ratio[agent_id]
                     self.agent_complete_up_flag[agent_id] = 1
             elif self.ratio[agent_id] >= self.explored_ratio_down_threshold:
                 if self.use_complete_reward and self.agent_complete_down_flag[agent_id] == -1:
-                    self.info['explored_reward'][agent_id] += 2.0 * self.ratio[agent_id]
+                    self.info['explored_reward'][agent_id] += 0.2 * self.ratio[agent_id]
                     self.agent_complete_down_flag[agent_id] = 1
                 if self.explored_ratio_step[agent_id] == -1.0:
                     self.explored_ratio_step[agent_id] = self.timestep
