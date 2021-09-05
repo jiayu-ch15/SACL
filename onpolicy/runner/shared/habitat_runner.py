@@ -476,9 +476,9 @@ class HabitatRunner(Runner):
             '50step_merge_auc','100step_merge_auc','120step_merge_auc','150step_merge_auc','180step_merge_auc','200step_merge_auc','250step_merge_auc']
              
         if self.use_eval:
-            self.agents_env_info_keys += ['sum_path_length', 'path_length/ratio']
+            self.agents_env_info_keys += ['sum_path_length', 'path_length/ratio', "balanced_ratio"]
             self.sum_env_info_keys  += ['path_length']
-            self.equal_env_info_keys  += ['path_length/ratio']
+            self.equal_env_info_keys  += ['path_length/ratio',"balanced_ratio"]
             self.auc_infos_keys = ['merge_auc','agent_auc']
             self.env_info_keys += ['merge_runtime']
 
@@ -1869,7 +1869,12 @@ class HabitatRunner(Runner):
         for k, v in train_infos.items():
             if "merge" not in k:
                 for agent_id in range(self.num_agents):
-                    agent_k = "agent{}_".format(agent_id) + k
+                    if k == "balanced_ratio":
+                        for a in range(self.num_agents):
+                            if a != agent_id:
+                                agent_k = "agent{}/{}_".format(agent_id, a) + k
+                    else:
+                        agent_k = "agent{}_".format(agent_id) + k
                     if self.use_wandb:
                         wandb.log({agent_k: np.mean(np.array(v)[:,:,agent_id])}, step=total_num_steps)
                     else:
@@ -2007,6 +2012,12 @@ class HabitatRunner(Runner):
                                 agent_k = "agent{}_{}".format(agent_id, key)
                                 if agent_k in infos[e].keys():
                                     self.env_info[key][e][agent_id] = infos[e][agent_k]
+                        elif key == 'balanced_ratio':
+                            for agent_id in range(self.num_agents):
+                                for a in range(self.num_agents):
+                                    agent_k = "agent{}/{}_{}".format(agent_id, a, key)
+                                    if agent_k in infos[e].keys():
+                                        self.env_info[key][e][agent_id] = infos[e][agent_k] 
                         else:
                             if key in infos[e].keys():
                                 self.env_info[key][e] = infos[e][key]
@@ -2174,6 +2185,12 @@ class HabitatRunner(Runner):
                                 agent_k = "agent{}_{}".format(agent_id, key)
                                 if agent_k in infos[e].keys():
                                     self.env_info[key][e][agent_id] = infos[e][agent_k]
+                        elif key == 'balanced_ratio':
+                            for agent_id in range(self.num_agents):
+                                for a in range(self.num_agents):
+                                    agent_k = "agent{}/{}_{}".format(agent_id, a, key)
+                                    if agent_k in infos[e].keys():
+                                        self.env_info[key][e][agent_id] = infos[e][agent_k] 
                         else:
                             if key in infos[e].keys():
                                 self.env_info[key][e] = infos[e][key]
