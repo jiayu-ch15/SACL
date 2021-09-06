@@ -203,6 +203,7 @@ class Exploration_Env(habitat.RLEnv):
         self.merge_explored_ratio_step = -1.0
         self.merge_explored_ratio_step_95 = -1.0
         self.merge_ratio = 0
+        self.prev_overlap_area = 0
         self.overlap_flag = True
         self.overlap_flag_30 = True
         self.overlap_flag_50 = True
