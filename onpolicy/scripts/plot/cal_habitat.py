@@ -30,9 +30,11 @@ for metric_name in metric_names:
         for step_name in step_names:
             ic(step_name + metric_name)
             value_dict = defaultdict(list)
-            value_dict['Map ID'] = np.array(map_names)
+            value_dict['Map ID'] = map_names.copy()
             for method_name in method_names:
                 ic(method_name)
+                avg_mean = []
+                avg_std = []
                 for map_name in map_names:
                     ic(map_name)
                     
@@ -51,9 +53,19 @@ for metric_name in metric_names:
                     metric_mean = np.mean(np.mean(metric, axis=0))
                     metric_std = np.std(np.mean(metric, axis=0))
 
+                    avg_mean.append(metric_mean)
+                    avg_std.append(metric_std)
+
                     result = str(format(metric_mean, '.1f')) + "(" + str(format(metric_std, '.1f')) + ")"
                     value_dict[method_name].append(result)
-        
+
+            for k,v in value_dict.items():
+                if k == "Map ID":
+                    v.append('Avg.')
+                else:
+                    result = str(format(np.mean(avg_mean), '.1f')) + "(" + str(format(np.mean(avg_std), '.1f')) + ")"
+                    v.append(result)
+
             df = pandas.DataFrame(value_dict)
             print(df.to_latex(index=False, column_format = 'c'*len(value_dict.keys()), multicolumn_format='c', caption=step_name + metric_name, label='tab:' + step_name + metric_name))
 
@@ -63,9 +75,11 @@ for metric_name in metric_names:
         ic(metric_name)
         for ratio_name in ratio_names:
             value_dict = defaultdict(list)
-            value_dict['Map ID'] = np.array(map_names)
+            value_dict['Map ID'] = map_names.copy()
             for method_name in method_names:
                 ic(method_name)
+                avg_mean = []
+                avg_std = []
                 for map_name in map_names:
                     ic(map_name)
 
@@ -84,20 +98,30 @@ for metric_name in metric_names:
                     metric_mean = np.mean(np.mean(metric, axis=0))
                     metric_std = np.std(np.mean(metric, axis=0))
 
+                    avg_mean.append(metric_mean)
+                    avg_std.append(metric_std)
+
                     result = str(format(metric_mean, '.1f')) + "(" + str(format(metric_std, '.1f')) + ")"
                     value_dict[method_name].append(result)
-        
+            
+            for k,v in value_dict.items():
+                if k == "Map ID":
+                    v.append('Avg.')
+                else:
+                    result = str(format(np.mean(avg_mean), '.1f')) + "(" + str(format(np.mean(avg_std), '.1f')) + ")"
+                    v.append(result)
             df = pandas.DataFrame(value_dict)
             print(df.to_latex(index=False, column_format = 'c'*len(value_dict.keys()) , multicolumn_format='c', caption= ratio_name + metric_name, label='tab:'+ ratio_name + metric_name))
     
     # ratio # balance #step
     value_dict = defaultdict(list)
-    value_dict['Map ID'] = np.array(map_names)
+    value_dict['Map ID'] = map_names.copy()
     if metric_name in ["ratio","balance","step"]:
         ic(metric_name)
         for method_name in method_names:
             ic(method_name)
-
+            avg_mean = []
+            avg_std = []
             for map_name in map_names:
                 ic(map_name)
                 data_dir =  save_dir + map_name + '/' + method_name + "/" + metric_name + '/' + metric_name + '.csv'
@@ -115,8 +139,17 @@ for metric_name in metric_names:
                 metric_mean = np.mean(np.mean(metric, axis=0))
                 metric_std = np.std(np.mean(metric, axis=0))
 
+                avg_mean.append(metric_mean)
+                avg_std.append(metric_std)
+
                 result = str(format(metric_mean, '.1f')) + "(" + str(format(metric_std, '.1f')) + ")"
                 value_dict[method_name].append(result)
-
+        
+        for k,v in value_dict.items():
+            if k == "Map ID":
+                v.append('Avg.')
+            else:
+                result = str(format(np.mean(avg_mean), '.1f')) + "(" + str(format(np.mean(avg_std), '.1f')) + ")"
+                v.append(result)
         df = pandas.DataFrame(value_dict)
         print(df.to_latex(index=False, column_format = 'c'*len(value_dict.keys()), multicolumn_format='c', caption=metric_name, label='tab:'+ metric_name))
