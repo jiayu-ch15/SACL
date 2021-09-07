@@ -1,0 +1,195 @@
+\begin{table}
+\centering
+\caption{100stepauc}
+\label{tab:100stepauc}
+\begin{tabular}{cccccc}
+\toprule
+Map ID &       apf &       rrt &   nearest &   utility & global\_stack \\
+\midrule
+    16 & 35.7(0.9) & 35.7(0.9) & 35.7(0.9) & 35.7(0.9) &    35.7(0.9) \\
+    20 & 35.7(0.9) & 35.7(0.9) & 35.7(0.9) & 35.7(0.9) &    35.7(0.9) \\
+    21 & 35.7(0.9) & 35.7(0.9) & 35.7(0.9) & 35.7(0.9) &    35.7(0.9) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}
+\centering
+\caption{120stepauc}
+\label{tab:120stepauc}
+\begin{tabular}{cccccc}
+\toprule
+Map ID &       apf &       rrt &   nearest &   utility & global\_stack \\
+\midrule
+    16 & 48.0(1.0) & 48.0(1.0) & 48.0(1.0) & 48.0(1.0) &    48.0(1.0) \\
+    20 & 48.0(1.0) & 48.0(1.0) & 48.0(1.0) & 48.0(1.0) &    48.0(1.0) \\
+    21 & 48.0(1.0) & 48.0(1.0) & 48.0(1.0) & 48.0(1.0) &    48.0(1.0) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}
+\centering
+\caption{150stepauc}
+\label{tab:150stepauc}
+\begin{tabular}{cccccc}
+\toprule
+Map ID &       apf &       rrt &   nearest &   utility & global\_stack \\
+\midrule
+    16 & 68.8(0.9) & 68.8(0.9) & 68.8(0.9) & 68.8(0.9) &    68.8(0.9) \\
+    20 & 68.8(0.9) & 68.8(0.9) & 68.8(0.9) & 68.8(0.9) &    68.8(0.9) \\
+    21 & 68.8(0.9) & 68.8(0.9) & 68.8(0.9) & 68.8(0.9) &    68.8(0.9) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}
+\centering
+\caption{180stepauc}
+\label{tab:180stepauc}
+\begin{tabular}{cccccc}
+\toprule
+Map ID &       apf &       rrt &   nearest &   utility & global\_stack \\
+\midrule
+    16 & 92.0(0.9) & 92.0(0.9) & 92.0(0.9) & 92.0(0.9) &    92.0(0.9) \\
+    20 & 92.0(0.9) & 92.0(0.9) & 92.0(0.9) & 92.0(0.9) &    92.0(0.9) \\
+    21 & 92.0(0.9) & 92.0(0.9) & 92.0(0.9) & 92.0(0.9) &    92.0(0.9) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}
+\centering
+\caption{200stepauc}
+\label{tab:200stepauc}
+\begin{tabular}{cccccc}
+\toprule
+Map ID &        apf &        rrt &    nearest &    utility & global\_stack \\
+\midrule
+    16 & 108.6(1.0) & 108.6(1.0) & 108.6(1.0) & 108.6(1.0) &   108.6(1.0) \\
+    20 & 108.6(1.0) & 108.6(1.0) & 108.6(1.0) & 108.6(1.0) &   108.6(1.0) \\
+    21 & 108.6(1.0) & 108.6(1.0) & 108.6(1.0) & 108.6(1.0) &   108.6(1.0) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}
+\centering
+\caption{250stepauc}
+\label{tab:250stepauc}
+\begin{tabular}{cccccc}
+\toprule
+Map ID &        apf &        rrt &    nearest &    utility & global\_stack \\
+\midrule
+    16 & 152.7(1.3) & 152.7(1.3) & 152.7(1.3) & 152.7(1.3) &   152.7(1.3) \\
+    20 & 152.7(1.3) & 152.7(1.3) & 152.7(1.3) & 152.7(1.3) &   152.7(1.3) \\
+    21 & 152.7(1.3) & 152.7(1.3) & 152.7(1.3) & 152.7(1.3) &   152.7(1.3) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}
+\centering
+\caption{30ratiooverlap}
+\label{tab:30ratiooverlap}
+\begin{tabular}{cccccc}
+\toprule
+Map ID &      apf &      rrt &  nearest &  utility & global\_stack \\
+\midrule
+    16 & 0.4(0.0) & 0.4(0.0) & 0.4(0.0) & 0.4(0.0) &     0.4(0.0) \\
+    20 & 0.4(0.0) & 0.4(0.0) & 0.4(0.0) & 0.4(0.0) &     0.4(0.0) \\
+    21 & 0.4(0.0) & 0.4(0.0) & 0.4(0.0) & 0.4(0.0) &     0.4(0.0) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}
+\centering
+\caption{50ratiooverlap}
+\label{tab:50ratiooverlap}
+\begin{tabular}{cccccc}
+\toprule
+Map ID &      apf &      rrt &  nearest &  utility & global\_stack \\
+\midrule
+    16 & 0.4(0.0) & 0.4(0.0) & 0.4(0.0) & 0.4(0.0) &     0.4(0.0) \\
+    20 & 0.4(0.0) & 0.4(0.0) & 0.4(0.0) & 0.4(0.0) &     0.4(0.0) \\
+    21 & 0.4(0.0) & 0.4(0.0) & 0.4(0.0) & 0.4(0.0) &     0.4(0.0) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}
+\centering
+\caption{70ratiooverlap}
+\label{tab:70ratiooverlap}
+\begin{tabular}{cccccc}
+\toprule
+Map ID &      apf &      rrt &  nearest &  utility & global\_stack \\
+\midrule
+    16 & 0.6(0.0) & 0.6(0.0) & 0.6(0.0) & 0.6(0.0) &     0.6(0.0) \\
+    20 & 0.6(0.0) & 0.6(0.0) & 0.6(0.0) & 0.6(0.0) &     0.6(0.0) \\
+    21 & 0.6(0.0) & 0.6(0.0) & 0.6(0.0) & 0.6(0.0) &     0.6(0.0) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}
+\centering
+\caption{90ratiooverlap}
+\label{tab:90ratiooverlap}
+\begin{tabular}{cccccc}
+\toprule
+Map ID &      apf &      rrt &  nearest &  utility & global\_stack \\
+\midrule
+    16 & 0.7(0.0) & 0.7(0.0) & 0.7(0.0) & 0.7(0.0) &     0.7(0.0) \\
+    20 & 0.7(0.0) & 0.7(0.0) & 0.7(0.0) & 0.7(0.0) &     0.7(0.0) \\
+    21 & 0.7(0.0) & 0.7(0.0) & 0.7(0.0) & 0.7(0.0) &     0.7(0.0) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}
+\centering
+\caption{ratio}
+\label{tab:ratio}
+\begin{tabular}{cccccc}
+\toprule
+Map ID &      apf &      rrt &  nearest &  utility & global\_stack \\
+\midrule
+    16 & 1.0(0.0) & 1.0(0.0) & 1.0(0.0) & 1.0(0.0) &     1.0(0.0) \\
+    20 & 1.0(0.0) & 1.0(0.0) & 1.0(0.0) & 1.0(0.0) &     1.0(0.0) \\
+    21 & 1.0(0.0) & 1.0(0.0) & 1.0(0.0) & 1.0(0.0) &     1.0(0.0) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}
+\centering
+\caption{step}
+\label{tab:step}
+\begin{tabular}{cccccc}
+\toprule
+Map ID &        apf &        rrt &    nearest &    utility & global\_stack \\
+\midrule
+    16 & 223.5(4.8) & 223.5(4.8) & 223.5(4.8) & 223.5(4.8) &   223.5(4.8) \\
+    20 & 223.5(4.8) & 223.5(4.8) & 223.5(4.8) & 223.5(4.8) &   223.5(4.8) \\
+    21 & 223.5(4.8) & 223.5(4.8) & 223.5(4.8) & 223.5(4.8) &   223.5(4.8) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}
+\centering
+\caption{balance}
+\label{tab:balance}
+\begin{tabular}{cccccc}
+\toprule
+Map ID &      apf &      rrt &  nearest &  utility & global\_stack \\
+\midrule
+    16 & 1.1(0.0) & 1.1(0.0) & 1.1(0.0) & 1.1(0.0) &     1.1(0.0) \\
+    20 & 1.1(0.0) & 1.1(0.0) & 1.1(0.0) & 1.1(0.0) &     1.1(0.0) \\
+    21 & 1.1(0.0) & 1.1(0.0) & 1.1(0.0) & 1.1(0.0) &     1.1(0.0) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
