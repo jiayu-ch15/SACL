@@ -19,9 +19,9 @@ large_map_names = ['20','49']
 size_names = ['middle'] * len(map_names) + ['-'] + ['large'] * len(large_map_names) + ['-']
 map_id_names = map_names + ['Avg.'] + large_map_names + ['Avg.']
 method_names = ['nearest','apf','utility', 'rrt', 'global_stack','single_agent']
-metric_names = ['auc','overlap','ratio','step','balance','success rate','agent_auc']
-step_names = ['100step','120step','150step','180step','200step','250step']
-ratio_names = ['30ratio','50ratio','70ratio','90ratio']
+metric_names = ['auc','overlap','ratio','step','balance','success rate']
+step_names = ['150step','180step','200step']
+ratio_names = ['70ratio','90ratio']
 
 save_dir = './habitat/'
 if not os.path.exists(save_dir):
@@ -288,7 +288,7 @@ for metric_name in metric_names:
 
                 step = np.array(df[key_step])
                 metric = np.array(df[key_metric])
-                metric = metric > 0.9
+                metric = metric > 0.90
 
                 metric_mean = np.nanmean(np.nanmean(metric, axis=0))
                 metric_std = np.nanstd(np.nanmean(metric, axis=0))

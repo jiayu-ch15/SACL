@@ -16,10 +16,23 @@ def moving_average(interval, windowsize):
 
 plt.style.use('ggplot')
 
-map_names = ['3s_vs_5z','MMM2','10m_vs_11m','6h_vs_8z','corridor',\
-'5m_vs_6m','8m_vs_9m','3s5z_vs_3s6z']
-title_names = [name.replace("_vs_"," vs. ") for name in map_names]
-ppo_epoch = [15, 5, 10, 5, 5, 10, 15, 5, 15]
+map_names = ['16','20','21']#,'22','36','43','48','49','61']
+method_names = ['apf', 'rrt', 'nearest','utility', 'global_stack']
+metric_names = ['auc','overlap','ratio','step','balance'] #,'agent_auc']
+step_names = ['100step','120step','150step','180step','200step','250step']
+ratio_names = ['30ratio','50ratio','70ratio','90ratio']
+
+save_dir = './habitat/'
+if not os.path.exists(save_dir):
+    os.makedirs(save_dir)
+
+
+
+
+
+
+
+    
 for map_name, title_name, p in zip(map_names, title_names, ppo_epoch):
     plt.figure()
     ###################################PPO###################################
