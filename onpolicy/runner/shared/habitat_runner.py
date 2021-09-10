@@ -2529,8 +2529,12 @@ class HabitatRunner(Runner):
                 self.local_output = self.envs.get_short_term_goal(self.local_input)
                 self.local_output = np.array(self.local_output, dtype = np.long)
 
-        self.log_auc(self.auc_infos)
-        self.log_agent_auc(self.auc_infos)
+        for i in range(self.max_episode_length):
+            if self.use_wandb:
+                wandb.log({'merge_auc': np.mean(self.auc_infos['merge_auc'][:, :, i])}, step=i+1)
+                for agent_id in range(self.num_agents):
+                    agent_k = "agent{}_auc".format(agent_id)
+                    wandb.log({agent_k: np.mean(np.array(self.auc_infos['agent_auc'])[:, :, agent_id, i])}, step=i+1)
 
             
     @torch.no_grad()
