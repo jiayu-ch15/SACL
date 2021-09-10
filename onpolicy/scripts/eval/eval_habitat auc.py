@@ -242,6 +242,8 @@ def parse_args(args, parser):
     parser.add_argument('--use_async', action='store_true',
                         default=False, help="by default True, use async eval")
     
+    parser.add_argument('--use_overlap_penalty',action='store_true', default=False)
+    
     all_args = parser.parse_known_args(args)[0]
 
     return all_args

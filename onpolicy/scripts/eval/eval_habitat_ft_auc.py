@@ -267,7 +267,9 @@ def parse_args(args, parser):
                         default=False, help="by default True, use_discrete_goal")
     parser.add_argument('--use_goal_penalty', action='store_true',
                         default=False, help="by default True, use_discrete_goal")
-    parser.add_argument('--grid_size', type=int, default=8, help="xxxx")                 
+    parser.add_argument('--grid_size', type=int, default=8, help="xxxx")  
+
+    parser.add_argument('--use_overlap_penalty',action='store_true', default=False)               
                         
                         
     all_args = parser.parse_known_args(args)[0]

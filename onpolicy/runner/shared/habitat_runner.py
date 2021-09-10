@@ -13,6 +13,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 import copy
+import json
 
 from onpolicy.utils.util import update_linear_schedule
 from onpolicy.runner.shared.base_runner import Runner
@@ -2529,6 +2530,11 @@ class HabitatRunner(Runner):
                 self.local_output = self.envs.get_short_term_goal(self.local_input)
                 self.local_output = np.array(self.local_output, dtype = np.long)
 
+        with open(self.run_dir + '/auc.json', 'w') as json_file:
+            json.dump(self.auc_infos['merge_auc'].tolist(), json_file, ensure_ascii=False)
+        with open(self.run_dir + '/agent_auc.json', 'w') as json_file:
+            json.dump(self.auc_infos['agent_auc'].tolist(), json_file, ensure_ascii=False)
+            
         for i in range(self.max_episode_length):
             if self.use_wandb:
                 wandb.log({'merge_auc': np.mean(self.auc_infos['merge_auc'][:, :, i])}, step=i+1)
@@ -2628,7 +2634,12 @@ class HabitatRunner(Runner):
                 # Output stores local goals as well as the the ground-truth action
                 self.local_output = self.envs.get_short_term_goal(self.local_input)
                 self.local_output = np.array(self.local_output, dtype = np.long)
-                           
+
+        with open(self.run_dir + '/auc.json', 'w') as json_file:
+            json.dump(self.auc_infos['merge_auc'].tolist(), json_file, ensure_ascii=False)
+        with open(self.run_dir + '/agent_auc.json', 'w') as json_file:
+            json.dump(self.auc_infos['agent_auc'].tolist(), json_file, ensure_ascii=False)
+
         for i in range(self.max_episode_length):
             if self.use_wandb:
                 wandb.log({'merge_auc': np.mean(self.auc_infos['merge_auc'][:, :, i])}, step=i+1)
