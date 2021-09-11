@@ -2160,6 +2160,8 @@ class HabitatRunner(Runner):
             auc_single_area = np.zeros((self.n_rollout_threads, self.num_agents, self.max_episode_length), dtype=np.float32)
             for step in range(self.max_episode_length):
                 print("step {}".format(step))
+                if step > 0: break
+                
                 self.env_step = step + 1
 
                 self.last_obs = copy.deepcopy(self.obs)

@@ -857,6 +857,8 @@ class Exploration_Env(habitat.RLEnv):
                 self.info['merge_explored_reward'] -= 0.0002  
 
         self.save_position()
+        self.save_position_data()
+
 
         if self.info['time'][0] >= self.args.max_episode_length:
             done = [True for _ in range(self.num_agents)]

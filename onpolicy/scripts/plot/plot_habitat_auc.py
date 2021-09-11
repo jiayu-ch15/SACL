@@ -97,7 +97,7 @@ plt.figure()
 for method_name, label_name, color_name in zip(method_names, label_names, color_names):
     metric_map = []
     for map_name in map_names:
-        data_dir =  save_dir + map_name + '/' + method_name + "/auc.csv'
+        data_dir =  save_dir + map_name + '/' + method_name + "/auc.csv"
         # data_dir =  save_dir + map_name + '/' + method_name + "/auc/100step.csv"
 
         df = pandas.read_csv(data_dir)
