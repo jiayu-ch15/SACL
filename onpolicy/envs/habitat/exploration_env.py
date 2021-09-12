@@ -856,8 +856,8 @@ class Exploration_Env(habitat.RLEnv):
             elif self.merge_ratio < 0.97:
                 self.info['merge_explored_reward'] -= 0.0002  
 
-        self.save_position()
-        self.save_position_data()
+        # self.save_position()
+        # self.save_position_data()
 
 
         if self.info['time'][0] >= self.args.max_episode_length:
