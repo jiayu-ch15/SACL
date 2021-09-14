@@ -17,10 +17,10 @@ def moving_average(interval, windowsize):
 avg = 30
 plt.style.use('ggplot')
 
-map_names = ['48']#,'21','48']#,'22','36','43','48','49','61']
+map_names = ['16','21','48']#,'21','48']#,'22','36','43','48','49','61']
 title_names = ['Map ID: ' + m for m in map_names]
-method_names = ['global_stack','global_stack_noattn','global_stack_xy','merge_map']
-label_names = ['SCP','SCP w.o. RE','SCP w.o. AE','SCP-merge']
+method_names = ['global_stack','merge_map']
+label_names = ['SCP','SCP-merge']
 color_names = ['red','blue','limegreen', 'saddlebrown','purple','gray']
 metric_names = ['auc','overlap','step']
 step_names = ['200step']
@@ -105,7 +105,7 @@ for map_name, title_name in zip(map_names, title_names):
                 plt.title(title_name, fontsize=20)
                 plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=20)
 
-                plt.savefig(save_dir + map_name + "_" + step_name + '_' + metric_name + "_module.png", bbox_inches="tight")
+                plt.savefig(save_dir + map_name + "_" + step_name + '_' + metric_name + "_merge-module.png", bbox_inches="tight")
             
         if metric_name == "overlap":
             for ratio_name in ratio_names:
@@ -180,7 +180,7 @@ for map_name, title_name in zip(map_names, title_names):
                 plt.title(title_name, fontsize=20)
                 plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=20)
 
-                plt.savefig(save_dir + map_name + "_" + ratio_name + '_' + metric_name + "_module.png", bbox_inches="tight")
+                plt.savefig(save_dir + map_name + "_" + ratio_name + '_' + metric_name + "_merge-module.png", bbox_inches="tight")
 
         if metric_name == "step":
             plt.figure()
@@ -254,4 +254,4 @@ for map_name, title_name in zip(map_names, title_names):
             plt.title(title_name, fontsize=20)
             plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=20)
 
-            plt.savefig(save_dir + map_name + "_" + metric_name + "_module.png", bbox_inches="tight")
+            plt.savefig(save_dir + map_name + "_" + metric_name + "_merge-module.png", bbox_inches="tight")

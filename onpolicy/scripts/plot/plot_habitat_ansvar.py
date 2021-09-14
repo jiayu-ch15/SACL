@@ -17,10 +17,10 @@ def moving_average(interval, windowsize):
 avg = 30
 plt.style.use('ggplot')
 
-map_names = ['48']#,'21','48']#,'22','36','43','48','49','61']
+map_names = ['16','21','61']#,'22','36','43','48','49','61']
 title_names = ['Map ID: ' + m for m in map_names]
-method_names = ['global_stack','global_stack_noattn','global_stack_xy','merge_map']
-label_names = ['SCP','SCP w.o. RE','SCP w.o. AE','SCP-merge']
+method_names = ['global_stack','main_single','main_stack']#,'merge_map']
+label_names = ['MAANS','ANS-blind', 'ANS-stack',]#,'AMM']
 color_names = ['red','blue','limegreen', 'saddlebrown','purple','gray']
 metric_names = ['auc','overlap','step']
 step_names = ['200step']
@@ -35,6 +35,7 @@ for map_name, title_name in zip(map_names, title_names):
     for metric_name in metric_names:
         if metric_name == "auc":
             for step_name in step_names:
+                
                 plt.figure()
                 max_steps = []
                 for method_name, label_name, color_name in zip(method_names, label_names, color_names):
@@ -85,8 +86,8 @@ for map_name, title_name in zip(map_names, title_names):
                 # print("final max step is {}".format(final_max_step))
                 x_major_locator = MultipleLocator(int(final_max_step/5))
                 x_minor_Locator = MultipleLocator(int(final_max_step/10)) 
-                y_major_locator = MultipleLocator(5)
-                y_minor_Locator = MultipleLocator(2.5)
+                y_major_locator = MultipleLocator(10)
+                y_minor_Locator = MultipleLocator(5)
                 ax=plt.gca()
                 ax.xaxis.set_major_locator(x_major_locator)
                 ax.yaxis.set_major_locator(y_major_locator)
@@ -101,11 +102,11 @@ for map_name, title_name in zip(map_names, title_names):
                 plt.xticks(fontsize=20)
                 plt.yticks(fontsize=20)
                 plt.xlabel('Timesteps', fontsize=20)
-                plt.ylabel("AUC", fontsize=20)
+                plt.ylabel("ACS", fontsize=20)
                 plt.title(title_name, fontsize=20)
                 plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=20)
 
-                plt.savefig(save_dir + map_name + "_" + step_name + '_' + metric_name + "_module.png", bbox_inches="tight")
+                plt.savefig(save_dir + map_name + "_" + step_name + '_' + metric_name + "_baseline.png", bbox_inches="tight")
             
         if metric_name == "overlap":
             for ratio_name in ratio_names:
@@ -180,7 +181,7 @@ for map_name, title_name in zip(map_names, title_names):
                 plt.title(title_name, fontsize=20)
                 plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=20)
 
-                plt.savefig(save_dir + map_name + "_" + ratio_name + '_' + metric_name + "_module.png", bbox_inches="tight")
+                plt.savefig(save_dir + map_name + "_" + ratio_name + '_' + metric_name + "_baseline.png", bbox_inches="tight")
 
         if metric_name == "step":
             plt.figure()
@@ -254,4 +255,4 @@ for map_name, title_name in zip(map_names, title_names):
             plt.title(title_name, fontsize=20)
             plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=20)
 
-            plt.savefig(save_dir + map_name + "_" + metric_name + "_module.png", bbox_inches="tight")
+            plt.savefig(save_dir + map_name + "_" + metric_name + "_baseline.png", bbox_inches="tight")
