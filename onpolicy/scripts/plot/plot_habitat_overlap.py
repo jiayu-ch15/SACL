@@ -137,6 +137,7 @@ for metric_name in metric_names:
                     key_metric = [n for n in key_cols if n != 'Step']
 
                     # [episode, seed]
+                    print(key_metric)
                     metric = np.array(df[key_metric])
 
                     # [seed]
@@ -185,7 +186,7 @@ tx = ax.xaxis.get_offset_text()
 tx.set_fontsize(18) 
 #ax.xaxis.grid(True, which='minor')
 plt.xlim(1, 1.9)
-plt.ylim([0.0, 0.7])
+plt.ylim([0.0, 1.0])
 plt.xticks(np.arange(len(x_names)) + 1 , x_names)
 plt.xticks(fontsize=20)
 plt.yticks(fontsize=20)

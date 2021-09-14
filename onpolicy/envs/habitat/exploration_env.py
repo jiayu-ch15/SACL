@@ -204,16 +204,29 @@ class Exploration_Env(habitat.RLEnv):
         self.merge_explored_ratio_step_95 = -1.0
         self.merge_ratio = 0
         self.prev_overlap_area = 0
-        self.overlap_flag = True
+        
+        self.overlap_flag_10 = True
+        self.overlap_flag_20 = True
         self.overlap_flag_30 = True
+        self.overlap_flag_40 = True
         self.overlap_flag_50 = True
+        self.overlap_flag_60 = True
         self.overlap_flag_70 = True
+        self.overlap_flag_80 = True
+        self.overlap_flag = True
+
+        merge_overlap_10 = False
+        merge_overlap_20 = False
+        merge_overlap_30 = False
+        merge_overlap_40 = False
+        merge_overlap_50 = False
+        merge_overlap_60 = False
+        merge_overlap_70 = False
+        merge_overlap_80 = False
         merge_overlap = False
+        
         self.path_length_flag = True
         path_length_flag = False
-        merge_overlap_30 = False
-        merge_overlap_50 = False
-        merge_overlap_70 = False
         self.balanced_flag = True
         balanced = False
         self.complete_up_flag = -1
@@ -406,18 +419,35 @@ class Exploration_Env(habitat.RLEnv):
             merge_reward = self.info['merge_explored_reward']
             merge_ratio = self.info['merge_explored_ratio']
             merge_repeat_area = self.info['merge_repeat_area']
-            if 'merge_overlap_ratio' in self.info.keys():
-                merge_overlap_ratio = self.info['merge_overlap_ratio']
-                merge_overlap = True
+            
+            if 'merge_overlap_ratio_0.1' in self.info.keys():
+                merge_overlap_ratio_10 = self.info['merge_overlap_ratio_0.1']
+                merge_overlap_10 = True
+            if 'merge_overlap_ratio_0.2' in self.info.keys():
+                merge_overlap_ratio_20 = self.info['merge_overlap_ratio_0.2']
+                merge_overlap_20 = True
             if 'merge_overlap_ratio_0.3' in self.info.keys():
                 merge_overlap_ratio_30 = self.info['merge_overlap_ratio_0.3']
                 merge_overlap_30 = True
+            if 'merge_overlap_ratio_0.4' in self.info.keys():
+                merge_overlap_ratio_40 = self.info['merge_overlap_ratio_0.4']
+                merge_overlap_40 = True
             if 'merge_overlap_ratio_0.5' in self.info.keys():
                 merge_overlap_ratio_50 = self.info['merge_overlap_ratio_0.5']
                 merge_overlap_50 = True
+            if 'merge_overlap_ratio_0.6' in self.info.keys():
+                merge_overlap_ratio_60 = self.info['merge_overlap_ratio_0.6']
+                merge_overlap_60 = True
             if 'merge_overlap_ratio_0.7' in self.info.keys():
                 merge_overlap_ratio_70 = self.info['merge_overlap_ratio_0.7']
-                merge_overlap_70 = True          
+                merge_overlap_70 = True
+            if 'merge_overlap_ratio_0.8' in self.info.keys():
+                merge_overlap_ratio_80 = self.info['merge_overlap_ratio_0.8']
+                merge_overlap_80 = True    
+            if 'merge_overlap_ratio' in self.info.keys():
+                merge_overlap_ratio = self.info['merge_overlap_ratio']
+                merge_overlap = True
+
             reward = self.info['explored_reward']
             partial_reward = self.info['explored_merge_reward']
             competitive_reward = self.info['explored_competitve_reward']
@@ -480,14 +510,26 @@ class Exploration_Env(habitat.RLEnv):
             self.info['merge_repeat_area'] = merge_repeat_area
             self.info['explored_merge_reward'] = partial_reward
             self.info['explored_competitve_reward'] = competitive_reward
-            if merge_overlap:
-                self.info['merge_overlap_ratio'] = merge_overlap_ratio
+            
+            if merge_overlap_10:
+                self.info['merge_overlap_ratio_0.1'] = merge_overlap_ratio_10
+            if merge_overlap_20:
+                self.info['merge_overlap_ratio_0.2'] = merge_overlap_ratio_20
             if merge_overlap_30:
                 self.info['merge_overlap_ratio_0.3'] = merge_overlap_ratio_30
+            if merge_overlap_40:
+                self.info['merge_overlap_ratio_0.4'] = merge_overlap_ratio_40
             if merge_overlap_50:
                 self.info['merge_overlap_ratio_0.5'] = merge_overlap_ratio_50
+            if merge_overlap_60:
+                self.info['merge_overlap_ratio_0.6'] = merge_overlap_ratio_60
             if merge_overlap_70:
                 self.info['merge_overlap_ratio_0.7'] = merge_overlap_ratio_70
+            if merge_overlap_80:
+                self.info['merge_overlap_ratio_0.8'] = merge_overlap_ratio_80
+            if merge_overlap:
+                self.info['merge_overlap_ratio'] = merge_overlap_ratio
+
             self.info['repeat_area'] = repeat_area
             if self.use_eval:
                 self.info['path_length'] = path_length
@@ -789,12 +831,33 @@ class Exploration_Env(habitat.RLEnv):
                 self.info['merge_explored_reward'] -= ((curr_merge_explored_map[overlap_map > 1.2].sum() - self.prev_overlap_area)* (25./10000) * 0.02 * 0.3)
             self.prev_overlap_area = curr_merge_explored_map[overlap_map > 1.2].sum().copy()
         
+        if (self.merge_ratio >= 0.1 or self.timestep >= self.args.max_episode_length) :
+            if self.overlap_flag_10:
+                overlap_map = np.sum(self.pre_agent_trans_map, axis=0)
+                # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
+                self.info['merge_overlap_ratio_0.1'] = curr_merge_explored_map[overlap_map > 1.2].sum() / curr_merge_explored_map.sum()
+                self.overlap_flag_10 = False
+        
+        if (self.merge_ratio >= 0.2 or self.timestep >= self.args.max_episode_length) :
+            if self.overlap_flag_20:
+                overlap_map = np.sum(self.pre_agent_trans_map, axis=0)
+                # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
+                self.info['merge_overlap_ratio_0.2'] = curr_merge_explored_map[overlap_map > 1.2].sum() / curr_merge_explored_map.sum()
+                self.overlap_flag_20 = False
+        
         if (self.merge_ratio >= 0.3 or self.timestep >= self.args.max_episode_length) :
             if self.overlap_flag_30:
                 overlap_map = np.sum(self.pre_agent_trans_map, axis=0)
                 # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
                 self.info['merge_overlap_ratio_0.3'] = curr_merge_explored_map[overlap_map > 1.2].sum() / curr_merge_explored_map.sum()
                 self.overlap_flag_30 = False
+        
+        if (self.merge_ratio >= 0.4 or self.timestep >= self.args.max_episode_length) :
+            if self.overlap_flag_40:
+                overlap_map = np.sum(self.pre_agent_trans_map, axis=0)
+                # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
+                self.info['merge_overlap_ratio_0.4'] = curr_merge_explored_map[overlap_map > 1.2].sum() / curr_merge_explored_map.sum()
+                self.overlap_flag_40 = False
 
         if (self.merge_ratio >= 0.5 or self.timestep >= self.args.max_episode_length) :
             if self.overlap_flag_50:
@@ -802,6 +865,13 @@ class Exploration_Env(habitat.RLEnv):
                 # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
                 self.info['merge_overlap_ratio_0.5'] = curr_merge_explored_map[overlap_map > 1.2].sum() / curr_merge_explored_map.sum()
                 self.overlap_flag_50 = False
+
+        if (self.merge_ratio >= 0.6 or self.timestep >= self.args.max_episode_length) :
+            if self.overlap_flag_60:
+                overlap_map = np.sum(self.pre_agent_trans_map, axis=0)
+                # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
+                self.info['merge_overlap_ratio_0.6'] = curr_merge_explored_map[overlap_map > 1.2].sum() / curr_merge_explored_map.sum()
+                self.overlap_flag_60 = False
         
         if (self.merge_ratio >= 0.7 or self.timestep >= self.args.max_episode_length) :
             if self.overlap_flag_70:
@@ -809,6 +879,13 @@ class Exploration_Env(habitat.RLEnv):
                 # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
                 self.info['merge_overlap_ratio_0.7'] = curr_merge_explored_map[overlap_map > 1.2].sum() / curr_merge_explored_map.sum()
                 self.overlap_flag_70 = False
+
+        if (self.merge_ratio >= 0.8 or self.timestep >= self.args.max_episode_length) :
+            if self.overlap_flag_80:
+                overlap_map = np.sum(self.pre_agent_trans_map, axis=0)
+                # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
+                self.info['merge_overlap_ratio_0.8'] = curr_merge_explored_map[overlap_map > 1.2].sum() / curr_merge_explored_map.sum()
+                self.overlap_flag_80 = False
 
         if (self.merge_ratio >= self.explored_ratio_down_threshold or self.timestep >= self.args.max_episode_length) :
             if self.balanced_flag:
