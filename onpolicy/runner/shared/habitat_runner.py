@@ -1581,8 +1581,8 @@ class HabitatRunner(Runner):
                     goal_map = np.zeros((1, 1, self.full_w, self.full_h), dtype=np.float32)
                     goal_map[0, 0, int(self.global_goal[e, agent_id, 0]*self.local_w+self.lmb[e, agent_id, 0]), \
                         int(self.global_goal[e, agent_id, 1]*self.local_w+self.lmb[e, agent_id, 2])] = 1
-                    goal_map_rotated = F.grid_sample(torch.from_numpy(goal_map).float(), rotation[e][agent_id].float(), align_corners=True)
-                    goal_map_world = F.grid_sample(goal_map_rotated.float(), trans[e][agent_id].float(), align_corners=True)[0, 0, :, :].numpy()
+                    goal_map_rotated = F.grid_sample(torch.from_numpy(goal_map).float(), self.rotation[e][agent_id].float(), align_corners=True)
+                    goal_map_world = F.grid_sample(goal_map_rotated.float(), self.trans[e][agent_id].float(), align_corners=True)[0, 0, :, :].numpy()
                     
                     (index_a, index_b) = np.unravel_index(np.argmax(goal_map_world, axis=None), goal_map_world.shape) # might be wrong!!
                     goal_world.append(np.array([index_a, index_b], dtype = np.float32))
@@ -1922,10 +1922,10 @@ class HabitatRunner(Runner):
                 sub_ax[i].set_xticks([])
                 sub_ax[i].set_yticklabels([])
                 sub_ax[i].set_xticklabels([])
-                if agent_id < self.num_agents and i<4:
-                    sub_ax[i].imshow(self.local_map[0, agent_id, i])
+                if agent_id < self.num_agents:
+                    sub_ax[i].imshow(obs["global_obs"][0, agent_id, i])
                 elif agent_id >= self.num_agents and i<4:
-                    sub_ax[i].imshow(self.merge_map[0, agent_id-self.num_agents, i])
+                    sub_ax[i].imshow(self.local_map[0, agent_id-self.num_agents, i])
                 # elif agent_id >= self.num_agents and i<2:
                 #     sub_ax[i].imshow(self.obstacle_map[0][agent_id-self.num_agents])
                 #elif i < 5:
