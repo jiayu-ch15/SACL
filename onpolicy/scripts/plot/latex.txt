@@ -1,16 +1,16 @@
 \begin{table}
 \centering
-\caption{Average performance on training maps}
-\label{tab:training}
+\caption{Average performance on trained maps}
+\label{tab:trained}
 \begin{tabular}{ccccc}
 \toprule
 Methods &                      ACS &         Coverage Ratio &                    Steps &          Overlap Ratio \\
 \midrule
-Nearest & 102.79\scriptsize{(1.55)} & 0.91\scriptsize{(0.01)} & 246.79\scriptsize{(3.90)} & 0.53\scriptsize{(0.02)} \\
-    APF &  97.49\scriptsize{(1.57)} & 0.90\scriptsize{(0.01)} & 251.41\scriptsize{(3.15)} & 0.61\scriptsize{(0.01)} \\
-Utility & 105.62\scriptsize{(0.89)} & 0.92\scriptsize{(0.01)} & 236.15\scriptsize{(3.61)} & 0.68\scriptsize{(0.01)} \\
-    RRT & 112.21\scriptsize{(1.39)} & 0.96\scriptsize{(0.00)} & 199.59\scriptsize{(3.27)} & 0.53\scriptsize{(0.02)} \\
-  MAANS & 130.59\scriptsize{(1.53)} & 0.96\scriptsize{(0.00)} & 165.67\scriptsize{(4.64)} & 0.42\scriptsize{(0.02)} \\
+Nearest & 102.79scriptsize\{(1.55)\} & 0.91scriptsize\{(0.01)\} & 246.79scriptsize\{(3.90)\} & 0.53scriptsize\{(0.02)\} \\
+    APF &  97.49scriptsize\{(1.57)\} & 0.90scriptsize\{(0.01)\} & 251.41scriptsize\{(3.15)\} & 0.61scriptsize\{(0.01)\} \\
+Utility & 105.62scriptsize\{(0.89)\} & 0.92scriptsize\{(0.01)\} & 236.15scriptsize\{(3.61)\} & 0.68scriptsize\{(0.01)\} \\
+    RRT & 112.21scriptsize\{(1.39)\} & 0.96scriptsize\{(0.00)\} & 199.59scriptsize\{(3.27)\} & 0.53scriptsize\{(0.02)\} \\
+  MAANS & 130.59scriptsize\{(1.53)\} & 0.96scriptsize\{(0.00)\} & 165.67scriptsize\{(4.64)\} & 0.42scriptsize\{(0.02)\} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -21,30 +21,30 @@ Utility & 105.62\scriptsize{(0.89)} & 0.92\scriptsize{(0.01)} & 236.15\scriptsiz
 \label{tab:unseen}
 \begin{tabular}{ccccc}
 \toprule
-  Methods &                      ACS &         Coverage Ratio &                    Steps & Overlap Ratio \\
+ Methods &                      ACS &         Coverage Ratio &                    Steps & Overlap Ratio \\
 \midrule
-  Nearest & 122.39\scriptsize{(1.05)} & 0.94\scriptsize{(0.00)} & 198.90\scriptsize{(3.90)} &    0.55(0.02) \\
-      APF & 120.07\scriptsize{(1.15)} & 0.93\scriptsize{(0.00)} & 202.09\scriptsize{(3.10)} &    0.61(0.01) \\
-  Utility & 128.34\scriptsize{(0.91)} & 0.95\scriptsize{(0.00)} & 173.40\scriptsize{(2.66)} &    0.68(0.01) \\
-      RRT & 127.43\scriptsize{(0.98)} & 0.96\scriptsize{(0.00)} & 168.24\scriptsize{(2.16)} &    0.59(0.02) \\
-MAANS-IMI & 137.17\scriptsize{(0.67)} & 0.96\scriptsize{(0.00)} & 164.47\scriptsize{(1.00)} &    0.58(0.01) \\
+ Nearest & 122.39scriptsize\{(1.05)\} & 0.94scriptsize\{(0.00)\} & 198.90scriptsize\{(3.90)\} &    0.55(0.02) \\
+     APF & 120.07scriptsize\{(1.15)\} & 0.93scriptsize\{(0.00)\} & 202.09scriptsize\{(3.10)\} &    0.61(0.01) \\
+ Utility & 128.34scriptsize\{(0.91)\} & 0.95scriptsize\{(0.00)\} & 173.40scriptsize\{(2.66)\} &    0.68(0.01) \\
+     RRT & 127.43scriptsize\{(0.98)\} & 0.96scriptsize\{(0.00)\} & 168.24scriptsize\{(2.16)\} &    0.59(0.02) \\
+MAANS-TD & 137.60scriptsize\{(0.78)\} & 0.96scriptsize\{(0.00)\} & 165.21scriptsize\{(2.86)\} &    0.57(0.01) \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{table}
 \centering
-\caption{Average performance on training maps with 3 agents}
+\caption{Average performance on trained maps with 3 agents}
 \label{tab:3agents}
 \begin{tabular}{ccccc}
 \toprule
 Methods &                      ACS &         Coverage Ratio &                    Steps & Overlap Ratio \\
 \midrule
-Nearest & 101.81\scriptsize{(1.91)} & 0.91\scriptsize{(0.01)} & 246.11\scriptsize{(3.72)} &    0.53(0.02) \\
-    APF &  94.91\scriptsize{(1.63)} & 0.89\scriptsize{(0.01)} & 251.81\scriptsize{(3.36)} &    0.61(0.01) \\
-Utility & 103.48\scriptsize{(1.04)} & 0.94\scriptsize{(0.01)} & 233.51\scriptsize{(4.42)} &    0.68(0.01) \\
-    RRT & 110.79\scriptsize{(1.08)} & 0.96\scriptsize{(0.00)} & 194.75\scriptsize{(2.82)} &    0.55(0.01) \\
-  MAANS & 132.23\scriptsize{(1.41)} & 0.97\scriptsize{(0.00)} & 156.98\scriptsize{(3.58)} &    0.45(0.02) \\
+Nearest & 118.05scriptsize\{(0.63)\} & 0.91scriptsize\{(0.00)\} & 188.58scriptsize\{(2.02)\} &    0.46(0.01) \\
+    APF & 107.88scriptsize\{(1.39)\} & 0.87scriptsize\{(0.01)\} & 207.20scriptsize\{(2.41)\} &    0.45(0.01) \\
+Utility & 121.90scriptsize\{(0.84)\} & 0.94scriptsize\{(0.00)\} & 180.61scriptsize\{(2.66)\} &    0.71(0.01) \\
+    RRT & 127.64scriptsize\{(1.31)\} & 0.95scriptsize\{(0.01)\} & 155.13scriptsize\{(3.26)\} &    0.44(0.01) \\
+  MAANS & 143.09scriptsize\{(0.71)\} & 0.96scriptsize\{(0.00)\} & 132.95scriptsize\{(1.86)\} &    0.35(0.02) \\
 \bottomrule
 \end{tabular}
 \end{table}

@@ -18,7 +18,8 @@ avg = 30
 plt.style.use('ggplot')
 
 map_names = ['16','48']#,'21','48']#,'22','36','43','48','49','61']
-title_names = ['Map ID: ' + m for m in map_names]
+id_names = ['Colebrook','Quantico']
+title_names = ['Map: ' + m for m in id_names]
 method_names = ['global_stack','global_stack_noattn','global_stack_xy']
 label_names = ['SCP','SCP w.o. RE','SCP w.o. AE']
 color_names = ['red','blue','limegreen', 'saddlebrown','purple','gray']

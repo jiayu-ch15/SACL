@@ -19,7 +19,7 @@ plt.style.use('ggplot')
 
 map_names = ['16','21','61']#,'22','36','43','48','49','61']
 id_names = ['Colebrook','Dryville','Sodaville']
-title_names = ['Map ID: ' + m for m in id_names]
+title_names = ['Map: ' + m for m in id_names]
 method_names = ['global_stack','main_single','main_stack']#,'merge_map']
 label_names = ['MAANS','ANS-blind', 'ANS-stack',]#,'AMM']
 color_names = ['red','blue','limegreen', 'saddlebrown','purple','gray']

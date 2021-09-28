@@ -11,8 +11,8 @@ from icecream import ic
 
 plt.style.use('ggplot')
 
-map_names = ['16','36','43']
-agent_names = ['2 Agents','3 Agents']
+map_names = ['16','20','21','22','48','49','61','36','43']
+agent_names = ['3 Agents']
 method_names = ['global_stack','rrt','utility','nearest','apf']
 label_names = ['MAANS','RRT','Nearest','Utility','APF']
 color_names = ['limegreen', 'saddlebrown','purple','blue','red','gray']
@@ -90,7 +90,7 @@ tx = ax.xaxis.get_offset_text()
 tx.set_fontsize(18) 
 #ax.xaxis.grid(True, which='minor')
 # plt.xlim(0, final_max_step)
-plt.ylim([75, 140])
+plt.ylim([75, 145])
 plt.xticks((np.arange(len(agent_names)) + 1) * 3 + int(len(method_names)/2) * bar_width , agent_names)#rotation控制倾斜角度
 plt.xticks(fontsize=15)
 plt.yticks(fontsize=15)

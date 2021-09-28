@@ -323,7 +323,6 @@ df = pandas.DataFrame(value_dict)
 print(df.to_latex(index=False, column_format = 'c'*len(value_dict.keys()), multicolumn_format='c', caption='Average performance on unseen maps', label='tab:unseen'))
 
 
-
 save_dir = './habitat_3agents/'
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
