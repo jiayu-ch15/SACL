@@ -17,7 +17,7 @@ def moving_average(interval, windowsize):
 map_names = ['16','21','22','36','43','48','61','20','49']
 train_method_names = ['nearest','apf','utility', 'rrt', 'global_stack']#,'distill']
 train_label_names = ['Nearest','APF','Utility', 'RRT', 'MAANS']#,'MAANS-TD']
-metric_names = ['auc','ratio','step','overlap']
+metric_names = ['ratio','step','overlap']
 ratio_names = ['90ratio']
 step_names = ['200step'] 
 
@@ -26,7 +26,6 @@ if not os.path.exists(save_dir):
     os.makedirs(save_dir)
 
 value_dict = defaultdict(list)
-value_dict['Methods'] = train_label_names.copy()
 for metric_name in metric_names:
     
     # auc # agent_auc
@@ -34,7 +33,7 @@ for metric_name in metric_names:
         ic(metric_name)
         for step_name in step_names:
             ic(step_name + metric_name)
-            
+            value_dict['Metric'].append('ACS')
             for method_name, dict_name in zip(train_method_names, train_label_names):
                 ic(method_name)
                 avg_mean = []
@@ -64,10 +63,11 @@ for metric_name in metric_names:
                     # value_dict[method_name].append(result)
                 
                 result = str(format(np.mean(avg_mean), '.2f')) + "scriptsize{(" + str(format(np.mean(avg_std), '.2f')) + ")}"
-                value_dict['ACS'].append(result)
+                value_dict[dict_name].append(result)
     # overlap
     if metric_name == "overlap":
         ic(metric_name)
+        value_dict['Metric'].append('Overlap Ratio')
         for ratio_name in ratio_names:
             for method_name, dict_name in zip(train_method_names, train_label_names):
                 if method_name == "single_agent": break
@@ -98,10 +98,15 @@ for metric_name in metric_names:
                     # result = str(format(metric_mean, '.2f')) + "(" + str(format(metric_std, '.2f')) + ")"
                     # value_dict[method_name].append(result)
                 result = str(format(np.mean(avg_mean), '.2f')) + "scriptsize{(" + str(format(np.mean(avg_std), '.2f')) + ")}"
-                value_dict['Overlap Ratio'].append(result)
+                value_dict[dict_name].append(result)
 
     # ratio # balance #step
     if metric_name in ["ratio","balance","step"]:
+        if metric_name == "ratio":
+            value_dict['Metric'].append('Coverage Ratio')
+
+        if metric_name == "step":
+            value_dict['Metric'].append('Steps')
         ic(metric_name)
         for method_name, dict_name in zip(train_method_names, train_label_names):
             if method_name == "single_agent" and metric_name == "balance": break
@@ -129,16 +134,13 @@ for metric_name in metric_names:
                 avg_std.append(metric_std)
 
             result = str(format(np.nanmean(avg_mean), '.2f')) + "scriptsize{(" + str(format(np.nanmean(avg_std), '.2f')) + ")}"
+            value_dict[dict_name].append(result)
             
-            if metric_name == "ratio":
-                value_dict['Coverage Ratio'].append(result)
-
-            if metric_name == "step":
-                value_dict['Steps'].append(result)
 
     # ratio # balance #step
     if metric_name in ["success rate"]:
         ic(metric_name)
+        value_dict['Metric'].append('Success')
         for method_name, dict_name in zip(train_method_names, train_label_names):
             ic(method_name)
             avg_mean = []
@@ -165,7 +167,7 @@ for metric_name in metric_names:
                 avg_std.append(metric_std)
 
             result = str(format(np.nanmean(avg_mean), '.2f')) + "scriptsize{(" + str(format(np.nanmean(avg_std), '.2f')) + ")}"
-            value_dict['Success'].append(result)
+            value_dict[dict_name].append(result)
 
 df = pandas.DataFrame(value_dict)
 print(df.to_latex(index=False, column_format = 'c'*len(value_dict.keys()), multicolumn_format='c', caption='Average performance on trained maps', label='tab:trained'))
@@ -176,7 +178,6 @@ train_method_names = ['nearest','apf','utility', 'rrt', 'distill']
 train_label_names = ['Nearest','APF','Utility', 'RRT', 'MAANS-TD']
 
 value_dict = defaultdict(list)
-value_dict['Methods'] = train_label_names.copy()
 # UNSEEN all
 for metric_name in metric_names:
     
@@ -185,10 +186,9 @@ for metric_name in metric_names:
         ic(metric_name)
         for step_name in step_names:
             ic(step_name + metric_name)
-            
+            value_dict['Metric'].append('ACS')
             for method_name, dict_name in zip(train_method_names, train_label_names):
                 ic(method_name)
-                
                 avg_mean = []
                 avg_std = []
                 for map_name in map_names:
@@ -215,11 +215,12 @@ for metric_name in metric_names:
                     # result = str(format(metric_mean, '.2f')) + "(" + str(format(metric_std, '.2f')) + ")"
                     # value_dict[method_name].append(result)
                 
-                result = str(format(np.mean(avg_mean), '.2f')) + "scriptsize{(" + str(format(np.mean(avg_std), '.2f')) + ")}"
-                value_dict['ACS'].append(result)
+                result = str(format(np.mean(avg_mean), 'd')) + "scriptsize{(" + str(format(np.mean(avg_std), 'd')) + ")}"
+                value_dict[dict_name].append(result)
     # overlap
     if metric_name == "overlap":
         ic(metric_name)
+        value_dict['Metric'].append('Overlap Ratio')
         for ratio_name in ratio_names:
             for method_name, dict_name in zip(train_method_names, train_label_names):
                 if method_name == "single_agent": break
@@ -249,11 +250,16 @@ for metric_name in metric_names:
 
                     # result = str(format(metric_mean, '.2f')) + "(" + str(format(metric_std, '.2f')) + ")"
                     # value_dict[method_name].append(result)
-                result = str(format(np.mean(avg_mean), '.2f')) + "(" + str(format(np.mean(avg_std), '.2f')) + ")"
-                value_dict['Overlap Ratio'].append(result)
+                result = str(format(np.mean(avg_mean), '.2f')) + "scriptsize{(" + str(format(np.mean(avg_std), '.2f')) + ")}"
+                value_dict[dict_name].append(result)
 
     # ratio # balance #step
     if metric_name in ["ratio","balance","step"]:
+        if metric_name == "ratio":
+            value_dict['Metric'].append('Coverage Ratio')
+
+        if metric_name == "step":
+            value_dict['Metric'].append('Steps')
         ic(metric_name)
         for method_name, dict_name in zip(train_method_names, train_label_names):
             if method_name == "single_agent" and metric_name == "balance": break
@@ -281,16 +287,13 @@ for metric_name in metric_names:
                 avg_std.append(metric_std)
 
             result = str(format(np.nanmean(avg_mean), '.2f')) + "scriptsize{(" + str(format(np.nanmean(avg_std), '.2f')) + ")}"
-
-            if metric_name == "ratio":
-                value_dict['Coverage Ratio'].append(result)
-
-            if metric_name == "step":
-                value_dict['Steps'].append(result)
+            value_dict[dict_name].append(result)
+            
 
     # ratio # balance #step
     if metric_name in ["success rate"]:
         ic(metric_name)
+        value_dict['Metric'].append('Success')
         for method_name, dict_name in zip(train_method_names, train_label_names):
             ic(method_name)
             avg_mean = []
@@ -317,24 +320,21 @@ for metric_name in metric_names:
                 avg_std.append(metric_std)
 
             result = str(format(np.nanmean(avg_mean), '.2f')) + "scriptsize{(" + str(format(np.nanmean(avg_std), '.2f')) + ")}"
-            value_dict['Success'].append(result)
-        
+            value_dict[dict_name].append(result)
+      
 df = pandas.DataFrame(value_dict)
 print(df.to_latex(index=False, column_format = 'c'*len(value_dict.keys()), multicolumn_format='c', caption='Average performance on unseen maps', label='tab:unseen'))
-
 
 
 save_dir = './habitat_3agents/'
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
 
-map_names = ['16','21','22','36','43','48','61','20','49']
+map_names = ['16','43','48']
 train_method_names = ['nearest','apf','utility', 'rrt', 'global_stack']
 train_label_names = ['Nearest','APF','Utility', 'RRT', 'MAANS']
 
 value_dict = defaultdict(list)
-value_dict['Methods'] = train_label_names.copy()
-# UNSEEN all
 for metric_name in metric_names:
     
     # auc # agent_auc
@@ -342,10 +342,9 @@ for metric_name in metric_names:
         ic(metric_name)
         for step_name in step_names:
             ic(step_name + metric_name)
-            
+            value_dict['Metric'].append('ACS')
             for method_name, dict_name in zip(train_method_names, train_label_names):
                 ic(method_name)
-                
                 avg_mean = []
                 avg_std = []
                 for map_name in map_names:
@@ -373,10 +372,11 @@ for metric_name in metric_names:
                     # value_dict[method_name].append(result)
                 
                 result = str(format(np.mean(avg_mean), '.2f')) + "scriptsize{(" + str(format(np.mean(avg_std), '.2f')) + ")}"
-                value_dict['ACS'].append(result)
+                value_dict[dict_name].append(result)
     # overlap
     if metric_name == "overlap":
         ic(metric_name)
+        value_dict['Metric'].append('Overlap Ratio')
         for ratio_name in ratio_names:
             for method_name, dict_name in zip(train_method_names, train_label_names):
                 if method_name == "single_agent": break
@@ -406,11 +406,16 @@ for metric_name in metric_names:
 
                     # result = str(format(metric_mean, '.2f')) + "(" + str(format(metric_std, '.2f')) + ")"
                     # value_dict[method_name].append(result)
-                result = str(format(np.mean(avg_mean), '.2f')) + "(" + str(format(np.mean(avg_std), '.2f')) + ")"
-                value_dict['Overlap Ratio'].append(result)
+                result = str(format(np.mean(avg_mean), '.2f')) + "scriptsize{(" + str(format(np.mean(avg_std), '.2f')) + ")}"
+                value_dict[dict_name].append(result)
 
     # ratio # balance #step
     if metric_name in ["ratio","balance","step"]:
+        if metric_name == "ratio":
+            value_dict['Metric'].append('Coverage Ratio')
+
+        if metric_name == "step":
+            value_dict['Metric'].append('Steps')
         ic(metric_name)
         for method_name, dict_name in zip(train_method_names, train_label_names):
             if method_name == "single_agent" and metric_name == "balance": break
@@ -438,16 +443,13 @@ for metric_name in metric_names:
                 avg_std.append(metric_std)
 
             result = str(format(np.nanmean(avg_mean), '.2f')) + "scriptsize{(" + str(format(np.nanmean(avg_std), '.2f')) + ")}"
-
-            if metric_name == "ratio":
-                value_dict['Coverage Ratio'].append(result)
-
-            if metric_name == "step":
-                value_dict['Steps'].append(result)
+            value_dict[dict_name].append(result)
+            
 
     # ratio # balance #step
     if metric_name in ["success rate"]:
         ic(metric_name)
+        value_dict['Metric'].append('Success')
         for method_name, dict_name in zip(train_method_names, train_label_names):
             ic(method_name)
             avg_mean = []
@@ -474,8 +476,8 @@ for metric_name in metric_names:
                 avg_std.append(metric_std)
 
             result = str(format(np.nanmean(avg_mean), '.2f')) + "scriptsize{(" + str(format(np.nanmean(avg_std), '.2f')) + ")}"
-            value_dict['Success'].append(result)
-        
+            value_dict[dict_name].append(result)
+       
 df = pandas.DataFrame(value_dict)
 print(df.to_latex(index=False, column_format = 'c'*len(value_dict.keys()), multicolumn_format='c', caption='Average performance on trained maps with 3 agents', label='tab:3agents'))
 

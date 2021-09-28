@@ -17,8 +17,9 @@ def moving_average(interval, windowsize):
 avg = 30
 plt.style.use('ggplot')
 
-map_names = ['48']#,'21','48']#,'22','36','43','48','49','61']
-title_names = ['Map ID: ' + m for m in map_names]
+map_names = ['48']#, '21', '16', '61']
+id_names = ['Quantico']#, 'Dryville', 'Colebrook', 'Sodaville']
+title_names = ['Map ID: ' + m for m in id_names]
 method_names = ['global_stack','global_stack_noattn','global_stack_xy','merge_map']
 label_names = ['SCP','SCP w.o. RE','SCP w.o. AE','SCP-merge']
 color_names = ['red','blue','limegreen', 'saddlebrown','purple','gray']
