@@ -10,9 +10,8 @@ from matplotlib.pyplot import MultipleLocator
 plt.style.use('ggplot')
 
 map_names = ['16','21','22','36','43','48','61','20','49']
-# large_map_names = ['20','49']
 method_names = ['global_stack','rrt','utility','nearest','apf']
-label_names = ['MAANS','RRT','Nearest','Utility','APF']
+label_names = ['MAANS','RRT','Utility','Nearest','APF']
 color_names = ['limegreen', 'saddlebrown','purple','blue','red','gray']
 metric_names = ['overlap']
 ratio_names = ['30ratio','50ratio','70ratio','90ratio']
@@ -100,12 +99,9 @@ plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=18, handlelength=0.9
 plt.savefig(save_dir + "overlap.png", bbox_inches="tight")
 
 
-
-
-
-map_names = ['16','43','36']
+map_names = ['16','21','22','36','43','48','61','20','49']
 method_names = ['global_stack','rrt','utility','nearest','apf']
-label_names = ['MAANS','RRT','Nearest','Utility','APF']
+label_names = ['MAANS','RRT','Utility','Nearest','APF']
 color_names = ['limegreen', 'saddlebrown','purple','blue','red','gray']
 metric_names = ['overlap']
 ratio_names = ['30ratio','50ratio','70ratio','90ratio']
@@ -137,7 +133,6 @@ for metric_name in metric_names:
                     key_metric = [n for n in key_cols if n != 'Step']
 
                     # [episode, seed]
-                    print(key_metric)
                     metric = np.array(df[key_metric])
 
                     # [seed]

@@ -14,7 +14,7 @@ def moving_average(interval, windowsize):
     return re
 
 
-map_names = ['16','21','22','36','43','48','61','20','49']
+map_names = ['16']
 train_method_names = ['nearest','apf','utility', 'rrt', 'global_stack']#,'distill']
 train_label_names = ['Nearest','APF','Utility', 'RRT', 'MAANS']#,'MAANS-TD']
 metric_names = ['auc','ratio','step','overlap']

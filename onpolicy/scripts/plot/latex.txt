@@ -6,11 +6,11 @@
 \toprule
 Methods &                      ACS &         Coverage Ratio &                    Steps &          Overlap Ratio \\
 \midrule
-Nearest & 102.79scriptsize\{(1.55)\} & 0.91scriptsize\{(0.01)\} & 246.79scriptsize\{(3.90)\} & 0.53scriptsize\{(0.02)\} \\
-    APF &  97.49scriptsize\{(1.57)\} & 0.90scriptsize\{(0.01)\} & 251.41scriptsize\{(3.15)\} & 0.61scriptsize\{(0.01)\} \\
-Utility & 105.62scriptsize\{(0.89)\} & 0.92scriptsize\{(0.01)\} & 236.15scriptsize\{(3.61)\} & 0.68scriptsize\{(0.01)\} \\
-    RRT & 112.21scriptsize\{(1.39)\} & 0.96scriptsize\{(0.00)\} & 199.59scriptsize\{(3.27)\} & 0.53scriptsize\{(0.02)\} \\
-  MAANS & 130.59scriptsize\{(1.53)\} & 0.96scriptsize\{(0.00)\} & 165.67scriptsize\{(4.64)\} & 0.42scriptsize\{(0.02)\} \\
+Nearest & 110.55scriptsize\{(2.31)\} & 0.94scriptsize\{(0.00)\} & 224.89scriptsize\{(3.04)\} & 0.57scriptsize\{(0.04)\} \\
+    APF & 108.57scriptsize\{(1.00)\} & 0.95scriptsize\{(0.01)\} & 223.55scriptsize\{(4.76)\} & 0.68scriptsize\{(0.00)\} \\
+Utility & 113.49scriptsize\{(0.71)\} & 0.94scriptsize\{(0.01)\} & 235.16scriptsize\{(4.98)\} & 0.75scriptsize\{(0.01)\} \\
+    RRT & 119.57scriptsize\{(1.02)\} & 0.98scriptsize\{(0.00)\} & 190.21scriptsize\{(1.06)\} & 0.61scriptsize\{(0.01)\} \\
+  MAANS & 143.59scriptsize\{(1.39)\} & 0.98scriptsize\{(0.00)\} & 128.83scriptsize\{(3.70)\} & 0.43scriptsize\{(0.01)\} \\
 \bottomrule
 \end{tabular}
 \end{table}
