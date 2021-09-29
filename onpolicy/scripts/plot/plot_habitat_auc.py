@@ -93,7 +93,7 @@ plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=18, handlelength=0.9
 plt.savefig(save_dir + "AUC.png", bbox_inches="tight")
 
 
-map_names = ['16','48','22']
+map_names = ['16','48','21','22','48','61','20','49']
 save_dir = './habitat_3agents/'
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
