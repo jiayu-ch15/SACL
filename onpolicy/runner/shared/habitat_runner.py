@@ -158,27 +158,56 @@ class HabitatRunner(Runner):
                         else:
                             if key in infos[e].keys():
                                 self.env_info[key][e] = infos[e][key]
-                    if step == 49:
-                        self.env_info['50step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['50step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
-                    if step == 99:
-                        self.env_info['100step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['100step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
-                    if step == 119:
-                        self.env_info['120step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['120step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
-                    if step == 149:
-                        self.env_info['150step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['150step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
-                    if step == 179:
-                        self.env_info['180step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['180step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
-                    if step == 199:
-                        self.env_info['200step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['200step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
-                    if step == 249:
-                        self.env_info['250step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['250step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)      
+                    if self.num_agents==1:
+                        if step == 49:
+                            self.env_info['50step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['50step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 99:
+                            self.env_info['100step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['100step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 149:
+                            self.env_info['150step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['150step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)     
+                        if step == 199:
+                            self.env_info['200step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['200step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 249:
+                            self.env_info['250step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['250step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1) 
+                        if step == 299:
+                            self.env_info['300step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['300step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)
+                        if step == 349:
+                            self.env_info['350step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['350step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)
+                        if step == 399:
+                            self.env_info['400step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['400step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)
+                        if step == 449:
+                            self.env_info['450step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['450step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)      
+                    else:            
+                        if step == 49:
+                            self.env_info['50step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['50step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 99:
+                            self.env_info['100step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['100step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 150:
+                            self.env_info['120step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['120step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 149:
+                            self.env_info['150step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['150step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 179:
+                            self.env_info['180step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['180step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 199:
+                            self.env_info['200step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['200step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 249:
+                            self.env_info['250step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['250step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)      
 
                 self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
                 self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
@@ -471,10 +500,16 @@ class HabitatRunner(Runner):
         self.equal_env_info_keys = ['merge_overlap_ratio', 'merge_overlap_ratio_0.3', 'merge_overlap_ratio_0.5', 'merge_overlap_ratio_0.7','merge_explored_ratio_step', 'merge_explored_ratio_step_0.95', 'explored_ratio_step']
         
         # log keys
-        self.agents_env_info_keys = ['sum_explored_ratio','sum_overlap_reward','sum_explored_reward','sum_intrinsic_merge_explored_reward','sum_repeat_area','explored_ratio_step',\
-            '50step_auc','100step_auc','120step_auc','150step_auc','180step_auc','200step_auc','250step_auc']
-        self.env_info_keys = ['sum_merge_explored_ratio','sum_merge_explored_reward','sum_merge_repeat_area','merge_overlap_ratio', 'merge_overlap_ratio_0.3', 'merge_overlap_ratio_0.5', 'merge_overlap_ratio_0.7', 'merge_explored_ratio_step','merge_explored_ratio_step_0.95', 'merge_global_goal_num', 'merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold,\
-            '50step_merge_auc','100step_merge_auc','120step_merge_auc','150step_merge_auc','180step_merge_auc','200step_merge_auc','250step_merge_auc']
+        if self.num_agents==1:
+            self.agents_env_info_keys = ['sum_explored_ratio','sum_overlap_reward','sum_explored_reward','sum_intrinsic_merge_explored_reward','sum_repeat_area','explored_ratio_step',\
+                '50step_auc','100step_auc','150step_auc','200step_auc','250step_auc','300step_auc','350step_auc','400step_auc','450step_auc']
+            self.env_info_keys = ['sum_merge_explored_ratio','sum_merge_explored_reward','sum_merge_repeat_area','merge_overlap_ratio', 'merge_overlap_ratio_0.3', 'merge_overlap_ratio_0.5', 'merge_overlap_ratio_0.7', 'merge_explored_ratio_step','merge_explored_ratio_step_0.95', 'merge_global_goal_num', 'merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold,\
+                '50step_merge_auc','100step_merge_auc','150step_merge_auc','200step_merge_auc','250step_merge_auc','300step_merge_auc','350step_merge_auc','400step_merge_auc','450step_merge_auc']
+        else:
+            self.agents_env_info_keys = ['sum_explored_ratio','sum_overlap_reward','sum_explored_reward','sum_intrinsic_merge_explored_reward','sum_repeat_area','explored_ratio_step',\
+                '50step_auc','100step_auc','120step_auc','150step_auc','180step_auc','200step_auc','250step_auc']
+            self.env_info_keys = ['sum_merge_explored_ratio','sum_merge_explored_reward','sum_merge_repeat_area','merge_overlap_ratio', 'merge_overlap_ratio_0.3', 'merge_overlap_ratio_0.5', 'merge_overlap_ratio_0.7', 'merge_explored_ratio_step','merge_explored_ratio_step_0.95', 'merge_global_goal_num', 'merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold,\
+                '50step_merge_auc','100step_merge_auc','120step_merge_auc','150step_merge_auc','180step_merge_auc','200step_merge_auc','250step_merge_auc']
              
         if self.use_eval:
             self.agents_env_info_keys += ['sum_path_length', 'path_length/ratio', "balanced_ratio"]
@@ -2024,27 +2059,56 @@ class HabitatRunner(Runner):
                                 self.env_info[key][e] = infos[e][key]
                     if self.env_info['sum_merge_explored_ratio'][e] <= self.all_args.explored_ratio_threshold:
                         self.env_info['merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold][e] = self.env_info['merge_global_goal_num'][e]
-                    if step == 49:
-                        self.env_info['50step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['50step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
-                    if step == 99:
-                        self.env_info['100step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['100step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
-                    if step == 119:
-                        self.env_info['120step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['120step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
-                    if step == 149:
-                        self.env_info['150step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['150step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
-                    if step == 179:
-                        self.env_info['180step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['180step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
-                    if step == 199:
-                        self.env_info['200step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['200step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
-                    if step == 249:
-                        self.env_info['250step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['250step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1) 
+                    if self.num_agents==1:
+                        if step == 49:
+                            self.env_info['50step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['50step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 99:
+                            self.env_info['100step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['100step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 149:
+                            self.env_info['150step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['150step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)     
+                        if step == 199:
+                            self.env_info['200step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['200step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 249:
+                            self.env_info['250step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['250step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1) 
+                        if step == 299:
+                            self.env_info['300step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['300step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)
+                        if step == 349:
+                            self.env_info['350step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['350step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)
+                        if step == 399:
+                            self.env_info['400step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['400step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)
+                        if step == 449:
+                            self.env_info['450step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['450step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)      
+                    else:            
+                        if step == 49:
+                            self.env_info['50step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['50step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 99:
+                            self.env_info['100step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['100step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 150:
+                            self.env_info['120step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['120step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 149:
+                            self.env_info['150step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['150step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 179:
+                            self.env_info['180step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['180step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 199:
+                            self.env_info['200step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['200step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 249:
+                            self.env_info['250step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['250step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)      
                
                 self.merge_explored_gt = [infos[e]['merge_explored_gt'] for e in range(self.n_rollout_threads)]
                 self.merge_obstacle_gt = [infos[e]['merge_obstacle_gt'] for e in range(self.n_rollout_threads)]
@@ -2198,27 +2262,56 @@ class HabitatRunner(Runner):
                                 self.env_info[key][e] = infos[e][key]
                     if self.env_info['sum_merge_explored_ratio'][e] <= self.all_args.explored_ratio_threshold:
                         self.env_info['merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold][e] = self.env_info['merge_global_goal_num'][e]
-                    if step == 49:
-                        self.env_info['50step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['50step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
-                    if step == 99:
-                        self.env_info['100step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['100step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
-                    if step == 119:
-                        self.env_info['120step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['120step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
-                    if step == 149:
-                        self.env_info['150step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['150step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
-                    if step == 179:
-                        self.env_info['180step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['180step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
-                    if step == 199:
-                        self.env_info['200step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['200step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
-                    if step == 249:
-                        self.env_info['250step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
-                        self.env_info['250step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1) 
+                    if self.num_agents==1:
+                        if step == 49:
+                            self.env_info['50step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['50step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 99:
+                            self.env_info['100step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['100step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 149:
+                            self.env_info['150step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['150step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)     
+                        if step == 199:
+                            self.env_info['200step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['200step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 249:
+                            self.env_info['250step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['250step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1) 
+                        if step == 299:
+                            self.env_info['300step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['300step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)
+                        if step == 349:
+                            self.env_info['350step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['350step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)
+                        if step == 399:
+                            self.env_info['400step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['400step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)
+                        if step == 449:
+                            self.env_info['450step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['450step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)      
+                    else:            
+                        if step == 49:
+                            self.env_info['50step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['50step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 99:
+                            self.env_info['100step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['100step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 150:
+                            self.env_info['120step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['120step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 149:
+                            self.env_info['150step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['150step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 179:
+                            self.env_info['180step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['180step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 199:
+                            self.env_info['200step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['200step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)    
+                        if step == 249:
+                            self.env_info['250step_merge_auc'][e] = auc_area[e,:step+1].sum().copy()
+                            self.env_info['250step_auc'][e] = auc_single_area[e, :, :step+1].sum(axis =1)      
                 
 
                 self.local_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
