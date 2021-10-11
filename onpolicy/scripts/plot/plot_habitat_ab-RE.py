@@ -102,7 +102,7 @@ for map_name, title_name in zip(map_names, title_names):
                 plt.xticks(fontsize=20)
                 plt.yticks(fontsize=20)
                 plt.xlabel('Timesteps', fontsize=20)
-                plt.ylabel("AUC", fontsize=20)
+                plt.ylabel("ACS", fontsize=20)
                 plt.title(title_name, fontsize=20)
                 plt.legend(loc='best', numpoints=1, fancybox=True, fontsize=20)
 

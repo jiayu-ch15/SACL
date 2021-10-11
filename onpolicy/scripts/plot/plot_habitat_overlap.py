@@ -142,7 +142,6 @@ for metric_name in metric_names:
                     metric_map.append(metric_seed)
 
                 # [map, seed] -> [seed]
-                print()
                 metric_seed_again = np.mean(metric_map, axis = 0)
 
                 metric_ratio.append(metric_seed_again)
