@@ -12,9 +12,9 @@ from icecream import ic
 plt.style.use('ggplot')
 
 map_names = ['16','20','21','22','36','43','48','49','61']
-agent_names = ['2 Agents','3 Agents']
-method_names = ['global_stack','rrt','utility','nearest','apf']
-label_names = ['MAANS','RRT','Utility','Nearest','APF']
+agent_names = ['2 Agents','3 Agents','3-2 Agents','4-2 Agents','4-3 Agents']
+method_names = ['rrt'] #['global_stack','rrt','utility','nearest','apf']
+label_names = ['RRT'] #['MAANS','RRT','Utility','Nearest','APF']
 color_names = ['limegreen', 'saddlebrown','purple','blue','red','gray']
 
 
@@ -37,11 +37,17 @@ for method_name, label_name, color_name in zip(method_names, label_names, color_
             print(map_name)
             # data_dir =  save_dir + map_name + '/' + method_name + "/auc.csv'
             if agent_name == "1 Agent":
-                data_dir =  './habitat/' + map_name + '/' + method_name + "/single_agent/auc/200step.csv"
+                data_dir =  './habitat/' + map_name + '/' + method_name + "/single_agent/auc/180step.csv"
             if agent_name == "2 Agents":
-                data_dir =  './habitat/' + map_name + '/' + method_name + "/auc/200step.csv"
+                data_dir =  './habitat/' + map_name + '/' + method_name + "/auc/180step.csv"
             if agent_name == "3 Agents":
-                data_dir =  './habitat_3agents/' + map_name + '/' + method_name + "/auc/200step.csv"
+                data_dir =  './habitat_3agents/' + map_name + '/' + method_name + "/auc/180step.csv"
+            if agent_name == "3-2 Agent":
+                data_dir =  './habitat_90stop_3_2agents/' + map_name + '/' + method_name + "/auc/180step.csv"
+            if agent_name == "4-2 Agents":
+                data_dir =  './habitat_90stop_4_2agents/' + map_name + '/' + method_name + "/auc/180step.csv"
+            if agent_name == "4-3 Agents":
+                data_dir =  './habitat_90stop_4_3agents/' + map_name + '/' + method_name + "/auc/180step.csv"
             df = pandas.read_csv(data_dir)
             
             key_cols = [c for c in df.columns if 'MIN' not in c and 'MAX' not in c]
