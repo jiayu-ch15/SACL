@@ -482,6 +482,113 @@ plt.legend(loc='upper right', numpoints=1, fancybox=True, fontsize=11, handlelen
 
 plt.savefig(save_dir + "90stop_34agents_bar_AUC.png", bbox_inches="tight")
 
+
+
+
+map_names = ['16','20','21','22','36','43','48','49','61']
+agent_names = ['2 Agents','4 Agents', '45 ADD 2-4 Agents', '90 ADD 2-4 Agents']#'2-3 Agents','2-4 Agents',
+method_names = ['rrt'] #['global_stack','rrt','utility','nearest','apf']
+label_names = ['RRT'] #['MAANS','RRT','Utility','Nearest','APF']
+color_names = ['limegreen', 'saddlebrown','purple','blue','red','gray']
+
+
+save_dir = './habitat_AUC/'
+if not os.path.exists(save_dir):
+    os.makedirs(save_dir)
+
+plt.figure()
+
+bar_width = 0.45
+
+i = 0
+for agent_name, color_name in zip(agent_names, color_names):
+    print(method_name)
+    metric_agent = []
+    for method_name in method_names:
+        print(agent_name)
+        metric_map = []
+        for map_name in map_names:
+            print(map_name)
+            # data_dir =  save_dir + map_name + '/' + method_name + "/auc.csv'
+            if agent_name == "1 Agent":
+                data_dir =  './habitat/' + map_name + '/' + method_name + "/single_agent/auc/180step.csv"
+            if agent_name == "2 Agents":
+                data_dir =  './habitat/' + map_name + '/' + method_name + "/auc/180step.csv"
+            if agent_name == "3 Agents":
+                data_dir =  './habitat_3agents/' + map_name + '/' + method_name + "/auc/180step.csv"
+            if agent_name == "4 Agents":
+                data_dir =  './habitat_4agents/' + map_name + '/' + method_name + "/auc/180step.csv"
+            if agent_name == "45 ADD 2-3 Agents":
+                data_dir =  './habitat_45add_2_3agents/' + map_name + '/' + method_name + "/auc/180step.csv"
+            if agent_name == "45 ADD 2-4 Agents":
+                data_dir =  './habitat_45add_2_4agents/' + map_name + '/' + method_name + "/auc/180step.csv"
+            if agent_name == "45 ADD 3-4 Agents":
+                data_dir =  './habitat_45add_3_4agents/' + map_name + '/' + method_name + "/auc/180step.csv"
+            if agent_name == "90 ADD 2-3 Agents":
+                data_dir =  './habitat_90add_2_3agents/' + map_name + '/' + method_name + "/auc/180step.csv"
+            if agent_name == "90 ADD 2-4 Agents":
+                data_dir =  './habitat_90add_2_4agents/' + map_name + '/' + method_name + "/auc/180step.csv"
+            if agent_name == "90 ADD 3-4 Agents":
+                data_dir =  './habitat_90add_3_4agents/' + map_name + '/' + method_name + "/auc/180step.csv"
+            df = pandas.read_csv(data_dir)
+            
+            key_cols = [c for c in df.columns if 'MIN' not in c and 'MAX' not in c]
+            
+            key_step = [n for n in key_cols if n == 'Step']
+            key_metric = [n for n in key_cols if n != 'Step']
+
+            x_step = np.array(df[key_step]).squeeze(-1)
+            metric = np.array(df[key_metric])
+            metric = np.mean(metric, axis=1)
+            print(metric.shape)
+
+            metric_map.append(metric)
+
+        # [map, episode] -- metric_map
+        
+        metric_map = np.array(metric_map)
+
+        # [episode]
+        metric_episode = np.mean(metric_map, axis=0)
+
+        metric_agent.append(metric_episode)
+    
+    mean_metric = np.mean(metric_agent, axis=1)
+
+    X = (np.arange(len(method_names)) + 1) * 3
+    X_final = X + i * bar_width
+    plt.bar(X_final, mean_metric, alpha=0.8, width=bar_width, label=agent_name, lw=1)
+    for x,y in zip(X_final, mean_metric):
+        plt.text(x, y+0.05, '%.2f' % y, ha='center', va= 'bottom',fontsize=15)
+
+    i += 1
+plt.tick_params(axis='both',which='major') 
+# final_max_step = 300
+# x_major_locator = MultipleLocator(50)
+# x_minor_Locator = MultipleLocator(10) 
+y_major_locator = MultipleLocator(10)
+y_minor_Locator = MultipleLocator(5)
+ax=plt.gca()
+# ax.xaxis.set_major_locator(x_major_locator)
+ax.yaxis.set_major_locator(y_major_locator)
+# ax.xaxis.set_minor_locator(x_minor_Locator)
+ax.yaxis.set_minor_locator(y_minor_Locator)
+# ax.xaxis.get_major_formatter().set_powerlimits((0,1))
+tx = ax.xaxis.get_offset_text() 
+tx.set_fontsize(18) 
+#ax.xaxis.grid(True, which='minor')
+# plt.xlim(0, final_max_step)
+plt.ylim([80, 135])
+plt.xticks((np.arange(len(method_names)) + 1) * 3 + int(len(agent_names)/2) * bar_width , label_names)
+plt.xticks(fontsize=15)
+plt.yticks(fontsize=15)
+# plt.xlabel('Agents', fontsize=20)
+plt.ylabel('ACS', fontsize=15)
+# plt.title('Comparison of AUC on Middle Maps', fontsize=20)
+plt.legend(loc='upper right', numpoints=1, fancybox=True, fontsize=11, handlelength=0.5)
+
+plt.savefig(save_dir + "2-4agents_bar_ACS.png", bbox_inches="tight")
+
 map_names = ['16','20','21','22','36','43','48','49','61']
 agent_names = ['2 Agents','3 Agents']
 
