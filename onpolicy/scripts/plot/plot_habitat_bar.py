@@ -18,7 +18,7 @@ label_names = ['RRT'] #['MAANS','RRT','Utility','Nearest','APF']
 color_names = ['limegreen', 'saddlebrown','purple','blue','red','gray']
 
 
-save_dir = './habitat_AUC/'
+save_dir = './habitat_bar/'
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
 
@@ -37,9 +37,9 @@ for method_name, label_name, color_name in zip(method_names, label_names, color_
             print(map_name)
             # data_dir =  save_dir + map_name + '/' + method_name + "/auc.csv'
             if agent_name == "1 Agent":
-                data_dir =  './habitat/' + map_name + '/' + method_name + "/single_agent/auc/180step.csv"
+                data_dir =  './habitat_1agent/' + map_name + '/' + method_name + "/single_agent/auc/180step.csv"
             if agent_name == "2 Agents":
-                data_dir =  './habitat/' + map_name + '/' + method_name + "/auc/180step.csv"
+                data_dir =  './habitat_2agents/' + map_name + '/' + method_name + "/auc/180step.csv"
             if agent_name == "3 Agents":
                 data_dir =  './habitat_3agents/' + map_name + '/' + method_name + "/auc/180step.csv"
             if agent_name == "3-2 Agent":
@@ -114,10 +114,6 @@ method_names = ['global_stack','rrt','utility','nearest','apf']
 label_names = ['MAANS','RRT','Utility','Nearest','APF']
 color_names = ['limegreen', 'saddlebrown','purple','blue','red','gray']
 
-
-save_dir = './habitat_AUC/'
-if not os.path.exists(save_dir):
-    os.makedirs(save_dir)
 
 plt.figure()
 
@@ -205,10 +201,6 @@ method_names = ['distill','rrt','utility','nearest','apf']
 label_names = ['MAANS-TD','RRT','Utility','Nearest','APF']
 color_names = ['limegreen', 'saddlebrown','purple','blue','red','gray']
 
-
-save_dir = './habitat_AUC/'
-if not os.path.exists(save_dir):
-    os.makedirs(save_dir)
 
 plt.figure()
 
@@ -303,10 +295,6 @@ label_names = ['MAANS','RRT','Utility','Nearest','APF']
 color_names = ['limegreen', 'saddlebrown','purple','blue','red','gray']
 
 
-save_dir = './habitat_AUC/'
-if not os.path.exists(save_dir):
-    os.makedirs(save_dir)
-
 plt.figure()
 
 bar_width = 0.45
@@ -392,10 +380,6 @@ method_names = ['rrt'] #['global_stack','rrt','utility','nearest','apf']
 label_names = ['RRT'] #['MAANS','RRT','Utility','Nearest','APF']
 color_names = ['limegreen', 'saddlebrown','purple','blue','red','gray']
 
-
-save_dir = './habitat_AUC/'
-if not os.path.exists(save_dir):
-    os.makedirs(save_dir)
 
 plt.figure()
 
@@ -490,11 +474,6 @@ agent_names = ['2 Agents','4 Agents', '45 ADD 2-4 Agents', '90 ADD 2-4 Agents']#
 method_names = ['rrt'] #['global_stack','rrt','utility','nearest','apf']
 label_names = ['RRT'] #['MAANS','RRT','Utility','Nearest','APF']
 color_names = ['limegreen', 'saddlebrown','purple','blue','red','gray']
-
-
-save_dir = './habitat_AUC/'
-if not os.path.exists(save_dir):
-    os.makedirs(save_dir)
 
 plt.figure()
 
@@ -592,9 +571,6 @@ plt.savefig(save_dir + "2-4agents_bar_ACS.png", bbox_inches="tight")
 map_names = ['16','20','21','22','36','43','48','49','61']
 agent_names = ['2 Agents','3 Agents']
 
-save_dir = './habitat_overlap/'
-if not os.path.exists(save_dir):
-    os.makedirs(save_dir)
 
 plt.figure()
 

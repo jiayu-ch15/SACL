@@ -24,7 +24,7 @@ label_names = ['MAANS','RRT','Utility','Nearest','APF']
 color_names = ['limegreen', 'saddlebrown','purple','blue','red','gray']
 
 
-save_dir = './habitat/'
+save_dir = './habitat_2agents/'
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
 
