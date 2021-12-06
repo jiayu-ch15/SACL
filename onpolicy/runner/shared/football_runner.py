@@ -50,11 +50,11 @@ class FootballRunner(Runner):
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
             
             # save model
-            if (episode % self.save_interval == 0 or episode == episodes - 1):
+            if (total_num_steps % self.save_interval == 0 or episode == episodes - 1):
                 self.save()
 
             # log information
-            if episode % self.log_interval == 0:
+            if total_num_steps % self.log_interval == 0:
                 end = time.time()
                 print("\n Env {} Algo {} Exp {} updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
                         .format(self.env_name,
@@ -71,7 +71,7 @@ class FootballRunner(Runner):
                 self.env_infos = defaultdict(list)
 
             # eval
-            if episode % self.eval_interval == 0 and self.use_eval:
+            if total_num_steps % self.eval_interval == 0 and self.use_eval:
                 self.eval(total_num_steps)
 
     def warmup(self):
