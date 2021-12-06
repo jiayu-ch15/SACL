@@ -39,8 +39,10 @@ class R_MAPPO():
         self._use_valuenorm = args.use_valuenorm
         self._use_value_active_masks = args.use_value_active_masks
 
+        assert (self._use_popart and self._use_valuenorm) == False, ("self._use_popart and self._use_valuenorm can not be set True simultaneously")
+
         if self._use_popart:
-            self.value_normalizer = self.policy.critic.v_out
+            self.value_normalizer = self.policy.model.v_out
         elif self._use_valuenorm:
             self.value_normalizer = ValueNorm(1, device = self.device)
         else:
