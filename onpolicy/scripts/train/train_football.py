@@ -1,27 +1,30 @@
 #!/usr/bin/env python
-import sys
+# python standard libraries
 import os
-import wandb
-import socket
-import setproctitle
-import numpy as np
 from pathlib import Path
+import sys
+import socket
 
+# third-party packages
+import numpy as np
+import setproctitle
 import torch
+import wandb
 
+# code repository sub-packages
 from onpolicy.config import get_config
-
-from onpolicy.envs.staghunt.GridWorld_Env import GridWorldEnv
+from onpolicy.envs.football.Football_Env import FootballEnv
 from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
+
 
 def make_train_env(all_args):
     def get_env_fn(rank):
         def init_env():
-            if all_args.env_name in ["StagHuntGW", "HarvestGW", "EscalationGW"]:
-                env = GridWorldEnv(all_args)
+            if all_args.env_name == "Football":
+                env = FootballEnv(all_args)
             else:
                 print("Can not support the " +
-                      all_args.env_name + "environment.")
+                      all_args.env_name + " environment.")
                 raise NotImplementedError
             env.seed(all_args.seed + rank * 1000)
             return env
@@ -29,17 +32,18 @@ def make_train_env(all_args):
     if all_args.n_rollout_threads == 1:
         return DummyVecEnv([get_env_fn(0)])
     else:
-        return SubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
+        return SubprocVecEnv([get_env_fn(i) for i in range(
+            all_args.n_rollout_threads)])
 
 
 def make_eval_env(all_args):
     def get_env_fn(rank):
         def init_env():
-            if all_args.env_name in ["StagHuntGW", "HarvestGW", "EscalationGW"]:
-                env = GridWorldEnv(all_args)
+            if all_args.env_name == "Football":
+                env = FootballEnv(all_args)
             else:
                 print("Can not support the " +
-                      all_args.env_name + "environment.")
+                      all_args.env_name + " environment.")
                 raise NotImplementedError
             env.seed(all_args.seed * 50000 + rank * 10000)
             return env
@@ -47,17 +51,44 @@ def make_eval_env(all_args):
     if all_args.n_eval_rollout_threads == 1:
         return DummyVecEnv([get_env_fn(0)])
     else:
-        return SubprocVecEnv([get_env_fn(i) for i in range(all_args.n_eval_rollout_threads)])
+        return SubprocVecEnv([get_env_fn(i) for i in range(
+            all_args.n_eval_rollout_threads)])
 
 
 def parse_args(args, parser):
-    parser.add_argument('--num_agents', type=int,
-                        default=2, help="number of players")
-    # reward
-    parser.add_argument("--reward_randomization", action='store_true', default=False)
-    parser.add_argument("--share_reward", action='store_true', default=False)
-    parser.add_argument("--shape_reward", action='store_true', default=False)
-    parser.add_argument("--shape_beta", type=float, default=0.8, help='use how much global reward')
+    parser.add_argument("--scenario_name", type=str,
+                        default='academy_3_vs_1_with_keeper', 
+                        help="which scenario to run on.")
+    parser.add_argument("--stacked", action='store_true', default=False, 
+                        help="by default False. If True, stack 4 observations.")
+    parser.add_argument("--representation", type=str, default="simple115v2", 
+                        choices=["simple115v2", "extracted", "pixels_gray", 
+                                 "pixels"],
+                        help="representation used to build the observation.")
+    parser.add_argument("--rewards", type=str, default="scoring", 
+                        help="comma separated list of rewards to be added.")
+    parser.add_argument("--write_goal_dumps", action='store_true', 
+                        default=False, 
+                        help="by default False. If True, dump traces up to 200 "
+                             "frames before goals.")
+    parser.add_argument("--write_full_episode_dumps", action='store_true', 
+                        default=False, 
+                        help="by default False. If True, dump traces for every "
+                             "episode.")
+    parser.add_argument("--render", action='store_true', 
+                        default=False, 
+                        help="by default False. If True, enable render ")
+    parser.add_argument("--dump_frequency", type=int, default=1,
+                        help="how often to write dumps/videos in terms of "
+                             "episodes (default: 1)")
+    parser.add_argument("--log_dir", type=str, default="", 
+                        help="log directory.")
+    parser.add_argument("--num_agents", type=int, default=3,
+                        help="number of controlled players.")
+    parser.add_argument("--smm_width", type=int, default=96,
+                        help="width of super minimap.")
+    parser.add_argument("--smm_height", type=int, default=72,
+                        help="height of super minimap.")
 
     all_args = parser.parse_known_args(args)[0]
 
@@ -90,7 +121,7 @@ def main(args):
 
     # run dir
     run_dir = Path(os.path.split(os.path.dirname(os.path.abspath(__file__)))[
-                   0] + "/results") / all_args.env_name / all_args.algorithm_name / all_args.experiment_name
+                   0] + "/results") / all_args.env_name / all_args.scenario_name / all_args.algorithm_name / all_args.experiment_name
     if not run_dir.exists():
         os.makedirs(str(run_dir))
 
@@ -100,9 +131,12 @@ def main(args):
                          project=all_args.env_name,
                          entity=all_args.wandb_name,
                          notes=socket.gethostname(),
-                         name=str(all_args.algorithm_name) + "_" +
-                         str(all_args.experiment_name) +
-                         "_seed" + str(all_args.seed),
+                         name="-".join([
+                            all_args.algorithm_name,
+                            all_args.experiment_name,
+                            "seed" + str(all_args.seed)
+                         ]),
+                         group=all_args.scenario_name,
                          dir=str(run_dir),
                          job_type="training",
                          reinit=True)
@@ -119,9 +153,13 @@ def main(args):
         if not run_dir.exists():
             os.makedirs(str(run_dir))
 
-    setproctitle.setproctitle(str(all_args.algorithm_name) + "-" + \
-        str(all_args.env_name) + "-" + str(all_args.experiment_name) + "@" + str(all_args.user_name))
-
+    setproctitle.setproctitle("-".join([
+        all_args.env_name, 
+        all_args.scenario_name, 
+        all_args.algorithm_name, 
+        all_args.experiment_name
+    ]) + "@" + all_args.user_name)
+    
     # seed
     torch.manual_seed(all_args.seed)
     torch.cuda.manual_seed_all(all_args.seed)
@@ -143,9 +181,9 @@ def main(args):
 
     # run experiments
     if all_args.share_policy:
-        from onpolicy.runner.shared.staghunt_runner import StagHuntRunner as Runner
+        from onpolicy.runner.shared.football_runner import FootballRunner as Runner
     else:
-        from onpolicy.runner.separated.staghunt_runner import StagHuntRunner as Runner
+        from onpolicy.runner.separated.football_runner import FootballRunner as Runner
 
     runner = Runner(config)
     runner.run()
