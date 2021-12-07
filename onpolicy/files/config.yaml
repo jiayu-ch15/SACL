@@ -1,0 +1,763 @@
+wandb_version: 1
+
+_wandb:
+  desc: null
+  value:
+    cli_version: 0.10.33
+    code_path: code/onpolicy/scripts/train/train_habitat.py
+    framework: torch
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    python_version: 3.6.13
+    start_time: 1636872865
+    t:
+      1:
+      - 1
+      - 5
+      4: 3.6.13
+      5: 0.10.33
+      8:
+      - 5
+action_mask:
+  desc: null
+  value: false
+activation_id:
+  desc: null
+  value: 1
+add_grid_pos:
+  desc: null
+  value: true
+agent_invariant:
+  desc: null
+  value: true
+algorithm_name:
+  desc: null
+  value: distill
+attn_N:
+  desc: null
+  value: 1
+attn_depth:
+  desc: null
+  value: 2
+attn_heads:
+  desc: null
+  value: 4
+attn_size:
+  desc: null
+  value: 64
+aux_epoch:
+  desc: null
+  value: 5
+camera_height:
+  desc: null
+  value: 1.25
+candidate_scenes:
+  desc: null
+  value:
+  - '16_3'
+  - '21_3'
+  - '22_3'
+  - '36_3'
+  - '43_3'
+  - '48_3'
+  - '61_3'
+change_down_agents:
+  desc: null
+  value: false
+change_up_agents:
+  desc: null
+  value: false
+clip_param:
+  desc: null
+  value: 0.2
+clone_coef:
+  desc: null
+  value: 1.0
+cnn_layers_params:
+  desc: null
+  value: 32,3,1,1 64,3,1,1 128,3,1,1 64,3,1,1 32,3,2,1
+cnn_use_attn:
+  desc: null
+  value: false
+cnn_use_transformer:
+  desc: null
+  value: true
+collision_threshold:
+  desc: null
+  value: 0.2
+critic_lr:
+  desc: null
+  value: 2.5e-05
+cuda:
+  desc: null
+  value: true
+cuda_deterministic:
+  desc: null
+  value: true
+dagger:
+  desc: null
+  value: false
+dagger_num_episodes:
+  desc: null
+  value: 10
+data_chunk_length:
+  desc: null
+  value: 10
+decay_weight:
+  desc: null
+  value: 0.9
+direction_goal:
+  desc: null
+  value: false
+direction_k:
+  desc: null
+  value: 8
+direction_mode:
+  desc: null
+  value: discrete
+discrete_goal:
+  desc: null
+  value: false
+distill_epoch:
+  desc: null
+  value: 4
+dropout:
+  desc: null
+  value: 0.0
+du_scale:
+  desc: null
+  value: 2
+dynamic_env:
+  desc: null
+  value: true
+dynamic_mode:
+  desc: null
+  value: fixed
+entropy_coef:
+  desc: null
+  value: 0.01
+env_frame_height:
+  desc: null
+  value: 256
+env_frame_width:
+  desc: null
+  value: 256
+env_name:
+  desc: null
+  value: Habitat
+env_num_agents:
+  desc: null
+  value:
+  - '3'
+episode_length:
+  desc: null
+  value: 16
+eval_episodes:
+  desc: null
+  value: 1
+eval_interval:
+  desc: null
+  value: 25
+exp_loss_coeff:
+  desc: null
+  value: 1.0
+experiment_name:
+  desc: null
+  value: gpu004_(seed1)distill_7maps_(2teacher-3students_alter_attn_multi)
+explored_ratio_down_threshold:
+  desc: null
+  value: 0.9
+explored_ratio_up_threshold:
+  desc: null
+  value: 0.95
+first_stage_agents:
+  desc: null
+  value: 2
+frame_height:
+  desc: null
+  value: 128
+frame_width:
+  desc: null
+  value: 128
+freeze_cnn:
+  desc: null
+  value: false
+ft_clear_radius:
+  desc: null
+  value: 50
+ft_cluster_radius:
+  desc: null
+  value: 5.0
+ft_num_local_steps:
+  desc: null
+  value: 15
+ft_use_random:
+  desc: null
+  value: false
+gae_lambda:
+  desc: null
+  value: 0.95
+gain:
+  desc: null
+  value: 0.01
+gamma:
+  desc: null
+  value: 0.99
+global_downscaling:
+  desc: null
+  value: 2
+goals_size:
+  desc: null
+  value: 2
+grid_agent_id:
+  desc: null
+  value: false
+grid_goal:
+  desc: null
+  value: true
+grid_goal_simpler:
+  desc: null
+  value: false
+grid_last_goal:
+  desc: null
+  value: true
+grid_pos:
+  desc: null
+  value: true
+grid_size:
+  desc: null
+  value: 8
+hfov:
+  desc: null
+  value: 90.0
+hidden_size:
+  desc: null
+  value: 256
+huber_delta:
+  desc: null
+  value: 10.0
+ifi:
+  desc: null
+  value: 0.1
+influence_layer_N:
+  desc: null
+  value: 1
+invariant_type:
+  desc: null
+  value: alter_attn
+layer_N:
+  desc: null
+  value: 1
+load_local:
+  desc: null
+  value: ../envs/habitat/model/pretrained_models/local_best.pt
+load_pretrained_model:
+  desc: null
+  value: null
+load_slam:
+  desc: null
+  value: ../envs/habitat/model/pretrained_models/slam_best.pt
+load_teachers:
+  desc: null
+  value: tea.yml
+local_hidden_size:
+  desc: null
+  value: 512
+local_lr:
+  desc: null
+  value: 0.0001
+local_map_h:
+  desc: null
+  value: 120
+local_map_w:
+  desc: null
+  value: 120
+local_opti_eps:
+  desc: null
+  value: 1.0e-05
+local_policy_update_freq:
+  desc: null
+  value: 5
+log_interval:
+  desc: null
+  value: 1
+lr:
+  desc: null
+  value: 2.5e-05
+map_pred_threshold:
+  desc: null
+  value: 0.5
+map_resolution:
+  desc: null
+  value: 5
+map_size_cm:
+  desc: null
+  value: 2400
+map_threshold:
+  desc: null
+  value: 0.0
+max_episode_length:
+  desc: null
+  value: 240
+max_grad_norm:
+  desc: null
+  value: 10.0
+mlp_hidden_size:
+  desc: null
+  value: 64
+model_dir:
+  desc: null
+  value: null
+multi_layer_cross_attn:
+  desc: null
+  value: true
+multidiscrete_goal:
+  desc: null
+  value: false
+n_eval_rollout_threads:
+  desc: null
+  value: 1
+n_render_rollout_threads:
+  desc: null
+  value: 1
+n_rollout_threads:
+  desc: null
+  value: 7
+n_training_threads:
+  desc: null
+  value: 1
+noise_level:
+  desc: null
+  value: 1.0
+noisy_actions:
+  desc: null
+  value: 1
+noisy_odometry:
+  desc: null
+  value: 1
+norm_sum:
+  desc: null
+  value: false
+num_agents:
+  desc: null
+  value: 3
+num_env_steps:
+  desc: null
+  value: 4500000
+num_local_steps:
+  desc: null
+  value: 15
+num_mini_batch:
+  desc: null
+  value: 5
+obs_threshold:
+  desc: null
+  value: 1
+obstacle_boundary:
+  desc: null
+  value: 5
+opti_eps:
+  desc: null
+  value: 1.0e-05
+policy_value_loss_coef:
+  desc: null
+  value: 1
+pose_loss_coeff:
+  desc: null
+  value: 10000.0
+ppo_epoch:
+  desc: null
+  value: 4
+pretrained_resnet:
+  desc: null
+  value: 1
+pretrained_type:
+  desc: null
+  value: all
+proj_frontier:
+  desc: null
+  value: false
+proj_loss_coeff:
+  desc: null
+  value: 1.0
+randomize_env_every:
+  desc: null
+  value: 1000
+recurrent_N:
+  desc: null
+  value: 1
+render_episodes:
+  desc: null
+  value: 5
+render_merge:
+  desc: null
+  value: true
+rrt_connect_circle_dist:
+  desc: null
+  value: 10.0
+rrt_expand_dis:
+  desc: null
+  value: 2.0
+rrt_goal_sample_rate:
+  desc: null
+  value: 20
+rrt_max_iter:
+  desc: null
+  value: 300
+save_gifs:
+  desc: null
+  value: false
+save_interval:
+  desc: null
+  value: 10
+save_trajectory_data:
+  desc: null
+  value: false
+scenario_name:
+  desc: null
+  value: pointnav_gibson
+scene_id:
+  desc: null
+  value: 0
+second_stage_agents:
+  desc: null
+  value: 2
+seed:
+  desc: null
+  value: 1
+share_policy:
+  desc: null
+  value: true
+short_goal_dist:
+  desc: null
+  value: 1
+slam_batch_size:
+  desc: null
+  value: 72
+slam_iterations:
+  desc: null
+  value: 10
+slam_lr:
+  desc: null
+  value: 0.0001
+slam_memory_size:
+  desc: null
+  value: 500000
+slam_opti_eps:
+  desc: null
+  value: 1.0e-05
+split:
+  desc: null
+  value: train
+stacked_frames:
+  desc: null
+  value: 1
+take_self:
+  desc: null
+  value: false
+task_config:
+  desc: null
+  value: tasks/pointnav_gibson.yaml
+tau:
+  desc: null
+  value: 0.995
+train_local:
+  desc: null
+  value: false
+train_slam:
+  desc: null
+  value: false
+use_abs_orientation:
+  desc: null
+  value: false
+use_agent_id:
+  desc: null
+  value: false
+use_agent_number:
+  desc: null
+  value: false
+use_attn:
+  desc: null
+  value: false
+use_attn_internal:
+  desc: null
+  value: true
+use_average_pool:
+  desc: null
+  value: true
+use_cat_self:
+  desc: null
+  value: true
+use_center:
+  desc: null
+  value: false
+use_centralized_V:
+  desc: null
+  value: false
+use_circular_overlap_penalty:
+  desc: null
+  value: false
+use_clipped_value_loss:
+  desc: null
+  value: true
+use_cnn_agent_id:
+  desc: null
+  value: false
+use_competitive_reward:
+  desc: null
+  value: false
+use_complete_reward:
+  desc: null
+  value: true
+use_conv1d:
+  desc: null
+  value: false
+use_delta_reward:
+  desc: null
+  value: true
+use_different_start_pos:
+  desc: null
+  value: true
+use_enhanced_id:
+  desc: null
+  value: false
+use_episode_add:
+  desc: null
+  value: false
+use_eval:
+  desc: null
+  value: false
+use_explicit_id:
+  desc: null
+  value: false
+use_feature_normalization:
+  desc: null
+  value: true
+use_fixed_start_pos:
+  desc: null
+  value: false
+use_flatten_attn:
+  desc: null
+  value: false
+use_full_rand_state:
+  desc: null
+  value: false
+use_gae:
+  desc: null
+  value: true
+use_goal:
+  desc: null
+  value: true
+use_goal_penalty:
+  desc: null
+  value: false
+use_grid_pos_attn:
+  desc: null
+  value: false
+use_grid_simple:
+  desc: null
+  value: true
+use_huber_loss:
+  desc: null
+  value: true
+use_influence_policy:
+  desc: null
+  value: false
+use_intra_attn:
+  desc: null
+  value: true
+use_intrinsic_reward:
+  desc: null
+  value: false
+use_linear_lr_decay:
+  desc: null
+  value: false
+use_local:
+  desc: null
+  value: false
+use_local_deterministic:
+  desc: null
+  value: 0
+use_local_recurrent_policy:
+  desc: null
+  value: 1
+use_local_single_map:
+  desc: null
+  value: false
+use_map_agent_id:
+  desc: null
+  value: false
+use_max:
+  desc: null
+  value: true
+use_max_grad_norm:
+  desc: null
+  value: true
+use_maxpool2d:
+  desc: null
+  value: true
+use_merge_goal:
+  desc: null
+  value: false
+use_merge_mapper:
+  desc: null
+  value: false
+use_merge_partial_reward:
+  desc: null
+  value: true
+use_naive_recurrent_policy:
+  desc: null
+  value: false
+use_new_trace:
+  desc: null
+  value: true
+use_obs_instead_of_state:
+  desc: null
+  value: false
+use_one_cnn_model:
+  desc: null
+  value: false
+use_orientation:
+  desc: null
+  value: false
+use_orthogonal:
+  desc: null
+  value: true
+use_overlap_penalty:
+  desc: null
+  value: true
+use_own:
+  desc: null
+  value: true
+use_partial_reward:
+  desc: null
+  value: false
+use_policy_active_masks:
+  desc: null
+  value: true
+use_policy_vhead:
+  desc: null
+  value: false
+use_popart:
+  desc: null
+  value: false
+use_pos_embedding:
+  desc: null
+  value: true
+use_pos_penalty:
+  desc: null
+  value: false
+use_pose_estimation:
+  desc: null
+  value: 2
+use_proper_time_limits:
+  desc: null
+  value: false
+use_random_rotation:
+  desc: null
+  value: false
+use_rect:
+  desc: null
+  value: false
+use_recurrent_policy:
+  desc: null
+  value: false
+use_render:
+  desc: null
+  value: false
+use_repeat_penalty:
+  desc: null
+  value: false
+use_resnet:
+  desc: null
+  value: false
+use_restrict_map:
+  desc: null
+  value: false
+use_same_rotation:
+  desc: null
+  value: false
+use_same_scene:
+  desc: null
+  value: false
+use_scene_norm:
+  desc: null
+  value: false
+use_selected_large_scenes:
+  desc: null
+  value: false
+use_selected_middle_scenes:
+  desc: null
+  value: false
+use_selected_small_scenes:
+  desc: null
+  value: false
+use_self_attn:
+  desc: null
+  value: true
+use_self_grid_pos:
+  desc: null
+  value: false
+use_seperated_cnn_model:
+  desc: null
+  value: false
+use_share_cnn_model:
+  desc: null
+  value: true
+use_single:
+  desc: null
+  value: true
+use_single_agent_trace:
+  desc: null
+  value: false
+use_single_merge:
+  desc: null
+  value: false
+use_single_network:
+  desc: null
+  value: false
+use_stacked_frames:
+  desc: null
+  value: false
+use_time_penalty:
+  desc: null
+  value: true
+use_value_active_masks:
+  desc: null
+  value: true
+use_valuenorm:
+  desc: null
+  value: true
+use_vector_agent_id:
+  desc: null
+  value: false
+use_vit:
+  desc: null
+  value: false
+use_wandb:
+  desc: null
+  value: true
+use_weight_trace:
+  desc: null
+  value: true
+user_name:
+  desc: null
+  value: yang-xy20
+utility_radius:
+  desc: null
+  value: 30
+value_loss_coef:
+  desc: null
+  value: 1
+vision_range:
+  desc: null
+  value: 64
+visualize_input:
+  desc: null
+  value: false
+wandb_name:
+  desc: null
+  value: mapping
+weight_decay:
+  desc: null
+  value: 0
