@@ -44,10 +44,13 @@ class R_MAPPG():
 
         if self._use_popart:
             self.value_normalizer = self.policy.critic.v_out
+            self.policy_value_normalizer = self.policy.actor.v_out
         elif self._use_valuenorm:
             self.value_normalizer = ValueNorm(1, device = self.device)
+            self.policy_value_normalizer = ValueNorm(1, device = self.device)
         else:
             self.value_normalizer = None
+            self.policy_value_normalizer = None
 
     def policy_loss_update(self, sample):
         share_obs_batch, obs_batch, rnn_states_batch, rnn_states_critic_batch, actions_batch, \
@@ -173,8 +176,9 @@ class R_MAPPG():
         value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
             
         if self._use_popart:
-            error_clipped = self.value_normalizer.normalize(return_batch) - value_pred_clipped
-            error_original = self.value_normalizer.normalize(return_batch) - values
+            self.policy_value_normalizer.update(return_batch)
+            error_clipped = self.policy_value_normalizer.normalize(return_batch) - value_pred_clipped
+            error_original = self.policy_value_normalizer.normalize(return_batch) - values
         else:
             error_clipped = return_batch - value_pred_clipped
             error_original = return_batch - values

@@ -58,7 +58,7 @@ class R_Model(nn.Module):
             self.v_out = init_(nn.Linear(input_size, 1))
 
         # action
-        self.act = ACTLayer(action_space, self.hidden_size, self._use_orthogonal, self._gain)
+        self.act = ACTLayer(action_space, input_size, self._use_orthogonal, self._gain)
 
         self.to(self.device)
 
