@@ -1,6 +1,7 @@
 import numpy as np
 import gym
 import onpolicy
+import torch
 from .exploration_env import Exploration_Env
 from habitat.config.default import get_config as cfg_env
 from habitat_baselines.config.default import get_config as cfg_baseline
@@ -17,6 +18,17 @@ class MultiHabitatEnv(object):
         self.use_merge_partial_reward = args.use_merge_partial_reward
         self.use_merge = args.use_merge
         self.use_single = args.use_single
+        self.use_merge_goal = args.use_merge_goal
+        self.use_orientation = args.use_orientation
+        self.use_vector_agent_id = args.use_vector_agent_id
+        self.use_cnn_agent_id = args.use_cnn_agent_id
+        self.use_own = args.use_own
+        self.use_one = args.use_one
+        self.use_seperated_cnn_model = args.use_seperated_cnn_model
+        self.use_original_size = args.use_original_size
+        self.use_single_agent_trace = args.use_single_agent_trace
+        self.use_competitive_reward = args.use_competitive_reward
+        self.discrete_goal = args.discrete_goal
 
         config_env, config_baseline, dataset = self.get_config(args, rank)
 
@@ -28,41 +40,90 @@ class MultiHabitatEnv(object):
         local_w, local_h = int(full_w / args.global_downscaling), \
             int(full_h / args.global_downscaling)
 
+        space_w = 224 if self.use_resnet else local_w
+        space_h = 224 if self.use_resnet else local_h 
         global_observation_space = {}
-        #global_observation_space['global_obs'] = gym.spaces.Box(
-            #low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
+        
         if self.use_merge:
-            if self.use_resnet:
-                global_observation_space['global_merge_obs'] = gym.spaces.Box(
-                    low=0, high=1, shape=(8, 224, 224), dtype='uint8')
+            if self.use_seperated_cnn_model:
+                if self.use_original_size:
+                    global_observation_space['global_merge_obs'] = gym.spaces.Box(
+                        low=0, high=1, shape=(4, full_w, full_h), dtype='uint8')
+                else:
+                    global_observation_space['global_merge_obs'] = gym.spaces.Box(
+                        low=0, high=1, shape=(4, space_w, space_h), dtype='uint8')
+                global_observation_space['local_merge_obs'] = gym.spaces.Box(
+                    low=0, high=1, shape=(4, space_w, space_h), dtype='uint8')
             else:
-                global_observation_space['global_merge_obs'] = gym.spaces.Box(
-                    low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
+                if self.use_original_size:
+                    global_observation_space['global_merge_obs'] = gym.spaces.Box(
+                        low=0, high=1, shape=(8, full_w, full_h), dtype='uint8')
+                else:
+                    global_observation_space['global_merge_obs'] = gym.spaces.Box(
+                        low=0, high=1, shape=(8, space_w, space_h), dtype='uint8')
+        if self.use_merge_goal:
+            if self.use_original_size:
+                global_observation_space['global_merge_goal'] = gym.spaces.Box(
+                    low=0, high=1, shape=(2, full_w, full_h), dtype='uint8')
+            else:
+                global_observation_space['global_merge_goal'] = gym.spaces.Box(
+                    low=0, high=1, shape=(2, space_w, space_h), dtype='uint8')
         if self.use_single:
-            if self.use_resnet:
-                global_observation_space['global_obs'] = gym.spaces.Box(
-                    low=0, high=1, shape=(8, 224, 224), dtype='uint8')
+            if self.use_seperated_cnn_model:
+                if self.use_original_size:
+                    global_observation_space['global_obs'] = gym.spaces.Box(
+                        low=0, high=1, shape=(4, full_w, full_h), dtype='uint8')
+                else:
+                    global_observation_space['global_obs'] = gym.spaces.Box(
+                        low=0, high=1, shape=(4, space_w, space_h), dtype='uint8')
+                global_observation_space['local_obs'] = gym.spaces.Box(
+                    low=0, high=1, shape=(4, space_w, space_h), dtype='uint8')
             else:
                 global_observation_space['global_obs'] = gym.spaces.Box(
-                    low=0, high=1, shape=(8, local_w, local_h), dtype='uint8')
-            
-        global_observation_space['global_orientation'] = gym.spaces.Box(
-            low=-1, high=1, shape=(1,), dtype='long')
-        global_observation_space['other_global_orientation'] = gym.spaces.Box(
-            low=-1, high=1, shape=(self.num_agents-1,), dtype='long')
-        global_observation_space['vector'] = gym.spaces.Box(
-            low=-1, high=1, shape=(self.num_agents,), dtype='float')
-        # global_observation_space['global_merge_goal'] = gym.spaces.Box(
-        #   low=0, high=1, shape=(2, local_w, local_h), dtype='uint8')
+                    low=0, high=1, shape=(8, space_w, space_h), dtype='uint8')
+        if self.use_orientation:
+            global_observation_space['global_orientation'] = gym.spaces.Box(
+                low=-1, high=1, shape=(1,), dtype='long')
+            global_observation_space['other_global_orientation'] = gym.spaces.Box(
+                low=-1, high=1, shape=(self.num_agents-1,), dtype='long')
+        if self.use_vector_agent_id:
+            global_observation_space['vector'] = gym.spaces.Box(
+                low=-1, high=1, shape=(self.num_agents,), dtype='float')
+        if self.use_cnn_agent_id:
+            if self.use_one:
+                vector_cnn_channel = 1
+            elif self.use_own:
+                vector_cnn_channel = 2
+            else:
+                vector_cnn_channel = self.num_agents + 1
+            if self.use_original_size:
+                global_observation_space['vector_cnn'] = gym.spaces.Box(
+                            low=0, high=1, shape=(vector_cnn_channel, full_w, full_h), dtype='uint8')
+            else:
+                global_observation_space['vector_cnn'] = gym.spaces.Box(
+                            low=0, high=1, shape=(vector_cnn_channel, space_w, space_h), dtype='uint8')
+        
+        if self.use_single_agent_trace:
+            if self.use_own:
+                vector_cnn_channel = 1
+            else:
+                vector_cnn_channel = self.num_agents
+            if self.use_original_size:
+                global_observation_space['trace_image'] = gym.spaces.Box(
+                    low=0, high=1, shape=(vector_cnn_channel, full_w, full_h), dtype='uint8')
+            else:
+                global_observation_space['trace_image'] = gym.spaces.Box(
+                    low=0, high=1, shape=(vector_cnn_channel, space_w, space_h), dtype='uint8')
+    
         share_global_observation_space = global_observation_space.copy()
         if self.use_centralized_V:
-            if self.use_resnet:
+            if self.use_original_size:
                 share_global_observation_space['gt_map'] = gym.spaces.Box(
-                    low=0, high=1, shape=(1, 224, 224), dtype='uint8')
+                        low=0, high=1, shape=(1, full_w, full_h), dtype='uint8')
             else:
                 share_global_observation_space['gt_map'] = gym.spaces.Box(
-                    low=0, high=1, shape=(1, local_w, local_h), dtype='uint8')
-            
+                        low=0, high=1, shape=(1, space_w, space_h), dtype='uint8')
+                
         global_observation_space = gym.spaces.Dict(global_observation_space)
         share_global_observation_space = gym.spaces.Dict(share_global_observation_space)
 
@@ -73,8 +134,10 @@ class MultiHabitatEnv(object):
         for agent_id in range(self.num_agents):
             self.observation_space.append(global_observation_space)
             self.share_observation_space.append(share_global_observation_space)
-            self.action_space.append(gym.spaces.Box(
-                low=0.0, high=1.0, shape=(2,), dtype=np.float32))
+            if self.discrete_goal:
+                self.action_space.append(gym.spaces.Discrete(args.grid_size ** 2))
+            else:
+                self.action_space.append(gym.spaces.Box(low=0.0, high=1.0, shape=(2,), dtype=np.float32))
 
     def get_config(self, args, rank):
         config_env = cfg_env(config_paths=[onpolicy.__path__[0] + "/envs/habitat/habitat-lab/configs/" + args.task_config])
@@ -108,7 +171,7 @@ class MultiHabitatEnv(object):
             scene_num=[8, 58, 27, 29, 26, 71, 12, 54, 57, 5]
             config_env.DATASET.CONTENT_SCENES = scenes[scene_num[rank]:scene_num[rank]+1]
         if args.use_selected_middle_scenes:
-            scene_num=[20, 16, 48, 22, 21, 40, 43, 36, 61, 49]
+            scene_num=[20, 16, 48, 22, 21, 43, 36, 61, 49]#40, 
             config_env.DATASET.CONTENT_SCENES = scenes[scene_num[rank]:scene_num[rank]+1]
         if args.use_selected_large_scenes:
             scene_num=[31, 70, 9, 47, 45]
@@ -118,7 +181,7 @@ class MultiHabitatEnv(object):
         if rank > (args.n_rollout_threads)/2 and args.n_rollout_threads > 6:
             gpu_id = 2
         else:
-            gpu_id = 1
+            gpu_id = 0 if torch.cuda.device_count() == 1 else 1
 
         config_env.ENVIRONMENT.MAX_EPISODE_STEPS = args.max_episode_length
         config_env.ENVIRONMENT.ITERATOR_OPTIONS.SHUFFLE = True
@@ -130,6 +193,19 @@ class MultiHabitatEnv(object):
         config_env.SIMULATOR.USE_SAME_ROTATION = args.use_same_rotation
         config_env.SIMULATOR.USE_RANDOM_ROTATION = args.use_random_rotation
         config_env.SIMULATOR.USE_DIFFERENT_START_POS = args.use_different_start_pos
+        config_env.SIMULATOR.USE_FIXED_START_POS = args.use_fixed_start_pos
+        config_env.SIMULATOR.USE_FULL_RAND_STATE = args.use_full_rand_state
+        
+        if args.use_same_rotation:
+            config_env.SIMULATOR.FIXED_MODEL_PATH = onpolicy.__path__[0] + "/envs/habitat/data/same_rot_state/seed{}/".format(args.seed)
+        else:
+            if args.use_random_rotation:
+                config_env.SIMULATOR.FIXED_MODEL_PATH = onpolicy.__path__[0] + "/envs/habitat/data/rand_rot_state/seed{}/".format(args.seed)
+            else:
+                if args.use_full_rand_state:
+                    config_env.SIMULATOR.FIXED_MODEL_PATH = onpolicy.__path__[0] + "/envs/habitat/data/full_rand_state/seed{}/".format(args.seed)
+                else:
+                    config_env.SIMULATOR.FIXED_MODEL_PATH = onpolicy.__path__[0] + "/envs/habitat/data/state/seed{}/".format(args.seed)
 
         config_env.SIMULATOR.AGENT.SENSORS = ['RGB_SENSOR', 'DEPTH_SENSOR']
 
@@ -164,7 +240,7 @@ class MultiHabitatEnv(object):
         else:
             self.env.seed(seed)
 
-    def reset(self):
+    def reset(self, choose=True):
         obs, infos = self.env.reset()
         return obs, infos
 
@@ -172,12 +248,15 @@ class MultiHabitatEnv(object):
         obs, rewards, dones, infos = self.env.step(actions)
         if self.use_partial_reward:
             rewards = 0.5 * np.expand_dims(np.array(infos['explored_reward']), axis=1) + 0.5 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+            rewards = 0.5 * np.expand_dims(np.array(infos['explored_reward']), axis=1) + 0.5 * (np.expand_dims(np.array(infos['overlap_reward']), axis=1)+np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1))
         elif self.use_merge_partial_reward:
             rewards = 0.5 * np.expand_dims(np.array(infos['explored_merge_reward']), axis=1) + 0.5 * np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+            rewards = 0.5 * np.expand_dims(np.array(infos['explored_merge_reward']), axis=1) + 0.5 * (np.expand_dims(np.array(infos['overlap_reward']), axis=1)+np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1))
         else:
             rewards = np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
+            rewards = np.expand_dims(np.array(infos['overlap_reward'] ), axis=1)+np.expand_dims(np.array([infos['merge_explored_reward'] for _ in range(self.num_agents)]), axis=1)
         return obs, rewards, dones, infos
-
+    
     def close(self):
         self.env.close()
 

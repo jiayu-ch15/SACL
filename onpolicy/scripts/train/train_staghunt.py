@@ -36,7 +36,7 @@ def make_eval_env(all_args):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name in ["StagHuntGW", "HarvestGW", "EscalationGW"]:
-                env = MPEEnv(all_args)
+                env = GridWorldEnv(all_args)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")

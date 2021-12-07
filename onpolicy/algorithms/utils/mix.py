@@ -21,9 +21,12 @@ class MIXBase(nn.Module):
         self._activation_id = args.activation_id
         self._use_maxpool2d = args.use_maxpool2d
         self.hidden_size = args.hidden_size
+        self.mlp_hidden_size = args.mlp_hidden_size
         self.use_resnet = args.use_resnet
+        self.use_original_size = args.use_original_size
         self.pretrained_global_resnet = args.pretrained_global_resnet
         self.cnn_keys = []
+        self.local_cnn_keys = []
         self.embed_keys = []
         self.mlp_keys = []
         self.n_cnn_input = 0
@@ -34,7 +37,10 @@ class MIXBase(nn.Module):
             if obs_shape[key].__class__.__name__ == 'Box':
                 key_obs_shape = obs_shape[key].shape
                 if len(key_obs_shape) == 3:
-                    self.cnn_keys.append(key)
+                    if key in ["local_obs", "local_merge_obs"]:
+                        self.local_cnn_keys.append(key)
+                    else:
+                        self.cnn_keys.append(key)
                 else:
                     if "orientation" in key:
                         self.embed_keys.append(key)
@@ -45,40 +51,35 @@ class MIXBase(nn.Module):
 
         if len(self.cnn_keys) > 0:
             if self.use_resnet:
-                for key in self.cnn_keys:
-                    if key in ['rgb','depth','image','occupy_image']:
-                        self.n_cnn_input += obs_shape[key].shape[2] 
-                    elif key in ['global_map','local_map','global_obs','global_merge_obs','global_merge_goal','gt_map']:
-                        self.n_cnn_input += obs_shape[key].shape[0] 
-                    else:
-                        raise NotImplementedError
-                    
-                cnn_layers = [nn.Conv2d(int(self.n_cnn_input), 64, kernel_size=7, stride=2, padding=3, bias=False)]
-                resnet = models.resnet18(pretrained = self.pretrained_global_resnet)
-                cnn_layers += list(resnet.children())[1:-1]  # 去除最后的fc层
-                cnn_layers += [Flatten(),
-                                nn.Linear(resnet.fc.in_features, self.hidden_size)]
-                self.cnn = nn.Sequential(*cnn_layers)
-                
-                # if self.pretrained_global_resnet:
-                    
-                #     self.cnn= Pre_MapNet(int(self.n_cnn_input), self.hidden_size)
-                # else:
-                #     self.cnn = MapNet(int(self.n_cnn_input), self.hidden_size, [2, 2, 2, 2])
-                
+                self.cnn = self._build_resnet_model(obs_shape, self.cnn_keys, self.hidden_size)
             else:
-                self.cnn = self._build_cnn_model(obs_shape, cnn_layers_params, self.hidden_size, self._use_orthogonal, self._activation_id)
+                if self.use_original_size:
+                    cnn_layers_params = '32,7,1,1 64,5,1,1 128,3,1,1 64,3,1,1 32,3,1,1'
+                self.cnn = self._build_cnn_model(obs_shape, self.cnn_keys, cnn_layers_params, self.hidden_size, self._use_orthogonal, self._activation_id)
+
+        if len(self.local_cnn_keys) > 0:
+            if self.use_resnet:
+                self.local_cnn = self._build_resnet_model(obs_shape, self.local_cnn_keys, self.hidden_size)
+            else:
+                self.local_cnn = self._build_cnn_model(obs_shape, self.local_cnn_keys, cnn_layers_params, self.hidden_size, self._use_orthogonal, self._activation_id)
+        
         if len(self.embed_keys) > 0:
             self.embed = self._build_embed_model(obs_shape)
+        
         if len(self.mlp_keys) > 0:
-            self.mlp = self._build_mlp_model(obs_shape, self.hidden_size, self._use_orthogonal, self._activation_id)
+            self.mlp = self._build_mlp_model(obs_shape, self.mlp_hidden_size, self._use_orthogonal, self._activation_id)
 
     def forward(self, x):
         out_x = x
         if len(self.cnn_keys) > 0:
-            cnn_input = self._build_cnn_input(x)
+            cnn_input = self._build_cnn_input(x, self.cnn_keys)
             cnn_x = self.cnn(cnn_input)            
             out_x = cnn_x
+
+        if len(self.local_cnn_keys) > 0:
+            local_cnn_input = self._build_cnn_input(x, self.local_cnn_keys)
+            local_cnn_x = self.local_cnn(local_cnn_input)            
+            out_x = torch.cat([out_x, local_cnn_x], dim=1)
 
         if len(self.embed_keys) > 0:
             embed_input = self._build_embed_input(x)
@@ -92,7 +93,26 @@ class MIXBase(nn.Module):
 
         return out_x
 
-    def _build_cnn_model(self, obs_shape, cnn_layers_params, hidden_size, use_orthogonal, activation_id):
+    def _build_resnet_model(self, obs_shape, cnn_keys, hidden_size):
+        
+        n_cnn_input = 0
+        for key in cnn_keys:
+            if key in ['rgb','depth','image','occupy_image']:
+                n_cnn_input += obs_shape[key].shape[2] 
+            elif key in ['global_map','local_map','global_obs','local_obs','global_merge_obs','local_merge_obs','trace_image', 'global_merge_goal','gt_map','vector_cnn']:
+                n_cnn_input += obs_shape[key].shape[0] 
+            else:
+                raise NotImplementedError
+            
+        cnn_layers = [nn.Conv2d(int(n_cnn_input), 64, kernel_size=7, stride=2, padding=3, bias=False)]
+        resnet = models.resnet18(pretrained = self.pretrained_global_resnet)
+        cnn_layers += list(resnet.children())[1:-1]
+        cnn_layers += [Flatten(),
+                        nn.Linear(resnet.fc.in_features, hidden_size)]
+
+        return nn.Sequential(*cnn_layers)
+
+    def _build_cnn_model(self, obs_shape, cnn_keys, cnn_layers_params, hidden_size, use_orthogonal, activation_id):
         
         if cnn_layers_params is None:
             cnn_layers_params = [(32, 8, 4, 0), (64, 4, 2, 0), (64, 3, 1, 0)]
@@ -110,13 +130,14 @@ class MIXBase(nn.Module):
 
         def init_(m):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain=gain)
-
-        for key in self.cnn_keys:
+        
+        n_cnn_input = 0
+        for key in cnn_keys:
             if key in ['rgb','depth','image','occupy_image']:
-                self.n_cnn_input += obs_shape[key].shape[2] 
+                n_cnn_input += obs_shape[key].shape[2] 
                 cnn_dims = np.array(obs_shape[key].shape[:2], dtype=np.float32)
-            elif key in ['global_map','local_map','global_obs','global_merge_obs','global_merge_goal','gt_map']:
-                self.n_cnn_input += obs_shape[key].shape[0] 
+            elif key in ['global_map','local_map','global_obs','local_obs','global_merge_obs','local_merge_obs','trace_image', 'global_merge_goal','gt_map', 'vector_cnn']:
+                n_cnn_input += obs_shape[key].shape[0] 
                 cnn_dims = np.array(obs_shape[key].shape[1:3], dtype=np.float32)
             else:
                 raise NotImplementedError
@@ -128,7 +149,7 @@ class MIXBase(nn.Module):
                 cnn_layers.append(nn.MaxPool2d(2))
 
             if i == 0:
-                in_channels = self.n_cnn_input
+                in_channels = n_cnn_input
             else:
                 in_channels = prev_out_channels
 
@@ -154,14 +175,24 @@ class MIXBase(nn.Module):
                 kernel_size=np.array([kernel_size, kernel_size], dtype=np.float32),
                 stride=np.array([stride, stride], dtype=np.float32),
             )
-            
-        cnn_layers += [
+        
+        if (cnn_layers_params[-1][0] * cnn_dims[0] * cnn_dims[1]) > 20000:
+            cnn_layers += [
             Flatten(),
-            init_(nn.Linear(cnn_layers_params[-1][0] * cnn_dims[0] * cnn_dims[1],
-                        hidden_size)),
+            init_(nn.Linear(cnn_layers_params[-1][0] * cnn_dims[0] * cnn_dims[1], 2048)),
+            active_func,
+            nn.LayerNorm(2048),
+            init_(nn.Linear(2048, hidden_size)),
             active_func,
             nn.LayerNorm(hidden_size),
         ]
+        else:
+            cnn_layers += [
+                Flatten(),
+                init_(nn.Linear(cnn_layers_params[-1][0] * cnn_dims[0] * cnn_dims[1], hidden_size)),
+                active_func,
+                nn.LayerNorm(hidden_size),
+            ]
         return nn.Sequential(*cnn_layers)
 
     def _build_embed_model(self, obs_shape):
@@ -218,13 +249,13 @@ class MIXBase(nn.Module):
             )
         return tuple(out_dimension)
 
-    def _build_cnn_input(self, obs):
+    def _build_cnn_input(self, obs, cnn_keys):
         cnn_input = []
 
-        for key in self.cnn_keys:
+        for key in cnn_keys:
             if key in ['rgb','depth','image','occupy_image']:
                 cnn_input.append(obs[key].permute(0, 3, 1, 2) / 255.0)
-            elif key in ['global_map', 'local_map', 'global_obs', 'global_merge_obs', 'global_merge_goal','gt_map']:
+            elif key in ['global_map', 'local_map', 'global_obs', 'local_obs', 'global_merge_obs', 'trace_image', 'local_merge_obs', 'global_merge_goal','gt_map', 'vector_cnn']:
                 cnn_input.append(obs[key])
             else:
                 raise NotImplementedError
@@ -254,9 +285,12 @@ class MIXBase(nn.Module):
         if len(self.cnn_keys) > 0:
             output_size += self.hidden_size
 
+        if len(self.local_cnn_keys) > 0:
+            output_size += self.hidden_size
+
         if len(self.embed_keys) > 0:
             output_size += 8 * self.embed_dim
 
         if len(self.mlp_keys) > 0:
-            output_size += self.hidden_size
+            output_size += self.mlp_hidden_size
         return output_size

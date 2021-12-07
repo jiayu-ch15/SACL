@@ -111,6 +111,6 @@ class MapBuilder(object):
         self.map = np.zeros((self.map_size_cm // self.resolution,
                              self.map_size_cm // self.resolution,
                              len(self.z_bins) + 1), dtype=np.float32)
-
+        self.timestep = -1
     def get_map(self):
         return self.map

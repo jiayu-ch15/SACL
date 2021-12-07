@@ -65,6 +65,9 @@ def parse_args(args, parser):
     parser.add_argument('--num_agents', type=int,
                         default=1, help="number of players")
 
+    parser.add_argument('--train_global', action='store_false',
+                        default=True, help="""0: Do not train the Global Policy
+                                1: Train the Global Policy (default: 1)""")
     parser.add_argument('--train_local', action='store_true',
                         default=False, help="""0: Do not train the Local Policy
                                 1: Train the Local Policy (default: 1)""")
@@ -99,7 +102,9 @@ def parse_args(args, parser):
     parser.add_argument('--use_intrinsic_reward', action='store_true', default=False)
     parser.add_argument('--use_delta_reward', action='store_true', default=False)
     parser.add_argument('--use_partial_reward', action='store_true', default=False)
+    parser.add_argument('--use_competitive_reward', action='store_true', default=False)
     parser.add_argument('--use_merge_partial_reward', action='store_true', default=False)
+    parser.add_argument('--use_overlap_penalty',action='store_true', default=False)
     
     # Environment, dataset and episode specifications
     parser.add_argument('-efw', '--env_frame_width', type=int, default=256,
@@ -126,14 +131,23 @@ def parse_args(args, parser):
                         help="horizontal field of view in degrees")
     parser.add_argument('--randomize_env_every', type=int, default=1000,
                         help="randomize scene in a thread every k episodes")
+    parser.add_argument('--map_threshold', type=float, default=0.0,
+                        help="lower than map_threshold will be setted to zero")
+    parser.add_argument('--explored_ratio_down_threshold', type=float, default=0.9,
+                        help="explored_ratio_down_threshold")
+    parser.add_argument('--explored_ratio_up_threshold', type=float, default=0.95,
+                        help="explored_ratio_up_threshold")
     parser.add_argument('--use_different_start_pos', action='store_true',
+                        default=False, help="by default True, use random agent position at the initialization")
+    parser.add_argument('--use_fixed_start_pos', action='store_true',
                         default=False, help="by default True, use random agent position at the initialization")
     parser.add_argument('--use_same_rotation', action='store_true',
                         default=False, help="by default True, use fixed agent rotation at the initialization")
     parser.add_argument('--use_random_rotation', action='store_true',
                         default=False, help="by default True, use random agent rotation at the initialization")
-    parser.add_argument('--use_abs_orientation', action='store_true',
-                        default=False, help="by default True, use abs orientation at the initialization")
+    parser.add_argument('--use_full_rand_state', action='store_true',
+                        default=False, help="by default True, use_discrete_goal")
+    #network input
     parser.add_argument('--use_center', action='store_true',
                         default=False, help="by default True, use agent center point as input")
     parser.add_argument('--use_resnet', action='store_true',
@@ -144,8 +158,55 @@ def parse_args(args, parser):
                         default=False, help="by default True, use single information")
     parser.add_argument('--use_merge_local', action='store_true',
                         default=False, help="by default True, use single information") 
-    parser.add_argument('--pretrained_global_resnet', type=int, default=1)     
-                        
+    parser.add_argument('--use_merge_goal', action='store_true',
+                        default=False, help="by default True, use merge goal")
+    parser.add_argument('--use_orientation', action='store_true',
+                        default=False, help="by default True, use agent orientation info")
+    parser.add_argument('--use_abs_orientation', action='store_true',
+                        default=False, help="by default True, use abs orientation at the initialization")
+    parser.add_argument('--use_vector_agent_id', action='store_true',
+                        default=False, help="by default True, use fc net")
+    parser.add_argument('--use_cnn_agent_id', action='store_true',
+                        default=False, help="by default True, use fc net")
+    parser.add_argument('--use_own', action='store_true',
+                        default=False, help="by default True, use own vector cnn")
+    parser.add_argument('--use_one', action='store_true',
+                        default=False, help="by default True, use_one_vector cnn")
+    parser.add_argument('--use_new_trace', action='store_true',
+                        default=False, help="by default True, the trace channel only has last goal steps' trace")
+    parser.add_argument('--use_weight_trace', action='store_true',
+                        default=False, help="by default True, use_weight_trace")
+    parser.add_argument('--use_seperated_cnn_model', action='store_true',
+                        default=False, help="by default True, seperated_cnn_model")
+    parser.add_argument('--use_original_size', action='store_true',
+                        default=False, help="by default True, use original global map size")
+    parser.add_argument('--decay_weight', type=float, default=0.9,
+                        help="decay_weight of new weight trace")
+    parser.add_argument('--pretrained_global_resnet', type=int, default=1)
+    parser.add_argument('--use_single_agent_trace', action='store_true',
+                        default=False, help="by default True, use_single_agent_weight_trace")
+    # grid goal
+    parser.add_argument('--discrete_goal', action='store_true',
+                        default=False, help="by default True, use_discrete_goal")
+    parser.add_argument('--use_goal_penalty', action='store_true',
+                        default=False, help="by default True, use_discrete_goal")
+    parser.add_argument('--grid_size', type=int, default=8, help="xxxx")    
+    
+    # map builder
+    parser.add_argument('--use_oracle', action='store_true',
+                        default=False, help="by default True, use oracle information")
+    parser.add_argument('--use_max', action='store_true',
+                        default=False, help="by default True, use maximun map")
+    parser.add_argument('--use_filter', action='store_true',
+                        default=False, help="by default True, use filter map")
+    parser.add_argument('--use_sum', action='store_true',
+                        default=False, help="by default True, use sum map")  
+    parser.add_argument('--use_merge_mapper', action='store_true',
+                        default=False, help="by default True, use merge_mapper")
+    parser.add_argument('--use_depth_proj', action='store_true',
+                        default=False, help="by default True, use_depth_proj")
+    parser.add_argument('--use_depth', action='store_true',
+                        default=False, help="by default True, use_depth_info")     
 
     # Local Policy
     parser.add_argument('--local_lr', type=float, default=0.0001)
@@ -165,6 +226,7 @@ def parse_args(args, parser):
                         help="use classical deterministic local policy")
 
     # Neural SLAM Module
+    parser.add_argument('--slam_keys', default=['rgb'], nargs='+', help = '\'depth\' or \'rgb\' or \'depth rgb\'')
     parser.add_argument('--slam_lr', type=float, default=0.0001)
     parser.add_argument('--slam_opti_eps', type=float, default=1e-5)
     parser.add_argument('--use_pose_estimation', type=int, default=2)
@@ -188,7 +250,13 @@ def parse_args(args, parser):
     parser.add_argument('--obs_threshold', type=float, default=1)
     parser.add_argument('--collision_threshold', type=float, default=0.20)
     parser.add_argument('--noise_level', type=float, default=1.0)
+    parser.add_argument('--memory_rate', type=float, default=0.5)
+    parser.add_argument('--use_max_map', action='store_true',
+                        default=False, help="by default True, use maximun map or use sum map")
+    parser.add_argument('--use_proj_map', action='store_true',
+                        default=False, help="by default True, use maximun map or use sum map")
 
+    parser.add_argument('--local_planner', type=str, default='fmm', choices=['fmm', 'astar', 'rrt'], help = 'choose local planner. [fmm, rrt, astar]')
     all_args = parser.parse_known_args(args)[0]
 
     return all_args

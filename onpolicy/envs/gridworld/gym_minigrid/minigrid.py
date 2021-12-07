@@ -747,6 +747,8 @@ class MiniGridEnv(gym.Env):
         seed=1337,
         agent_view_size=7,
         use_merge=True,
+        use_fc_net = False,
+        use_orientation = False,
         use_local = True,
         use_centralize_V = True,
         use_single = True,
@@ -781,16 +783,22 @@ class MiniGridEnv(gym.Env):
         if use_merge:
             global_observation_space['global_merge_obs'] = gym.spaces.Box(
                 low=0, high=255, shape=(4, self.full_w, self.full_h), dtype='uint8')
-            global_observation_space['global_direction'] = gym.spaces.Box(
-                low=-1, high=1, shape=(self.num_agents, 4), dtype='float')
+            if use_orientation:
+                global_observation_space['global_direction'] = gym.spaces.Box(
+                    low=-1, high=1, shape=(self.num_agents, 4), dtype='float')
         else:
-            global_observation_space['global_direction'] = gym.spaces.Box(
-                low=-1, high=1, shape=(1, 4), dtype='float')
+            if use_orientation:
+                global_observation_space['global_direction'] = gym.spaces.Box(
+                    low=-1, high=1, shape=(1, 4), dtype='float')
         if use_single:
             global_observation_space['global_obs'] = gym.spaces.Box(
                 low=0, high=255, shape=(4, self.full_w, self.full_h), dtype='uint8')
-        global_observation_space['vector'] = gym.spaces.Box(
-            low=-1, high=1, shape=(self.num_agents,), dtype='float')
+        if use_fc_net:
+            global_observation_space['vector'] = gym.spaces.Box(
+                low=-1, high=1, shape=(self.num_agents,), dtype='float')
+        else:
+            global_observation_space['vector_cnn'] = gym.spaces.Box(
+                low=0, high=255, shape=(self.num_agents+1, self.full_w, self.full_h), dtype='uint8')
         share_global_observation_space = global_observation_space.copy()
         if use_centralize_V:
             share_global_observation_space['gt_map'] = gym.spaces.Box(

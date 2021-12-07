@@ -1,7 +1,8 @@
 from onpolicy.envs.gridworld.gym_minigrid.minigrid import *
 from onpolicy.envs.gridworld.gym_minigrid.register import register
+from .irregular_room import *
 
-class Room:
+class Multi_Room:
     def __init__(self,
         top,
         size,
@@ -25,7 +26,7 @@ class Room:
         self.exitDoorPos_3 = exitDoorPos_3
         self.exitDoorPos_4 = exitDoorPos_4
 
-class MultiRoomEnv(MiniGridEnv):
+class MultiRoomEnv(Irregular_RoomEnv):
     """
     Environment with multiple rooms (subgoals)
     """
@@ -37,6 +38,8 @@ class MultiRoomEnv(MiniGridEnv):
         agent_view_size, 
         use_merge,
         use_local,
+        use_fc_net,
+        use_orientation,
         use_single,
         minNumRooms,
         maxNumRooms,
@@ -58,11 +61,16 @@ class MultiRoomEnv(MiniGridEnv):
             num_agents = num_agents, 
             agent_view_size = agent_view_size, 
             use_merge = use_merge,
+            use_fc_net = use_fc_net,
+            use_orientation = use_orientation,
+            minNumRooms = minNumRooms,
+            maxNumRooms = maxNumRooms,
+            maxRoomSize=10,
             use_local = use_local,
             use_single = use_single,
         )
 
-    def _gen_grid(self, width, height):
+    def multiroom_gen_grid(self, width, height):
         roomList = []
 
         # Choose a random number of rooms to generate
@@ -92,7 +100,7 @@ class MultiRoomEnv(MiniGridEnv):
             )
 
             # Recursively place the rooms
-            self._placeRoom(
+            self._place_Multi_Room(
                 numRooms,
                 roomList=curRoomList,
                 minSz=4,
@@ -162,7 +170,8 @@ class MultiRoomEnv(MiniGridEnv):
                 prevRoom.exitDoorPos_4 = room.entryDoorPos_4
 
         # Randomize the starting agent position and direction
-        self.place_agent(roomList[0].top, roomList[0].size, use_same_location = self.use_same_location)
+        num = self._rand_int(0, len(roomList))
+        self.place_agent(roomList[num].top, roomList[num].size, use_same_location = self.use_same_location)
 
         # Place the final goal in the last room
         #self.goal_pos = self.place_obj(Goal(), roomList[-1].top, roomList[-1].size)
@@ -170,7 +179,7 @@ class MultiRoomEnv(MiniGridEnv):
             self.explorable_size += roomList[i].size[0] * roomList[i].size[1]
         self.mission = 'traverse the rooms to get to the goal'
 
-    def _placeRoom(
+    def _place_Multi_Room(
         self,
         numLeft,
         roomList,
@@ -285,7 +294,7 @@ class MultiRoomEnv(MiniGridEnv):
                 #assert False
 
             # Recursively create the other rooms
-            success = self._placeRoom(
+            success = self._place_Multi_Room(
                 numLeft - 1,
                 roomList=roomList,
                 minSz=minSz,

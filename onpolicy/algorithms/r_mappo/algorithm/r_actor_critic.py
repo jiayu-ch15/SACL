@@ -27,7 +27,8 @@ class R_Actor(nn.Module):
         self._use_recurrent_policy = args.use_recurrent_policy
         self._use_influence_policy = args.use_influence_policy
         self._influence_layer_N = args.influence_layer_N 
-        self._use_policy_vhead = args.use_policy_vhead 
+        self._use_policy_vhead = args.use_policy_vhead
+        self._use_popart = args.use_popart 
         self._recurrent_N = args.recurrent_N 
         self.tpdv = dict(dtype=torch.float32, device=device)
 

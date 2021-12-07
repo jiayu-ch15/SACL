@@ -5,6 +5,9 @@ import sys
 import gym
 import numpy as np
 import quaternion
+import json
+import copy
+import imageio
 
 import torch
 from torch.nn import functional as F
@@ -15,7 +18,7 @@ from PIL import Image
 import matplotlib
 if matplotlib.get_backend() == "agg":
     print("matplot backend is {}".format(matplotlib.get_backend()))
-matplotlib.use('TkAgg')
+#matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 from .utils.map_builder import MapBuilder
@@ -31,7 +34,8 @@ from habitat import logger
 from habitat.config.default import get_config as cfg_env
 from habitat.datasets.pointnav.pointnav_dataset import PointNavDatasetV1
 from habitat_baselines.config.default import get_config as cfg_baseline
-
+from copy import deepcopy
+from icecream import ic
 import onpolicy
 
 def _preprocess_depth(depth):
@@ -65,6 +69,14 @@ class Exploration_Env(habitat.RLEnv):
         self.save_gifs = args.save_gifs
         self.map_resolution = args.map_resolution
         self.map_size_cm = args.map_size_cm
+        self.use_eval = args.use_eval
+        self.use_proj_map = args.use_proj_map
+        self.explored_ratio_down_threshold = args.explored_ratio_down_threshold
+        self.explored_ratio_up_threshold = args.explored_ratio_up_threshold
+        self.use_merge_mapper = args.use_merge_mapper
+        self.use_depth_proj = args.use_depth_proj
+        self.use_depth = args.use_depth
+        self.use_overlap_penalty = args.use_overlap_penalty
 
         self.num_actions = 3
         self.dt = 10
@@ -105,6 +117,15 @@ class Exploration_Env(habitat.RLEnv):
         self.mapper = []
         for _ in range(self.num_agents):
             self.mapper.append(self.build_mapper())
+        if self.use_merge_mapper:
+            self.merge_mapper = []
+            for i in range(self.num_agents):
+                self.merge_mapper.append([])
+                for j in range(self.num_agents):
+                    self.merge_mapper[i].append(self.build_mapper())
+
+        self.agent_start_position = []
+        self.agent_start_rotation = []
         self.curr_loc = []
         self.last_loc = []
         self.curr_loc_gt = []
@@ -137,7 +158,7 @@ class Exploration_Env(habitat.RLEnv):
         self._env._episode_iterator._shuffle_iterator()
 
     def save_trajectory_data(self):
-        traj_dir = '{}/trajectory/{}/'.format(self.run_dir, self.scene_id)
+        traj_dir = '{}/seed{}/trajectory/{}/'.format(self.run_dir, self.args.seed, self.scene_id)
         if not os.path.exists(traj_dir):
             os.makedirs(traj_dir)
 
@@ -148,6 +169,23 @@ class Exploration_Env(habitat.RLEnv):
                 for state in self.trajectory_states[i]:
                     f.write(str(state)+"\n")
                     f.flush()
+
+    def save_position_data(self):
+        pos_dir = '{}/state/seed{}/{}/'.format(self.run_dir, self.args.seed, self.scene_id)
+        if not os.path.exists(pos_dir):
+            os.makedirs(pos_dir)
+
+        pair_start_position = np.array(self.agent_start_position).reshape(-1, self.num_agents, 3).tolist()
+        pair_start_rotation = np.array(self.agent_start_rotation).reshape(-1, self.num_agents, 4).tolist()
+        
+        filepath = pos_dir + "start_position.json"
+        with open(filepath,'w',encoding='utf-8') as json_file:
+            json.dump(pair_start_position,json_file,ensure_ascii=False)
+
+        filepath = pos_dir + "start_rotation.json"
+
+        with open(filepath,'w',encoding='utf-8') as json_file:
+            json.dump(pair_start_rotation,json_file,ensure_ascii=False)
 
     def save_position(self):
         self.agent_state = []
@@ -163,12 +201,33 @@ class Exploration_Env(habitat.RLEnv):
         self.trajectory_states = [[] for _ in range(self.num_agents)]
         self.explored_ratio_step = np.ones(self.num_agents) * (-1.0)
         self.merge_explored_ratio_step = -1.0
-        self.explored_ratio_threshold = 0.9
         self.merge_explored_ratio_step_95 = -1.0
         self.merge_ratio = 0
-        self.ratio = np.zeros(self.num_agents)
+        self.prev_overlap_area = np.zeros((self.num_agents, self.num_agents-1))
         
+        self.overlap_flag_30 = True
+        self.overlap_flag_50 = True
+        self.overlap_flag_70 = True
+        self.overlap_flag = True
 
+        merge_overlap_30 = False
+        merge_overlap_50 = False 
+        merge_overlap_70 = False
+        merge_overlap = False
+        
+        self.path_length_flag = True
+        path_length_flag = False
+        self.balanced_flag = True
+        balanced = False
+        self.complete_up_flag = -1
+        self.complete_down_flag = -1
+        self.agent_complete_up_flag = np.ones(self.num_agents)*-1
+        self.agent_complete_down_flag = np.ones(self.num_agents)*-1
+        self.ratio = np.zeros(self.num_agents)
+        self.path_length = np.zeros(self.num_agents)
+        balanced_ratio = np.zeros(self.num_agents)
+        
+        
         if self.args.randomize_env_every > 0:
             if np.mod(self.episode_no, self.args.randomize_env_every) == 0:
                 self.randomize_env()
@@ -179,6 +238,8 @@ class Exploration_Env(habitat.RLEnv):
         self.n_rot = []
         self.n_trans = []
         self.init_theta = []
+        self.init_pos_x = []
+        self.init_pos_y = []
 
         self.agent_n_rot = []
         self.agent_n_trans = []
@@ -186,13 +247,16 @@ class Exploration_Env(habitat.RLEnv):
 
         obs = super().reset()
         self.full_map_size = self.map_size_cm//self.map_resolution
+
         for agent_id in range(self.num_agents):
-            mapp, n_rot, n_trans, init_theta = self._get_gt_map(self.full_map_size, agent_id)
+            mapp, n_rot, n_trans, init_theta, init_pos_x, init_pos_y = self._get_gt_map(self.full_map_size, agent_id)
             self.explorable_map.append(mapp)
             self.n_rot.append(n_rot)
             self.n_trans.append(n_trans)
             self.init_theta.append(init_theta)
-        
+            self.init_pos_x.append(init_pos_x)
+            self.init_pos_y.append(init_pos_y)
+
         for a in range(self.num_agents):
             _, _, delta_n_rot_mat, delta_n_trans_mat =\
             get_grid_reverse_full(self.agent_st[a], (1, 1, self.grid_size, self.grid_size), (1, 1, self.full_map_size, self.full_map_size), torch.device("cpu"))
@@ -201,19 +265,20 @@ class Exploration_Env(habitat.RLEnv):
             self.agent_n_trans.append(delta_n_trans_mat)
         
         self.merge_pred_map = np.zeros_like(self.explorable_map[0])
-        self.prev_merge_exlored_map = np.zeros_like(self.explorable_map[0])
+        self.last_merge_explored_map = np.zeros_like(self.explorable_map[0])
+        self.prev_merge_explored_map = np.zeros_like(self.explorable_map[0])
+        self.prev_agent_explored_map = [np.zeros_like(self.explorable_map[0]) for _ in range(self.num_agents)]
         self.prev_explored_area = [0. for _ in range(self.num_agents)]
         self.pre_agent_trans_map = [np.zeros_like(self.explorable_map[0]) for _ in range(self.num_agents)]
+
         self.prev_merge_explored_area = 0
 
         # Preprocess observations
         rgb = [obs[agent_id]['rgb'].astype(np.uint8) for agent_id in range(self.num_agents)]
-        self.obs = rgb  # For visualization
-        if self.args.frame_width != self.args.env_frame_width:
-            rgb = [np.asarray(self.res(rgb[agent_id])) for agent_id in range(self.num_agents)]
-        state = [rgb[agent_id].transpose(2, 0, 1) for agent_id in range(self.num_agents)]
         depth = [_preprocess_depth(obs[agent_id]['depth']) for agent_id in range(self.num_agents)]
+        env_depth = [obs[agent_id]['depth'] for agent_id in range(self.num_agents)]
         
+        self.obs = rgb  # For visualization
 
         # Initialize map and pose
         self.curr_loc = []
@@ -231,6 +296,11 @@ class Exploration_Env(habitat.RLEnv):
                                      self.map_size_cm/100.0/2.0, 0.])
             self.last_loc.append(self.curr_loc[agent_id])
             self.last_sim_location.append(self.get_sim_location(agent_id))
+        
+        if self.use_merge_mapper:
+            for agent_i in range(self.num_agents):
+                for agent_j in range(self.num_agents):
+                    self.merge_mapper[agent_i][agent_j].reset_map(self.map_size_cm)
 
         # Convert pose to cm and degrees for mapper
         mapper_gt_pose = []
@@ -240,12 +310,13 @@ class Exploration_Env(habitat.RLEnv):
                  self.curr_loc_gt[agent_id][1]*100.0,
                  np.deg2rad(self.curr_loc_gt[agent_id][2]))
             )
-
+        
         fp_proj = []
         fp_explored = []
         self.map = []
         self.explored_map = []
         self.current_explored_gt = []
+        states = []
         # Update ground_truth map and explored area
         for agent_id in range(self.num_agents):
             fp_proj_t, map_t, fp_explored_t, explored_map_t, current_explored_gt = \
@@ -255,6 +326,73 @@ class Exploration_Env(habitat.RLEnv):
             fp_explored.append(fp_explored_t)
             self.explored_map.append(explored_map_t)
             self.current_explored_gt.append(current_explored_gt)
+
+            state = {}
+            if self.args.frame_width != self.args.env_frame_width:
+                res_rgb = self.res(rgb[agent_id])
+                res_depth = self.res(env_depth[agent_id])
+            else:
+                res_rgb = rgb[agent_id]
+                res_depth = env_depth[agent_id]
+            
+            state['rgb'] = np.asarray(res_rgb).transpose(2, 0, 1)
+            if self.use_depth:
+                state['depth'] = np.asarray(res_depth)[np.newaxis, :, :] * 255.0
+            if self.use_depth_proj:
+                if self.use_proj_map:
+                    state['depth_proj'] = np.stack((fp_proj_t, fp_explored_t), axis=0)
+                else:
+                    state['depth_proj'] = np.asarray(fp_proj_t)[np.newaxis, :, :]
+            else:
+                state['depth_proj'] = None
+
+            states.append(state)
+        # merge mapper
+        self.init_pose = []
+        for agent_id in range(self.num_agents):
+            self.init_pose.append(self.get_sim_location(agent_id))
+        self.new_merge_explored_gt = []
+        self.new_merge_obstacle_gt = []
+        if self.use_merge_mapper:
+            merge_mapper_gt_pose = []
+            for agent_i in range(self.num_agents):
+                rel_poses = []
+                for agent_j in range(self.num_agents):
+                    rel_pose = pu.get_rel_pose_change(self.get_sim_location(agent_j), self.init_pose[agent_i])
+                    rel_pose = list(rel_pose)
+                    rel_pose[0] += self.map_size_cm/100.0/2.0
+                    rel_pose[1] += self.map_size_cm/100.0/2.0
+                    rel_poses.append((
+                        rel_pose[0]*100.0,
+                        rel_pose[1]*100.0,
+                        rel_pose[2]
+                    ))
+                merge_mapper_gt_pose.append(rel_poses)
+            # Update merge gt map
+            self.each_obstacle_map = []
+            self.each_explored_map = []
+            
+            for agent_i in range(self.num_agents):
+                each_obstacle_map = []
+                each_explored_map = []
+                new_merge_explored_gt = np.zeros_like(self.explorable_map[0])
+                new_merge_obstacle_gt = np.zeros_like(self.explorable_map[0])
+                for agent_j in range(self.num_agents):
+                    fp_proj_t, map_t, fp_explored_t, explored_map_t, current_explored_gt = \
+                        self.merge_mapper[agent_i][agent_j].update_map(depth[agent_j], merge_mapper_gt_pose[agent_i][agent_j])
+                    each_obstacle_map.append(map_t)
+                    each_explored_map.append(explored_map_t)
+                    new_merge_explored_gt = np.maximum(new_merge_explored_gt, explored_map_t)
+                    new_merge_obstacle_gt = np.maximum(new_merge_obstacle_gt, map_t)
+
+                self.each_obstacle_map.append(each_obstacle_map)
+                self.each_explored_map.append(each_explored_map)
+                self.new_merge_obstacle_gt.append(new_merge_obstacle_gt)
+                self.new_merge_explored_gt.append(new_merge_explored_gt)
+        else:
+            for _ in range(self.num_agents):
+                self.new_merge_obstacle_gt.append(None)
+                self.new_merge_explored_gt.append(None)
 
         # Initialize variables
         self.merge_pred_map = np.zeros_like(self.explorable_map[0])
@@ -268,13 +406,40 @@ class Exploration_Env(habitat.RLEnv):
         self.collison_map = [np.zeros(self.map[0].shape)
                              for _ in range(self.num_agents)]
         self.col_width = [1 for _ in range(self.num_agents)]
-        if self.episode_no >1 :
+        if self.episode_no > 1 :
             merge_reward = self.info['merge_explored_reward']
             merge_ratio = self.info['merge_explored_ratio']
-            merge_repeat_ratio = self.info['merge_repeat_ratio']
+            merge_repeat_area = self.info['merge_repeat_area']
+            
+            if 'merge_overlap_ratio_0.3' in self.info.keys():
+                merge_overlap_ratio_30 = self.info['merge_overlap_ratio_0.3']
+                merge_overlap_30 = True
+            if 'merge_overlap_ratio_0.5' in self.info.keys():
+                merge_overlap_ratio_50 = self.info['merge_overlap_ratio_0.5']
+                merge_overlap_50 = True
+            if 'merge_overlap_ratio_0.7' in self.info.keys():
+                merge_overlap_ratio_70 = self.info['merge_overlap_ratio_0.7']
+                merge_overlap_70 = True
+            if 'merge_overlap_ratio' in self.info.keys():
+                merge_overlap_ratio = self.info['merge_overlap_ratio']
+                merge_overlap = True
+
             reward = self.info['explored_reward']
+            overlap_reward = self.info['overlap_reward']
             partial_reward = self.info['explored_merge_reward']
+            competitive_reward = self.info['explored_competitve_reward']
             ratio = self.info['explored_ratio']
+            repeat_area = self.info['repeat_area']
+            if self.use_eval:
+                path_length = self.info['path_length']
+                if 'path_length/ratio' in self.info.keys():
+                    path_length_divide_ratio = self.info['path_length/ratio']
+                    path_length_flag = True
+                for agent_id in range(self.num_agents):
+                    for a in range(self.num_agents):
+                        if 'agent{}/{}_balanced_ratio'.format(agent_id, a) in self.info.keys():
+                            balanced_ratio[agent_id] = self.info['agent{}/{}_balanced_ratio'.format(agent_id, a)]
+                            balanced = True
             
 
         # Set info
@@ -284,6 +449,10 @@ class Exploration_Env(habitat.RLEnv):
             'fp_explored': [],
             'sensor_pose': [],
             'pose_err': [],
+            'path_length': [],
+            'merge_obstacle_gt': [],
+            'merge_explored_gt': [],
+            'init_pose': self.init_pose,
         }
         for agent_id in range(self.num_agents):
             self.info['time'].append(self.timestep)
@@ -291,26 +460,56 @@ class Exploration_Env(habitat.RLEnv):
             self.info['fp_explored'].append(fp_explored[agent_id])
             self.info['sensor_pose'].append([0., 0., 0.])
             self.info['pose_err'].append([0., 0., 0.])
+           
+            self.info['merge_explored_gt'].append(copy.deepcopy(self.new_merge_explored_gt[agent_id]))
+            self.info['merge_obstacle_gt'].append(copy.deepcopy(self.new_merge_obstacle_gt[agent_id]))
+
+            if self.use_eval:
+                self.info['path_length'].append(pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][1]))
             
         self.info['trans'] = self.n_trans
         self.info['rotation'] = self.n_rot
         self.info['theta'] = self.init_theta
+        self.info['init_pos_x'] = self.init_pos_x
+        self.info['init_pos_y'] = self.init_pos_y
         self.info['agent_trans'] = self.agent_n_trans
         self.info['agent_rotation'] = self.agent_n_rot
-        self.info['explorable_map'] = self.explorable_map
-
+        self.info['explorable_map'] = self.explorable_map       
         self.info['scene_id'] = self.scene_id
-        if self.episode_no >1 :
+        self.info['explored_map'] = [self.explored_map[a] for a  in range(self.num_agents)]
+        self.info['obstacle_map'] = [self.map[a] for a  in range(self.num_agents)]
+        
+        if self.episode_no > 1:
             self.info['merge_explored_reward'] = merge_reward
             self.info['merge_explored_ratio'] = merge_ratio
             self.info['explored_reward'] = reward
             self.info['explored_ratio'] = ratio
+            self.info['overlap_reward'] = overlap_reward
+            self.info['merge_repeat_area'] = merge_repeat_area
             self.info['explored_merge_reward'] = partial_reward
-            self.info['merge_repeat_ratio'] = merge_repeat_ratio
+            self.info['explored_competitve_reward'] = competitive_reward
+            
+            if merge_overlap_30:
+                self.info['merge_overlap_ratio_0.3'] = merge_overlap_ratio_30
+            if merge_overlap_50:
+                self.info['merge_overlap_ratio_0.5'] = merge_overlap_ratio_50
+            if merge_overlap_70:
+                self.info['merge_overlap_ratio_0.7'] = merge_overlap_ratio_70
+            if merge_overlap:
+                self.info['merge_overlap_ratio'] = merge_overlap_ratio
 
-        self.save_position()
+            self.info['repeat_area'] = repeat_area
+            if self.use_eval:
+                self.info['path_length'] = path_length
+                if path_length_flag:
+                    self.info['path_length/ratio'] = path_length_divide_ratio
+                if balanced:
+                    for agent_id in range(self.num_agents):
+                        for a in range(self.num_agents):
+                            if 'agent{}/{}_balanced_ratio'.format(agent_id, a) in self.info.keys():
+                                self.info['agent{}/{}_balanced_ratio'.format(agent_id, a)] = balanced_ratio[agent_id]
 
-        return state, self.info 
+        return states, self.info 
 
     def step(self, action):
 
@@ -343,7 +542,7 @@ class Exploration_Env(habitat.RLEnv):
             if self.args.noisy_actions:
                 obs_t, rew_t, done_t, info_t = super().step(noisy_action[agent_id], agent_id)
             else:
-                obs_t, rew_t, done_t, info_t = super().step(action[agent_id], agent_id)
+                obs_t, rew_t, done_t, info_t = super().step(int(action[agent_id]), agent_id)
             obs.append(obs_t)
             rew.append(rew_t)
             done.append(done_t)
@@ -351,16 +550,10 @@ class Exploration_Env(habitat.RLEnv):
 
         # Preprocess observations
         rgb = [obs[agent_id]['rgb'].astype(np.uint8) for agent_id in range(self.num_agents)]
-
-        self.obs = rgb  # For visualization
-
-        if self.args.frame_width != self.args.env_frame_width:
-            rgb = [np.asarray(self.res(rgb[agent_id]))
-                   for agent_id in range(self.num_agents)]
-
-        state = [rgb[agent_id].transpose(2, 0, 1) for agent_id in range(self.num_agents)]
-
         depth = [_preprocess_depth(obs[agent_id]['depth']) for agent_id in range(self.num_agents)]
+        env_depth = [obs[agent_id]['depth'] for agent_id in range(self.num_agents)]
+        
+        self.obs = rgb  # For visualization
 
         # Get base sensor and ground-truth pose
         dx_gt = []
@@ -402,12 +595,13 @@ class Exploration_Env(habitat.RLEnv):
                  self.curr_loc_gt[agent_id][1] * 100.0,
                  np.deg2rad(self.curr_loc_gt[agent_id][2]))
             )
-
+            
         fp_proj = []
         fp_explored = []
         self.map = []
         self.explored_map = []
         self.current_explored_gt = []
+        states = []
         # Update ground_truth map and explored area
         for agent_id in range(self.num_agents):
             fp_proj_t, map_t, fp_explored_t, explored_map_t, current_explored_gt = \
@@ -417,6 +611,69 @@ class Exploration_Env(habitat.RLEnv):
             fp_explored.append(fp_explored_t)
             self.explored_map.append(explored_map_t)
             self.current_explored_gt.append(current_explored_gt)
+
+            state = {}
+            if self.args.frame_width != self.args.env_frame_width:
+                res_rgb = self.res(rgb[agent_id])
+                res_depth = self.res(env_depth[agent_id])
+            else:
+                res_rgb = rgb[agent_id]
+                res_depth = env_depth[agent_id]
+            
+            state['rgb'] = np.asarray(res_rgb).transpose(2, 0, 1)
+            if self.use_depth:
+                state['depth'] = np.asarray(res_depth)[np.newaxis, :, :] * 255.0
+            if self.use_depth_proj:
+                if self.use_proj_map:
+                    state['depth_proj'] = np.stack((fp_proj_t, fp_explored_t), axis=0)
+                else:
+                    state['depth_proj'] = np.asarray(fp_proj_t)[np.newaxis, :, :]
+            else:
+                state['depth_proj'] = None
+
+            states.append(state)
+
+        # merge mapper
+        self.new_merge_explored_gt = []
+        self.new_merge_obstacle_gt = []
+        if self.use_merge_mapper:
+            merge_mapper_gt_pose = []
+            for agent_i in range(self.num_agents):
+                rel_poses = []
+                for agent_j in range(self.num_agents):
+                    rel_pose = pu.get_rel_pose_change(self.get_sim_location(agent_j), self.init_pose[agent_i])
+                    rel_pose = list(rel_pose)
+                    rel_pose[0] += self.map_size_cm/100.0/2.0
+                    rel_pose[1] += self.map_size_cm/100.0/2.0
+                    rel_poses.append((
+                        rel_pose[0]*100.0,
+                        rel_pose[1]*100.0,
+                        rel_pose[2]
+                    ))
+                merge_mapper_gt_pose.append(rel_poses)
+            self.each_obstacle_map = []
+            self.each_explored_map = []
+            
+            for agent_i in range(self.num_agents):
+                each_obstacle_map = []
+                each_explored_map = []
+                new_merge_explored_gt = np.zeros_like(self.explorable_map[0])
+                new_merge_obstacle_gt = np.zeros_like(self.explorable_map[0])
+                for agent_j in range(self.num_agents):
+                    fp_proj_t, map_t, fp_explored_t, explored_map_t, current_explored_gt = \
+                        self.merge_mapper[agent_i][agent_j].update_map(depth[agent_j], merge_mapper_gt_pose[agent_i][agent_j])
+                    each_obstacle_map.append(map_t)
+                    each_explored_map.append(explored_map_t)
+                    new_merge_explored_gt = np.maximum(new_merge_explored_gt, explored_map_t)
+                    new_merge_obstacle_gt = np.maximum(new_merge_obstacle_gt, map_t)
+                self.each_obstacle_map.append(each_obstacle_map)
+                self.each_explored_map.append(each_explored_map)
+                self.new_merge_obstacle_gt.append(new_merge_obstacle_gt)
+                self.new_merge_explored_gt.append(new_merge_explored_gt)
+        else:
+            for _ in range(self.num_agents):
+                self.new_merge_obstacle_gt.append(None)
+                self.new_merge_explored_gt.append(None)
 
         # Update collision map
         for agent_id in range(self.num_agents):
@@ -454,12 +711,18 @@ class Exploration_Env(habitat.RLEnv):
             'fp_explored': [],
             'sensor_pose': [],
             'pose_err': [],
+            'merge_obstacle_gt': [],
+            'merge_explored_gt': [],
+            'path_length': [],
             'explored_reward': [0.0 for _ in range(self.num_agents)],
             'explored_merge_reward':[0.0 for _ in range(self.num_agents)],
+            'explored_competitve_reward':[0.0 for _ in range(self.num_agents)],
             'explored_ratio': [],
+            'repeat_area': [0.0 for _ in range(self.num_agents)],
+            'overlap_reward':[0.0 for _ in range(self.num_agents)],
             'merge_explored_reward': 0.0,
             'merge_explored_ratio': 0.0,
-            'merge_repeat_ratio':0.0,
+            'merge_repeat_area':0.0,
         }
         for agent_id in range(self.num_agents):
             self.info['time'].append(self.timestep)
@@ -469,55 +732,182 @@ class Exploration_Env(habitat.RLEnv):
             self.info['pose_err'].append([dx_gt[agent_id] - dx_base[agent_id],
                                           dy_gt[agent_id] - dy_base[agent_id],
                                           do_gt[agent_id] - do_base[agent_id]])
+            
+            self.info['merge_explored_gt'].append(copy.deepcopy(self.new_merge_explored_gt[agent_id]))
+            self.info['merge_obstacle_gt'].append(copy.deepcopy(self.new_merge_obstacle_gt[agent_id]))
+            if self.use_eval:
+                self.info['path_length'].append(pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][1]))
+                self.path_length[agent_id] += pu.get_l2_distance(self.curr_loc_gt[agent_id][0], self.last_loc_gt[agent_id][0], self.curr_loc_gt[agent_id][1], self.last_loc_gt[agent_id][1])
 
+        self.info['explored_map'] = [self.explored_map[a] for a  in range(self.num_agents)]
+        self.info['obstacle_map'] = [self.map[a] for a  in range(self.num_agents)]
+
+        agent_explored_area, agent_explored_ratio, merge_explored_area, merge_explored_ratio, \
+            agent_trans_reward, curr_merge_explored_map, curr_agent_explored_map = self.get_global_reward() # @CHAO will change of gt merge map influence global reward?
         
-        agent_explored_area, agent_explored_ratio, merge_explored_area, merge_explored_ratio, agent_trans_reward, curr_merge_explored_map = self.get_global_reward()
-      
         # log step
         self.merge_ratio += merge_explored_ratio
-        if self.merge_ratio >= self.explored_ratio_threshold:
-            if self.use_complete_reward:
-                self.info['merge_explored_reward'] += 2.0 * self.merge_ratio
-            if self.merge_explored_ratio_step == -1.0:
-                self.merge_explored_ratio_step = self.timestep
-                self.info['merge_explored_ratio_step'] = self.timestep
-                
-        if self.merge_ratio >= 0.95:
+        
+        if self.merge_ratio >= self.explored_ratio_up_threshold:
+            if self.use_complete_reward and self.complete_up_flag == -1:
+                self.info['merge_explored_reward'] += 0.5 * self.merge_ratio
+                self.complete_up_flag = 1
             if self.merge_explored_ratio_step_95 == -1.0:
                 self.merge_explored_ratio_step_95 = self.timestep
                 self.info['merge_explored_ratio_step_0.95'] = self.timestep
+        elif self.merge_ratio >= self.explored_ratio_down_threshold:
+            if self.use_complete_reward and self.complete_down_flag == -1:
+                self.info['merge_explored_reward'] += 0.2 * self.merge_ratio
+                self.complete_down_flag = 1
+            if self.merge_explored_ratio_step == -1.0:
+                self.merge_explored_ratio_step = self.timestep
+                self.info['merge_explored_ratio_step'] = self.timestep
 
         for agent_id in range(self.num_agents):
             self.ratio[agent_id] += agent_explored_ratio[agent_id]
-            if self.ratio[agent_id] >= self.explored_ratio_threshold:
-                if self.use_complete_reward:
-                    self.info['explored_reward'][agent_id] += 2.0 * self.ratio[agent_id]
+            if self.ratio[agent_id] >= self.explored_ratio_up_threshold:
+                if self.use_complete_reward and self.agent_complete_up_flag[agent_id] == -1:
+                    self.info['explored_reward'][agent_id] += 0.5 * self.ratio[agent_id]
+                    self.agent_complete_up_flag[agent_id] = 1
+            elif self.ratio[agent_id] >= self.explored_ratio_down_threshold:
+                if self.use_complete_reward and self.agent_complete_down_flag[agent_id] == -1:
+                    self.info['explored_reward'][agent_id] += 0.2 * self.ratio[agent_id]
+                    self.agent_complete_down_flag[agent_id] = 1
                 if self.explored_ratio_step[agent_id] == -1.0:
                     self.explored_ratio_step[agent_id] = self.timestep
                     self.info["agent{}_explored_ratio_step".format(agent_id)] = self.timestep
 
         agents_explored_map = np.zeros_like(self.explored_map[0])
         
-        self.info['merge_explored_reward'] = merge_explored_area
-        self.info['merge_explored_ratio'] = merge_explored_ratio
+        self.info['merge_explored_reward'] += merge_explored_area
+        self.info['merge_explored_ratio'] += merge_explored_ratio
 
         for agent_id in range(self.num_agents):
             self.info['explored_reward'][agent_id] += agent_explored_area[agent_id]
             self.info['explored_merge_reward'][agent_id] += agent_trans_reward[agent_id]
+            self.info['explored_competitve_reward'][agent_id] += (self.info['explored_merge_reward'][agent_id] - \
+                (np.sum(np.array(agent_trans_reward))- self.info['explored_merge_reward'][agent_id])/(self.num_agents-1))
             self.info['explored_ratio'].append(agent_explored_ratio[agent_id])
             if self.timestep % self.args.num_local_steps == 0:
                 agents_explored_map = np.maximum(agents_explored_map, self.transform(self.current_explored_gt[agent_id]*self.explorable_map[agent_id], agent_id))
         
-        if self.timestep % self.args.num_local_steps == 0:
-            self.info['merge_repeat_ratio'] = agents_explored_map[self.prev_merge_exlored_map == 1].sum() * (25./10000)
-            if self.use_repeat_penalty and self.merge_ratio < self.explored_ratio_threshold:
-                self.info['merge_explored_reward'] -= (agents_explored_map[self.prev_merge_exlored_map == 1].sum() * (25./10000) * 0.02 *0.5)
-            self.prev_merge_exlored_map = curr_merge_explored_map
+        if self.use_overlap_penalty:
+            for a in range(self.num_agents):
+                id = 0
+                for b in range(self.num_agents):
+                    if b!=a:
+                        inter_agent_overlap_map = np.stack((self.pre_agent_trans_map[a],self.pre_agent_trans_map[b]),axis=0)
+                        overlap_map = np.sum(inter_agent_overlap_map, axis=0)
+                        if self.merge_ratio < self.explored_ratio_down_threshold:
+                            self.info['overlap_reward'][a] -= ((curr_merge_explored_map[overlap_map > 1.2].sum() - self.prev_overlap_area[a,id])* (25./10000) * 0.02 * 0.4)
+                        elif self.merge_ratio < self.explored_ratio_up_threshold:
+                            self.info['overlap_reward'][a] -= ((curr_merge_explored_map[overlap_map > 1.2].sum() - self.prev_overlap_area[a,id])* (25./10000) * 0.02 * 0.2)
+                        self.prev_overlap_area[a,id] = curr_merge_explored_map[overlap_map > 1.2].sum().copy()
+                        id += 1
         
-        if self.use_time_penalty and self.merge_ratio < self.explored_ratio_threshold:
-            self.info['merge_explored_reward'] -= 0.002     
+        
+        if (self.merge_ratio >= 0.3 or self.timestep >= self.args.max_episode_length) :
+            if self.overlap_flag_30:
+                overlap_ratio = []
+                for a in range(self.num_agents):
+                    id = 0
+                    for b in range(self.num_agents):
+                        if b!=a:
+                            inter_agent_overlap_map = np.stack((self.pre_agent_trans_map[a],self.pre_agent_trans_map[b]),axis=0)
+                            overlap_map = np.sum(inter_agent_overlap_map, axis=0)
+                            # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
+                            overlap_ratio.append(curr_merge_explored_map[overlap_map > 1.2].sum() / curr_merge_explored_map.sum())
+                self.info['merge_overlap_ratio_0.3'] = np.mean(np.array(overlap_ratio))
+                # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
+                self.overlap_flag_30 = False
 
-        self.save_position()
+        if (self.merge_ratio >= 0.5 or self.timestep >= self.args.max_episode_length) :
+            if self.overlap_flag_50:
+                overlap_ratio = []
+                for a in range(self.num_agents):
+                    id = 0
+                    for b in range(self.num_agents):
+                        if b!=a:
+                            inter_agent_overlap_map = np.stack((self.pre_agent_trans_map[a],self.pre_agent_trans_map[b]),axis=0)
+                            overlap_map = np.sum(inter_agent_overlap_map, axis=0)
+                            # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
+                            overlap_ratio.append(curr_merge_explored_map[overlap_map > 1.2].sum() / curr_merge_explored_map.sum())
+                self.info['merge_overlap_ratio_0.5'] = np.mean(np.array(overlap_ratio))
+                # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
+                self.overlap_flag_50 = False
+
+        if (self.merge_ratio >= 0.7 or self.timestep >= self.args.max_episode_length) :
+            if self.overlap_flag_70:
+                overlap_ratio = []
+                for a in range(self.num_agents):
+                    id = 0
+                    for b in range(self.num_agents):
+                        if b!=a:
+                            inter_agent_overlap_map = np.stack((self.pre_agent_trans_map[a],self.pre_agent_trans_map[b]),axis=0)
+                            overlap_map = np.sum(inter_agent_overlap_map, axis=0)
+                            # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
+                            overlap_ratio.append(curr_merge_explored_map[overlap_map > 1.2].sum() / curr_merge_explored_map.sum())
+                self.info['merge_overlap_ratio_0.7'] = np.mean(np.array(overlap_ratio))
+                # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
+                self.overlap_flag_70 = False
+
+        if (self.merge_ratio >= self.explored_ratio_down_threshold or self.timestep >= self.args.max_episode_length) :
+            if self.balanced_flag:
+                for agent_id in range(self.num_agents):
+                    for a in range(self.num_agents):
+                        if a != agent_id:
+                            self.info['agent{}/{}_balanced_ratio'.format(agent_id, a)] = self.ratio[agent_id]/self.ratio[a]
+                self.balanced_flag = False
+            
+            if self.overlap_flag:
+                overlap_ratio = []
+                for a in range(self.num_agents):
+                    id = 0
+                    for b in range(self.num_agents):
+                        if b!=a:
+                            inter_agent_overlap_map = np.stack((self.pre_agent_trans_map[a],self.pre_agent_trans_map[b]),axis=0)
+                            overlap_map = np.sum(inter_agent_overlap_map, axis=0)
+                            # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
+                            overlap_ratio.append(curr_merge_explored_map[overlap_map > 1.2].sum() / curr_merge_explored_map.sum())
+                self.info['merge_overlap_ratio'] = np.mean(np.array(overlap_ratio))
+                # TODO: 1.2 is the hyper-parameter, change this one if needed. @yang and jiaxuan
+                self.overlap_flag = False
+            if self.path_length_flag:
+                self.path_length_flag = False
+                self.info['path_length/ratio'] = np.zeros((self.num_agents))
+                for agent_id in range(self.num_agents):
+                    self.info['path_length/ratio'][agent_id] = self.path_length[agent_id]/ self.ratio[agent_id]
+
+        if self.timestep % self.args.num_local_steps == 0:
+            for agent_id in range(self.num_agents):
+                if self.ratio[agent_id] <= self.explored_ratio_down_threshold:
+                    single_agent_explored_map = self.current_explored_gt[agent_id] * self.explorable_map[agent_id]
+                    self.info["repeat_area"][agent_id] = single_agent_explored_map[self.prev_agent_explored_map[agent_id] == 1].sum() * (25./10000)
+                else:
+                    self.info["repeat_area"][agent_id] = 0.0
+
+            if self.merge_ratio <= self.explored_ratio_down_threshold:
+                self.info['merge_repeat_area'] = agents_explored_map[self.prev_merge_explored_map == 1].sum() * (25./10000)
+            else:
+                self.info['merge_repeat_area'] = 0.0
+
+            if self.use_repeat_penalty and self.merge_ratio < self.explored_ratio_down_threshold:
+                self.info['merge_explored_reward'] -= (agents_explored_map[self.prev_merge_explored_map == 1].sum() * (25./10000) * 0.02 * 0.2)
+            
+            self.prev_merge_explored_map = curr_merge_explored_map.copy()
+            self.prev_agent_explored_map = deepcopy(curr_agent_explored_map)
+         
+        if self.use_time_penalty:
+            if self.merge_ratio < self.explored_ratio_down_threshold:
+                self.info['merge_explored_reward'] -= 0.002    
+            elif self.merge_ratio < self.explored_ratio_up_threshold:    
+                self.info['merge_explored_reward'] -= 0.001
+            elif self.merge_ratio < 0.97:
+                self.info['merge_explored_reward'] -= 0.0002  
+
+        # self.save_position()
+        # self.save_position_data()
+
 
         if self.info['time'][0] >= self.args.max_episode_length:
             done = [True for _ in range(self.num_agents)]
@@ -525,8 +915,8 @@ class Exploration_Env(habitat.RLEnv):
                 self.save_trajectory_data()
         else:
             done = [False for _ in range(self.num_agents)]
-
-        return state, rew, done, self.info
+        
+        return states, rew, done, self.info
 
     def get_reward_range(self):
         # This function is not used, Habitat-RLEnv requires this function
@@ -546,17 +936,16 @@ class Exploration_Env(habitat.RLEnv):
         curr_merge_explored_map = np.zeros_like(self.explored_map[0]) # global
         
         merge_explorable_map = np.zeros_like(self.explored_map[0]) # global
+        curr_agent_trans_map = []
 
         for agent_id in range(self.num_agents):
             curr_agent_explored_map.append(self.explored_map[agent_id] * self.explorable_map[agent_id])
-
+            curr_agent_trans_map.append(self.transform(curr_agent_explored_map[agent_id], agent_id))
             
             curr_merge_explored_map = np.maximum(curr_merge_explored_map, self.transform(curr_agent_explored_map[agent_id], agent_id))
             merge_explorable_map = np.maximum(merge_explorable_map, self.transform(self.explorable_map[agent_id], agent_id))
             
-            for a in range(self.num_agents):
-                if a!=agent_id:
-                    agent_trans_merge_map = np.maximum(self.transform(curr_agent_explored_map[agent_id], agent_id), self.pre_agent_trans_map[a])
+            agent_trans_merge_map = np.maximum(curr_agent_trans_map[agent_id], self.last_merge_explored_map)
             agent_trans_reward.append((agent_trans_merge_map.sum()- self.prev_merge_explored_area) * 1.0 * (25./10000.) * 0.02)
             
             curr_agent_explored_area = curr_agent_explored_map[agent_id].sum()
@@ -577,10 +966,13 @@ class Exploration_Env(habitat.RLEnv):
         merge_explored_reward_scale = merge_explorable_map.sum()
         merge_explored_reward = (curr_merge_explored_area - self.prev_merge_explored_area) * 1.0
         self.prev_merge_explored_area = curr_merge_explored_area
+        self.last_merge_explored_map = curr_merge_explored_map.copy()
         merge_explored_ratio = merge_explored_reward / merge_explored_reward_scale
         merge_explored_reward = merge_explored_reward * (25./10000.) * 0.02
 
-        return agent_explored_rewards, agent_explored_ratios, merge_explored_reward, merge_explored_ratio, agent_trans_reward, curr_merge_explored_map
+        return agent_explored_rewards, agent_explored_ratios, \
+            merge_explored_reward, merge_explored_ratio, agent_trans_reward, \
+                curr_merge_explored_map, curr_agent_explored_map
 
     def get_done(self, observations, agent_id):
         # This function is not used, Habitat-RLEnv requires this function
@@ -664,6 +1056,16 @@ class Exploration_Env(habitat.RLEnv):
         n_map = n_map[0, 0, :, :].numpy()
 
         return n_map
+    
+    def agent_transform(self, inputs, agent_id):
+        inputs = torch.from_numpy(inputs)
+        n_trans = F.grid_sample(inputs.unsqueeze(0).unsqueeze(
+            0).float(), self.agent_n_trans[agent_id].float(), align_corners=True)
+        n_map = F.grid_sample(
+            n_trans.float(), self.agent_n_rot[agent_id].float(), align_corners=True)
+        n_map = n_map[0, 0, :, :].numpy()
+
+        return n_map
 
     def get_short_term_goal(self, inputs):
         args = self.args
@@ -723,7 +1125,7 @@ class Exploration_Env(habitat.RLEnv):
             self.visited[agent_id][gx1:gx2, gy1:gy2][start[0]-2:start[0]+3,
                                               start[1]-2:start[1]+3] = 1
 
-            steps = 25 # ! wrong
+            steps = 15 # ! wrong
             for i in range(steps):
                 x = int(last_start[0] + (start[0] -
                                          last_start[0]) * (i+1) / steps)
@@ -747,7 +1149,7 @@ class Exploration_Env(habitat.RLEnv):
                         int(c * 100.0/self.map_resolution)]
             start_gt = pu.threshold_poses(start_gt, self.visited_gt[agent_id].shape)
 
-            steps = 25 # ! wrong
+            steps = 15 # ! wrong
             for i in range(steps):
                 x = int(last_start[0] + (start_gt[0] -
                                          last_start[0]) * (i+1) / steps)
@@ -820,7 +1222,12 @@ class Exploration_Env(habitat.RLEnv):
             logger.error("Invalid map: {}/{}".format(self.scene_name, self.episode_no))
             return None
 
-        agent_y = self._env.sim.get_agent_state(agent_id).position.tolist()[1]*100.
+        start_position = self._env.sim.get_agent_state(agent_id).position.tolist()
+        start_rotation = np.roll(self._env.sim.get_agent_state(agent_id).rotation.components, -1).tolist()
+        self.agent_start_position.append(start_position)
+        self.agent_start_rotation.append(start_rotation)
+
+        agent_y = start_position[1] * 100.
 
         if self.use_restrict_map:
             sim_map = self.map_obj.get_restrict_map(agent_y, -50., 50.0)
@@ -832,6 +1239,10 @@ class Exploration_Env(habitat.RLEnv):
         # Transform the map to align with the agent
         min_x, min_y = self.map_obj.origin/100.0
         x, y, o = self.get_sim_location(agent_id)
+
+        start_pos_x = x
+        start_pos_y = y
+
         x, y = -x - min_x, -y - min_y
         range_x, range_y = self.map_obj.max/100. - self.map_obj.origin/100.
 
@@ -890,7 +1301,7 @@ class Exploration_Env(habitat.RLEnv):
         episode_map = episode_map.numpy()
         episode_map[episode_map > 0] = 1.
 
-        return episode_map, n_rot_mat, n_trans_mat, 180.0 + np.rad2deg(o)
+        return episode_map, n_rot_mat, n_trans_mat, 180.0 + np.rad2deg(o), start_pos_x, start_pos_y
 
     def _get_stg(self, grid, explored, start, goal, planning_window, agent_id):
 
@@ -922,10 +1333,10 @@ class Exploration_Env(habitat.RLEnv):
         ey1 = min(int(start[1]) - 2, ey1)
         ey2 = max(int(start[1]) + 2, ey2)
 
-        x1 = max(x1, ex1)
-        x2 = min(x2, ex2)
-        y1 = max(y1, ey1)
-        y2 = min(y2, ey2)
+        x1 = max(1, min(x1, ex1))
+        x2 = min(grid.shape[0]-1, max(x2, ex2))
+        y1 = max(1, min(y1, ey1))
+        y2 = min(grid.shape[1]-1, max(y2, ey2))
 
         traversible = skimage.morphology.binary_dilation(
             grid[x1:x2, y1:y2],
@@ -944,7 +1355,7 @@ class Exploration_Env(habitat.RLEnv):
                         int(goal[1]-y1)-2:int(goal[1]-y1)+3] = 1
         else:
             goal[0] = min(max(x1, goal[0]), x2)
-            goal[1] = min(max(y1, goal[1]), y2)
+            goal[1] = min(max(y1, goal[1]), y2)  
 
         def add_boundary(mat):
             h, w = mat.shape
@@ -953,8 +1364,17 @@ class Exploration_Env(habitat.RLEnv):
             return new_mat
 
         traversible = add_boundary(traversible)
-
-        planner = FMMPlanner(traversible, 360//self.dt)
+        
+        if self.args.local_planner == 'fmm':
+            planner = FMMPlanner(traversible, 360//self.dt)
+        elif self.args.local_planner == 'rrt':
+            from .utils.rrt_planner import RRTPlanner
+            planner = RRTPlanner(traversible)
+        elif self.args.local_planner == 'astar':
+            from .utils.astar_planner import AstarPlanner
+            planner = AstarPlanner(traversible)
+        else:
+            raise NotImplementedError
 
         reachable = planner.set_goal([goal[1]-y1+1, goal[0]-x1+1])
 
@@ -965,7 +1385,7 @@ class Exploration_Env(habitat.RLEnv):
             stg_x, stg_y = start[0], start[1]
         else:
             stg_x, stg_y = stg_x + x1 - 1, stg_y + y1 - 1
-
+        
         return (stg_x, stg_y)
 
     def _get_gt_action(self, grid, start, goal, planning_window, start_o, agent_id):
@@ -996,7 +1416,16 @@ class Exploration_Env(habitat.RLEnv):
             traversible[int(goal[0]-x1)-goal_r:int(goal[0]-x1)+goal_r+1,
                         int(goal[1]-y1)-goal_r:int(goal[1]-y1)+goal_r+1] = 1
             scale = 1
-            planner = FMMPlanner(traversible, 360//self.dt, scale)
+            if self.args.local_planner == 'fmm':
+                planner = FMMPlanner(traversible, 360//self.dt)
+            elif self.args.local_planner == 'rrt':
+                from .utils.rrt_planner import RRTPlanner
+                planner = RRTPlanner(traversible)
+            elif self.args.local_planner == 'astar':
+                from .utils.astar_planner import AstarPlanner
+                planner = AstarPlanner(traversible)
+            else:
+                raise NotImplementedError
 
             reachable = planner.set_goal([goal[1]-y1, goal[0]-x1])
 
@@ -1037,13 +1466,14 @@ class Exploration_Env(habitat.RLEnv):
         return gt_action
     
     def render(self, inputs, grid, map_pred, gif_dir):
+        
         for agent_id in range(self.num_agents):
             goal = inputs['goal'][agent_id]
             goal = pu.threshold_poses(goal, grid.shape)
             start_x, start_y, start_o, gx1, gx2, gy1, gy2 = inputs['pose_pred'][agent_id]
             gx1, gx2, gy1, gy2 = int(gx1), int(gx2), int(gy1), int(gy2)
             start_x_gt, start_y_gt, start_o_gt = self.curr_loc_gt[agent_id]
-
+    
             # predicted map and pose
             vis_grid_local = vu.get_colored_map(np.rint(map_pred[agent_id]),
                                             self.collison_map[agent_id][gx1:gx2, gy1:gy2],

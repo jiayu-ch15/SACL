@@ -27,13 +27,12 @@ class R_Model(nn.Module):
         self._use_popart = args.use_popart
         self.hidden_size = args.hidden_size
         self.device = device
-        self.tpdv = dict(dtype=torch.float32, device=device)
-        init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][self._use_orthogonal]
-
-        # obs space
+        self.tpdv = dict(dtype=torch.float32, device=device)                    
         obs_shape = get_shape_from_obs_space(obs_space)
         self.obs_prep = CNNBase(args, obs_shape) if len(obs_shape)==3 else MLPBase(args, obs_shape, use_attn_internal=args.use_attn_internal, use_cat_self=True)
-                
+
+        input_size = self.obs_prep.output_size
+
         # share obs space
         if self._use_centralized_V:
             share_obs_shape = get_shape_from_obs_space(share_obs_space)
@@ -42,10 +41,12 @@ class R_Model(nn.Module):
             self.share_obs_prep = self.obs_prep
 
         # common layer
-        self.common = MLPLayer(self.hidden_size, self.hidden_size, layer_N=0, use_orthogonal=self._use_orthogonal, activation_id=self._activation_id)
-        
+        self.common = MLPLayer(input_size, self.hidden_size, layer_N=0, use_orthogonal=self._use_orthogonal, activation_id=self._activation_id)
+        input_size = self.hidden_size
+
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-            self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
+            self.rnn = RNNLayer(input_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
+            input_size = self.hidden_size
 
         def init_(m): 
             return init(m, init_method, lambda x: nn.init.constant_(x, 0))
@@ -57,7 +58,7 @@ class R_Model(nn.Module):
             self.v_out = init_(nn.Linear(input_size, 1))
 
         # action
-        self.act = ACTLayer(action_space, self.hidden_size, self._use_orthogonal, self._gain)
+        self.act = ACTLayer(action_space, input_size, self._use_orthogonal, self._gain)
 
         self.to(self.device)
 

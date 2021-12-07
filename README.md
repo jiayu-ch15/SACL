@@ -28,6 +28,8 @@
 - [StagHunt](https://github.com/staghuntrpg/RPG/tree/main/GridWorld)
 - [MultiVehicleEnv](https://github.com/efc-robot/MultiVehicleEnv.git)
 - [VizDoom](https://github.com/mwydmuch/ViZDoom.git) refer to vizdoom branch
+- [Google Football](https://github.com/google-research/football) 
+- [NICS_Robot_Platform](https://github.com/Xiangyf18/NICS_MultiRobot_Platform) 
 
 ## TODOs:
 - [ ] multi-agent FLOW
@@ -44,7 +46,7 @@
    pip install torch==1.5.1+cu101 torchvision==0.6.1+cu101 -f https://download.pytorch.org/whl/torch_stable.html
    cd onpolicy
    pip install -e . 
-   pip install wandb icecream setproctitle gym seaborn tensorboardX
+   pip install wandb icecream setproctitle gym seaborn tensorboardX slackweb psutil slackweb pyastar2d einops
 ```
 
 ### 1.2 hyperparameters
@@ -394,8 +396,15 @@ cd src
 pip install -e .
 ```
 
+## 16. Google Football
 
-## 16. Docs：
+see https://github.com/google-research/football readme.
+
+## 17. NICS_Robot_Platform
+
+see https://github.com/Xiangyf18/NICS_MultiRobot_Platform readme
+
+## 18. Docs：
 
 ```
 pip install sphinx sphinxcontrib-apidoc sphinx_rtd_theme recommonmark
@@ -404,7 +413,7 @@ sphinx-quickstart
 make html
 ```
 
-## 16. submodules
+## 19. submodules
 
 here we give an example on how to add your repo as a submodule of on-policy repo
 ```

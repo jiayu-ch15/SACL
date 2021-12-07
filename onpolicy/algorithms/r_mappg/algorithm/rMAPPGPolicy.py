@@ -25,7 +25,7 @@ class R_MAPPGPolicy:
 
     def lr_decay(self, episode, episodes):
         update_linear_schedule(self.actor_optimizer, episode, episodes, self.lr)
-        update_linear_schedule(self.critic_optimizer, episode, episodes, self.lr)
+        update_linear_schedule(self.critic_optimizer, episode, episodes, self.critic_lr)
 
     def get_actions(self, share_obs, obs, rnn_states_actor, rnn_states_critic, masks, available_actions=None, deterministic=False):
         actions, action_log_probs, rnn_states_actor = self.actor(obs, rnn_states_actor, masks, available_actions, deterministic)

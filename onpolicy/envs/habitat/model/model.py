@@ -7,6 +7,7 @@ import numpy as np
 from onpolicy.algorithms.utils.distributions import Categorical, DiagGaussian
 from onpolicy.envs.habitat.utils.grid import get_grid
 from onpolicy.algorithms.utils.util import init, check
+from icecream import ic
 
 def _t2n(x):
     return x.detach().cpu().numpy()
@@ -20,6 +21,14 @@ class ChannelPool(nn.MaxPool1d):
         _, _, c = pooled.size()
         pooled = pooled.permute(0, 2, 1)
         return pooled.view(n, c, w, h)
+    
+class ChannelFilter(nn.MaxPool1d):
+    def forward(self, exp, obs, p):
+        x_out = torch.where((exp[:,0] >= 0.5) & (exp[:,1] >= 0.5), p*obs[:,0] + (1-p)*obs[:,1],  obs[:,0]) 
+        x_out = torch.where(((exp[:,0] < 0.5) & (exp[:,1] >= 0.5)) , obs[:,1],  x_out)  
+        x_out = torch.where(((exp[:,0] < 0.5) & (exp[:,1] < 0.5) & (exp[:,1] >= exp[:,0])), obs[:,1],  x_out)  
+                       
+        return x_out
 
 # https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail/blob/master/a2c_ppo_acktr/model.py#L10
 class Flatten(nn.Module):
@@ -96,29 +105,46 @@ class Neural_SLAM_Module(nn.Module):
         self.screen_w = args.frame_width
         self.resolution = args.map_resolution
         self.map_size_cm = args.map_size_cm // args.global_downscaling
-        self.n_channels = 3
+        self.use_max_map = args.use_max_map
+        self.memory_rate = args.memory_rate
         self.vision_range = args.vision_range
         self.dropout = 0.5
         self.use_pe = args.use_pose_estimation
         self.tpdv = dict(dtype=torch.float32, device=device)
+        self.slam_keys = args.slam_keys
+        self.use_proj_map = args.use_proj_map
+        ic(self.slam_keys)
 
-        # Visual Encoding
         resnet = models.resnet18(pretrained=args.pretrained_resnet)
-        self.resnet_l5 = nn.Sequential(*list(resnet.children())[0:8])
-        self.conv = nn.Sequential(*filter(bool, [
-            nn.Conv2d(512, 64, (1, 1), stride=(1, 1)),
-            nn.ReLU()
-        ]))
+        self.conv_output_size = 0
+        
+        for key in self.slam_keys:   
+            if key == "rgb":
+                # Visual Encoding
+                self.resnet_l5 = nn.Sequential(*list(resnet.children())[0:8])
+                self.conv = nn.Sequential(*filter(bool, [
+                    nn.Conv2d(512, 64, (1, 1), stride=(1, 1)),
+                    nn.ReLU()
+                ]))
+                # convolution output size
+                input_test = torch.randn(1, 3, self.screen_h, self.screen_w)
+                conv_output = self.conv(self.resnet_l5(input_test))
+                self.conv_output_size += conv_output.view(-1).size(0)
 
-        # convolution output size
-        input_test = torch.randn(1,
-                                 self.n_channels,
-                                 self.screen_h,
-                                 self.screen_w)
-        conv_output = self.conv(self.resnet_l5(input_test))
-
+            if key == "depth":
+                # Depth Encoding
+                self.depth_resnet_l5 = nn.Sequential(*([nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)] + list(resnet.children())[1:8]))
+                self.depth_conv = nn.Sequential(*filter(bool, [
+                    nn.Conv2d(512, 64, (1, 1), stride=(1, 1)),
+                    nn.ReLU()
+                ]))
+                # convolution output size
+                input_test = torch.randn(1, 1, self.screen_h, self.screen_w)
+                conv_output = self.depth_conv(self.depth_resnet_l5(input_test))
+                self.conv_output_size += conv_output.view(-1).size(0)
+    
         self.pool = ChannelPool(1)
-        self.conv_output_size = conv_output.view(-1).size(0)
+        self.filter = ChannelFilter(1)
 
         # projection layer
         self.proj1 = nn.Linear(self.conv_output_size, 1024)
@@ -184,11 +210,14 @@ class Neural_SLAM_Module(nn.Module):
 
         self.to(device)
 
-    def forward(self, obs_last, obs, poses, maps, explored, current_poses, build_maps=True):
+    def forward(self, obs_last, obs, poses, maps, explored, current_poses, obs_proj, obs_proj_last, build_maps=True):
 
         obs = check(obs).to(**self.tpdv)
         obs_last = check(obs_last).to(**self.tpdv)
         poses = check(poses).to(**self.tpdv)
+        if self.use_proj_map:
+            obs_proj = check(obs_proj).to(**self.tpdv)
+            obs_proj_last = check(obs_proj_last).to(**self.tpdv)
         if maps is not None:
             maps = check(maps).to(**self.tpdv)
         if explored is not None:
@@ -197,12 +226,21 @@ class Neural_SLAM_Module(nn.Module):
             current_poses = check(current_poses).to(**self.tpdv)
 
         # Get egocentric map prediction for the current obs
-        bs, c, h, w = obs.size()
-        resnet_output = self.resnet_l5(obs[:, :3, :, :])
-        conv_output = self.conv(resnet_output)
+        conv_output = []
+        c_num = 0
+        for key in self.slam_keys:
+            bs, c, h, w = obs.size()
+            if key == "rgb":
+                resnet_output = self.conv(self.resnet_l5(obs[:,c_num:c_num+3])).view(bs, -1)
+                c_num += 3
+            if key == "depth":
+                resnet_output = self.depth_conv(self.depth_resnet_l5(obs[:,c_num:c_num+1])).view(bs, -1)
+                c_num += 1    
+            conv_output.append(resnet_output)
+        
+        conv_output = torch.cat(conv_output).view(bs, -1)
 
-        proj1 = nn.ReLU()(self.proj1(
-                          conv_output.view(-1, self.conv_output_size)))
+        proj1 = nn.ReLU()(self.proj1(conv_output))
         if self.dropout > 0:
             proj1 = self.dropout1(proj1)
         proj3 = nn.ReLU()(self.proj2(proj1))
@@ -210,18 +248,29 @@ class Neural_SLAM_Module(nn.Module):
         deconv_input = proj3.view(bs, 64, 8, 8)
         deconv_output = self.deconv(deconv_input)
         pred = torch.sigmoid(deconv_output)
-
+        if self.use_proj_map:
+            pred = obs_proj
         proj_pred = pred[:, :1, :, :]
         fp_exp_pred = pred[:, 1:, :, :]
+        
 
         with torch.no_grad():
             # Get egocentric map prediction for the last obs
-            bs, c, h, w = obs_last.size()
-            resnet_output = self.resnet_l5(obs_last[:, :3, :, :])
-            conv_output = self.conv(resnet_output)
+            conv_output = []
+            c_num = 0
+            for key in self.slam_keys:
+                bs, c, h, w = obs_last.size()
+                if key == "rgb":
+                    resnet_output = self.conv(self.resnet_l5(obs_last[:, c_num:c_num+3])).view(bs, -1)
+                    c_num += 3
+                if key == "depth":
+                    resnet_output = self.depth_conv(self.depth_resnet_l5(obs_last[:, c_num:c_num+1])).view(bs, -1)
+                    c_num += 1    
+                conv_output.append(resnet_output)
+            
+            conv_output = torch.cat(conv_output).view(bs, -1)
 
-            proj1 = nn.ReLU()(self.proj1(
-                              conv_output.view(-1, self.conv_output_size)))
+            proj1 = nn.ReLU()(self.proj1(conv_output))
             if self.dropout > 0:
                 proj1 = self.dropout1(proj1)
             proj3 = nn.ReLU()(self.proj2(proj1))
@@ -229,6 +278,8 @@ class Neural_SLAM_Module(nn.Module):
             deconv_input = proj3.view(bs, 64, 8, 8)
             deconv_output = self.deconv(deconv_input)
             pred_last = torch.sigmoid(deconv_output)
+            if self.use_proj_map:
+                pred_last = obs_proj_last
 
             # ST of proj
             vr = self.vision_range
@@ -334,10 +385,13 @@ class Neural_SLAM_Module(nn.Module):
                                    translated[:, :1, :, :]), 1)
                 explored2 = torch.cat((explored.unsqueeze(1),
                                        translated[:, 1:, :, :]), 1)
-
-                map_pred = self.pool(maps2).squeeze(1)
-                exp_pred = self.pool(explored2).squeeze(1)
-
+                if self.use_max_map:
+                    map_pred = self.pool(maps2).squeeze(1)
+                    exp_pred = self.pool(explored2).squeeze(1)
+                else:
+                    map_pred = self.filter(explored2, maps2, self.memory_rate)
+                    exp_pred = self.pool(explored2).squeeze(1)
+                    
         else:
             map_pred = None
             exp_pred = None

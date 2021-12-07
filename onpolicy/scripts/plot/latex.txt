@@ -1,0 +1,51 @@
+\begin{table}
+\centering
+\caption{Average performance on trained maps}
+\label{tab:trained}
+\begin{tabular}{ccccc}
+\toprule
+Methods &                      ACS &         Coverage Ratio &                    Steps &          Overlap Ratio \\
+\midrule
+Nearest & 110.55scriptsize\{(2.31)\} & 0.94scriptsize\{(0.00)\} & 224.89scriptsize\{(3.04)\} & 0.57scriptsize\{(0.04)\} \\
+    APF & 108.57scriptsize\{(1.00)\} & 0.95scriptsize\{(0.01)\} & 223.55scriptsize\{(4.76)\} & 0.68scriptsize\{(0.00)\} \\
+Utility & 113.49scriptsize\{(0.71)\} & 0.94scriptsize\{(0.01)\} & 235.16scriptsize\{(4.98)\} & 0.75scriptsize\{(0.01)\} \\
+    RRT & 119.57scriptsize\{(1.02)\} & 0.98scriptsize\{(0.00)\} & 190.21scriptsize\{(1.06)\} & 0.61scriptsize\{(0.01)\} \\
+  MAANS & 143.59scriptsize\{(1.39)\} & 0.98scriptsize\{(0.00)\} & 128.83scriptsize\{(3.70)\} & 0.43scriptsize\{(0.01)\} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}
+\centering
+\caption{Average performance on unseen maps}
+\label{tab:unseen}
+\begin{tabular}{ccccc}
+\toprule
+ Methods &                      ACS &         Coverage Ratio &                    Steps & Overlap Ratio \\
+\midrule
+ Nearest & 122.39scriptsize\{(1.05)\} & 0.94scriptsize\{(0.00)\} & 198.90scriptsize\{(3.90)\} &    0.55(0.02) \\
+     APF & 120.07scriptsize\{(1.15)\} & 0.93scriptsize\{(0.00)\} & 202.09scriptsize\{(3.10)\} &    0.61(0.01) \\
+ Utility & 128.34scriptsize\{(0.91)\} & 0.95scriptsize\{(0.00)\} & 173.40scriptsize\{(2.66)\} &    0.68(0.01) \\
+     RRT & 127.43scriptsize\{(0.98)\} & 0.96scriptsize\{(0.00)\} & 168.24scriptsize\{(2.16)\} &    0.59(0.02) \\
+MAANS-TD & 137.60scriptsize\{(0.78)\} & 0.96scriptsize\{(0.00)\} & 165.21scriptsize\{(2.86)\} &    0.57(0.01) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}
+\centering
+\caption{Average performance on trained maps with 3 agents}
+\label{tab:3agents}
+\begin{tabular}{ccccc}
+\toprule
+Methods &                      ACS &         Coverage Ratio &                    Steps & Overlap Ratio \\
+\midrule
+Nearest & 118.05scriptsize\{(0.63)\} & 0.91scriptsize\{(0.00)\} & 188.58scriptsize\{(2.02)\} &    0.46(0.01) \\
+    APF & 107.88scriptsize\{(1.39)\} & 0.87scriptsize\{(0.01)\} & 207.20scriptsize\{(2.41)\} &    0.45(0.01) \\
+Utility & 121.90scriptsize\{(0.84)\} & 0.94scriptsize\{(0.00)\} & 180.61scriptsize\{(2.66)\} &    0.71(0.01) \\
+    RRT & 127.64scriptsize\{(1.31)\} & 0.95scriptsize\{(0.01)\} & 155.13scriptsize\{(3.26)\} &    0.44(0.01) \\
+  MAANS & 143.09scriptsize\{(0.71)\} & 0.96scriptsize\{(0.00)\} & 132.95scriptsize\{(1.86)\} &    0.35(0.02) \\
+\bottomrule
+\end{tabular}
+\end{table}
+

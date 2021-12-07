@@ -184,7 +184,7 @@ def get_config():
 
     # prepare parameters
     parser.add_argument("--algorithm_name", type=str,
-                        default='mappo', choices=["rmappo", "mappo", "rmappg", "mappg"])
+                        default='mappo', choices=["rmappo", "mappo", "rmappg", "mappg", "ft_rrt", "ft_nearest", "ft_apf", "ft_utility"])
 
     parser.add_argument("--experiment_name", type=str, default="check", help="an identifier to distinguish different experiment.")
     parser.add_argument("--seed", type=int, default=1, help="Random seed for numpy/torch")
@@ -227,6 +227,8 @@ def get_config():
                         default=False, help="Whether to use stacked_frames")
     parser.add_argument("--hidden_size", type=int, default=64,
                         help="Dimension of hidden layers for actor/critic networks") # TODO @zoeyuchao. The same comment might in need of change.
+    parser.add_argument("--mlp_hidden_size", type=int, default=64,
+                        help="Dimension of mlp hidden layers for actor/critic networks") # TODO @zoeyuchao. The same comment might in need of change.
     parser.add_argument("--layer_N", type=int, default=1,
                         help="Number of layers for actor/critic networks")
     parser.add_argument("--activation_id", type=int,
@@ -331,6 +333,7 @@ def get_config():
 
     # log parameters
     parser.add_argument("--log_interval", type=int, default=5, help="time duration between contiunous twice log printing.")
+    parser.add_argument("--explored_ratio_threshold", type = float, default = 0.9, help = "")
 
     # eval parameters
     parser.add_argument("--use_eval", action='store_true', default=False, help="by default, do not start evaluation. If set`, start evaluation alongside with training.")

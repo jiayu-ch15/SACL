@@ -212,8 +212,8 @@ class GridWorldEnv(object):
             # plant_pos
             hare1_pos = (self.hare1_pos.tolist() - self.agents[agent_id].pos).tolist()
             hare2_pos = (self.hare2_pos.tolist()- self.agents[agent_id].pos).tolist()
-            return np.concatenate([my_pos]+[other_pos]+[stag_pos]+[hare1_pos]+[hare2_pos]+[[agent_id]])
-            #return np.concatenate([my_pos] + [other_pos]+[stag_pos]+[hare1_pos]+[hare2_pos])
+            # return np.concatenate([my_pos]+[other_pos]+[stag_pos]+[hare1_pos]+[hare2_pos]+[[agent_id]])
+            return np.concatenate([my_pos] + [other_pos]+[stag_pos]+[hare1_pos]+[hare2_pos])
         elif self.env_name == 'EscalationGW':
             # my pos
             my_pos = self.agents[agent_id].pos.tolist()

@@ -2,9 +2,9 @@ import sys
 import matplotlib
 import numpy as np  
 # if sys.platform == 'darwin':
-matplotlib.use("tkagg")
+#matplotlib.use("tkagg")
 # else:
-#matplotlib.use('Agg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 import seaborn as sns
@@ -144,6 +144,7 @@ def fill_color(colored, mat, color):
 
 def get_colored_map(mat, collision_map, visited, visited_gt, goal,
                     explored, gt_map, gt_map_explored):
+                    
     m, n = mat.shape
     colored = np.zeros((m, n, 3))
     pal = sns.color_palette("Paired")

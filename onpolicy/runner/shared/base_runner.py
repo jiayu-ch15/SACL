@@ -8,6 +8,10 @@ import torch
 from tensorboardX import SummaryWriter
 from onpolicy.utils.shared_buffer import SharedReplayBuffer
 from onpolicy.utils.util import update_linear_schedule
+import socket
+import psutil
+import slackweb
+webhook_url = " https://hooks.slack.com/services/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"
 
 def _t2n(x):
     return x.detach().cpu().numpy()
@@ -51,7 +55,6 @@ class Runner(object):
         self.model_dir = self.all_args.model_dir
 
         if self.use_render:
-            import imageio
             self.run_dir = config["run_dir"]
             self.gif_dir = str(self.run_dir / 'gifs')
             if not os.path.exists(self.gif_dir):
@@ -69,7 +72,7 @@ class Runner(object):
                 self.save_dir = str(self.run_dir / 'models')
                 if not os.path.exists(self.save_dir):
                     os.makedirs(self.save_dir)
-
+        
         if "mappo" in self.algorithm_name:
             if self.use_single_network:
                 from onpolicy.algorithms.r_mappo_single.r_mappo_single import R_MAPPO as TrainAlgo
@@ -84,26 +87,29 @@ class Runner(object):
             else:
                 from onpolicy.algorithms.r_mappg.r_mappg import R_MAPPG as TrainAlgo
                 from onpolicy.algorithms.r_mappg.algorithm.rMAPPGPolicy import R_MAPPGPolicy as Policy
+        elif "ft" in self.algorithm_name:
+            print("use frontier-based algorithm")
         else:
             raise NotImplementedError
         
         share_observation_space = self.envs.share_observation_space[0] if self.use_centralized_V else self.envs.observation_space[0]
 
-        # policy network
-        self.policy = Policy(self.all_args,
-                            self.envs.observation_space[0],
-                            share_observation_space,
-                            self.envs.action_space[0],
-                            device = self.device)
+        if "ft" not in self.algorithm_name:
+            # policy network
+            self.policy = Policy(self.all_args,
+                                self.envs.observation_space[0],
+                                share_observation_space,
+                                self.envs.action_space[0],
+                                device = self.device)
 
-        if self.model_dir is not None:
-            self.restore()
+            if self.model_dir is not None:
+                self.restore()
 
-        # algorithm
-        self.trainer = TrainAlgo(self.all_args, self.policy, device = self.device)
+            # algorithm
+            self.trainer = TrainAlgo(self.all_args, self.policy, device = self.device)
         
-        # buffer
-        self.buffer = SharedReplayBuffer(self.all_args,
+            # buffer
+            self.buffer = SharedReplayBuffer(self.all_args,
                                         self.num_agents,
                                         self.envs.observation_space[0],
                                         share_observation_space,
@@ -134,6 +140,7 @@ class Runner(object):
         self.trainer.prep_training()
         train_infos = self.trainer.train(self.buffer)      
         self.buffer.after_update()
+        self.log_system()
         return train_infos
 
     def save(self):
@@ -171,3 +178,13 @@ class Runner(object):
                     wandb.log({k: np.mean(v)}, step=total_num_steps)
                 else:
                     self.writter.add_scalars(k, {k: np.mean(v)}, total_num_steps)
+
+    def log_system(self):
+        # RRAM
+        mem = psutil.virtual_memory()
+        total_mem = float(mem.total) / 1024 / 1024 / 1024
+        used_mem = float(mem.used) / 1024 / 1024 / 1024
+        if used_mem/total_mem > 0.95:
+            slack = slackweb.Slack(url=webhook_url)
+            host_name = socket.gethostname()
+            slack.notify(text="Host {}: occupied memory is *{:.2f}*%!".format(host_name, used_mem/total_mem*100))
