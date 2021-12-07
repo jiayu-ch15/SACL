@@ -134,6 +134,9 @@ def main(args):
                          name="-".join([
                             all_args.algorithm_name,
                             all_args.experiment_name,
+                            "rollout" + str(all_args.n_rollout_threads),
+                            "minibatch" + str(all_args.num_mini_batch),
+                            "epoch" + str(all_args.ppo_epoch),
                             "seed" + str(all_args.seed)
                          ]),
                          group=all_args.scenario_name,

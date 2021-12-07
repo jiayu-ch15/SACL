@@ -1,12 +1,11 @@
 program: train/train_football.py
 project: tune_hyperparameters
-name: separated
+name: shared
 command:
   - ${env}
   - python3
   - ${program}
   - --use_eval
-  - --share_policy
   - ${args}
 method: grid
 metric:
@@ -24,7 +23,7 @@ parameters:
     value: "rmappo"
   experiment_name:
     distribution: constant
-    value: "separated"
+    value: "shared"
   seed:
     distribution: constant
     value: 1
