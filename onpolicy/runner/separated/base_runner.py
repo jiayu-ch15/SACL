@@ -12,6 +12,7 @@ from onpolicy.utils.util import update_linear_schedule
 
 import psutil
 import slackweb
+import socket
 webhook_url = " https://hooks.slack.com/services/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"
 
 def _t2n(x):
