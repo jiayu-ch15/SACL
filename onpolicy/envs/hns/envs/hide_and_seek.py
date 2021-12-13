@@ -246,12 +246,12 @@ def make_env(args):
     return HideAndSeekEnv(args)
 
 
-def HideAndSeekEnv(args, n_substeps=15, horizon=80, deterministic_mode=True,
+def HideAndSeekEnv(args, n_substeps=15, horizon=60, deterministic_mode=True,
                    floor_size=6.0, grid_size=30, door_size=2,
-                   n_hiders=2, n_seekers=2, max_n_agents=None,
-                   n_boxes=2, n_ramps=1, n_elongated_boxes=0,
+                   n_hiders=1, n_seekers=1, max_n_agents=None,
+                   n_boxes=4, n_ramps=4, n_elongated_boxes=0,
                    rand_num_elongated_boxes=False, n_min_boxes=None,
-                   box_size=2.0, boxid_obs=False, box_only_z_rot=True,
+                   box_size=0.5, boxid_obs=False, box_only_z_rot=True,
                    rew_type='joint_zero_sum',
                    lock_box=True, grab_box=True, lock_ramp=False,
                    lock_type='all_lock_team_specific',
