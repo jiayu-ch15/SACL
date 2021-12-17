@@ -181,8 +181,9 @@ class FootballRunner(Runner):
                 for idx_env in range(self.n_eval_rollout_threads):
                     if eval_dones_env[idx_env]:
                         eval_goals[num_done] = eval_infos[idx_env]["score_reward"]
+                        # print("episode {:>2d}: {}".format(num_done, eval_infos[idx_env]["score_reward"]))
                         num_done += 1
-                        if num_done >= 100: # TODO: write better
+                        if num_done >= self.all_args.n_eval_rollout_threads: # TODO: write better
                             break
 
             # reset rnn and masks for done envs

@@ -10,6 +10,7 @@ import socket
 import numpy as np
 import setproctitle
 import torch
+import wandb
 
 # code repository sub-packages
 from onpolicy.config import get_config
@@ -34,6 +35,24 @@ def make_train_env(all_args):
     else:
         return SubprocVecEnv([get_env_fn(i) for i in range(
             all_args.n_rollout_threads)])
+
+def make_eval_env(all_args):
+    def get_env_fn(rank):
+        def init_env():
+            if all_args.env_name == "Football":
+                env = FootballEnv(all_args)
+            else:
+                print("Can not support the " +
+                      all_args.env_name + " environment.")
+                raise NotImplementedError
+            env.seed(all_args.seed * 50000 + rank * 10000)
+            return env
+        return init_env
+    if all_args.n_eval_rollout_threads == 1:
+        return DummyVecEnv([get_env_fn(0)])
+    else:
+        return SubprocVecEnv([get_env_fn(i) for i in range(
+            all_args.n_eval_rollout_threads)])
 
 
 def parse_args(args, parser):
@@ -87,9 +106,8 @@ def main(args):
     else:
         raise NotImplementedError
 
-    assert all_args.use_render, ("u need to set use_render be True")
+    assert all_args.use_eval, ("you need to set use_eval or use_render be True")
     assert not (all_args.model_dir == None or all_args.model_dir == ""), ("set model_dir first")
-    assert all_args.n_rollout_threads==1, ("only support to use 1 env to render.")
 
     # cuda
     if all_args.cuda and torch.cuda.is_available():
@@ -110,6 +128,37 @@ def main(args):
     if not run_dir.exists():
         os.makedirs(str(run_dir))
 
+    # wandb
+    if all_args.use_wandb:
+        run = wandb.init(config=all_args,
+                         project="tune_hyperparameters",
+                         entity=all_args.wandb_name,
+                         notes=socket.gethostname(),
+                         name="-".join([
+                            all_args.algorithm_name,
+                            all_args.experiment_name,
+                            "rollout" + str(all_args.n_rollout_threads),
+                            "minibatch" + str(all_args.num_mini_batch),
+                            "epoch" + str(all_args.ppo_epoch),
+                            "seed" + str(all_args.seed)
+                         ]),
+                         group=all_args.scenario_name,
+                         dir=str(run_dir),
+                         job_type="eval",
+                         reinit=True)
+    else:
+        if not run_dir.exists():
+            curr_run = 'run1'
+        else:
+            exst_run_nums = [int(str(folder.name).split('run')[1]) for folder in run_dir.iterdir() if str(folder.name).startswith('run')]
+            if len(exst_run_nums) == 0:
+                curr_run = 'run1'
+            else:
+                curr_run = 'run%i' % (max(exst_run_nums) + 1)
+        run_dir = run_dir / curr_run
+        if not run_dir.exists():
+            os.makedirs(str(run_dir))
+
     setproctitle.setproctitle("-".join([
         all_args.env_name, 
         all_args.scenario_name, 
@@ -125,12 +174,13 @@ def main(args):
 
     # env init
     envs = make_train_env(all_args)
+    eval_envs = make_eval_env(all_args) if all_args.use_eval else None
     num_agents = all_args.num_agents
 
     config = {
         "all_args": all_args,
         "envs": envs,
-        "eval_envs": None,
+        "eval_envs": eval_envs,
         "num_agents": num_agents,
         "device": device,
         "run_dir": run_dir
@@ -143,10 +193,18 @@ def main(args):
         from onpolicy.runner.separated.football_runner import FootballRunner as Runner
 
     runner = Runner(config)
-    runner.render()
+    runner.eval(0)
     
     # post process
     envs.close()
+    if all_args.use_eval and eval_envs is not envs:
+        eval_envs.close()
+
+    if all_args.use_wandb:
+        run.finish()
+    else:
+        runner.writter.export_scalars_to_json(str(runner.log_dir + '/summary.json'))
+        runner.writter.close()
 
 
 if __name__ == "__main__":
