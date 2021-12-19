@@ -2,6 +2,7 @@
 # python standard libraries
 import os
 from pathlib import Path
+import random
 import sys
 import socket
 
@@ -34,7 +35,6 @@ def make_train_env(all_args):
     else:
         return SubprocVecEnv([get_env_fn(i) for i in range(
             all_args.n_rollout_threads)])
-
 
 def make_eval_env(all_args):
     def get_env_fn(rank):
@@ -106,6 +106,9 @@ def main(args):
     else:
         raise NotImplementedError
 
+    assert all_args.use_eval, ("you need to set use_eval or use_render be True")
+    assert not (all_args.model_dir == None or all_args.model_dir == ""), ("set model_dir first")
+
     # cuda
     if all_args.cuda and torch.cuda.is_available():
         print("choose to use gpu...")
@@ -141,7 +144,7 @@ def main(args):
                          ]),
                          group=all_args.scenario_name,
                          dir=str(run_dir),
-                         job_type="training",
+                         job_type="eval",
                          reinit=True)
     else:
         if not run_dir.exists():
@@ -164,6 +167,7 @@ def main(args):
     ]) + "@" + all_args.user_name)
     
     # seed
+    random.seed(all_args.seed)
     torch.manual_seed(all_args.seed)
     torch.cuda.manual_seed_all(all_args.seed)
     np.random.seed(all_args.seed)
@@ -189,7 +193,7 @@ def main(args):
         from onpolicy.runner.separated.football_runner import FootballRunner as Runner
 
     runner = Runner(config)
-    runner.run()
+    runner.eval(0)
     
     # post process
     envs.close()

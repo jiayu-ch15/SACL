@@ -2,6 +2,7 @@
 import time
 import wandb
 import os
+import socket
 import numpy as np
 from itertools import chain
 import torch

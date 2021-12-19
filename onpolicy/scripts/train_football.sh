@@ -3,44 +3,45 @@
 env="Football"
 scenario="academy_3_vs_1_with_keeper"
 algo="rmappo"
-exp="test_shared_epoch_5"
+exp="test"
+seed=1
 
 # football param
 num_agents=3
 representation="simple115v2"
-# write_goal_dumps
-# dump_frequency=10
-# log_dir="football_log"
 
 # train param
-num_env_steps=100000000
+num_env_steps=25000000
 episode_length=200
-n_rollout_threads=1000 # 1000
-ppo_epoch=5 # 5, 10, 15
-num_mini_batch=2 # 2, 4
 data_chunk_length=10 # 10, 20
 
+# log param
+log_interval=200000
+save_interval=200000
+
 # eval param
-eval_interval=10 # ?
+eval_interval=400000
 eval_episodes=100
 n_eval_rollout_threads=100 # 100
 
-seed_max=1
+# tune param
+n_rollout_threads=10 # 1000
+ppo_epoch=5 # 5, 10, 15
+num_mini_batch=2 # 2, 4
 
-echo "env: ${env} \t scenario: ${scenario} \t algo: ${algo} \t exp: ${exp} \t max seed: ${seed_max}"
-for seed in `seq ${seed_max}`
-do
-    echo "seed ${seed}"
-    CUDA_VISIBLE_DEVICES=5 python train/train_football.py \
-    --env_name ${env} --scenario_name ${scenario} \
-    --algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} \
-    --num_agents ${num_agents} --representation ${representation} \
-    --num_env_steps ${num_env_steps} \
-    --n_rollout_threads ${n_rollout_threads} --ppo_epoch ${ppo_epoch} \
-    --episode_length ${episode_length} --num_mini_batch ${num_mini_batch} \
-    --data_chunk_length ${data_chunk_length} \
-    --use_eval \
-    --eval_interval ${eval_interval} --eval_episodes ${eval_episodes} \
-    --n_eval_rollout_threads ${n_eval_rollout_threads} \
-    --user_name "zelaix" --wandb_name "zelaix"
-done
+
+echo "n_rollout_threads: ${n_rollout_threads} \t ppo_epoch: ${ppo_epoch} \t num_mini_batch: ${num_mini_batch}"
+
+CUDA_VISIBLE_DEVICES=0 python train/train_football.py \
+--env_name ${env} --scenario_name ${scenario} \
+--algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} \
+--num_agents ${num_agents} --representation ${representation} \
+--num_env_steps ${num_env_steps} \
+--n_rollout_threads ${n_rollout_threads} --ppo_epoch ${ppo_epoch} \
+--episode_length ${episode_length} --num_mini_batch ${num_mini_batch} \
+--data_chunk_length ${data_chunk_length} \
+--save_interval ${save_interval} --log_interval ${log_interval} \
+--use_eval \
+--eval_interval ${eval_interval} --eval_episodes ${eval_episodes} \
+--n_eval_rollout_threads ${n_eval_rollout_threads} \
+--user_name "zelaix" --use_wandb

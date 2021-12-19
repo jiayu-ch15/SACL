@@ -1,0 +1,73 @@
+program: train/train_football.py
+project: tune_hyperparameters
+name: shared
+command:
+  - ${env}
+  - python3
+  - ${program}
+  - --use_eval
+  - ${args}
+method: grid
+metric:
+  goal: maximize
+  name: expected_goal
+parameters:
+  env_name:
+    distribution: constant
+    value: "Football"
+  scenario_name:
+    distribution: constant
+    value: "academy_3_vs_1_with_keeper"
+  algorithm_name:
+    distribution: constant
+    value: "rmappo"
+  experiment_name:
+    distribution: constant
+    value: "shared"
+  seed:
+    distribution: constant
+    value: 1
+
+  num_agents:
+    distribution: constant
+    value: 3
+  representation:
+    distribution: constant
+    value: "simple115v2"
+
+  num_env_steps:
+    distribution: constant
+    value: 40000000
+  episode_length:
+    distribution: constant
+    value: 200
+  data_chunk_length:
+    distribution: constant
+    value: 10
+
+  save_interval:
+    distribution: constant
+    value: 200000
+  log_interval:
+    distribution: constant
+    value: 200000
+  eval_interval:
+    distribution: constant
+    value: 400000
+  eval_episodes:
+    distribution: constant
+    value: 100
+  n_eval_rollout_threads:
+    distribution: constant
+    value: 100
+
+  n_rollout_threads:
+    distribution: categorical
+    values: [10, 50, 100, 1000]
+  ppo_epoch:
+    distribution: categorical
+    values: [5, 10, 15]
+  num_mini_batch:
+    distribution: categorical
+    values: [1, 2, 4]
+  

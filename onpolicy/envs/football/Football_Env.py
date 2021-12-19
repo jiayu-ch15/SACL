@@ -52,11 +52,13 @@ class FootballEnv(object):
 
     def reset(self):
         obs = self.env.reset()
+        obs = self._obs_wrapper(obs)
         return obs
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
-        reward = reward[:, np.newaxis]
+        obs = self._obs_wrapper(obs)
+        reward = reward.reshape(self.num_agents, 1)
         done = np.array([done] * self.num_agents)
         return obs, reward, done, info
 
@@ -68,3 +70,9 @@ class FootballEnv(object):
 
     def close(self):
         self.env.close()
+
+    def _obs_wrapper(self, obs):
+        if self.num_agents == 1:
+            return obs[np.newaxis, :]
+        else:
+            return obs

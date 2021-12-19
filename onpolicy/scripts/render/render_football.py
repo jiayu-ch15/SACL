@@ -2,6 +2,7 @@
 # python standard libraries
 import os
 from pathlib import Path
+import random
 import sys
 import socket
 
@@ -117,6 +118,7 @@ def main(args):
     ]) + "@" + all_args.user_name)
     
     # seed
+    random.seed(all_args.seed)
     torch.manual_seed(all_args.seed)
     torch.cuda.manual_seed_all(all_args.seed)
     np.random.seed(all_args.seed)

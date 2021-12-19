@@ -50,11 +50,11 @@ class FootballRunner(Runner):
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
             
             # save model
-            if (episode % self.save_interval == 0 or episode == episodes - 1):
+            if (total_num_steps % self.save_interval == 0 or episode == episodes - 1):
                 self.save()
 
             # log information
-            if episode % self.log_interval == 0:
+            if total_num_steps % self.log_interval == 0:
                 end = time.time()
                 print("\n Env {} Algo {} Exp {} updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
                         .format(self.env_name,
@@ -71,7 +71,7 @@ class FootballRunner(Runner):
                 self.env_infos = defaultdict(list)
 
             # eval
-            if episode % self.eval_interval == 0 and self.use_eval:
+            if total_num_steps % self.eval_interval == 0 and self.use_eval:
                 self.eval(total_num_steps)
 
     def warmup(self):
@@ -181,8 +181,9 @@ class FootballRunner(Runner):
                 for idx_env in range(self.n_eval_rollout_threads):
                     if eval_dones_env[idx_env]:
                         eval_goals[num_done] = eval_infos[idx_env]["score_reward"]
+                        # print("episode {:>2d}: {}".format(num_done, eval_infos[idx_env]["score_reward"]))
                         num_done += 1
-                        if num_done >= 100: # TODO: write better
+                        if num_done >= self.all_args.n_eval_rollout_threads: # TODO: write better
                             break
 
             # reset rnn and masks for done envs
