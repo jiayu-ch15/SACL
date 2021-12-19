@@ -3,7 +3,7 @@
 env="Football"
 scenario="academy_3_vs_1_with_keeper"
 algo="rmappo"
-exp="test"
+exp="mlp"
 seed=1
 
 # football param
@@ -25,9 +25,9 @@ eval_episodes=100
 n_eval_rollout_threads=100 # 100
 
 # tune param
-n_rollout_threads=10 # 1000
-ppo_epoch=5 # 5, 10, 15
-num_mini_batch=2 # 2, 4
+n_rollout_threads=50 # 1000
+ppo_epoch=15 # 5, 10, 15
+num_mini_batch=1 # 2, 4
 
 
 echo "n_rollout_threads: ${n_rollout_threads} \t ppo_epoch: ${ppo_epoch} \t num_mini_batch: ${num_mini_batch}"
@@ -44,4 +44,4 @@ CUDA_VISIBLE_DEVICES=0 python train/train_football.py \
 --use_eval \
 --eval_interval ${eval_interval} --eval_episodes ${eval_episodes} \
 --n_eval_rollout_threads ${n_eval_rollout_threads} \
---user_name "zelaix" --use_wandb
+--user_name "yuchao" --wandb_name "football"
