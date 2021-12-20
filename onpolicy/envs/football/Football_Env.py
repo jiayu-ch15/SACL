@@ -1,6 +1,9 @@
+import random
+
 import gfootball.env as football_env
 from gym import spaces
 import numpy as np
+
 
 class FootballEnv(object):
     '''Wrapper to make Google Research Football environment compatible'''
@@ -64,9 +67,9 @@ class FootballEnv(object):
 
     def seed(self, seed=None):
         if seed is None:
-            self.env.seed(1)
+            random.seed(1)
         else:
-            self.env.seed(seed)
+            random.seed(seed)
 
     def close(self):
         self.env.close()
