@@ -33,6 +33,7 @@ class FootballEnv(object):
             channel_dimensions=(args.smm_width, args.smm_height)
         )
         self.remove_redundancy = args.remove_redundancy
+        self.zero_feature = args.zero_feature
         self.action_space = []
         self.observation_space = []
         self.share_observation_space = []
@@ -90,6 +91,8 @@ class FootballEnv(object):
         obs = self._obs_wrapper(obs)
         if self.remove_redundancy:
             obs = obs[:, KEEP_INDEX[self.scenario_name]]
+        if self.zero_feature:
+            obs[obs == -1] = 0
         return obs
 
     def step(self, action):
@@ -97,6 +100,8 @@ class FootballEnv(object):
         obs = self._obs_wrapper(obs)
         if self.remove_redundancy:
             obs = obs[:, KEEP_INDEX[self.scenario_name]]
+        if self.zero_feature:
+            obs[obs == -1] = 0
         reward = reward.reshape(self.num_agents, 1)
         done = np.array([done] * self.num_agents)
         return obs, reward, done, info
