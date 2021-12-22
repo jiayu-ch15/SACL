@@ -1,3 +1,5 @@
+import random
+
 import gfootball.env as football_env
 from gym import spaces
 import numpy as np
@@ -6,6 +8,7 @@ KEEP_INDEX = {
         27,  28,  29,  44,  45,  46,  47,  66,  67,  68,  69,  88,  89, \
         90,  91,  92,  93,  94,  95,  96,  97,  98,  99, 100, 108, 110, 112, 113]
 }
+
 
 class FootballEnv(object):
     '''Wrapper to make Google Research Football environment compatible'''
@@ -97,9 +100,9 @@ class FootballEnv(object):
 
     def seed(self, seed=None):
         if seed is None:
-            self.env.seed(1)
+            random.seed(1)
         else:
-            self.env.seed(seed)
+            random.seed(seed)
 
     def close(self):
         self.env.close()
