@@ -10,3 +10,6 @@
 [submodule "onpolicy/envs/MultiVehicleEnv"]
 	path = onpolicy/envs/MultiVehicleEnv
 	url = https://github.com/efc-robot/MultiVehicleEnv.git
+[submodule "onpolicy/envs/football/football"]
+	path = onpolicy/envs/football/football
+	url = https://github.com/zelaix/football.git
