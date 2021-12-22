@@ -129,7 +129,7 @@ def main(args):
     # wandb
     if all_args.use_wandb:
         run = wandb.init(config=all_args,
-                         project="tune_hyperparameters",
+                         project="debug_test",
                          entity=all_args.wandb_name,
                          notes=socket.gethostname(),
                          name="-".join([
