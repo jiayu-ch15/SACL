@@ -4,8 +4,8 @@ env="Football"
 scenario="academy_3_vs_1_with_keeper"
 # scenario="academy_run_to_score"
 algo="rmappo"
-exp="separated-purefeature"
-seed=6
+exp="shared-purefeature"
+seed=1
 
 
 # football param
@@ -46,4 +46,4 @@ CUDA_VISIBLE_DEVICES=1 python train/train_football.py \
 --use_eval \
 --eval_interval ${eval_interval} --eval_episodes ${eval_episodes} \
 --n_eval_rollout_threads ${n_eval_rollout_threads} \
---user_name "yuchao" --wandb_name "football" --share_policy
+--user_name "yuchao" --wandb_name "football"

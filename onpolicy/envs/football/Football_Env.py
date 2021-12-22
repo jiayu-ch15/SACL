@@ -15,6 +15,7 @@ class FootballEnv(object):
 
     def __init__(self, args):
         self.num_agents = args.num_agents
+        self.scenario_name = args.scenario_name
         self.env = football_env.create_environment(
             env_name=args.scenario_name,
             stacked=args.use_stacked_frames,
@@ -87,13 +88,15 @@ class FootballEnv(object):
     def reset(self):
         obs = self.env.reset()
         obs = self._obs_wrapper(obs)
-        obs = obs[:, KEEP_INDEX[args.scenario_name]]
+        if self.remove_redundancy:
+            obs = obs[:, KEEP_INDEX[self.scenario_name]]
         return obs
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
         obs = self._obs_wrapper(obs)
-        obs = obs[:, KEEP_INDEX[args.scenario_name]]
+        if self.remove_redundancy:
+            obs = obs[:, KEEP_INDEX[self.scenario_name]]
         reward = reward.reshape(self.num_agents, 1)
         done = np.array([done] * self.num_agents)
         return obs, reward, done, info
