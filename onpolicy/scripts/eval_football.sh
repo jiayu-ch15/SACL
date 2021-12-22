@@ -13,8 +13,17 @@ n_rollout_threads=2
 
 # eval param
 model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/football/academy_3_vs_1_with_keeper/rmappo/shared/rollout10-minibatch4-epoch15/seed1/files"
-eval_episodes=20
-n_eval_rollout_threads=1 # 100
+eval_episodes=100
+n_eval_rollout_threads=100 # 100
+
+# video param
+# dump_frequency=1
+# log_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/logs/n10_train2_eval1_seed1_run2"
+# write_full_episode_dumps
+# render
+# save_gifs
+# --dump_frequency ${dump_frequency} --log_dir ${log_dir} \
+# --write_full_episode_dumps --render --save_gifs \
 
 seed=1
 
