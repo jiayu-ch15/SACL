@@ -2,9 +2,11 @@
 # exp param
 env="Football"
 scenario="academy_3_vs_1_with_keeper"
+# scenario="academy_run_to_score"
 algo="rmappo"
-exp="mlp"
-seed=1
+exp="separated-purefeature"
+seed=6
+
 
 # football param
 num_agents=3
@@ -26,13 +28,13 @@ n_eval_rollout_threads=100 # 100
 
 # tune param
 n_rollout_threads=50 # 1000
-ppo_epoch=15 # 5, 10, 15
-num_mini_batch=1 # 2, 4
+ppo_epoch=10 # 5, 10, 15
+num_mini_batch=2 # 2, 4
 
 
 echo "n_rollout_threads: ${n_rollout_threads} \t ppo_epoch: ${ppo_epoch} \t num_mini_batch: ${num_mini_batch}"
 
-CUDA_VISIBLE_DEVICES=0 python train/train_football.py \
+CUDA_VISIBLE_DEVICES=1 python train/train_football.py \
 --env_name ${env} --scenario_name ${scenario} \
 --algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} \
 --num_agents ${num_agents} --representation ${representation} \
@@ -44,4 +46,4 @@ CUDA_VISIBLE_DEVICES=0 python train/train_football.py \
 --use_eval \
 --eval_interval ${eval_interval} --eval_episodes ${eval_episodes} \
 --n_eval_rollout_threads ${n_eval_rollout_threads} \
---user_name "yuchao" --wandb_name "football"
+--user_name "yuchao" --wandb_name "football" --share_policy

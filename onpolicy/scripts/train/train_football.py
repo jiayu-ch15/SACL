@@ -59,8 +59,6 @@ def parse_args(args, parser):
     parser.add_argument("--scenario_name", type=str,
                         default='academy_3_vs_1_with_keeper', 
                         help="which scenario to run on.")
-    parser.add_argument("--stacked", action='store_true', default=False, 
-                        help="by default False. If True, stack 4 observations.")
     parser.add_argument("--representation", type=str, default="simple115v2", 
                         choices=["simple115v2", "extracted", "pixels_gray", 
                                  "pixels"],
@@ -89,6 +87,9 @@ def parse_args(args, parser):
                         help="width of super minimap.")
     parser.add_argument("--smm_height", type=int, default=72,
                         help="height of super minimap.")
+    parser.add_argument("--remove_redundancy", action='store_true', 
+                        default=False, 
+                        help="by default False. If True, remove redundancy features")
 
     all_args = parser.parse_known_args(args)[0]
 
