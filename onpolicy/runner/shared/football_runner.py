@@ -151,10 +151,17 @@ class FootballRunner(Runner):
 
         # init eval goals
         num_done = 0
+        step = 0
         eval_goals = np.zeros(self.all_args.eval_episodes)
+        quo = self.all_args.eval_episodes // self.n_eval_rollout_threads
+        rem = self.all_args.eval_episodes % self.n_eval_rollout_threads
+        done_episodes_per_thread = np.zeros(self.n_eval_rollout_threads, dtype=int)
+        eval_episodes_per_thread = done_episodes_per_thread + quo
+        eval_episodes_per_thread[:rem] += 1
+        unfinished_thread = (done_episodes_per_thread != eval_episodes_per_thread)
 
         # loop until enough episodes
-        while num_done < self.all_args.eval_episodes:
+        while num_done < self.all_args.eval_episodes and step < self.episode_length:
             # get actions
             self.trainer.prep_rollout()
 
@@ -177,19 +184,21 @@ class FootballRunner(Runner):
 
             # update goals if done
             eval_dones_env = np.all(eval_dones, axis=-1)
-            if np.any(eval_dones_env):
+            eval_dones_unfinished_env = eval_dones_env[unfinished_thread]
+            if np.any(eval_dones_unfinished_env):
                 for idx_env in range(self.n_eval_rollout_threads):
-                    if eval_dones_env[idx_env]:
+                    if unfinished_thread[idx_env] and eval_dones_env[idx_env]:
                         eval_goals[num_done] = eval_infos[idx_env]["score_reward"]
-                        # print("episode {:>2d}: {}".format(num_done, eval_infos[idx_env]["score_reward"]))
+                        # print("episode {:>2d} done by env {:>2d}: {}".format(num_done, idx_env, eval_infos[idx_env]["score_reward"]))
                         num_done += 1
-                        if num_done >= self.all_args.n_eval_rollout_threads: # TODO: write better
-                            break
+                        done_episodes_per_thread[idx_env] += 1
+            unfinished_thread = (done_episodes_per_thread != eval_episodes_per_thread)
 
             # reset rnn and masks for done envs
             eval_rnn_states[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             eval_masks = np.ones((self.all_args.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
             eval_masks[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
+            step += 1
 
         # get expected goal
         eval_expected_goal = np.mean(eval_goals)
