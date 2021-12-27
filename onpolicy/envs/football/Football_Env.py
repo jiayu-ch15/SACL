@@ -44,6 +44,7 @@ class FootballEnv(object):
             number_of_right_players_agent_controls=0,
             channel_dimensions=(args.smm_width, args.smm_height)
         )
+        self.max_steps = self.env.unwrapped.observation()[0]["steps_left"]
         self.remove_redundancy = args.remove_redundancy
         self.zero_feature = args.zero_feature
         self.action_space = []
@@ -116,6 +117,7 @@ class FootballEnv(object):
             obs[obs == -1] = 0
         reward = reward.reshape(self.num_agents, 1)
         done = np.array([done] * self.num_agents)
+        info = self._info_wrapper(info)
         return obs, reward, done, info
 
     def seed(self, seed=None):
@@ -132,3 +134,12 @@ class FootballEnv(object):
             return obs[np.newaxis, :]
         else:
             return obs
+
+    def _info_wrapper(self, info):
+        state = self.env.unwrapped.observation()
+        info.update(state[0])
+        info["max_steps"] = self.max_steps
+        info["active"] = np.array([state[i]["active"] for i in range(self.num_agents)])
+        info["designated"] = np.array([state[i]["designated"] for i in range(self.num_agents)])
+        info["sticky_actions"] = np.stack([state[i]["sticky_actions"] for i in range(self.num_agents)])
+        return info

@@ -115,6 +115,7 @@ class FootballRunner(Runner):
             for done, info in zip(dones_env, infos):
                 if done:
                     self.env_infos["goal"].append(info["score_reward"])
+                    self.env_infos["steps"].append(info["max_steps"] - info["steps_left"])
 
         # reset rnn and mask args for done envs
         rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
@@ -152,6 +153,7 @@ class FootballRunner(Runner):
         # init eval goals
         num_done = 0
         eval_goals = np.zeros(self.all_args.eval_episodes)
+        eval_steps = np.zeros(self.all_args.eval_episodes)
         step = 0
         quo = self.all_args.eval_episodes // self.n_eval_rollout_threads
         rem = self.all_args.eval_episodes % self.n_eval_rollout_threads
@@ -189,6 +191,7 @@ class FootballRunner(Runner):
                 for idx_env in range(self.n_eval_rollout_threads):
                     if unfinished_thread[idx_env] and eval_dones_env[idx_env]:
                         eval_goals[num_done] = eval_infos[idx_env]["score_reward"]
+                        eval_steps[num_done] = eval_infos[idx_env]["max_steps"] - eval_infos[idx_env]["steps_left"]
                         # print("episode {:>2d} done by env {:>2d}: {}".format(num_done, idx_env, eval_infos[idx_env]["score_reward"]))
                         num_done += 1
                         done_episodes_per_thread[idx_env] += 1
@@ -202,13 +205,16 @@ class FootballRunner(Runner):
 
         # get expected goal
         eval_expected_goal = np.mean(eval_goals)
+        eval_expected_step = np.mean(eval_steps)
     
         # log and print
         print("eval expected goal is {}.".format(eval_expected_goal))
         if self.use_wandb:
             wandb.log({"expected_goal": eval_expected_goal}, step=total_num_steps)
+            wandb.log({"expected_step": eval_expected_step}, step=total_num_steps)
         else:
             self.writter.add_scalars("expected_goal", {"expected_goal": eval_expected_goal}, total_num_steps)
+            self.writter.add_scalars("expected_step", {"expected_step": eval_expected_step}, total_num_steps)
 
     @torch.no_grad()
     def render(self):        
