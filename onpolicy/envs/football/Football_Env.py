@@ -4,9 +4,21 @@ import gfootball.env as football_env
 from gym import spaces
 import numpy as np
 KEEP_INDEX = {
-    'academy_3_vs_1_with_keeper': [0,   1,   2,   3,   4,   5,   6,   7,  22,  23,  24,  25,  26, \
-        27,  28,  29,  44,  45,  46,  47,  66,  67,  68,  69,  88,  89, \
-        90,  91,  92,  93,  94,  95,  96,  97,  98,  99, 100, 108, 110, 112, 113]
+    'academy_3_vs_1_with_keeper': [0,   1,   2,   3,   4,   5,   6,   7,  \
+        22,  23,  24,  25,  26, 27,  28,  29,  44,  45,  46,  47,  \
+        66,  67,  68,  69,  \
+        88,  89, 90,  91,  92,  93,  94,  95,  96,  97,  98,  99, \
+        100, 108, 110, 111, 112, 113, 114],
+    'academy_pass_and_shoot_with_keeper': [0,   1,   2,  3,   4,   5,  \
+        22,  23,  24,  25,  26,  27,  44,  45,  46,  47, \
+        66,  67,  68,  69,  \
+        88,  89,  90,  91,  92,  93,  94,  95,  96, 97,  98,  99, \
+        108, 110, 111, 112, 113],
+    'academy_run_pass_and_shoot_with_keeper': [0,   1,  2,   3,   4,   5,  \
+        22,  23,  24,  25,  26,  27,  44,  45,  46,  47, \
+        66,  67,  68,  69,  \
+        88,  89,  90,  91,  92,  93,  94,  95, 96,  97,  98,  99, \
+        108, 110, 111, 112, 113]
 }
 
 
@@ -33,6 +45,7 @@ class FootballEnv(object):
             channel_dimensions=(args.smm_width, args.smm_height)
         )
         self.remove_redundancy = args.remove_redundancy
+        self.zero_feature = args.zero_feature
         self.action_space = []
         self.observation_space = []
         self.share_observation_space = []
@@ -90,6 +103,8 @@ class FootballEnv(object):
         obs = self._obs_wrapper(obs)
         if self.remove_redundancy:
             obs = obs[:, KEEP_INDEX[self.scenario_name]]
+        if self.zero_feature:
+            obs[obs == -1] = 0
         return obs
 
     def step(self, action):
@@ -97,6 +112,8 @@ class FootballEnv(object):
         obs = self._obs_wrapper(obs)
         if self.remove_redundancy:
             obs = obs[:, KEEP_INDEX[self.scenario_name]]
+        if self.zero_feature:
+            obs[obs == -1] = 0
         reward = reward.reshape(self.num_agents, 1)
         done = np.array([done] * self.num_agents)
         return obs, reward, done, info

@@ -89,6 +89,9 @@ def parse_args(args, parser):
     parser.add_argument("--remove_redundancy", action='store_true', 
                         default=False, 
                         help="by default False. If True, remove redundancy features")
+    parser.add_argument("--zero_feature", action='store_true', 
+                        default=False, 
+                        help="by default False. If True, replace -1 by 0")
 
     all_args = parser.parse_known_args(args)[0]
 
