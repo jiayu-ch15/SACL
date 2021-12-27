@@ -151,8 +151,8 @@ class FootballRunner(Runner):
 
         # init eval goals
         num_done = 0
-        step = 0
         eval_goals = np.zeros(self.all_args.eval_episodes)
+        step = 0
         quo = self.all_args.eval_episodes // self.n_eval_rollout_threads
         rem = self.all_args.eval_episodes % self.n_eval_rollout_threads
         done_episodes_per_thread = np.zeros(self.n_eval_rollout_threads, dtype=int)
