@@ -65,7 +65,9 @@ class FootballRunner(Runner):
                                 total_num_steps,
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
-
+                
+                train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
+                print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
                 self.log_train(train_infos, total_num_steps)
                 self.log_env(self.env_infos, total_num_steps)
                 self.env_infos = defaultdict(list)
