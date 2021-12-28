@@ -174,7 +174,7 @@ class FootballRunner(Runner):
                 np.concatenate(eval_obs),
                 np.concatenate(eval_rnn_states),
                 np.concatenate(eval_masks),
-                deterministic=True
+                deterministic=self.all_args.eval_deterministic
             )
             
             # [n_envs*n_agents, ...] -> [n_envs, n_agents, ...]
