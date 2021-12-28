@@ -3,7 +3,7 @@
 env="Football"
 scenario="academy_3_vs_1_with_keeper"
 algo="rmappo"
-exp="shared"
+exp="shared-dense"
 seed=1
 
 # football param
@@ -40,6 +40,7 @@ CUDA_VISIBLE_DEVICES=0 python train/train_football.py \
 --n_rollout_threads ${n_rollout_threads} --ppo_epoch ${ppo_epoch} \
 --num_mini_batch ${num_mini_batch} --data_chunk_length ${data_chunk_length} \
 --log_interval ${log_interval} --save_interval ${save_interval} \
---use_eval --eval_interval ${eval_interval} --eval_episodes ${eval_episodes} \
+--use_eval \
+--eval_interval ${eval_interval} --eval_episodes ${eval_episodes} \
 --n_eval_rollout_threads ${n_eval_rollout_threads} \
 --user_name "zelaix" --wandb_name "football"
