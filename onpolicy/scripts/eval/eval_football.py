@@ -35,6 +35,7 @@ def make_train_env(all_args):
         return SubprocVecEnv([get_env_fn(i) for i in range(
             all_args.n_rollout_threads)])
 
+
 def make_eval_env(all_args):
     def get_env_fn(rank):
         def init_env():
@@ -112,7 +113,7 @@ def main(args):
     else:
         raise NotImplementedError
 
-    assert all_args.use_eval, ("you need to set use_eval or use_render be True")
+    assert all_args.use_eval, ("you need to set use_eval to be True")
     assert not (all_args.model_dir == None or all_args.model_dir == ""), ("set model_dir first")
 
     # cuda
@@ -137,7 +138,7 @@ def main(args):
     # wandb
     if all_args.use_wandb:
         run = wandb.init(config=all_args,
-                         project="tune_hyperparameters",
+                         project="dev",
                          entity=all_args.wandb_name,
                          notes=socket.gethostname(),
                          name="-".join([
