@@ -93,6 +93,9 @@ def parse_args(args, parser):
     parser.add_argument("--zero_feature", action='store_true', 
                         default=False, 
                         help="by default False. If True, replace -1 by 0")
+    parser.add_argument("--eval_deterministic", action='store_false', 
+                        default=True, 
+                        help="by default True. If False, sample action according to probability")
 
     all_args = parser.parse_known_args(args)[0]
 
@@ -132,7 +135,7 @@ def main(args):
     # wandb
     if all_args.use_wandb:
         run = wandb.init(config=all_args,
-                         project="tune_hyperparameters",
+                         project="dev",
                          entity=all_args.wandb_name,
                          notes=socket.gethostname(),
                          name="-".join([

@@ -189,7 +189,7 @@ class FootballRunner(Runner):
                     np.array(list(eval_obs[:, agent_id])),
                     eval_rnn_states[:, agent_id],
                     eval_masks[:, agent_id],
-                    deterministic=True
+                    deterministic=self.all_args.eval_deterministic
                 )
 
                 eval_actions.append(_t2n(eval_action))
