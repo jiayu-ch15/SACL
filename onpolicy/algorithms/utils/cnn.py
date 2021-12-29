@@ -27,7 +27,7 @@ class CNNBase(nn.Module):
     def _build_cnn_model(self, obs_shape, cnn_keys, cnn_layers_params, hidden_size, use_orthogonal, activation_id):
         
         if cnn_layers_params is None:
-            cnn_layers_params = [(32, 8, 4, 0), (64, 4, 2, 0), (64, 3, 1, 0)]
+            cnn_layers_params = [(32, 3, 1, 0), (64, 3, 1, 0), (32, 3, 1, 0)]
         else:
             def _convert(params):
                 output = []
