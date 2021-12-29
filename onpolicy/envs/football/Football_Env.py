@@ -28,22 +28,37 @@ class FootballEnv(object):
     def __init__(self, args):
         self.num_agents = args.num_agents
         self.scenario_name = args.scenario_name
-        self.env = football_env.create_environment(
-            env_name=args.scenario_name,
-            stacked=args.use_stacked_frames,
-            representation=args.representation,
-            rewards=args.rewards,
-            write_goal_dumps=args.write_goal_dumps,
-            write_full_episode_dumps=args.write_full_episode_dumps,
-            render=args.render,
-            write_video=args.save_gifs,
-            dump_frequency=args.dump_frequency,
-            logdir=args.log_dir,
-            extra_players=None, # TODO(zelaix) chekc this arg
-            number_of_left_players_agent_controls=args.num_agents,
-            number_of_right_players_agent_controls=0,
-            channel_dimensions=(args.smm_width, args.smm_height)
-        )
+
+        # make env
+        if not (args.use_render and args.save_videos):
+            self.env = football_env.create_environment(
+                env_name=args.scenario_name,
+                stacked=args.use_stacked_frames,
+                representation=args.representation,
+                rewards=args.rewards,
+                number_of_left_players_agent_controls=args.num_agents,
+                number_of_right_players_agent_controls=0,
+                channel_dimensions=(args.smm_width, args.smm_height),
+                render=(args.use_render and args.save_gifs)
+            )
+        else:
+            # render env and save videos
+            self.env = football_env.create_environment(
+                env_name=args.scenario_name,
+                stacked=args.use_stacked_frames,
+                representation=args.representation,
+                rewards=args.rewards,
+                number_of_left_players_agent_controls=args.num_agents,
+                number_of_right_players_agent_controls=0,
+                channel_dimensions=(args.smm_width, args.smm_height),
+                # video related params
+                write_full_episode_dumps=True,
+                render=True,
+                write_video=True,
+                dump_frequency=1,
+                logdir=args.video_dir
+            )
+            
         self.max_steps = self.env.unwrapped.observation()[0]["steps_left"]
         self.remove_redundancy = args.remove_redundancy
         self.zero_feature = args.zero_feature

@@ -2,7 +2,6 @@
 # python standard libraries
 import os
 from pathlib import Path
-import random
 import sys
 import socket
 
@@ -38,48 +37,34 @@ def make_train_env(all_args):
 
 def parse_args(args, parser):
     parser.add_argument("--scenario_name", type=str,
-                        default='academy_3_vs_1_with_keeper', 
+                        default="academy_3_vs_1_with_keeper", 
                         help="which scenario to run on.")
-    parser.add_argument("--stacked", action='store_true', default=False, 
-                        help="by default False. If True, stack 4 observations.")
+    parser.add_argument("--num_agents", type=int, default=3,
+                        help="number of controlled players.")
     parser.add_argument("--representation", type=str, default="simple115v2", 
                         choices=["simple115v2", "extracted", "pixels_gray", 
                                  "pixels"],
                         help="representation used to build the observation.")
     parser.add_argument("--rewards", type=str, default="scoring", 
                         help="comma separated list of rewards to be added.")
-    parser.add_argument("--write_goal_dumps", action='store_true', 
-                        default=False, 
-                        help="by default False. If True, dump traces up to 200 "
-                             "frames before goals.")
-    parser.add_argument("--write_full_episode_dumps", action='store_true', 
-                        default=False, 
-                        help="by default False. If True, dump traces for every "
-                             "episode.")
-    parser.add_argument("--render", action='store_true', 
-                        default=False, 
-                        help="by default False. If True, enable render ")
-    parser.add_argument("--dump_frequency", type=int, default=1,
-                        help="how often to write dumps/videos in terms of "
-                             "episodes (default: 1)")
-    parser.add_argument("--log_dir", type=str, default="", 
-                        help="log directory.")
-    parser.add_argument("--num_agents", type=int, default=3,
-                        help="number of controlled players.")
     parser.add_argument("--smm_width", type=int, default=96,
                         help="width of super minimap.")
     parser.add_argument("--smm_height", type=int, default=72,
                         help="height of super minimap.")
-    parser.add_argument("--remove_redundancy", action='store_true', 
+    parser.add_argument("--remove_redundancy", action="store_true", 
                         default=False, 
                         help="by default False. If True, remove redundancy features")
-    parser.add_argument("--zero_feature", action='store_true', 
+    parser.add_argument("--zero_feature", action="store_true", 
                         default=False, 
                         help="by default False. If True, replace -1 by 0")
-    parser.add_argument("--eval_deterministic", action='store_false', 
+    parser.add_argument("--eval_deterministic", action="store_false", 
                         default=True, 
                         help="by default True. If False, sample action according to probability")
-
+    parser.add_argument("--save_videos", action="store_true", default=False, 
+                        help="by default, do not save render video. If set, save video.")
+    parser.add_argument("--video_dir", type=str, default="", 
+                        help="directory to save videos.")
+                        
     all_args = parser.parse_known_args(args)[0]
 
     return all_args
@@ -113,12 +98,15 @@ def main(args):
         device = torch.device("cpu")
         torch.set_num_threads(all_args.n_training_threads)
 
-    # run dir
-    run_dir = Path(os.path.split(os.path.dirname(os.path.abspath(__file__)))[
-                   0] + "/results") / all_args.env_name / all_args.scenario_name / all_args.algorithm_name / all_args.experiment_name
-    if not run_dir.exists():
-        os.makedirs(str(run_dir))
+    # run dir and video dir
+    run_dir = Path(all_args.model_dir).parent.absolute()
+    if all_args.save_videos and all_args.video_dir == "":
+        video_dir = run_dir / "videos"
+        all_args.video_dir = str(video_dir)
 
+        if not video_dir.exists():
+            os.makedirs(str(video_dir))
+        
     setproctitle.setproctitle("-".join([
         all_args.env_name, 
         all_args.scenario_name, 
@@ -127,7 +115,6 @@ def main(args):
     ]) + "@" + all_args.user_name)
     
     # seed
-    random.seed(all_args.seed)
     torch.manual_seed(all_args.seed)
     torch.cuda.manual_seed_all(all_args.seed)
     np.random.seed(all_args.seed)
