@@ -5,13 +5,13 @@ scenario="academy_3_vs_1_with_keeper"
 # scenario="academy_run_to_score"
 # scenario="academy_pass_and_shoot_with_keeper"
 algo="rmappo"
-exp="separated-game200-neweval"
+exp="separated-game200-neweval-smm"
 seed=1
 
 
 # football param
 num_agents=3
-representation="simple115v2"
+representation="extracted"
 
 # train param
 num_env_steps=25000000
@@ -35,7 +35,7 @@ num_mini_batch=4 # 2, 4
 
 echo "n_rollout_threads: ${n_rollout_threads} \t ppo_epoch: ${ppo_epoch} \t num_mini_batch: ${num_mini_batch}"
 
-CUDA_VISIBLE_DEVICES=0 python train/train_football.py \
+CUDA_VISIBLE_DEVICES=3 python train/train_football.py \
 --env_name ${env} --scenario_name ${scenario} \
 --algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} \
 --num_agents ${num_agents} --representation ${representation} \
