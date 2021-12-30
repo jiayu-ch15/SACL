@@ -47,4 +47,4 @@ CUDA_VISIBLE_DEVICES=0 python train/train_football.py \
 --use_eval \
 --eval_interval ${eval_interval} --eval_episodes ${eval_episodes} \
 --n_eval_rollout_threads ${n_eval_rollout_threads} \
---user_name "yuchao" --wandb_name "football" --share_policy #--rewards "scoring,checkpoints"
+--user_name "yuchao" --wandb_name "football" --use_maxpool2d #--share_policy #--rewards "scoring,checkpoints"

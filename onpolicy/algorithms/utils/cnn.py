@@ -27,7 +27,7 @@ class CNNBase(nn.Module):
     def _build_cnn_model(self, obs_shape, cnn_keys, cnn_layers_params, hidden_size, use_orthogonal, activation_id):
         
         if cnn_layers_params is None:
-            cnn_layers_params = [(32, 3, 1, 0), (64, 3, 1, 0), (32, 3, 1, 0)]
+            cnn_layers_params = [(16, 5, 1, 0), (32, 3, 1, 0), (16, 3, 1, 0)]
         else:
             def _convert(params):
                 output = []
@@ -119,6 +119,21 @@ class CNNBase(nn.Module):
             out_dimension.append(
                 int(np.floor(
                     ((dimension[i] + 2 * padding[i] - dilation[i] * (kernel_size[i] - 1) - 1) / stride[i]) + 1
+                ))
+            )
+        return tuple(out_dimension)
+
+    def _maxpool_output_dim(self, dimension, dilation, kernel_size, stride):
+        """Calculates the output height and width based on the input
+        height and width to the convolution layer.
+        ref: https://pytorch.org/docs/master/nn.html#torch.nn.Conv2d
+        """
+        assert len(dimension) == 2
+        out_dimension = []
+        for i in range(len(dimension)):
+            out_dimension.append(
+                int(np.floor(
+                    ((dimension[i] - dilation[i] * (kernel_size[i] - 1) - 1) / stride[i]) + 1
                 ))
             )
         return tuple(out_dimension)
