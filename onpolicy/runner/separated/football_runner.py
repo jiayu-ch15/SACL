@@ -246,7 +246,11 @@ class FootballRunner(Runner):
             render_rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             render_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
 
-            step = 0
+            if self.all_args.save_gifs:        
+                frames = []
+                image = self.envs.envs[0].env.unwrapped.observation()[0]["frame"]
+                frames.append(image)
+            
             render_dones = False
             while not np.any(render_dones):
                 render_actions = []
@@ -265,11 +269,25 @@ class FootballRunner(Runner):
                 render_actions = np.array(render_actions).transpose(1, 0, 2)
                 render_actions_env = [render_actions[idx, :, 0] for idx in range(render_actions.shape[0])]
 
+                # step
                 render_obs, render_rewards, render_dones, render_infos = render_env.step(render_actions_env)
-                step += 1
 
-            
+                # append frame
+                if self.all_args.save_gifs:        
+                    image = render_infos[0]["frame"]
+                    frames.append(image)
+
+            # print goal
             render_goals[i_episode] = render_rewards[0, 0]
             print("goal in episode {}: {}".format(i_episode, render_rewards[0, 0]))
+
+            # save gif
+            if self.all_args.save_gifs:
+                imageio.mimsave(
+                    uri="{}/episode{}.gif".format(str(self.gif_dir), i_episode),
+                    ims=frames,
+                    format="GIF",
+                    duration=self.all_args.ifi,
+                )
         
         print("expected goal: {}".format(np.mean(render_goals)))

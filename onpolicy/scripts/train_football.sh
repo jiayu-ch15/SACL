@@ -11,7 +11,7 @@ seed=1
 
 # football param
 num_agents=3
-representation="simple115v2"
+representation="extracted"
 
 # train param
 num_env_steps=25000000

@@ -35,6 +35,7 @@ def make_train_env(all_args):
         return SubprocVecEnv([get_env_fn(i) for i in range(
             all_args.n_rollout_threads)])
 
+
 def make_eval_env(all_args):
     def get_env_fn(rank):
         def init_env():
@@ -56,49 +57,38 @@ def make_eval_env(all_args):
 
 def parse_args(args, parser):
     parser.add_argument("--scenario_name", type=str,
-                        default='academy_3_vs_1_with_keeper', 
+                        default="academy_3_vs_1_with_keeper", 
                         help="which scenario to run on.")
+    parser.add_argument("--num_agents", type=int, default=3,
+                        help="number of controlled players.")
     parser.add_argument("--representation", type=str, default="simple115v2", 
                         choices=["simple115v2", "extracted", "pixels_gray", 
                                  "pixels"],
                         help="representation used to build the observation.")
     parser.add_argument("--rewards", type=str, default="scoring", 
                         help="comma separated list of rewards to be added.")
-    parser.add_argument("--write_goal_dumps", action='store_true', 
-                        default=False, 
-                        help="by default False. If True, dump traces up to 200 "
-                             "frames before goals.")
-    parser.add_argument("--write_full_episode_dumps", action='store_true', 
-                        default=False, 
-                        help="by default False. If True, dump traces for every "
-                             "episode.")
-    parser.add_argument("--render", action='store_true', 
-                        default=False, 
-                        help="by default False. If True, enable render ")
-    parser.add_argument("--dump_frequency", type=int, default=1,
-                        help="how often to write dumps/videos in terms of "
-                             "episodes (default: 1)")
-    parser.add_argument("--log_dir", type=str, default="", 
-                        help="log directory.")
-    parser.add_argument("--num_agents", type=int, default=3,
-                        help="number of controlled players.")
     parser.add_argument("--smm_width", type=int, default=96,
                         help="width of super minimap.")
     parser.add_argument("--smm_height", type=int, default=72,
                         help="height of super minimap.")
-    parser.add_argument("--remove_redundancy", action='store_true', 
+    parser.add_argument("--remove_redundancy", action="store_true", 
                         default=False, 
                         help="by default False. If True, remove redundancy features")
-    parser.add_argument("--zero_feature", action='store_true', 
+    parser.add_argument("--zero_feature", action="store_true", 
                         default=False, 
                         help="by default False. If True, replace -1 by 0")
-    parser.add_argument("--eval_deterministic", action='store_false', 
+    parser.add_argument("--eval_deterministic", action="store_false", 
                         default=True, 
                         help="by default True. If False, sample action according to probability")
     parser.add_argument("--share_reward", action='store_false', 
                         default=True, 
                         help="by default true. If false, use different reward for each agent.")
 
+    parser.add_argument("--save_videos", action="store_true", default=False, 
+                        help="by default, do not save render video. If set, save video.")
+    parser.add_argument("--video_dir", type=str, default="", 
+                        help="directory to save videos.")
+                        
     all_args = parser.parse_known_args(args)[0]
 
     return all_args
@@ -115,7 +105,7 @@ def main(args):
     else:
         raise NotImplementedError
 
-    assert all_args.use_eval, ("you need to set use_eval or use_render be True")
+    assert all_args.use_eval, ("you need to set use_eval to be True")
     assert not (all_args.model_dir == None or all_args.model_dir == ""), ("set model_dir first")
 
     # cuda

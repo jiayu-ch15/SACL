@@ -39,7 +39,7 @@ class R_Actor(nn.Module):
             self.base = MIXBase(args, obs_shape, cnn_layers_params=args.cnn_layers_params)
         else:
             self._mixed_obs = False
-            self.base = CNNBase(args, obs_shape) if len(obs_shape)==3 else MLPBase(args, obs_shape, use_attn_internal=args.use_attn_internal, use_cat_self=True)
+            self.base = CNNBase(args, obs_shape, cnn_layers_params=args.cnn_layers_params) if len(obs_shape)==3 else MLPBase(args, obs_shape, use_attn_internal=args.use_attn_internal, use_cat_self=True)
         
         input_size = self.base.output_size
 
@@ -166,7 +166,7 @@ class R_Critic(nn.Module):
             self.base = MIXBase(args, share_obs_shape, cnn_layers_params=args.cnn_layers_params)
         else:
             self._mixed_obs = False
-            self.base = CNNBase(args, share_obs_shape) if len(share_obs_shape)==3 else MLPBase(args, share_obs_shape, use_attn_internal=True, use_cat_self=args.use_cat_self)
+            self.base = CNNBase(args, share_obs_shape, cnn_layers_params=args.cnn_layers_params) if len(share_obs_shape)==3 else MLPBase(args, share_obs_shape, use_attn_internal=True, use_cat_self=args.use_cat_self)
 
         input_size = self.base.output_size
 
