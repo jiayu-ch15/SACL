@@ -3,19 +3,19 @@
 env="Football"
 scenario="academy_3_vs_1_with_keeper"
 # scenario="academy_run_to_score"
-scenario="academy_run_pass_and_shoot_with_keeper"
+scenario="academy_corner"
 algo="rmappo"
 exp="shared-sharedenserew-neweval"
-seed=3
+seed=1
 
 
 # football param
-num_agents=2
+num_agents=10
 representation="simple115v2"
 
 # train param
-num_env_steps=25000000
-episode_length=200
+num_env_steps=100000000
+episode_length=1000
 data_chunk_length=10 # 10, 20
 
 # log param

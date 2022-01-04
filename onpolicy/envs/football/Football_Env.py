@@ -134,7 +134,7 @@ class FootballEnv(object):
         reward = reward.reshape(self.num_agents, 1)
         if self.share_reward:
             global_reward = np.sum(reward)
-            rewards = [[global_reward]] * self.num_agents
+            reward = [[global_reward]] * self.num_agents
 
         done = np.array([done] * self.num_agents)
         info = self._info_wrapper(info)
