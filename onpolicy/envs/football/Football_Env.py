@@ -39,7 +39,7 @@ class FootballEnv(object):
             write_video=args.save_gifs,
             dump_frequency=args.dump_frequency,
             logdir=args.log_dir,
-            extra_players=None, # TODO(zelaix) chekc this arg
+            extra_players=None, # TODO(zelaix) check this arg
             number_of_left_players_agent_controls=args.num_agents,
             number_of_right_players_agent_controls=0,
             channel_dimensions=(args.smm_width, args.smm_height)
@@ -47,6 +47,7 @@ class FootballEnv(object):
         self.max_steps = self.env.unwrapped.observation()[0]["steps_left"]
         self.remove_redundancy = args.remove_redundancy
         self.zero_feature = args.zero_feature
+        self.share_reward = args.share_reward
         self.action_space = []
         self.observation_space = []
         self.share_observation_space = []
@@ -116,6 +117,10 @@ class FootballEnv(object):
         if self.zero_feature:
             obs[obs == -1] = 0
         reward = reward.reshape(self.num_agents, 1)
+        if self.share_reward:
+            global_reward = np.sum(reward)
+            rewards = [[global_reward]] * self.num_agents
+
         done = np.array([done] * self.num_agents)
         info = self._info_wrapper(info)
         return obs, reward, done, info

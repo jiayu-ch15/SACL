@@ -79,6 +79,9 @@ def parse_args(args, parser):
     parser.add_argument("--eval_deterministic", action='store_false', 
                         default=True, 
                         help="by default True. If False, sample action according to probability")
+    parser.add_argument("--share_reward", action='store_false', 
+                        default=True, 
+                        help="by default true. If false, use different reward for each agent.")
 
     all_args = parser.parse_known_args(args)[0]
 
