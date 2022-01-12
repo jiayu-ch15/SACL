@@ -30,3 +30,4 @@ pretrained_models
 
 onpolicy/envs/vizdoom/
 onpolicy/notebooks
+core.*
