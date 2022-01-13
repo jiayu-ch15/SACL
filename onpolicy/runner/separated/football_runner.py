@@ -129,6 +129,10 @@ class FootballRunner(Runner):
                 if done:
                     for agent_id in range(self.num_agents):
                         self.env_infos[agent_id]["goal"].append(info["score_reward"])
+                        if info["score_reward"]:
+                            self.env_infos[agent_id]["goal"].append(1)
+                        else:
+                            self.env_infos[agent_id]["goal"].append(0)
                         self.env_infos[agent_id]["steps"].append(info["max_steps"] - info["steps_left"])
 
         # reset rnn and mask args for done envs
@@ -170,6 +174,7 @@ class FootballRunner(Runner):
         # init eval goals
         num_done = 0
         eval_goals = np.zeros(self.all_args.eval_episodes)
+        eval_win_rates = np.zeros(self.all_args.eval_episodes)
         eval_steps = np.zeros(self.all_args.eval_episodes)
         step = 0
         quo = self.all_args.eval_episodes // self.n_eval_rollout_threads
@@ -209,6 +214,7 @@ class FootballRunner(Runner):
                 for idx_env in range(self.n_eval_rollout_threads):
                     if unfinished_thread[idx_env] and eval_dones_env[idx_env]:
                         eval_goals[num_done] = eval_infos[idx_env]["score_reward"]
+                        eval_win_rates[num_done] = 1 if eval_infos[idx_env]["score_reward"] else 0
                         eval_steps[num_done] = eval_infos[idx_env]["max_steps"] - eval_infos[idx_env]["steps_left"]
                         # print("episode {:>2d} done by env {:>2d}: {}".format(num_done, idx_env, eval_infos[idx_env]["score_reward"]))
                         num_done += 1
@@ -223,15 +229,18 @@ class FootballRunner(Runner):
 
         # get expected goal
         eval_expected_goal = np.mean(eval_goals)
+        eval_expected_win_rate = np.mean(eval_win_rates)
         eval_expected_step = np.mean(eval_steps)
     
         # log and print
         print("eval expected goal is {}.".format(eval_expected_goal))
         if self.use_wandb:
             wandb.log({"expected_goal": eval_expected_goal}, step=total_num_steps)
+            wandb.log({"eval_expected_win_rate": eval_expected_win_rate}, step=total_num_steps)
             wandb.log({"expected_step": eval_expected_step}, step=total_num_steps)
         else:
             self.writter.add_scalars("expected_goal", {"expected_goal": eval_expected_goal}, total_num_steps)
+            self.writter.add_scalars("eval_expected_win_rate", {"eval_expected_win_rate": eval_expected_win_rate}, total_num_steps)
             self.writter.add_scalars("expected_step", {"expected_step": eval_expected_step}, total_num_steps)
 
     @torch.no_grad()
