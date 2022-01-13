@@ -21,35 +21,38 @@ def match_config(pattern, raw):
 
 ##############################change config##############################
 #########################################################################
-project_dir = './football/'
-wandb_name = "football"
-project_name = "tune_hyperparameters"
+project_dir = './habitat_1agent/'
+wandb_name = "mapping"
+project_name = "Habitat"
 
 api = wandb.Api()
 runs = api.runs(wandb_name + "/"+ project_name)
 
-export_names = ['test','test1']
-varying_names = [100, 50]
-
+export_names = ['61','16','20','21','22','36','43','48','49']
+varying_names = [61,16,20,21,22,36,43,48,49]
+method_name = 'grid_simple'
 # Hyperparameters to filter.
 filter_configs = {
-    'share_policy': True,
-    'algorithm_name': 'rmappo',
-    'num_mini_batch': 2,
-    'ppo_epoch': 15
+    'use_eval': True,
+    'num_agents': 1,
+    'algorithm_name': 'mappo'
 }
 # Keywords for filter name.
 keywords = [
-    'shared',
+    'w.o._SA', 'grid_goal_simple'
 ]
-# Metrics you want to export.
+# Metrics you want to export.'450step_merge_auc':'auc', '450step_merge_auc':'450step'
+metric_dir = {'sum_merge_explored_ratio':'ratio', 'merge_explored_ratio_step':'step','sum_merge_repeat_area':'repeat'}
+metric_name = {'sum_merge_explored_ratio':'ratio', 'merge_explored_ratio_step':'step','sum_merge_repeat_area':'repeat'}
 metrics = [
-    'expected_goal',
-    'goal'
-]
+    'sum_merge_explored_ratio',
+    'merge_explored_ratio_step',
+    'sum_merge_repeat_area',
+    
+]#'450step_merge_auc'
 
 for varying_name, export_name in zip(varying_names, export_names):
-    filter_configs.update({'n_rollout_threads': varying_name}) # here is an example
+    filter_configs.update({'scene_id': varying_name}) # here is an example
 
     ################################export data##############################
     #########################################################################
@@ -93,8 +96,8 @@ for varying_name, export_name in zip(varying_names, export_names):
 
     # save csv
     for metric, data_list in merged_panels.items():
-        save_dir = project_dir + export_name + "/" 
+        save_dir = project_dir + export_name + "/" + method_name + "/"+ metric_dir[metric]+ "/"
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        merged_panels[metric].to_csv(save_dir + metric + ".csv")
+        merged_panels[metric].to_csv(save_dir + metric_name[metric] + ".csv")
 
