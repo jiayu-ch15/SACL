@@ -24,7 +24,7 @@ project_dir = './smac/'
 wandb_name = "zoeyuchao"
 project_name = "StarCraft2"
 
-map_names=['MMM2', '6h_vs_8z']
+map_names=['MMM2', '6h_vs_8z','3s5z_vs_3s6z','10m_vs_11m','5m_vs_6m']
 
 rollout_threads = ['1','2','4','8','16']
 
