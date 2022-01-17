@@ -45,6 +45,7 @@ metrics.update(
     }
 )
 project_dir = './football/'
+max_step=50e6
 
 value_dict = defaultdict(list)
 for scenario_name,label_name in zip(scenario_names,label_names):
@@ -63,6 +64,7 @@ for scenario_name,label_name in zip(scenario_names,label_names):
                 data_dir = project_dir + scenario_name + '/' + method_name + "/" + metric_name + '.csv'
 
                 df = pandas.read_csv(data_dir)
+                df = df.loc[df['Step'] <= max_step]
                 
                 key_cols = [c for c in df.columns if 'MIN' not in c and 'MAX' not in c]
                 
@@ -73,8 +75,8 @@ for scenario_name,label_name in zip(scenario_names,label_names):
                 all_metric = np.array(df[key_metric])
 
                 metric = all_metric[-10:,:] * 100
-                metric_mean = np.nanmean(np.nanmean(metric, axis=1))
-                metric_std = np.std(np.nanmean(metric, axis=1))
+                metric_mean = np.mean(np.mean(metric, axis=1))
+                metric_std = np.std(np.mean(metric, axis=1))
 
                 result = str(format(metric_mean, '.2f')) + "(" + str(format(metric_std, '.2f')) + ")"
                 value_dict[algo_name].append(result)
