@@ -36,17 +36,71 @@ step_names = {
     '5m_vs_6m': [ 0.0, 4.1, 3.9, 3.9, 7.8, 9.9],
     '6h_vs_8z': [ 4.3, 2.6, 3.5, 3.3, 4.6, 0.0],
     '10m_vs_11m': [ 1.7, 1.5, 0.8, 0.7, 1.0, 3.4],
+}
+
+step_std_names = {
+    'MMM2':         [9.6, 0.0, 3.1, 2.1, 2.6, 4.5],
+    '3s5z_vs_3s6z': [ 0.0, 4.0, 9.9, 3.0, 4.3, 0.0],
+    '5m_vs_6m': [ 0.0, 4.1, 3.9, 3.9, 7.8, 9.9],
+    '6h_vs_8z': [ 4.3, 2.6, 3.5, 3.3, 4.6, 0.0],
+    '10m_vs_11m': [ 1.7, 1.5, 0.8, 0.7, 1.0, 3.4],
 
 }
 
 project_dir = './smac/'
 max_step = 10e6
 bar_width = 1.5
+error_params=dict(elinewidth=1, capsize=3, alpha=0.7)
 
+for map_name, map_50_name, title_name in zip(map_names, map_50_names, title_names):
+    
+
+    step_names[map_name] = []
+    step_std_names[map_name] = []
+
+    for method_name, algo_name in zip(method_names, algo_names):
+        print(method_name)
+        for metric_name in metric_names:
+            data_dir = project_dir + map_name + '/' + method_name + "/" + metric_name + '.csv'
+
+            df = pandas.read_csv(data_dir)
+
+            df = df.loc[df['Step'] <= max_step]
+            
+            key_cols = [c for c in df.columns if 'MIN' not in c and 'MAX' not in c]
+            
+            key_step = [n for n in key_cols if n == 'Step']
+            key_metric = [n for n in key_cols if n != 'Step' and n != 'Unnamed: 0']
+
+            step = np.array(df[key_step])
+            metric = np.array(df[key_metric])
+
+            print(metric)
+            need_step = []
+            for m in range(metric.shape[1]):
+                if map_name == "10m_vs_11m":
+                    get_step = np.where(metric[:, m] > 0.9)[0]
+                else:
+                    get_step = np.where(metric[:, m] > 0.6)[0]
+                if get_step.shape[0] != 0:
+                    need_step.append(step[get_step[0]][0]/1e6)
+                else:
+                    need_step.append(np.NaN)
+            
+            need_step = np.array(need_step)
+
+            metric_mean = np.mean(need_step)
+            metric_std = np.std(need_step)
+
+            step_names[map_name].append(metric_mean)
+            step_std_names[map_name].append(metric_std)
+
+print(step_std_names)
 value_dict = defaultdict(list)
 for map_name, map_50_name, title_name in zip(map_names, map_50_names, title_names):
     plt.figure()
     metric_mean_list=[]
+    metric_std_list = []
 
     value_dict['Maps'].append(map_name)
     value_dict['Maps'].append(map_50_name)
@@ -78,6 +132,7 @@ for map_name, map_50_name, title_name in zip(map_names, map_50_names, title_name
             metric_std = np.std(np.median(metric, axis=1))
 
             metric_mean_list.append(metric_mean)
+            metric_std_list.append(metric_std)
 
             result = str(format(metric_mean, '.2f')) + "(" + str(format(metric_std, '.2f')) + ")"
             value_dict[algo_name].append(result)
@@ -93,8 +148,9 @@ for map_name, map_50_name, title_name in zip(map_names, map_50_names, title_name
     ax1.yaxis.set_major_locator(y_major_locator)
     ax1.yaxis.set_minor_locator(y_minor_Locator)
     ax1.set_ylabel('Eval Win Rate (%)', fontsize=15)
+    ax1.set_xlabel('Batch Size Scale', fontsize=15)
     if map_name == "MMM2":
-        ax1.set_ylim([0, 120])
+        ax1.set_ylim([0, 115])
     elif map_name == "5m_vs_6m":
         ax1.set_ylim([20, 120])
     elif map_name == "3s5z_vs_3s6z":
@@ -110,7 +166,7 @@ for map_name, map_50_name, title_name in zip(map_names, map_50_names, title_name
     X = (np.arange(len(metric_mean_list)) + 1) * 4
     X_final = X
     print(metric_mean_list)
-    ax1.bar(X_final, metric_mean_list, alpha=0.8, width=bar_width, label='eval win rate', lw=1)
+    ax1.bar(X_final, metric_mean_list, alpha=0.8, width=bar_width, label='eval win rate', lw=1, yerr=metric_std_list, error_kw=error_params)
     for x, y in zip(X_final, metric_mean_list):
         plt.text(x, y+0.05, ('%.1f' % y) if y != 0.0 else 'NaN', ha='center', va= 'bottom', fontsize=15)
 
@@ -125,13 +181,17 @@ for map_name, map_50_name, title_name in zip(map_names, map_50_names, title_name
     tx.set_fontsize(18)
     ax2.set_ylabel('Timesteps (M)', fontsize=15)
     if map_name == "MMM2":
-        ax2.set_ylim([0, 12])
+        ax2.set_ylim([0, 11.5])
     elif map_name == "5m_vs_6m":
         ax2.set_ylim([2, 12])
     elif map_name == "3s5z_vs_3s6z":
         ax2.set_ylim([0, 12])
     elif map_name == "10m_vs_11m":
-        ax2.set_ylim([0, 7])
+        y_major_locator = MultipleLocator(3)
+        y_minor_Locator = MultipleLocator(1.5)
+        ax2.yaxis.set_major_locator(y_major_locator)
+        ax2.yaxis.set_minor_locator(y_minor_Locator)
+        ax2.set_ylim([0, 10.5])
     else:
         ax2.set_ylim([0, 10.5])
     ax2.grid(False)
@@ -141,16 +201,29 @@ for map_name, map_50_name, title_name in zip(map_names, map_50_names, title_name
 
     X_final = X + bar_width
     print(step_names[map_name])
-    ax2.bar(X_final, step_names[map_name], alpha=0.8, width=bar_width, label='timesteps-50%', lw=1, color='royalblue')
+    if map_name == "10m_vs_11m":
+        ax2.bar(X_final, step_names[map_name], alpha=0.8, width=bar_width, label='timesteps-90%', lw=1, color='royalblue', yerr=step_std_names[map_name], error_kw=error_params)
+    else:
+        ax2.bar(X_final, step_names[map_name], alpha=0.8, width=bar_width, label='timesteps-60%', lw=1, color='royalblue', yerr=step_std_names[map_name], error_kw=error_params)
     for x, y in zip(X_final, step_names[map_name]):
         if map_name == "5m_vs_6m":
-            if y == 0.0:
-                y_txt = 2 + 0.05
+            if y > 0:
+                y_txt = y + 0.05
             else:
-                y_txt = y+0.05
+                y_txt = 2 + 0.05
+        elif map_name == "MMM2":
+            if y > 0:
+                y_txt = y + 0.05
+            else:
+                y_txt = 0 + 0.05
+        elif map_name == "10m_vs_11m":
+            if y > 0:
+                y_txt = y + 0.05
+            else:
+                y_txt = 0 + 0.05
         else:
-            y_txt = y+0.05
-        plt.text(x, y_txt, ('%.1f' % y) if y != 0.0 else 'NaN', ha='center', va= 'bottom', fontsize=15)
+            y_txt = y + 0.05
+        plt.text(x, y_txt, ('%.1f' % y) if y > 0.0 else 'NaN', ha='center', va= 'bottom', fontsize=15)
     ax2.legend(loc='upper right', fontsize=15) 
     
     
