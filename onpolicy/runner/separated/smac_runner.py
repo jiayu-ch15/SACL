@@ -4,6 +4,7 @@ import wandb
 import os
 import numpy as np
 from itertools import chain
+from functools import reduce
 import torch
 
 from onpolicy.utils.util import update_linear_schedule
@@ -113,9 +114,7 @@ class SMACRunner(Runner):
         obs, share_obs, available_actions = self.envs.reset()
 
         # replay buffer
-        if self.use_centralized_V:
-            share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)  
-        else:
+        if not self.use_centralized_V:
             share_obs = obs
 
         for agent_id in range(self.num_agents):
@@ -150,8 +149,8 @@ class SMACRunner(Runner):
         values = np.array(values).transpose(1, 0, 2)
         actions = np.array(actions).transpose(1, 0, 2)
         action_log_probs = np.array(action_log_probs).transpose(1, 0, 2)
-        rnn_states = np.array(rnn_states).transpose(1, 0, 2)
-        rnn_states_critic = np.array(rnn_states_critic).transpose(1, 0, 2)
+        rnn_states = np.array(rnn_states).transpose(1, 0, 2, 3)
+        rnn_states_critic = np.array(rnn_states_critic).transpose(1, 0, 2, 3)
 
         return values, actions, action_log_probs, rnn_states, rnn_states_critic
 
@@ -162,7 +161,7 @@ class SMACRunner(Runner):
         dones_env = np.all(dones, axis=1)
 
         rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
-        rnn_states_critic[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[2:]), dtype=np.float32)
+        rnn_states_critic[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
         masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
         masks[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
@@ -172,9 +171,7 @@ class SMACRunner(Runner):
 
         bad_masks = np.array([[[0.0] if info[agent_id]['bad_transition'] else [1.0] for agent_id in range(self.num_agents)] for info in infos])
         
-        if self.use_centralized_V:
-            share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
-        else:
+        if not self.use_centralized_V:
             share_obs = obs
 
         for agent_id in range(self.num_agents):

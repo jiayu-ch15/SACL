@@ -26,6 +26,9 @@ class SeparatedReplayBuffer(object):
         obs_shape = get_shape_from_obs_space(obs_space)
         share_obs_shape = get_shape_from_obs_space(share_obs_space)
 
+        print(obs_shape)
+        print(share_obs_shape)
+
         if type(obs_shape[-1]) == list:
             obs_shape = obs_shape[:1]
 
