@@ -18,14 +18,13 @@ def moving_average(interval, windowsize):
     re = np.convolve(interval, window, 'same')
     return re
 
-map_names=['MMM2', '10m_vs_11m','5m_vs_6m','6h_vs_8z','3s5z_vs_3s6z']
+map_names=['MMM2']#, '10m_vs_11m','5m_vs_6m','6h_vs_8z','3s5z_vs_3s6z']
 map_50_names=[ m + "-50%" for m in map_names]
 title_names = [name.replace("_vs_"," vs. ") for name in map_names]
 
 rollout_threads = ['1','2','4','8','16']
 
 method_names = ['final_mappo_rollout' + rt for rt in rollout_threads] + ['final_mappo_rollout16_length2000']
-
 algo_names = ['0.125x','0.25x','0.5x','1x','2x','10x']
 
 metric_names = ['eval_win_rate']
@@ -81,7 +80,8 @@ for map_name, map_50_name, title_name in zip(map_names, map_50_names, title_name
                 if map_name == "10m_vs_11m":
                     get_step = np.where(metric[:, m] > 0.9)[0]
                 else:
-                    get_step = np.where(metric[:, m] > 0.6)[0]
+                    get_step = np.where(metric[:, m] > 0.8)[0]
+                print(get_step)
                 if get_step.shape[0] != 0:
                     need_step.append(step[get_step[0]][0]/1e6)
                 else:
@@ -95,7 +95,6 @@ for map_name, map_50_name, title_name in zip(map_names, map_50_names, title_name
             step_names[map_name].append(metric_mean)
             step_std_names[map_name].append(metric_std)
 
-print(step_std_names)
 value_dict = defaultdict(list)
 for map_name, map_50_name, title_name in zip(map_names, map_50_names, title_names):
     plt.figure()
@@ -204,7 +203,7 @@ for map_name, map_50_name, title_name in zip(map_names, map_50_names, title_name
     if map_name == "10m_vs_11m":
         ax2.bar(X_final, step_names[map_name], alpha=0.8, width=bar_width, label='timesteps-90%', lw=1, color='royalblue', yerr=step_std_names[map_name], error_kw=error_params)
     else:
-        ax2.bar(X_final, step_names[map_name], alpha=0.8, width=bar_width, label='timesteps-60%', lw=1, color='royalblue', yerr=step_std_names[map_name], error_kw=error_params)
+        ax2.bar(X_final, step_names[map_name], alpha=0.8, width=bar_width, label='timesteps-80%', lw=1, color='royalblue', yerr=step_std_names[map_name], error_kw=error_params)
     for x, y in zip(X_final, step_names[map_name]):
         if map_name == "5m_vs_6m":
             if y > 0:
