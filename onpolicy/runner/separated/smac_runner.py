@@ -92,8 +92,15 @@ class SMACRunner(Runner):
                     last_battles_game = battles_game
                     last_battles_won = battles_won
                 
+                dead_ratio = []
                 for agent_id in range(self.num_agents):
                     train_infos[agent_id].update({"average_step_rewards": np.mean(self.buffer[agent_id].rewards)})
+                    dead_ratio.append(1 - self.buffer[agent_id].active_masks.sum() / reduce(lambda x, y: x*y, list(self.buffer[agent_id].active_masks.shape)))
+                    if self.use_wandb:
+                        wandb.log({"dead_ratio": np.mean(dead_ratio)}, step=total_num_steps)
+                    else:
+                        self.writter.add_scalars("dead_ratio", {"dead_ratio": np.mean(dead_ratio)}, total_num_steps)
+                    
             
                 self.log_train(train_infos, total_num_steps)
 
