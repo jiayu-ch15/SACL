@@ -160,7 +160,7 @@ class Runner(object):
         else:
             policy_actor_state_dict = torch.load(str(self.model_dir) + '/actor.pt', map_location=self.device)
             self.policy.actor.load_state_dict(policy_actor_state_dict)
-            if not self.all_args.use_render:
+            if not (self.all_args.use_render or self.all_args.use_eval):
                 policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic.pt', map_location=self.device)
                 self.policy.critic.load_state_dict(policy_critic_state_dict)
  

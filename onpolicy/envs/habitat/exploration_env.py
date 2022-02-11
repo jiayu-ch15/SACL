@@ -219,6 +219,7 @@ class Exploration_Env(habitat.RLEnv):
         path_length_flag = False
         self.balanced_flag = True
         balanced = False
+        self.repeat_flag = [True for _ in range(self.num_agents)]
         self.complete_up_flag = -1
         self.complete_down_flag = -1
         self.agent_complete_up_flag = np.ones(self.num_agents)*-1
@@ -268,6 +269,7 @@ class Exploration_Env(habitat.RLEnv):
         self.last_merge_explored_map = np.zeros_like(self.explorable_map[0])
         self.prev_merge_explored_map = np.zeros_like(self.explorable_map[0])
         self.prev_agent_explored_map = [np.zeros_like(self.explorable_map[0]) for _ in range(self.num_agents)]
+        self.repeat_agent_explored_map = [np.zeros_like(self.explorable_map[0]) for _ in range(self.num_agents)]
         self.prev_explored_area = [0. for _ in range(self.num_agents)]
         self.pre_agent_trans_map = [np.zeros_like(self.explorable_map[0]) for _ in range(self.num_agents)]
 
@@ -430,6 +432,7 @@ class Exploration_Env(habitat.RLEnv):
             competitive_reward = self.info['explored_competitve_reward']
             ratio = self.info['explored_ratio']
             repeat_area = self.info['repeat_area']
+            repeat_ratio = self.info['repeat_ratio']
             if self.use_eval:
                 path_length = self.info['path_length']
                 if 'path_length/ratio' in self.info.keys():
@@ -719,6 +722,7 @@ class Exploration_Env(habitat.RLEnv):
             'explored_competitve_reward':[0.0 for _ in range(self.num_agents)],
             'explored_ratio': [],
             'repeat_area': [0.0 for _ in range(self.num_agents)],
+            'repeat_ratio': [0.0 for _ in range(self.num_agents)],
             'overlap_reward':[0.0 for _ in range(self.num_agents)],
             'merge_explored_reward': 0.0,
             'merge_explored_ratio': 0.0,
@@ -883,8 +887,17 @@ class Exploration_Env(habitat.RLEnv):
                 if self.ratio[agent_id] <= self.explored_ratio_down_threshold:
                     single_agent_explored_map = self.current_explored_gt[agent_id] * self.explorable_map[agent_id]
                     self.info["repeat_area"][agent_id] = single_agent_explored_map[self.prev_agent_explored_map[agent_id] == 1].sum() * (25./10000)
+                    repeat_agent_explored_map = single_agent_explored_map.copy()
+                    repeat_agent_explored_map[self.prev_agent_explored_map[agent_id] != 1] = 0
+                    self.repeat_agent_explored_map[agent_id] += repeat_agent_explored_map
                 else:
                     self.info["repeat_area"][agent_id] = 0.0
+
+                if self.ratio[agent_id] >= self.explored_ratio_down_threshold or self.timestep >= self.args.max_episode_length:
+                    if self.repeat_flag[agent_id]:
+                        repeat_total_explored_map = np.where(self.repeat_agent_explored_map[agent_id] > 3,1,0)
+                        self.info['repeat_ratio'][agent_id] = repeat_total_explored_map.sum() / self.merge_explored_reward_scale
+                        self.repeat_flag[agent_id] = False
 
             if self.merge_ratio <= self.explored_ratio_down_threshold:
                 self.info['merge_repeat_area'] = agents_explored_map[self.prev_merge_explored_map == 1].sum() * (25./10000)
@@ -963,11 +976,11 @@ class Exploration_Env(habitat.RLEnv):
 
         # calculate merge reward
         curr_merge_explored_area = curr_merge_explored_map.sum()
-        merge_explored_reward_scale = merge_explorable_map.sum()
+        self.merge_explored_reward_scale = merge_explorable_map.sum()
         merge_explored_reward = (curr_merge_explored_area - self.prev_merge_explored_area) * 1.0
         self.prev_merge_explored_area = curr_merge_explored_area
         self.last_merge_explored_map = curr_merge_explored_map.copy()
-        merge_explored_ratio = merge_explored_reward / merge_explored_reward_scale
+        merge_explored_ratio = merge_explored_reward / self.merge_explored_reward_scale
         merge_explored_reward = merge_explored_reward * (25./10000.) * 0.02
 
         return agent_explored_rewards, agent_explored_ratios, \

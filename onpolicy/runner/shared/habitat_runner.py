@@ -496,17 +496,17 @@ class HabitatRunner(Runner):
         self.train_slam_infos_keys = ['costs','exp_costs','pose_costs']
 
         # info keys
-        self.sum_env_info_keys = ['overlap_reward', 'merge_explored_ratio', 'merge_explored_reward', 'explored_reward', 'repeat_area', 'merge_repeat_area']
+        self.sum_env_info_keys = ['overlap_reward', 'merge_explored_ratio', 'merge_explored_reward', 'explored_reward', 'repeat_area', 'repeat_ratio', 'merge_repeat_area']
         self.equal_env_info_keys = ['merge_overlap_ratio', 'merge_overlap_ratio_0.3', 'merge_overlap_ratio_0.5', 'merge_overlap_ratio_0.7','merge_explored_ratio_step', 'merge_explored_ratio_step_0.95', 'explored_ratio_step']
         
         # log keys
         if self.num_agents==1:
-            self.agents_env_info_keys = ['sum_explored_ratio','sum_overlap_reward','sum_explored_reward','sum_intrinsic_merge_explored_reward','sum_repeat_area','explored_ratio_step',\
+            self.agents_env_info_keys = ['sum_explored_ratio','sum_overlap_reward','sum_explored_reward','sum_intrinsic_merge_explored_reward','sum_repeat_area','sum_repeat_ratio','explored_ratio_step',\
                 '50step_auc','100step_auc','150step_auc','200step_auc','250step_auc','300step_auc','350step_auc','400step_auc','450step_auc']
             self.env_info_keys = ['sum_merge_explored_ratio','sum_merge_explored_reward','sum_merge_repeat_area','merge_overlap_ratio', 'merge_overlap_ratio_0.3', 'merge_overlap_ratio_0.5', 'merge_overlap_ratio_0.7', 'merge_explored_ratio_step','merge_explored_ratio_step_0.95', 'merge_global_goal_num', 'merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold,\
                 '50step_merge_auc','100step_merge_auc','150step_merge_auc','200step_merge_auc','250step_merge_auc','300step_merge_auc','350step_merge_auc','400step_merge_auc','450step_merge_auc']
         else:
-            self.agents_env_info_keys = ['sum_explored_ratio','sum_overlap_reward','sum_explored_reward','sum_intrinsic_merge_explored_reward','sum_repeat_area','explored_ratio_step',\
+            self.agents_env_info_keys = ['sum_explored_ratio','sum_overlap_reward','sum_explored_reward','sum_intrinsic_merge_explored_reward','sum_repeat_area','sum_repeat_ratio','explored_ratio_step',\
                 '50step_auc','100step_auc','120step_auc','150step_auc','180step_auc','200step_auc','250step_auc']
             self.env_info_keys = ['sum_merge_explored_ratio','sum_merge_explored_reward','sum_merge_repeat_area','merge_overlap_ratio', 'merge_overlap_ratio_0.3', 'merge_overlap_ratio_0.5', 'merge_overlap_ratio_0.7', 'merge_explored_ratio_step','merge_explored_ratio_step_0.95', 'merge_global_goal_num', 'merge_global_goal_num_%.2f'%self.all_args.explored_ratio_threshold,\
                 '50step_merge_auc','100step_merge_auc','120step_merge_auc','150step_merge_auc','180step_merge_auc','200step_merge_auc','250step_merge_auc']
