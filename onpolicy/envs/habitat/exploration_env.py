@@ -897,7 +897,7 @@ class Exploration_Env(habitat.RLEnv):
                 if self.ratio[agent_id] >= self.explored_ratio_down_threshold or self.timestep >= self.args.max_episode_length:
                     if self.repeat_flag[agent_id]:
                         repeat_total_explored_map = np.where(self.repeat_agent_explored_map[agent_id] > 3,1,0)
-                        self.info['repeat_ratio'][agent_id] = repeat_total_explored_map.sum() / self.merge_explored_reward_scale
+                        self.info['repeat_ratio'][agent_id] = repeat_total_explored_map.sum() / curr_agent_explored_map[agent_id].sum()
                         self.repeat_flag[agent_id] = False
 
             if self.merge_ratio <= self.explored_ratio_down_threshold:
