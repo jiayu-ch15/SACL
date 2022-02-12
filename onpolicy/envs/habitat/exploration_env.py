@@ -502,6 +502,7 @@ class Exploration_Env(habitat.RLEnv):
                 self.info['merge_overlap_ratio'] = merge_overlap_ratio
 
             self.info['repeat_area'] = repeat_area
+            self.info['repeat_ratio'] = repeat_ratio
             if self.use_eval:
                 self.info['path_length'] = path_length
                 if path_length_flag:
