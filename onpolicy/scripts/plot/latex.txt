@@ -4,31 +4,10 @@
 \label{tab:trained}
 \begin{tabular}{cccc}
 \toprule
-    Methods &         Coverage Ratio &                    Steps &                     Rep \\
+     Methods &           Repeat Ratio &                     Rep &                     Steps \\
 \midrule
-    2\_Heads & 0.92scriptsize\{(0.01)\} & 324.40scriptsize\{(5.02)\} & 73.43scriptsize\{(2.10)\} \\
-  Multi\_Dis & 0.92scriptsize\{(0.01)\} & 340.59scriptsize\{(6.09)\} & 76.66scriptsize\{(1.11)\} \\
-    No\_Attn & 0.95scriptsize\{(0.00)\} & 290.92scriptsize\{(3.68)\} & 72.65scriptsize\{(1.42)\} \\
-Grid\_Simple & 0.91scriptsize\{(0.01)\} & 381.04scriptsize\{(5.39)\} & 95.04scriptsize\{(2.85)\} \\
-        ANS & 0.94scriptsize\{(0.01)\} & 342.89scriptsize\{(6.05)\} & 89.96scriptsize\{(2.55)\} \\
-      MAANS & 0.95scriptsize\{(0.00)\} & 298.38scriptsize\{(4.96)\} & 71.52scriptsize\{(2.71)\} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{table}
-\centering
-\caption{Average performance on unseen maps}
-\label{tab:unseen}
-\begin{tabular}{cccc}
-\toprule
-    Methods &         Coverage Ratio &                    Steps &                      Rep \\
-\midrule
-    2\_Heads & 0.89scriptsize\{(0.01)\} & 398.17scriptsize\{(9.97)\} & 122.60scriptsize\{(3.14)\} \\
-  Multi\_Dis & 0.90scriptsize\{(0.01)\} & 398.51scriptsize\{(2.93)\} & 135.38scriptsize\{(2.43)\} \\
-    No\_Attn & 0.98scriptsize\{(0.00)\} & 239.04scriptsize\{(4.53)\} &  43.79scriptsize\{(1.48)\} \\
-Grid\_Simple & 0.99scriptsize\{(0.00)\} & 268.64scriptsize\{(6.96)\} &  59.37scriptsize\{(1.16)\} \\
-   MAANS-TD & 0.98scriptsize\{(0.00)\} & 213.59scriptsize\{(0.97)\} &  46.06scriptsize\{(0.50)\} \\
+         apf & 0.40scriptsize\{(0.03)\} & 70.29scriptsize\{(1.94)\} & 260.68scriptsize\{(15.20)\} \\
+global\_stack & 0.24scriptsize\{(0.01)\} & 99.37scriptsize\{(2.69)\} &  401.88scriptsize\{(1.26)\} \\
 \bottomrule
 \end{tabular}
 \end{table}
