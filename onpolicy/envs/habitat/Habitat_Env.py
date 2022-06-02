@@ -176,9 +176,11 @@ class MultiHabitatEnv(object):
         if args.use_selected_large_scenes:
             scene_num=[31, 70, 9, 47, 45]
             config_env.DATASET.CONTENT_SCENES = scenes[scene_num[rank]:scene_num[rank]+1]
-            
+        if args.use_selected_overall_scenes:
+            scene_num=[31, 70, 9, 47, 45, 20, 49, 48, 61, 43]
+            config_env.DATASET.CONTENT_SCENES = scenes[scene_num[rank]:scene_num[rank]+1]
 
-        if rank > (args.n_rollout_threads)/2 and args.n_rollout_threads > 6:
+        if rank > (args.n_rollout_threads)/2 and args.n_rollout_threads > 5:
             gpu_id = 2
         else:
             gpu_id = 0 if torch.cuda.device_count() == 1 else 1

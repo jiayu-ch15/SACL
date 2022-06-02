@@ -77,7 +77,7 @@ class Exploration_Env(habitat.RLEnv):
         self.use_depth_proj = args.use_depth_proj
         self.use_depth = args.use_depth
         self.use_overlap_penalty = args.use_overlap_penalty
-
+        self.use_async = args.use_async
         self.num_actions = 3
         self.dt = 10
 
@@ -922,11 +922,12 @@ class Exploration_Env(habitat.RLEnv):
         # self.save_position()
         # self.save_position_data()
 
-
         if self.info['time'][0] >= self.args.max_episode_length:
             done = [True for _ in range(self.num_agents)]
             if self.args.save_trajectory_data:
                 self.save_trajectory_data()
+        elif self.use_async and (self.info['time'][0] % self.args.num_local_steps == 0)  and (self.merge_ratio > 0.95) :
+            done = [True for _ in range(self.num_agents)]
         else:
             done = [False for _ in range(self.num_agents)]
         
