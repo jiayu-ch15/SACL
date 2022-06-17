@@ -28,7 +28,8 @@
 - [StagHunt](https://github.com/staghuntrpg/RPG/tree/main/GridWorld)
 - [MultiVehicleEnv](https://github.com/efc-robot/MultiVehicleEnv.git)
 - [VizDoom](https://github.com/mwydmuch/ViZDoom.git) refer to vizdoom branch
-- [Google Football](https://github.com/google-research/football) 
+- [Google Football](https://github.com/google-research/football)
+- [Overcooked](https://github.com/HumanCompatibleAI/overcooked_ai) refer to humanai_baseline branch
 - [NICS_Robot_Platform](https://github.com/Xiangyf18/NICS_MultiRobot_Platform) 
 
 ## TODOs:
