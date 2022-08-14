@@ -93,6 +93,7 @@ def parse_args(args, parser):
     parser.add_argument('--use_selected_small_scenes', action='store_true', default=False)
     parser.add_argument('--use_selected_middle_scenes', action='store_true', default=False)
     parser.add_argument('--use_selected_large_scenes', action='store_true', default=False)
+    parser.add_argument('--use_selected_overall_scenes', action='store_true', default=False)
 
     # reward params
     parser.add_argument('--use_restrict_map',action='store_true', default=False)
@@ -206,6 +207,8 @@ def parse_args(args, parser):
     parser.add_argument('--use_depth_proj', action='store_true',
                         default=False, help="by default True, use_depth_proj")
     parser.add_argument('--use_depth', action='store_true',
+                        default=False, help="by default True, use_depth_info")
+    parser.add_argument('--use_async', action='store_true',
                         default=False, help="by default True, use_depth_info")     
 
     # Local Policy
@@ -347,7 +350,10 @@ def main(args):
 
     # run experiments
     if all_args.share_policy:
-        from onpolicy.runner.shared.habitat_runner import HabitatRunner as Runner
+        if all_args.use_async:
+            from onpolicy.runner.shared.async_habitat_runner import HabitatRunner as Runner
+        else:
+            from onpolicy.runner.shared.habitat_runner import HabitatRunner as Runner
     else:
         from onpolicy.runner.separated.habitat_runner import HabitatRunner as Runner
 
