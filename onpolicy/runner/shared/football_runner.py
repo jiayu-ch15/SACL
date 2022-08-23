@@ -117,7 +117,7 @@ class FootballRunner(Runner):
             for done, info in zip(dones_env, infos):
                 if done:
                     self.env_infos["goal"].append(info["score_reward"])
-                    if info["score_reward"]:
+                    if info["score_reward"] > 0:
                         self.env_infos["win_rate"].append(1)
                     else:
                         self.env_infos["win_rate"].append(0)
@@ -198,7 +198,7 @@ class FootballRunner(Runner):
                 for idx_env in range(self.n_eval_rollout_threads):
                     if unfinished_thread[idx_env] and eval_dones_env[idx_env]:
                         eval_goals[num_done] = eval_infos[idx_env]["score_reward"]
-                        eval_win_rates[num_done] = 1 if eval_infos[idx_env]["score_reward"] else 0
+                        eval_win_rates[num_done] = 1 if eval_infos[idx_env]["score_reward"] > 0 else 0
                         eval_steps[num_done] = eval_infos[idx_env]["max_steps"] - eval_infos[idx_env]["steps_left"]
                         # print("episode {:>2d} done by env {:>2d}: {}".format(num_done, idx_env, eval_infos[idx_env]["score_reward"]))
                         num_done += 1

@@ -7,7 +7,7 @@ import json
 import numpy as np
 import sys
 import os
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 def match_config(pattern, raw):
     try:
@@ -24,57 +24,40 @@ project_dir = './football/'
 wandb_name = "football"
 project_name = "tune_hyperparameters"
 
-scenario_names=['academy_3_vs_1_with_keeper',\
-                'academy_counterattack_easy',\
-                'academy_counterattack_hard',\
+scenario_names=[#'academy_3_vs_1_with_keeper',\
+                # 'academy_counterattack_easy',\
+                # 'academy_counterattack_hard',\
                 'academy_corner',\
-                'academy_pass_and_shoot_with_keeper',\
-                'academy_run_pass_and_shoot_with_keeper']
+                # 'academy_pass_and_shoot_with_keeper',\
+                # 'academy_run_pass_and_shoot_with_keeper'\
+                ]
 
-rollout_threads = ['5','10','25','50','100']
+ppo_epoches = ['5', '10']
+clips = ['0.05', '0.1', '0.15', '0.3', '0.5']
+mini_batches = ['1', '4']
 
-tags = ['final_mappo_rollout' + rt for rt in rollout_threads] + \
-['final_mappo',
-'final_mappo_sparse',
-'final_mappo_denserew',
-'final_mappo_separated_sparserew',
-'final_mappo_separated_sharedenserew',
-'final_mappo_separated_denserew',
-'final_qmix',
-'final_qmix_sparse',
-'final_cds_qmix',
-'final_cds_qplex',
-'final_cds_qmix_denserew',
-'final_cds_qplex_denserew'
-]
-
-scenario_names=['academy_counterattack_hard',\
-                'academy_corner']
-
-tags=['final_cds_qmix_denserew',
-'final_cds_qplex_denserew']
+tags = ['final_mappo_ppo' + ppo for ppo in ppo_epoches] + \
+['final_mappo_clip' + clip for clip in clips] + \
+['final_mappo_mini' + mini for mini in mini_batches] + \
+['final_mappo_novaluenorm']
 
 filter_configs = {
 }
 
 # Metrics you want to export.
-metrics = {'final_mappo_rollout'+rt:['expected_goal'] for rt in rollout_threads}
+
+metrics = {'final_mappo_ppo' + ppo: ['expected_goal'] for ppo in ppo_epoches}
 metrics.update(
-    {
-    'final_mappo': ['expected_goal'],
-    'final_mappo_sparse': ['expected_goal'],
-    'final_mappo_denserew': ['expected_goal'],
-    'final_mappo_separated_sparserew': ['expected_goal'],
-    'final_mappo_separated_sharedenserew': ['expected_goal'],
-    'final_mappo_separated_denserew': ['expected_goal'],
-    'final_qmix': ['expected_win_rate'],
-    'final_qmix_sparse': ['expected_win_rate'],
-    'final_cds_qmix': ['test_score_reward_mean'],
-    'final_cds_qplex': ['test_score_reward_mean'],
-    'final_cds_qmix_denserew': ['test_score_reward_mean'],
-    'final_cds_qplex_denserew': ['test_score_reward_mean']
-    }
+    {'final_mappo_mini' + mini: ['expected_goal'] for mini in mini_batches} 
 )
+metrics.update(
+    {'final_mappo_clip' + clip: ['expected_goal'] for clip in clips}
+)
+metrics.update(
+    {'final_mappo_novaluenorm': ['expected_goal']},
+)
+
+print(metrics)
 
 #########################################################################
 #########################################################################
@@ -96,13 +79,15 @@ for scenario_name in scenario_names:
             for tag in tags:
                 if tag in run.Tags:
                     runs_taged_dict[tag].append(run)
-                    print(run.name)
+                    # print(run.name)
 
     for tag, runs_taged in runs_taged_dict.items():
         panels = {metric: [] for metric in metrics[tag]}
         for run in runs_taged:
             # `history` is a pd.Dataframe instance.
             # `samples`: should be large to export all data once.
+            print(run.name)
+            print(metrics[tag])
             history = run.history(keys=metrics[tag], samples=1000000000)
             for metric, lst in panels.items():
                 lst.append(history[metric])
