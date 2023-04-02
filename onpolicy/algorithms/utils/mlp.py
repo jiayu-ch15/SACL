@@ -77,7 +77,7 @@ class MLPBase(nn.Module):
         
             if self._use_average_pool:
                 if use_cat_self:
-                    inputs_dim = self._attn_size + obs_shape[-1][1]
+                    inputs_dim = 2 * self._attn_size
                 else:
                     inputs_dim = self._attn_size
             else:

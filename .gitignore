@@ -21,6 +21,7 @@ logs
 *.so
 *.out
 png
+notebooks
 
 gibson/assets/dataset
 docker

@@ -192,10 +192,11 @@ class CatSelfEmbedding(nn.Module):
                 exec('x1.append(self.fc_{}(temp))'.format(i))
         temp = x[self_idx]
         exec('x1.append(self.fc_{}(temp))'.format(N-1))
+        x_self = x1[-1]
 
         out = torch.stack(x1, 1)
 
-        return out, self_x
+        return out, x_self
 
 
 class Embedding(nn.Module):
@@ -232,4 +233,3 @@ class Embedding(nn.Module):
             return out, None
         else:
             return out, x[self_idx]
-
