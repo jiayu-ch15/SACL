@@ -1,8 +1,10 @@
-import gym
+from .multi_discrete import MultiDiscrete
 from gym import spaces
 from gym.envs.registration import EnvSpec
+import copy
+import gym
 import numpy as np
-from .multi_discrete import MultiDiscrete
+
 
 # update bounds to center around agent
 cam_range = 2
@@ -17,7 +19,9 @@ class MultiAgentEnv(gym.Env):
     def __init__(self, world, reset_callback=None, reward_callback=None,
                  observation_callback=None, info_callback=None,
                  done_callback=None, post_step_callback=None,
-                 shared_viewer=True, discrete_action=True):
+                 shared_viewer=True, discrete_action=True,
+                 action_space=None, observation_space=None,
+                 share_observation_space=None):
 
         self.world = world
         self.world_length = self.world.world_length
@@ -46,12 +50,15 @@ class MultiAgentEnv(gym.Env):
 
         # if true, every agent has the same reward
         self.shared_reward = world.collaborative if hasattr(world, 'collaborative') else False
+        self.competitive = world.competitive if hasattr(world, 'competitive') else False
+        assert not (self.shared_reward and self.competitive), ("shared_reward and competitive cannot both be True.")
+        self.adv_idx = np.array([ag.adversary == True for ag in self.agents])
+        self.good_idx = np.array([ag.adversary == False for ag in self.agents])
         self.time = 0
 
         # configure spaces
         self.action_space = []
         self.observation_space = []
-        self.share_observation_space = []
         share_obs_dim = 0
         for i, agent in enumerate(self.agents):
             total_action_space = []
@@ -91,11 +98,16 @@ class MultiAgentEnv(gym.Env):
             obs_dim = len(observation_callback(agent, self.world))
             share_obs_dim += obs_dim
             self.observation_space.append(spaces.Box(
-                low=-np.inf, high=+np.inf, shape=(obs_dim,), dtype=np.float32))  # [-inf,inf]
+                low=-np.inf, high=+np.inf, shape=(obs_dim,), dtype=np.float32))  # [-inf, inf]
             agent.action.c = np.zeros(self.world.dim_c)
         
-        self.share_observation_space = [spaces.Box(
-            low=-np.inf, high=+np.inf, shape=(share_obs_dim,), dtype=np.float32) for _ in range(self.n)] 
+        self.share_observation_space = [spaces.Box(low=-np.inf, high=+np.inf, shape=(share_obs_dim,), dtype=np.float32) for _ in range(self.n)]
+        
+        # overwrite space if given.
+        # self.action_space = action_space if action_space is not None else self.action_space
+        self.action_space = action_space or self.action_space
+        self.observation_space = observation_space or self.observation_space
+        self.share_observation_space = share_observation_space or self.share_observation_space
         
         # rendering
         self.shared_viewer = shared_viewer
@@ -129,16 +141,25 @@ class MultiAgentEnv(gym.Env):
             obs_n.append(self._get_obs(agent))
             reward_n.append([self._get_reward(agent)])
             done_n.append(self._get_done(agent))
-            info = {'individual_reward': self._get_reward(agent)}
-            env_info = self._get_info(agent)
-            if 'fail' in env_info.keys():
-                info['fail'] = env_info['fail']
+            info = {"individual_reward": copy.deepcopy(reward_n[-1])}
             info_n.append(info)
+        
+        for i, agent in enumerate(self.agents):
+            env_info = self._get_info(agent)
+            info_n[i].update(env_info)
 
         # all agents get total reward in cooperative case, if shared reward, all agents have the same reward, and reward is sum
         if self.shared_reward:
             reward = np.sum(reward_n)
             reward_n = [[reward]] * self.n
+        
+        if self.competitive:
+            reward = np.array(reward_n)
+            # share reward for adversaries
+            reward[self.adv_idx] = np.mean(reward[self.adv_idx])
+            # share reward for good agents
+            reward[self.good_idx] = np.mean(reward[self.good_idx])
+            reward_n = reward.tolist()
 
         if self.post_step_callback is not None:
             self.post_step_callback(self.world)
