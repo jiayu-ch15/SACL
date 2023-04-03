@@ -4,15 +4,24 @@ import time
 import torch
 
 from onpolicy.runner.competitive.base_runner import Runner
+from onpolicy.utils.curriculum_buffer import CurriculumBuffer
 
 
 def _t2n(x):
     return x.detach().cpu().numpy()
 
 
-class MPERunner(Runner):
+class MPECurriculumRunner(Runner):
     def __init__(self, config):
-        super(MPERunner, self).__init__(config)
+        super(MPECurriculumRunner, self).__init__(config)
+
+        self.num_curriculum_reset = int(self.all_args.n_rollout_threads * self.all_args.curriculum_prob)
+        self.num_normal_reset = self.all_args.n_rollout_threads - self.num_curriculum_reset
+        self.curriculum_buffer = CurriculumBuffer(
+            buffer_size=self.all_args.curriculum_buffer_size,
+            update_method=self.all_args.update_method,
+            sample_method=self.all_args.sample_method,
+        )
 
     def run(self):
         self.warmup()   
@@ -32,9 +41,14 @@ class MPERunner(Runner):
                 # insert data into buffer
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
                 self.insert(data)
-            # compute return and update network
+            # compute return
             self.compute()
+            # update curiculum buffer
+            self.curriculum_buffer.update()
+            # train network
             red_train_infos, blue_train_infos = self.train()
+            # sample and reset subgames
+            self.reset_subgames()
             # post process
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
 
@@ -89,6 +103,27 @@ class MPERunner(Runner):
         # blue buffer
         self.blue_buffer.obs[0] = obs[:, -self.num_blue:].copy()
         self.blue_buffer.share_obs[0] = obs[:, -self.num_blue:].copy()
+
+    def reset_subgames(self):
+        # sample initial states and reset
+        initial_states = self.curriculum_buffer.sample(self.num_curriculum_reset) + [None for _ in range(self.num_normal_reset)]
+        obs = self.envs.reset(initial_states)
+        # red buffer
+        self.red_buffer.obs[0] = obs[:, :self.num_red].copy()
+        self.red_buffer.share_obs[0] = obs[:, :self.num_red].copy()
+        self.red_buffer.rnn_states[0] = np.zeros_like(self.red_buffer.rnn_states[0])
+        self.red_buffer.rnn_states_critic[0] = np.zeros_like(self.red_buffer.rnn_states_critic[0])
+        self.red_buffer.masks[0] = np.zeros_like(self.red_buffer.masks[0])
+        self.red_buffer.bad_masks[0] = np.zeros_like(self.red_buffer.bad_masks[0])
+        self.red_buffer.active_masks[0] = np.zeros_like(self.red_buffer.active_masks[0])
+        # blue buffer
+        self.blue_buffer.obs[0] = obs[:, -self.num_blue:].copy()
+        self.blue_buffer.share_obs[0] = obs[:, -self.num_blue:].copy()
+        self.blue_buffer.rnn_states[0] = np.zeros_like(self.blue_buffer.rnn_states[0])
+        self.blue_buffer.rnn_states_critic[0] = np.zeros_like(self.blue_buffer.rnn_states_critic[0])
+        self.blue_buffer.masks[0] = np.zeros_like(self.blue_buffer.masks[0])
+        self.blue_buffer.bad_masks[0] = np.zeros_like(self.blue_buffer.bad_masks[0])
+        self.blue_buffer.active_masks[0] = np.zeros_like(self.blue_buffer.active_masks[0])
 
     @torch.no_grad()
     def collect(self, step):
@@ -162,7 +197,22 @@ class MPERunner(Runner):
             rewards=rewards[:, -self.num_blue:],
             masks=masks[:, -self.num_blue:],
         )
-
+        # curriculum buffer
+        # new_states = [info[0]["state"] for info in infos]
+        # TODO: filter bad states
+        new_states = []
+        for info in infos:
+            state = info[0]["state"]
+            if np.any(np.abs(state[0:2]) > self.all_args.corner_max):
+                continue
+            if np.any(np.abs(state[4:6]) > self.all_args.corner_max):
+                continue
+            if np.any(np.abs(state[8:10]) > self.all_args.corner_max):
+                continue
+            if np.any(np.abs(state[12:14]) > self.all_args.corner_max):
+                continue
+            new_states.append(state)
+        self.curriculum_buffer.insert(new_states)
 
     # @torch.no_grad()
     # def eval(self, total_num_steps):

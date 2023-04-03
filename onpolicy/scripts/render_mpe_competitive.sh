@@ -1,14 +1,14 @@
 #!/bin/sh
 # exp config
-exp="render_test"
+exp="render"
 algo="mappo"
 seed=0
 # env config
 env="MPE"
 scenario="simple_tag_corner"
 horizon=200
-corner_min=-1.0
-corner_max=1.0
+corner_min=-2.0
+corner_max=2.0
 num_adv=3
 num_good=1
 num_landmarks=2
@@ -17,8 +17,9 @@ attn_size=32
 # render config
 render_episodes=5
 n_rollout_threads=1
-model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/min-1_max1_sp_test/wandb/run-20230401_165058-ln836piu/files"
-# model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/min2_max3_sp_test/wandb/run-20230401_165535-2ynuub3j/files"
+# model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/min-1_max1_sp/wandb/run-20230402_101310-37nr8qxp/files"
+model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/min-2_max2_sp/wandb/run-20230402_093218-3aqr22uz/files"
+# model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/min-3_max3_sp/wandb/run-20230402_092732-2klutofi/files"
 # user name
 user_name="zelaix"
 wandb_name="sacl"
@@ -26,7 +27,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=7 xvfb-run -s "-screen 0 1400x900x24" python render/render_mpe_competitive.py \
+CUDA_VISIBLE_DEVICES=5 xvfb-run -s "-screen 0 1400x900x24" python render/render_mpe_competitive.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \

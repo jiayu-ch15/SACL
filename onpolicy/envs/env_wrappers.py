@@ -47,7 +47,7 @@ class ShareVecEnv(ABC):
         self.action_space = action_space
 
     @abstractmethod
-    def reset(self):
+    def reset(self, initial_states=None):
         """
         Reset all the environments and return an array of
         observations, or a dict of observation arrays.
@@ -156,7 +156,7 @@ def worker(remote, parent_remote, env_fn_wrapper):
 
             remote.send((ob, reward, done, info))
         elif cmd == 'reset':
-            ob = env.reset()
+            ob = env.reset(data)
             remote.send((ob))
         elif cmd == 'render':
             if data == "rgb_array":
@@ -270,9 +270,11 @@ class SubprocVecEnv(ShareVecEnv):
         obs, rews, dones, infos = zip(*results)
         return np.stack(obs), np.stack(rews), np.stack(dones), infos
 
-    def reset(self):
-        for remote in self.remotes:
-            remote.send(('reset', None))
+    def reset(self, initial_states=None):
+        if initial_states is None:
+            initial_states = [None for _ in range(len(self.remotes))]
+        for remote, initial_state in zip(self.remotes, initial_states):
+            remote.send(('reset', initial_state))
         obs = [remote.recv() for remote in self.remotes]
         return np.stack(obs)
 
@@ -932,8 +934,10 @@ class DummyVecEnv(ShareVecEnv):
         self.actions = None
         return obs, rews, dones, infos
 
-    def reset(self):
-        obs = [env.reset() for env in self.envs]
+    def reset(self, initial_states=None):
+        if initial_states is None:
+            initial_states = [None for _ in range(len(self.envs))]
+        obs = [env.reset(initial_state) for (env, initial_state) in zip(self.envs, initial_states)]
         return np.array(obs)
 
     def get_max_step(self):

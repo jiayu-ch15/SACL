@@ -6,9 +6,6 @@ import gym
 import numpy as np
 
 
-# update bounds to center around agent
-cam_range = 2
-
 # environment for all agents in the multiagent world
 # currently code assumes that no agents will be created/destroyed at runtime!
 class MultiAgentEnv(gym.Env):
@@ -35,8 +32,9 @@ class MultiAgentEnv(gym.Env):
         self.observation_callback = observation_callback
         self.info_callback = info_callback
         self.done_callback = done_callback
-
         self.post_step_callback = post_step_callback
+        # for render
+        self.cam_range = world.camera_range if hasattr(world, "camera_range") else 2
 
         # environment parameters
         # self.discrete_action_space = True
@@ -143,9 +141,9 @@ class MultiAgentEnv(gym.Env):
             done_n.append(self._get_done(agent))
             info = {"individual_reward": copy.deepcopy(reward_n[-1])}
             info_n.append(info)
-        
-        for i, agent in enumerate(self.agents):
-            env_info = self._get_info(agent)
+        # update env info
+        env_info = self._get_env_info()
+        for i in range(self.n):
             info_n[i].update(env_info)
 
         # all agents get total reward in cooperative case, if shared reward, all agents have the same reward, and reward is sum
@@ -166,10 +164,13 @@ class MultiAgentEnv(gym.Env):
 
         return obs_n, reward_n, done_n, info_n
 
-    def reset(self):
-        self.current_step = 0
+    def reset(self, initial_state=None):
         # reset world
-        self.reset_callback(self.world)
+        self.current_step = 0
+        if initial_state is None:
+            self.reset_callback(self.world)
+        else:
+            self.reset_callback(self.world, initial_state)
         # reset renderer
         self._reset_render()
         # record observations for each agent
@@ -180,6 +181,12 @@ class MultiAgentEnv(gym.Env):
             obs_n.append(self._get_obs(agent))
 
         return obs_n
+
+    # get info used for benchmarking
+    def _get_env_info(self):
+        if self.info_callback is None:
+            return {}
+        return self.info_callback(self.world)
 
     # get info used for benchmarking
     def _get_info(self, agent):
@@ -405,7 +412,7 @@ class MultiAgentEnv(gym.Env):
             else:
                 pos = self.agents[i].state.p_pos
             self.viewers[i].set_bounds(
-                pos[0]-cam_range, pos[0]+cam_range, pos[1]-cam_range, pos[1]+cam_range)
+                pos[0]-self.cam_range, pos[0]+self.cam_range, pos[1]-self.cam_range, pos[1]+self.cam_range)
             # update geometry positions
             for e, entity in enumerate(self.world.entities):
                 self.render_geoms_xform[e].set_translation(*entity.state.p_pos)

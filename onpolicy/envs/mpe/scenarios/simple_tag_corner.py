@@ -1,4 +1,5 @@
 from gym import spaces
+import copy
 import numpy as np
 
 from onpolicy.envs.mpe.core import World, Agent, Landmark
@@ -14,6 +15,7 @@ class Scenario(BaseScenario):
         self.num_landmarks = args.num_landmarks
         self.corner_min = args.corner_min
         self.corner_max = args.corner_max
+        self.horizon = args.horizon
 
         world = World()
         # set any world properties first
@@ -24,6 +26,7 @@ class Scenario(BaseScenario):
         world.num_good = args.num_good  # 1
         world.num_agents = args.num_adv + args.num_good
         world.num_landmarks = args.num_landmarks  # 2
+        world.camera_range = args.corner_max + 1
         # add agents
         world.agents = [Agent() for i in range(world.num_agents)]
         for i, agent in enumerate(world.agents):
@@ -62,26 +65,78 @@ class Scenario(BaseScenario):
     @property
     def share_observation_space(self):
         return self.observation_space
+    
+    def get_state(self, world):
+        """
+        state:
+            agent_states: num_agents x [pos_x, pos_y, vel_x, vel_y]
+            landmark_states: num_landmarks x [pos_x, pos_y]
+            world_step
+        """
+        # agent states
+        agent_states = []
+        for ag in world.agents:
+            agent_states.append(ag.state.p_pos)
+            agent_states.append(ag.state.p_vel)
+        # landmark states
+        landmark_states = []
+        for landmark in world.landmarks:
+            if not landmark.boundary:
+                landmark_states.append(landmark.state.p_pos)
+        state = np.concatenate(agent_states + landmark_states + [np.array([world.world_step])])
+        return state
 
-    def reset_world(self, world):
+    def reset_world(self, world, initial_state=None):
         self.num_outside = 0
         self.num_collision = 0
         # random properties for agents
         world.assign_agent_colors()
         # random properties for landmarks
         world.assign_landmark_colors()
-        for agent in world.agents:
-            if agent.adversary:  # adversary agent: upper right corner
-                agent.state.p_pos = np.random.uniform(self.corner_min, self.corner_max, world.dim_p)
-            else:  # good agent: lower left corner
-                agent.state.p_pos = np.random.uniform(-self.corner_max, -self.corner_min, world.dim_p)
-            agent.state.p_vel = np.zeros(world.dim_p)
-            agent.state.c = np.zeros(world.dim_c)
-        for i, landmark in enumerate(world.landmarks):
-            if not landmark.boundary:
-                landmark.state.p_pos = 0.8 * np.random.uniform(-self.corner_max, self.corner_max, world.dim_p)
-                landmark.state.p_vel = np.zeros(world.dim_p)
-        world.world_step = 0
+
+        if initial_state is None:  # sample initial state according to initial state distribution
+            # start from 0
+            self.start_step = 0
+            world.world_step = 0
+            # agents
+            for agent in world.agents:
+                if agent.adversary:  # adversary agent: upper right corner
+                    agent.state.p_pos = np.random.uniform(self.corner_min, self.corner_max, world.dim_p)
+                else:  # good agent: lower left corner
+                    agent.state.p_pos = np.random.uniform(-self.corner_max, -self.corner_min, world.dim_p)
+                agent.state.p_vel = np.zeros(world.dim_p)
+                agent.state.c = np.zeros(world.dim_c)
+            # landmarks
+            for landmark in world.landmarks:
+                if not landmark.boundary:
+                    landmark.state.p_pos = 0.8 * np.random.uniform(-self.corner_max, self.corner_max, world.dim_p)
+                    landmark.state.p_vel = np.zeros(world.dim_p)
+        else:  # set environment to initial_state
+            # # set start step
+            # self.start_step = int(initial_state[-1])
+            # world.world_step = int(initial_state[-1])
+
+            # start from 0
+            self.start_step = 0
+            world.world_step = 0
+
+            # set agents
+            for idx, agent in enumerate(world.agents):
+                agent.state.p_pos = copy.deepcopy(initial_state[(4 * idx) : (4 * idx + 2)])
+                agent.state.p_vel = copy.deepcopy(initial_state[(4 * idx + 2) : (4 * idx + 4)])
+                agent.state.c = np.zeros(world.dim_c)
+
+            # # set landmarks
+            # for idx, landmark in enumerate(world.landmarks):
+            #     if not landmark.boundary:
+            #         landmark.state.p_pos = copy.deepcopy(initial_state[(4 * self.num_agents + 2 * idx) : (4 * self.num_agents + 2 * idx + 2)])
+            #         landmark.state.p_vel = np.zeros(world.dim_p)
+
+            # randomly generate landmarks
+            for landmark in world.landmarks:
+                if not landmark.boundary:
+                    landmark.state.p_pos = 0.8 * np.random.uniform(-self.corner_max, self.corner_max, world.dim_p)
+                    landmark.state.p_vel = np.zeros(world.dim_p)
 
     def benchmark_data(self, agent, world):
         # returns data for benchmarking purposes
@@ -113,8 +168,21 @@ class Scenario(BaseScenario):
         main_reward = self.adversary_reward(agent, world) if agent.adversary else self.agent_reward(agent, world)
         return main_reward
     
-    def info(self, agent, world):
-        return dict(num_steps=world.world_step, num_outside=self.num_outside, num_collision=self.num_collision)
+    def done(self, agent, world):
+        if world.world_step >= self.horizon:
+            return True
+        else:
+            return False
+    
+    def info(self, world):
+        state = self.get_state(world)
+        outside_per_step = self.num_outside / (world.world_step - self.start_step)
+        collision_per_step = self.num_collision / (world.world_step - self.start_step)
+        info = dict(
+            state=state, start_step=self.start_step, num_steps=world.world_step, 
+            outside_per_step=outside_per_step, collision_per_step=collision_per_step,
+        )
+        return info
 
     def agent_reward(self, agent, world):
         # Agents are negatively rewarded if caught by adversaries

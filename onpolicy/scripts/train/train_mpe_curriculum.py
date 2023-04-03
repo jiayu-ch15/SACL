@@ -11,7 +11,7 @@ import wandb
 from onpolicy.config import get_config
 from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
 from onpolicy.envs.mpe.MPE_env import MPEEnv
-from onpolicy.runner.competitive.mpe_runner import MPERunner as Runner
+from onpolicy.runner.competitive.mpe_curriculum_runner import MPECurriculumRunner as Runner
 
 
 def make_train_env(all_args):
@@ -47,6 +47,7 @@ def make_eval_env(all_args):
 
 
 def parse_args(args, parser):
+    # env args
     parser.add_argument("--competitive", action="store_true", default=False, help="by default False, use competitive runner.")
     parser.add_argument("--scenario_name", type=str, default="simple_tag_corner", help="which scenario to run on")
     parser.add_argument("--horizon", type=int, default=200, help="environment horizon")
@@ -55,6 +56,11 @@ def parse_args(args, parser):
     parser.add_argument("--num_adv", type=int, default=3, help="number of adversarial agents")
     parser.add_argument("--num_good", type=int, default=1, help="number of good agents")
     parser.add_argument("--num_landmarks", type=int, default=2, help="number of landmarks")
+    # curriculum args
+    parser.add_argument("--curriculum_prob", type=float, default=0.7, help="probability to reset initial state from curriculum")
+    parser.add_argument("--curriculum_buffer_size", type=int, default=10000, help="size of curriculum buffer")
+    parser.add_argument("--update_method", type=str,default="fps", choices=["random", "fps"])
+    parser.add_argument("--sample_method", type=str,default="random", choices=["random", "prioritized"])
 
     all_args = parser.parse_known_args(args)[0]
     all_args.num_agents = all_args.num_adv + all_args.num_good

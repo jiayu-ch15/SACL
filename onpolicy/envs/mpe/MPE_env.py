@@ -28,6 +28,7 @@ def MPEEnv(args):
     env = MultiAgentEnv(
         world, scenario.reset_world, scenario.reward, 
         scenario.observation, scenario.info,
+        done_callback=scenario.done if hasattr(scenario, "done") else None,
         action_space=scenario.action_space if hasattr(scenario, "action_space") else None,
         observation_space=scenario.observation_space if hasattr(scenario, "observation_space") else None,
         share_observation_space=scenario.share_observation_space if hasattr(scenario, "share_observation_space") else None,
