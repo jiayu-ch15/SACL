@@ -23,12 +23,12 @@ class Runner(object):
         self.all_args = config["all_args"]
         self.envs = config["envs"]
         self.eval_envs = config["eval_envs"]
+        if config.__contains__("render_envs"):
+            self.render_envs = config["render_envs"]       
         self.device = config["device"]
         self.num_agents = config["num_agents"]
         self.num_red = config["num_red"]
         self.num_blue = config["num_blue"]
-        if config.__contains__("render_envs"):
-            self.render_envs = config["render_envs"]       
 
         # parameters
         self.env_name = self.all_args.env_name
@@ -48,17 +48,25 @@ class Runner(object):
         self.use_render = self.all_args.use_render
         self.recurrent_N = self.all_args.recurrent_N
 
+        # training mode: self-play, red br, blue br
+        self.training_mode = self.all_args.training_mode
+        self.train_red = (self.training_mode in ["self_play", "red_br"])
+        self.train_blue = (self.training_mode in ["self_play", "blue_br"])
+        self.red_model_dir = self.all_args.red_model_dir
+        self.blue_model_dir = self.all_args.blue_model_dir
+        if self.training_mode == "red_br":
+            assert (self.blue_model_dir is not None), ("to train a red br, you should set the value of --blue_model_dir")
+        if self.training_mode == "blue_br":
+            assert (self.red_model_dir is not None), ("to train a blue br, your should set the value of --red_model_dir")
+
         # interval
         self.save_interval = self.all_args.save_interval
         self.use_eval = self.all_args.use_eval
         self.eval_interval = self.all_args.eval_interval
         self.log_interval = self.all_args.log_interval
 
-        # dir
-        self.model_dir = self.all_args.model_dir
-
         if self.use_render:
-            run_dir = Path(self.model_dir).parent.absolute()
+            run_dir = Path(self.red_model_dir).parent.absolute()
             self.gif_dir = f"{run_dir}/gifs"
             if not os.path.exists(self.gif_dir):
                 os.makedirs(self.gif_dir)
@@ -113,8 +121,10 @@ class Runner(object):
                 device=self.device,
             )
             # restore model
-            if self.model_dir is not None:
-                self.restore()
+            if self.red_model_dir is not None:
+                self.restore("red")
+            if self.blue_model_dir is not None:
+                self.restore("blue")
 
             # algorithm
             self.red_trainer = TrainAlgo(self.all_args, self.red_policy, device=self.device)
@@ -150,31 +160,37 @@ class Runner(object):
     
     @torch.no_grad()
     def compute(self):
-        self.red_trainer.prep_rollout()
-        red_next_values = self.red_trainer.policy.get_values(
-            np.concatenate(self.red_buffer.share_obs[-1]),
-            np.concatenate(self.red_buffer.rnn_states_critic[-1]),
-            np.concatenate(self.red_buffer.masks[-1]),
-        )
-        red_next_values = np.array(np.split(_t2n(red_next_values), self.n_rollout_threads))
-        self.red_buffer.compute_returns(red_next_values, self.red_trainer.value_normalizer)
+        if self.train_red:
+            self.red_trainer.prep_rollout()
+            red_next_values = self.red_trainer.policy.get_values(
+                np.concatenate(self.red_buffer.share_obs[-1]),
+                np.concatenate(self.red_buffer.rnn_states_critic[-1]),
+                np.concatenate(self.red_buffer.masks[-1]),
+            )
+            red_next_values = np.array(np.split(_t2n(red_next_values), self.n_rollout_threads))
+            self.red_buffer.compute_returns(red_next_values, self.red_trainer.value_normalizer)
 
-        self.blue_trainer.prep_rollout()
-        blue_next_values = self.blue_trainer.policy.get_values(
-            np.concatenate(self.blue_buffer.share_obs[-1]),
-            np.concatenate(self.blue_buffer.rnn_states_critic[-1]),
-            np.concatenate(self.blue_buffer.masks[-1]),
-        )
-        blue_next_values = np.array(np.split(_t2n(blue_next_values), self.n_rollout_threads))
-        self.blue_buffer.compute_returns(blue_next_values, self.blue_trainer.value_normalizer)
+        if self.train_blue:
+            self.blue_trainer.prep_rollout()
+            blue_next_values = self.blue_trainer.policy.get_values(
+                np.concatenate(self.blue_buffer.share_obs[-1]),
+                np.concatenate(self.blue_buffer.rnn_states_critic[-1]),
+                np.concatenate(self.blue_buffer.masks[-1]),
+            )
+            blue_next_values = np.array(np.split(_t2n(blue_next_values), self.n_rollout_threads))
+            self.blue_buffer.compute_returns(blue_next_values, self.blue_trainer.value_normalizer)
 
     def train(self):
-        self.red_trainer.prep_training()
-        red_train_infos = self.red_trainer.train(self.red_buffer)      
+        red_train_infos = None
+        if self.train_red:
+            self.red_trainer.prep_training()
+            red_train_infos = self.red_trainer.train(self.red_buffer)      
         self.red_buffer.after_update()
 
-        self.blue_trainer.prep_training()
-        blue_train_infos = self.blue_trainer.train(self.blue_buffer)      
+        blue_train_infos = None
+        if self.train_blue:
+            self.blue_trainer.prep_training()
+            blue_train_infos = self.blue_trainer.train(self.blue_buffer)      
         self.blue_buffer.after_update()
 
         self.log_system()
@@ -196,37 +212,46 @@ class Runner(object):
             blue_policy_critic = self.blue_trainer.policy.critic
             torch.save(blue_policy_critic.state_dict(), str(self.save_dir) + "/blue_critic.pt")
 
-    def restore(self):
-        if self.use_single_network:
-            red_policy_model_state_dict = torch.load(str(self.model_dir) + "/red_model.pt", map_location=self.device)
-            self.red_policy.model.load_state_dict(red_policy_model_state_dict)
-            blue_policy_model_state_dict = torch.load(str(self.model_dir) + "/blue_model.pt", map_location=self.device)
-            self.blue_policy.model.load_state_dict(blue_policy_model_state_dict)
+    def restore(self, side):
+        if side == "red":
+            if self.use_single_network:
+                red_policy_model_state_dict = torch.load(str(self.red_model_dir) + "/red_model.pt", map_location=self.device)
+                self.red_policy.model.load_state_dict(red_policy_model_state_dict)
+            else:
+                red_policy_actor_state_dict = torch.load(str(self.red_model_dir) + "/red_actor.pt", map_location=self.device)
+                self.red_policy.actor.load_state_dict(red_policy_actor_state_dict)
+                if not (self.all_args.use_render or self.all_args.use_eval):
+                    red_policy_critic_state_dict = torch.load(str(self.red_model_dir) + "/red_critic.pt", map_location=self.device)
+                    self.red_policy.critic.load_state_dict(red_policy_critic_state_dict)
+        elif side == "blue":
+            if self.use_single_network:
+                blue_policy_model_state_dict = torch.load(str(self.blue_model_dir) + "/blue_model.pt", map_location=self.device)
+                self.blue_policy.model.load_state_dict(blue_policy_model_state_dict)
+            else:
+                blue_policy_actor_state_dict = torch.load(str(self.blue_model_dir) + "/blue_actor.pt", map_location=self.device)
+                self.blue_policy.actor.load_state_dict(blue_policy_actor_state_dict)
+                if not (self.all_args.use_render or self.all_args.use_eval):
+                    blue_policy_critic_state_dict = torch.load(str(self.blue_model_dir) + "/blue_critic.pt", map_location=self.device)
+                    self.blue_policy.critic.load_state_dict(blue_policy_critic_state_dict)
         else:
-            red_policy_actor_state_dict = torch.load(str(self.model_dir) + "/red_actor.pt", map_location=self.device)
-            self.red_policy.actor.load_state_dict(red_policy_actor_state_dict)
-            blue_policy_actor_state_dict = torch.load(str(self.model_dir) + "/blue_actor.pt", map_location=self.device)
-            self.blue_policy.actor.load_state_dict(blue_policy_actor_state_dict)
-            if not (self.all_args.use_render or self.all_args.use_eval):
-                red_policy_critic_state_dict = torch.load(str(self.model_dir) + "/red_critic.pt", map_location=self.device)
-                self.red_policy.critic.load_state_dict(red_policy_critic_state_dict)
-                blue_policy_critic_state_dict = torch.load(str(self.model_dir) + "/blue_critic.pt", map_location=self.device)
-                self.blue_policy.critic.load_state_dict(blue_policy_critic_state_dict)
+            raise NotImplementedError(f"Side {side} is not supported.")
  
     def log_train(self, red_train_infos, blue_train_infos, total_num_steps):
-        for k, v in red_train_infos.items():
-            key = f"red/{k}"
-            if self.use_wandb:
-                wandb.log({key: v}, step=total_num_steps)
-            else:
-                self.writter.add_scalars(key, {key: v}, total_num_steps)
+        if self.train_red:
+            for k, v in red_train_infos.items():
+                key = f"red/{k}"
+                if self.use_wandb:
+                    wandb.log({key: v}, step=total_num_steps)
+                else:
+                    self.writter.add_scalars(key, {key: v}, total_num_steps)
 
-        for k, v in blue_train_infos.items():
-            key = f"blue/{k}"
-            if self.use_wandb:
-                wandb.log({key: v}, step=total_num_steps)
-            else:
-                self.writter.add_scalars(key, {key: v}, total_num_steps)
+        if self.train_blue:
+            for k, v in blue_train_infos.items():
+                key = f"blue/{k}"
+                if self.use_wandb:
+                    wandb.log({key: v}, step=total_num_steps)
+                else:
+                    self.writter.add_scalars(key, {key: v}, total_num_steps)
 
     def log_env(self, env_infos, total_num_steps):
         for k, v in env_infos.items():

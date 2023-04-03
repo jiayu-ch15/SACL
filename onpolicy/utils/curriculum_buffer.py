@@ -77,6 +77,9 @@ class CurriculumBuffer(object):
         """
         return list of np.array
         """
+        if self._state_buffer.shape[0] == 0:  # state buffer is empty
+            return [None for _ in range(num_samples)]
+
         if self.sample_method == "random":
             random_idx = np.random.choice(self._state_buffer.shape[0], num_samples, replace=True)
             initial_states = [self._state_buffer[idx] for idx in random_idx]

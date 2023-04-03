@@ -22,7 +22,7 @@ ppo_epoch=5
 log_interval=5
 save_interval=50
 # curriculum config
-curriculum_prob=0.7
+prob_curriculum=0.7
 curriculum_buffer_size=10000
 update_method="fps"
 sample_method="random"
@@ -42,7 +42,7 @@ CUDA_VISIBLE_DEVICES=6 python train/train_mpe_curriculum.py \
 --num_env_steps ${num_env_steps} --episode_length ${episode_length} \
 --n_rollout_threads ${n_rollout_threads} --ppo_epoch ${ppo_epoch} \
 --log_interval ${log_interval} --save_interval ${save_interval} \
---curriculum_prob ${curriculum_prob} \
+--prob_curriculum ${prob_curriculum} \
 --curriculum_buffer_size ${curriculum_buffer_size} \
 --update_method ${update_method} --sample_method ${sample_method} \
 --user_name "zelaix" \

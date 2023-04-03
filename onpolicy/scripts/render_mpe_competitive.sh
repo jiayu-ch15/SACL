@@ -34,4 +34,5 @@ CUDA_VISIBLE_DEVICES=5 xvfb-run -s "-screen 0 1400x900x24" python render/render_
 --num_adv ${num_adv} --num_good ${num_good} --num_landmarks ${num_landmarks} \
 --use_attn --attn_size ${attn_size} --use_recurrent_policy \
 --use_render --save_gifs --render_episodes ${render_episodes} \
---n_rollout_threads ${n_rollout_threads} --model_dir ${model_dir}
+--n_rollout_threads ${n_rollout_threads} \
+--red_model_dir ${model_dir} --blue_model_dir ${model_dir}

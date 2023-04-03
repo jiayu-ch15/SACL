@@ -52,29 +52,30 @@ class MPERunner(Runner):
                     f"FSP: {int(total_num_steps / (end - start))}."
                 )
                 # training info
-                red_train_infos["step_reward"] = np.mean(self.red_buffer.rewards)
-                blue_train_infos["step_reward"] = np.mean(self.blue_buffer.rewards)
+                if self.train_red:
+                    red_train_infos["step_reward"] = np.mean(self.red_buffer.rewards)
+                    print(f"adv step reward: {red_train_infos['step_reward']:.2f}.")
+                if self.train_blue:
+                    blue_train_infos["step_reward"] = np.mean(self.blue_buffer.rewards)
+                    print(f"good step reward: {blue_train_infos['step_reward']:.2f}.")
                 self.log_train(red_train_infos, blue_train_infos, total_num_steps)
-                print(
-                    f"adv step reward: {red_train_infos['step_reward']:.2f}, "
-                    f"good step reward: {blue_train_infos['step_reward']:.2f}."
-                )
+
                 # env info
                 start_step = np.array([info[-1]["start_step"] for info in infos])
                 end_step = np.array([info[-1]["num_steps"] for info in infos])
                 outside_per_step = np.array([info[-1]["outside_per_step"] for info in infos])
                 collision_per_step = np.array([info[-1]["collision_per_step"] for info in infos])
-                env_infos = dict(
-                    start_step=start_step, end_step=end_step,
-                    outside_per_step=outside_per_step, collision_per_step=collision_per_step,
-                )
-                self.log_env(env_infos, total_num_steps)
                 print(
                     f"start step: {np.mean(start_step):.2f}, "
                     f"end step: {np.mean(end_step):.2f}, "
                     f"outside per step: {np.mean(outside_per_step):.2f}, "
                     f"collision per step: {np.mean(collision_per_step):.2f}.\n"
                 )
+                env_infos = dict(
+                    start_step=start_step, end_step=end_step,
+                    outside_per_step=outside_per_step, collision_per_step=collision_per_step,
+                )
+                self.log_env(env_infos, total_num_steps)
 
             # eval
             if self.use_eval and episode % self.eval_interval == 0:

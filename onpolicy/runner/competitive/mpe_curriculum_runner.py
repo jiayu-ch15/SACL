@@ -15,8 +15,7 @@ class MPECurriculumRunner(Runner):
     def __init__(self, config):
         super(MPECurriculumRunner, self).__init__(config)
 
-        self.num_curriculum_reset = int(self.all_args.n_rollout_threads * self.all_args.curriculum_prob)
-        self.num_normal_reset = self.all_args.n_rollout_threads - self.num_curriculum_reset
+        self.prob_curriculum = self.all_args.prob_curriculum
         self.curriculum_buffer = CurriculumBuffer(
             buffer_size=self.all_args.curriculum_buffer_size,
             update_method=self.all_args.update_method,
@@ -38,6 +37,8 @@ class MPECurriculumRunner(Runner):
                 values, actions, action_log_probs, rnn_states, rnn_states_critic, actions_env = self.collect(step)
                 # env step
                 obs, rewards, dones, infos = self.envs.step(actions_env)
+                # manually reset done envs
+                obs = self.reset_subgames(obs, dones)
                 # insert data into buffer
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
                 self.insert(data)
@@ -47,8 +48,6 @@ class MPECurriculumRunner(Runner):
             self.curriculum_buffer.update()
             # train network
             red_train_infos, blue_train_infos = self.train()
-            # sample and reset subgames
-            self.reset_subgames()
             # post process
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
 
@@ -104,26 +103,16 @@ class MPECurriculumRunner(Runner):
         self.blue_buffer.obs[0] = obs[:, -self.num_blue:].copy()
         self.blue_buffer.share_obs[0] = obs[:, -self.num_blue:].copy()
 
-    def reset_subgames(self):
+    def reset_subgames(self, obs, dones):
+        # reset subgame: env is done and p~U[0, 1] < prob_curriculum
+        env_dones = dones[:, 0]
+        use_curriculum = (np.random.uniform(size=self.n_rollout_threads) < self.prob_curriculum)
+        env_idx = np.arange(self.n_rollout_threads)[env_dones * use_curriculum]
         # sample initial states and reset
-        initial_states = self.curriculum_buffer.sample(self.num_curriculum_reset) + [None for _ in range(self.num_normal_reset)]
-        obs = self.envs.reset(initial_states)
-        # red buffer
-        self.red_buffer.obs[0] = obs[:, :self.num_red].copy()
-        self.red_buffer.share_obs[0] = obs[:, :self.num_red].copy()
-        self.red_buffer.rnn_states[0] = np.zeros_like(self.red_buffer.rnn_states[0])
-        self.red_buffer.rnn_states_critic[0] = np.zeros_like(self.red_buffer.rnn_states_critic[0])
-        self.red_buffer.masks[0] = np.zeros_like(self.red_buffer.masks[0])
-        self.red_buffer.bad_masks[0] = np.zeros_like(self.red_buffer.bad_masks[0])
-        self.red_buffer.active_masks[0] = np.zeros_like(self.red_buffer.active_masks[0])
-        # blue buffer
-        self.blue_buffer.obs[0] = obs[:, -self.num_blue:].copy()
-        self.blue_buffer.share_obs[0] = obs[:, -self.num_blue:].copy()
-        self.blue_buffer.rnn_states[0] = np.zeros_like(self.blue_buffer.rnn_states[0])
-        self.blue_buffer.rnn_states_critic[0] = np.zeros_like(self.blue_buffer.rnn_states_critic[0])
-        self.blue_buffer.masks[0] = np.zeros_like(self.blue_buffer.masks[0])
-        self.blue_buffer.bad_masks[0] = np.zeros_like(self.blue_buffer.bad_masks[0])
-        self.blue_buffer.active_masks[0] = np.zeros_like(self.blue_buffer.active_masks[0])
+        if len(env_idx) != 0:
+            initial_states = self.curriculum_buffer.sample(len(env_idx))
+            obs[env_idx] = self.envs.partial_reset(env_idx.tolist(), initial_states)
+        return obs
 
     @torch.no_grad()
     def collect(self, step):
