@@ -55,8 +55,10 @@ class CurriculumBuffer(object):
                 max_states = np.max(all_states, axis=0)
                 all_states_normalized = (all_states - min_states) / (max_states - min_states + self.eps)
                 # TODO: mask unnecessary dim
-                # consider_dim = np.array([True for _ in range(20)] + [False])  # Don't consider time.
-                consider_dim = np.array([True for _ in range(16)] + [False for _ in range(5)])  # Don't consider landmarks and time.
+                consider_dim = np.array([True for _ in range(21)])  # consider everything.
+                # consider_dim = np.array([True for _ in range(20)] + [False])  # do not consider time.
+                # consider_dim = np.array([True for _ in range(16)] + [False for _ in range(4)] + [True])  # do not consider landmarks
+                # consider_dim = np.array([True for _ in range(16)] + [False for _ in range(5)])  # do not consider landmarks and time.
                 all_states_tensor = torch.tensor(all_states_normalized[np.newaxis, :, consider_dim])
                 fps_idx = farthest_point_sampler(all_states_tensor, self.buffer_size)[0].numpy()
                 # update state and weight buffer

@@ -22,6 +22,15 @@ class MPECurriculumRunner(Runner):
             sample_method=self.all_args.sample_method,
         )
 
+        self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
+        self.env_infos = dict(
+            start_step=np.zeros(self.n_rollout_threads, dtype=int), 
+            end_step=np.zeros(self.n_rollout_threads, dtype=int),
+            episode_length=np.zeros(self.n_rollout_threads, dtype=int),
+            outside_per_step=np.zeros(self.n_rollout_threads, dtype=float), 
+            collision_per_step=np.zeros(self.n_rollout_threads, dtype=float),
+        )
+
     def run(self):
         self.warmup()   
 
@@ -73,20 +82,21 @@ class MPECurriculumRunner(Runner):
                     f"good step reward: {blue_train_infos['step_reward']:.2f}."
                 )
                 # env info
-                start_step = np.array([info[-1]["start_step"] for info in infos])
-                end_step = np.array([info[-1]["num_steps"] for info in infos])
-                outside_per_step = np.array([info[-1]["outside_per_step"] for info in infos])
-                collision_per_step = np.array([info[-1]["collision_per_step"] for info in infos])
-                env_infos = dict(
-                    start_step=start_step, end_step=end_step,
-                    outside_per_step=outside_per_step, collision_per_step=collision_per_step,
-                )
-                self.log_env(env_infos, total_num_steps)
+                self.log_env(self.env_infos, total_num_steps)
                 print(
-                    f"start step: {np.mean(start_step):.2f}, "
-                    f"end step: {np.mean(end_step):.2f}, "
-                    f"outside per step: {np.mean(outside_per_step):.2f}, "
-                    f"collision per step: {np.mean(collision_per_step):.2f}.\n"
+                    f"start step: {np.mean(self.env_infos['start_step']):.2f}, "
+                    f"end step: {np.mean(self.env_infos['end_step']):.2f}, "
+                    f"episode length: {np.mean(self.env_infos['episode_length']):.2f}, "
+                    f"outside per step: {np.mean(self.env_infos['outside_per_step']):.2f}, "
+                    f"collision per step: {np.mean(self.env_infos['collision_per_step']):.2f}.\n"
+                )
+                self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
+                self.env_infos = dict(
+                    start_step=np.zeros(self.n_rollout_threads, dtype=int), 
+                    end_step=np.zeros(self.n_rollout_threads, dtype=int),
+                    episode_length=np.zeros(self.n_rollout_threads, dtype=int),
+                    outside_per_step=np.zeros(self.n_rollout_threads, dtype=float), 
+                    collision_per_step=np.zeros(self.n_rollout_threads, dtype=float),
                 )
 
             # eval
@@ -105,7 +115,7 @@ class MPECurriculumRunner(Runner):
 
     def reset_subgames(self, obs, dones):
         # reset subgame: env is done and p~U[0, 1] < prob_curriculum
-        env_dones = dones[:, 0]
+        env_dones = np.all(dones, axis=1)
         use_curriculum = (np.random.uniform(size=self.n_rollout_threads) < self.prob_curriculum)
         env_idx = np.arange(self.n_rollout_threads)[env_dones * use_curriculum]
         # sample initial states and reset
@@ -186,6 +196,7 @@ class MPECurriculumRunner(Runner):
             rewards=rewards[:, -self.num_blue:],
             masks=masks[:, -self.num_blue:],
         )
+
         # curriculum buffer
         # new_states = [info[0]["state"] for info in infos]
         # TODO: filter bad states
@@ -200,8 +211,20 @@ class MPECurriculumRunner(Runner):
                 continue
             if np.any(np.abs(state[12:14]) > self.all_args.corner_max):
                 continue
+            if np.any(state[-1] >= self.all_args.horizon):
+                continue
             new_states.append(state)
         self.curriculum_buffer.insert(new_states)
+
+        # info dict
+        env_dones = np.all(dones, axis=1)
+        for idx in np.arange(self.n_rollout_threads)[env_dones * self.no_info]:
+            self.env_infos["start_step"][idx] = infos[idx][-1]["start_step"]
+            self.env_infos["end_step"][idx] = infos[idx][-1]["num_steps"]
+            self.env_infos["episode_length"][idx] = infos[idx][-1]["episode_length"]
+            self.env_infos["outside_per_step"][idx] = infos[idx][-1]["outside_per_step"]
+            self.env_infos["collision_per_step"][idx] = infos[idx][-1]["collision_per_step"]
+            self.no_info[idx] = False
 
     # @torch.no_grad()
     # def eval(self, total_num_steps):

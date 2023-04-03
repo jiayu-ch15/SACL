@@ -281,8 +281,8 @@ class SubprocVecEnv(ShareVecEnv):
     def partial_reset(self, env_idx, initial_states=None):
         if initial_states is None:
             initial_states = [None for _ in range(len(env_idx))]
-        for idx in env_idx:
-            self.remotes[idx].send(('reset', initial_states[idx]))
+        for idx, initial_state in zip(env_idx, initial_states):
+            self.remotes[idx].send(('reset', initial_state))
         obs = [self.remotes[idx].recv() for idx in env_idx]
         return np.stack(obs)
 

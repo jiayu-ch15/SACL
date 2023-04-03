@@ -1,6 +1,6 @@
 #!/bin/sh
 # exp config
-exp="min1_max2-sacl-random_sample-wo_landmark-wo_time"
+exp="2_corner-sacl-random_sample-w_landmark-w_time"
 algo="mappo"
 seed=0
 # env config

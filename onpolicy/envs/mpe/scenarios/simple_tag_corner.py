@@ -112,13 +112,13 @@ class Scenario(BaseScenario):
                     landmark.state.p_pos = 0.8 * np.random.uniform(-self.corner_max, self.corner_max, world.dim_p)
                     landmark.state.p_vel = np.zeros(world.dim_p)
         else:  # set environment to initial_state
-            # # set start step
-            # self.start_step = int(initial_state[-1])
-            # world.world_step = int(initial_state[-1])
+            # set start step
+            self.start_step = int(initial_state[-1])
+            world.world_step = int(initial_state[-1])
 
-            # start from 0
-            self.start_step = 0
-            world.world_step = 0
+            # # start from 0
+            # self.start_step = 0
+            # world.world_step = 0
 
             # set agents
             for idx, agent in enumerate(world.agents):
@@ -126,17 +126,17 @@ class Scenario(BaseScenario):
                 agent.state.p_vel = copy.deepcopy(initial_state[(4 * idx + 2) : (4 * idx + 4)])
                 agent.state.c = np.zeros(world.dim_c)
 
-            # # set landmarks
-            # for idx, landmark in enumerate(world.landmarks):
-            #     if not landmark.boundary:
-            #         landmark.state.p_pos = copy.deepcopy(initial_state[(4 * self.num_agents + 2 * idx) : (4 * self.num_agents + 2 * idx + 2)])
-            #         landmark.state.p_vel = np.zeros(world.dim_p)
-
-            # randomly generate landmarks
-            for landmark in world.landmarks:
+            # set landmarks
+            for idx, landmark in enumerate(world.landmarks):
                 if not landmark.boundary:
-                    landmark.state.p_pos = 0.8 * np.random.uniform(-self.corner_max, self.corner_max, world.dim_p)
+                    landmark.state.p_pos = copy.deepcopy(initial_state[(4 * self.num_agents + 2 * idx) : (4 * self.num_agents + 2 * idx + 2)])
                     landmark.state.p_vel = np.zeros(world.dim_p)
+
+            # # randomly generate landmarks
+            # for landmark in world.landmarks:
+            #     if not landmark.boundary:
+            #         landmark.state.p_pos = 0.8 * np.random.uniform(-self.corner_max, self.corner_max, world.dim_p)
+            #         landmark.state.p_vel = np.zeros(world.dim_p)
 
     def benchmark_data(self, agent, world):
         # returns data for benchmarking purposes
@@ -179,7 +179,8 @@ class Scenario(BaseScenario):
         outside_per_step = self.num_outside / (world.world_step - self.start_step)
         collision_per_step = self.num_collision / (world.world_step - self.start_step)
         info = dict(
-            state=state, start_step=self.start_step, num_steps=world.world_step, 
+            state=state, start_step=self.start_step,
+            num_steps=world.world_step, episode_length=(world.world_step - self.start_step),
             outside_per_step=outside_per_step, collision_per_step=collision_per_step,
         )
         return info
