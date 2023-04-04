@@ -12,7 +12,7 @@ from onpolicy.envs.mpe.MPE_env import MPEEnv
 from onpolicy.runner.competitive.mpe_runner import MPERunner as Runner
 
 
-def make_render_env(all_args):
+def make_train_env(all_args):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "MPE":
@@ -26,6 +26,22 @@ def make_render_env(all_args):
         return DummyVecEnv([get_env_fn(0)])
     else:
         return SubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
+
+
+def make_eval_env(all_args):
+    def get_env_fn(rank):
+        def init_env():
+            if all_args.env_name == "MPE":
+                env = MPEEnv(all_args)
+            else:
+                raise NotImplementedError(f"Unsupported env name: {all_args.env_name}, set env_name = MPE.")
+            env.seed(all_args.seed * 50000 + rank * 10000)
+            return env
+        return init_env
+    if all_args.n_eval_rollout_threads == 1:
+        return DummyVecEnv([get_env_fn(0)])
+    else:
+        return SubprocVecEnv([get_env_fn(i) for i in range(all_args.n_eval_rollout_threads)])
 
 
 def parse_args(args, parser):
@@ -61,20 +77,17 @@ def main(args):
     assert (all_args.share_policy == True and all_args.scenario_name == "simple_speaker_listener") == False, (
         "The simple_speaker_listener scenario can not use shared policy. Please check the config.py.")
 
-    assert all_args.use_render, ("use_render should be True")
+    assert all_args.use_eval, ("use_eval should be True")
     assert (all_args.red_model_dir is not None and all_args.blue_model_dir is not None), ("red_model_dir and blue_model_dir should be set")
-    assert all_args.n_rollout_threads == 1, ("n_rollout_threads should be 1")
         
     # cuda
     if all_args.cuda and torch.cuda.is_available():
-        print("choose to use gpu...")
         device = torch.device("cuda:0")
         torch.set_num_threads(all_args.n_training_threads)
         if all_args.cuda_deterministic:
             torch.backends.cudnn.benchmark = False
             torch.backends.cudnn.deterministic = True
     else:
-        print("choose to use cpu...")
         device = torch.device("cpu")
         torch.set_num_threads(all_args.n_training_threads)
 
@@ -105,8 +118,8 @@ def main(args):
     np.random.seed(all_args.seed)
 
     # env init
-    envs = make_render_env(all_args)
-    eval_envs = None
+    envs = make_train_env(all_args)
+    eval_envs = make_eval_env(all_args)
     num_agents = all_args.num_agents
     num_red = all_args.num_adv
     num_blue = all_args.num_good
@@ -125,10 +138,11 @@ def main(args):
     # run experiments
     assert all_args.competitive == True, ("add --competitive to use competitive runner.")
     runner = Runner(config)
-    runner.render()
+    runner.eval(0)
     
     # post process
     envs.close()
+    eval_envs.close()
 
     runner.writter.export_scalars_to_json(str(runner.log_dir + "/summary.json"))
     runner.writter.close()
