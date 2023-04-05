@@ -14,6 +14,19 @@ class MPERunner(Runner):
     def __init__(self, config):
         super(MPERunner, self).__init__(config)
 
+        self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
+        self.env_infos = dict(
+            initial_dist=np.zeros(self.n_rollout_threads, dtype=int), 
+            start_step=np.zeros(self.n_rollout_threads, dtype=int), 
+            end_step=np.zeros(self.n_rollout_threads, dtype=int),
+            episode_length=np.zeros(self.n_rollout_threads, dtype=int),
+            outside=np.zeros(self.n_rollout_threads, dtype=bool), 
+            collision=np.zeros(self.n_rollout_threads, dtype=bool),
+            escape=np.zeros(self.n_rollout_threads, dtype=bool),
+            outside_per_step=np.zeros(self.n_rollout_threads, dtype=float), 
+            collision_per_step=np.zeros(self.n_rollout_threads, dtype=float),
+        )
+
     def run(self):
         self.warmup()   
 
@@ -52,30 +65,45 @@ class MPERunner(Runner):
                     f"FSP: {int(total_num_steps / (end - start))}."
                 )
                 # training info
+                red_value_mean, red_value_var = self.red_trainer.value_normalizer.running_mean_var()
+                blue_value_mean, blue_value_var = self.blue_trainer.value_normalizer.running_mean_var()
                 if self.train_red:
                     red_train_infos["step_reward"] = np.mean(self.red_buffer.rewards)
+                    red_train_infos["value_normalizer_mean"] = np.mean(_t2n(red_value_mean))
+                    red_train_infos["value_normalizer_var"] = np.mean(_t2n(red_value_var))
                     print(f"adv step reward: {red_train_infos['step_reward']:.2f}.")
                 if self.train_blue:
                     blue_train_infos["step_reward"] = np.mean(self.blue_buffer.rewards)
+                    blue_train_infos["value_normalizer_mean"] = np.mean(_t2n(blue_value_mean))
+                    blue_train_infos["value_normalizer_var"] = np.mean(_t2n(blue_value_var))
                     print(f"good step reward: {blue_train_infos['step_reward']:.2f}.")
                 self.log_train(red_train_infos, blue_train_infos, total_num_steps)
 
                 # env info
-                start_step = np.array([info[-1]["start_step"] for info in infos])
-                end_step = np.array([info[-1]["num_steps"] for info in infos])
-                outside_per_step = np.array([info[-1]["outside_per_step"] for info in infos])
-                collision_per_step = np.array([info[-1]["collision_per_step"] for info in infos])
+                self.log_env(self.env_infos, total_num_steps)
                 print(
-                    f"start step: {np.mean(start_step):.2f}, "
-                    f"end step: {np.mean(end_step):.2f}, "
-                    f"outside per step: {np.mean(outside_per_step):.2f}, "
-                    f"collision per step: {np.mean(collision_per_step):.2f}.\n"
+                    f"initial distance: {np.mean(self.env_infos['initial_dist']):.2f}, "
+                    f"start step: {np.mean(self.env_infos['start_step']):.2f}, "
+                    f"end step: {np.mean(self.env_infos['end_step']):.2f}, "
+                    f"episode length: {np.mean(self.env_infos['episode_length']):.2f}.\n"
+                    f"outside: {np.mean(self.env_infos['outside']):.2f}, "
+                    f"collision: {np.mean(self.env_infos['collision']):.2f}, "
+                    f"escape: {np.mean(self.env_infos['escape']):.2f}.\n"
+                    f"outside per step: {np.mean(self.env_infos['outside_per_step']):.2f}, "
+                    f"collision per step: {np.mean(self.env_infos['collision_per_step']):.2f}.\n"
                 )
-                env_infos = dict(
-                    start_step=start_step, end_step=end_step,
-                    outside_per_step=outside_per_step, collision_per_step=collision_per_step,
+                self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
+                self.env_infos = dict(
+                    initial_dist=np.zeros(self.n_rollout_threads, dtype=int), 
+                    start_step=np.zeros(self.n_rollout_threads, dtype=int), 
+                    end_step=np.zeros(self.n_rollout_threads, dtype=int),
+                    episode_length=np.zeros(self.n_rollout_threads, dtype=int),
+                    outside=np.zeros(self.n_rollout_threads, dtype=bool), 
+                    collision=np.zeros(self.n_rollout_threads, dtype=bool),
+                    escape=np.zeros(self.n_rollout_threads, dtype=bool),
+                    outside_per_step=np.zeros(self.n_rollout_threads, dtype=float), 
+                    collision_per_step=np.zeros(self.n_rollout_threads, dtype=float),
                 )
-                self.log_env(env_infos, total_num_steps)
 
             # eval
             if self.use_eval and episode % self.eval_interval == 0:
@@ -164,6 +192,20 @@ class MPERunner(Runner):
             masks=masks[:, -self.num_blue:],
         )
 
+        # info dict
+        env_dones = np.all(dones, axis=1)
+        for idx in np.arange(self.n_rollout_threads)[env_dones * self.no_info]:
+            self.env_infos["initial_dist"][idx] = infos[idx][-1]["initial_dist"]
+            self.env_infos["start_step"][idx] = infos[idx][-1]["start_step"]
+            self.env_infos["end_step"][idx] = infos[idx][-1]["num_steps"]
+            self.env_infos["episode_length"][idx] = infos[idx][-1]["episode_length"]
+            self.env_infos["outside"][idx] = (infos[idx][-1]["outside_per_step"] > 0)
+            self.env_infos["collision"][idx] = (infos[idx][-1]["collision_per_step"] > 0)
+            self.env_infos["escape"][idx] = (not self.env_infos["outside"][idx]) and (not self.env_infos["collision"][idx])
+            self.env_infos["outside_per_step"][idx] = infos[idx][-1]["outside_per_step"]
+            self.env_infos["collision_per_step"][idx] = infos[idx][-1]["collision_per_step"]
+            self.no_info[idx] = False
+
     @torch.no_grad()
     def eval(self, total_num_steps):
         eval_adv_step_reward = []
@@ -180,39 +222,55 @@ class MPERunner(Runner):
             eval_good_reward = []
 
             eval_obs = self.eval_envs.reset()
+            eval_share_obs = eval_obs.copy()
             eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            eval_rnn_states_critic = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
             eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
 
             for eval_step in range(self.episode_length):
                 # red action
                 self.red_trainer.prep_rollout()
-                eval_red_actions, eval_red_rnn_states = self.red_trainer.policy.act(
+                eval_red_values, eval_red_actions, _, eval_red_rnn_states, eval_red_rnn_states_critic = self.red_trainer.policy.get_actions(
+                    np.concatenate(eval_share_obs[:, :self.num_red]),
                     np.concatenate(eval_obs[:, :self.num_red]),
                     np.concatenate(eval_rnn_states[:, :self.num_red]),
+                    np.concatenate(eval_rnn_states_critic[:, :self.num_red]),
                     np.concatenate(eval_masks[:, :self.num_red]),
                     deterministic=False,
                 )
+                eval_red_values = np.array(np.split(_t2n(eval_red_values), self.n_eval_rollout_threads))
                 eval_red_actions = np.array(np.split(_t2n(eval_red_actions), self.n_eval_rollout_threads))
                 eval_red_rnn_states = np.array(np.split(_t2n(eval_red_rnn_states), self.n_eval_rollout_threads))
+                eval_red_rnn_states_critic = np.array(np.split(_t2n(eval_red_rnn_states_critic), self.n_eval_rollout_threads))
+                
                 # blue action
                 self.blue_trainer.prep_rollout()
-                eval_blue_actions, eval_blue_rnn_states = self.blue_trainer.policy.act(
+                eval_blue_values, eval_blue_actions, _, eval_blue_rnn_states, eval_blue_rnn_states_critic = self.blue_trainer.policy.get_actions(
+                    np.concatenate(eval_share_obs[:, -self.num_blue:]),
                     np.concatenate(eval_obs[:, -self.num_blue:]),
                     np.concatenate(eval_rnn_states[:, -self.num_blue:]),
+                    np.concatenate(eval_rnn_states_critic[:, -self.num_blue:]),
                     np.concatenate(eval_masks[:, -self.num_blue:]),
                     deterministic=False,
                 )
+                eval_blue_values = np.array(np.split(_t2n(eval_blue_values), self.n_eval_rollout_threads))
                 eval_blue_actions = np.array(np.split(_t2n(eval_blue_actions), self.n_eval_rollout_threads))
                 eval_blue_rnn_states = np.array(np.split(_t2n(eval_blue_rnn_states), self.n_eval_rollout_threads))
+                eval_blue_rnn_states_critic = np.array(np.split(_t2n(eval_blue_rnn_states_critic), self.n_eval_rollout_threads))
+                
                 # concatenate and env action
+                eval_values = np.concatenate([eval_red_values, eval_blue_values], axis=1)
                 eval_actions = np.concatenate([eval_red_actions, eval_blue_actions], axis=1)
                 eval_rnn_states = np.concatenate([eval_red_rnn_states, eval_blue_rnn_states], axis=1)
+                eval_rnn_states_critic = np.concatenate([eval_red_rnn_states_critic, eval_blue_rnn_states_critic], axis=1)
                 eval_actions_env = np.squeeze(np.eye(self.eval_envs.action_space[0].n)[eval_actions], 2)
 
                 # env step
                 eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions_env)
 
+                eval_share_obs = eval_obs.copy()
                 eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
+                eval_rnn_states_critic[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
                 eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
                 eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), 1), dtype=np.float32)
 

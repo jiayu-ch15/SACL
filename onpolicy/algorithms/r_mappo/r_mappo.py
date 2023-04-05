@@ -38,6 +38,7 @@ class R_MAPPO():
         self._use_huber_loss = args.use_huber_loss
         self._use_popart = args.use_popart
         self._use_valuenorm = args.use_valuenorm
+        self._fixed_valuenorm = args.fixed_valuenorm
         self._use_value_active_masks = args.use_value_active_masks
         self._use_policy_active_masks = args.use_policy_active_masks
         self._use_policy_vhead = args.use_policy_vhead
@@ -61,7 +62,8 @@ class R_MAPPO():
         value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
         
         if self._use_popart or self._use_valuenorm:
-            value_normalizer.update(return_batch)
+            if not self._fixed_valuenorm:
+                value_normalizer.update(return_batch)
             error_clipped = value_normalizer.normalize(return_batch) - value_pred_clipped
             error_original = value_normalizer.normalize(return_batch) - values
         else:

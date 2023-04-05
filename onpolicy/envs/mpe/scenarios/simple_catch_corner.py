@@ -177,7 +177,7 @@ class Scenario(BaseScenario):
         return main_reward
     
     def done(self, agent, world):
-        if world.world_step >= self.horizon:
+        if self.num_collision >= 1 or self.num_outside >= 1 or world.world_step >= self.horizon:
             return True
         else:
             return False
@@ -196,57 +196,39 @@ class Scenario(BaseScenario):
     def agent_reward(self, agent, world):
         # Agents are negatively rewarded if caught by adversaries
         rew = 0
-        shape = False  # different from openai
-        adversaries = self.adversaries(world)
-        if shape:  # reward can optionally be shaped (increased reward for increased distance from adversary)
-            for adv in adversaries:
-                rew += 0.1 * np.sqrt(np.sum(np.square(agent.state.p_pos - adv.state.p_pos)))
+        good_agents = self.good_agents(world)
+        adv_agents = self.adversaries(world)
+        
         if agent.collide:
-            for a in adversaries:
-                if self.is_collision(a, agent):
-                    rew -= 10
-                    self.num_collision += 1
+            for ag in good_agents:
+                for adv in adv_agents:
+                    if self.is_collision(ag, adv):
+                        rew -= 10
+                        self.num_collision += 1
 
-        # agents are penalized for exiting the screen, so that they can be caught by the adversaries
-        def bound(x):
-            if x < self.corner_max - 0.1:
-                return 0
-            if x < self.corner_max:
-                return (x - (self.corner_max - 0.1)) * 10
-            return min(np.exp(2 * (x - self.corner_max)), 10)
-        for p in range(world.dim_p):
-            x = abs(agent.state.p_pos[p])
-            rew -= bound(x)
-        self.num_outside += np.any(np.abs(agent.state.p_pos) > self.corner_max)
+        # Agents are penalized if outside of boundary.
+        for ag in good_agents:
+            if np.any(np.abs(ag.state.p_pos) > self.corner_max):
+                rew -= 10
+                self.num_outside += 1
 
         return rew
 
     def adversary_reward(self, agent, world):
         # Adversaries are rewarded for collisions with agents
         rew = 0
-        shape = False #different from openai
-        agents = self.good_agents(world)
-        adversaries = self.adversaries(world)
-        if shape:  # reward can optionally be shaped (decreased reward for increased distance from agents)
-            for adv in adversaries:
-                rew -= 0.1 * min([np.sqrt(np.sum(np.square(a.state.p_pos - adv.state.p_pos))) for a in agents])
+        good_agents = self.good_agents(world)
+        adv_agents = self.adversaries(world)
+
         if agent.collide:
-            for ag in agents:
-                for adv in adversaries:
+            for ag in good_agents:
+                for adv in adv_agents:
                     if self.is_collision(ag, adv):
                         rew += 10
 
-        # Make env zero-sum: adversaryies are rewarded if good agents exits the screen.
-        def bound(x):
-            if x < self.corner_max - 0.1:
-                return 0
-            if x < self.corner_max:
-                return (x - (self.corner_max - 0.1)) * 10
-            return min(np.exp(2 * (x - self.corner_max)), 10)
-        for ag in agents:
-            for p in range(world.dim_p):
-                x = abs(ag.state.p_pos[p])
-                rew += bound(x)
+        for ag in good_agents:
+            if np.any(np.abs(ag.state.p_pos) > self.corner_max):
+                rew += 10
 
         return rew
 

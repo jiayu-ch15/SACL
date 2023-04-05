@@ -1,6 +1,6 @@
 #!/bin/sh
 # exp config
-exp="2_corner-sacl-random_sample-w_landmark-w_time"
+exp="2_corner-sacl-rb_variance**5-staleness_20-wo_time"
 algo="mappo"
 seed=0
 # env config
@@ -15,7 +15,9 @@ num_landmarks=2
 # policy config
 attn_size=32
 # training config
-num_env_steps=100000000
+training_mode="self_play"
+valuenorm_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_uniform-sp/wandb/run-20230404_053322-3a5vx194/files"
+num_env_steps=50000000
 episode_length=200
 n_rollout_threads=100
 ppo_epoch=5
@@ -25,7 +27,8 @@ save_interval=50
 prob_curriculum=0.7
 curriculum_buffer_size=10000
 update_method="fps"
-sample_method="random"
+sample_metric="variance"
+max_staleness=20
 # user name
 user_name="zelaix"
 wandb_name="sacl"
@@ -44,6 +47,7 @@ CUDA_VISIBLE_DEVICES=6 python train/train_mpe_curriculum.py \
 --log_interval ${log_interval} --save_interval ${save_interval} \
 --prob_curriculum ${prob_curriculum} \
 --curriculum_buffer_size ${curriculum_buffer_size} \
---update_method ${update_method} --sample_method ${sample_method} \
+--update_method ${update_method} --sample_metric ${sample_metric} \
+--max_staleness ${max_staleness} \
 --user_name "zelaix" \
 --wandb_name ${wandb_name}

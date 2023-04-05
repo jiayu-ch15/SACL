@@ -46,6 +46,7 @@ class Runner(object):
         self.hidden_size = self.all_args.hidden_size
         self.use_wandb = self.all_args.use_wandb
         self.use_single_network = self.all_args.use_single_network
+        self.use_valuenorm = self.all_args.use_valuenorm
         self.use_render = self.all_args.use_render
         self.recurrent_N = self.all_args.recurrent_N
 
@@ -55,6 +56,8 @@ class Runner(object):
         self.train_blue = (self.training_mode in ["self_play", "blue_br"])
         self.red_model_dir = self.all_args.red_model_dir
         self.blue_model_dir = self.all_args.blue_model_dir
+        self.red_valuenorm_dir = self.all_args.red_valuenorm_dir
+        self.blue_valuenorm_dir = self.all_args.blue_valuenorm_dir
         if self.training_mode == "red_br":
             assert (self.blue_model_dir is not None), ("to train a red br, you should set the value of --blue_model_dir")
         if self.training_mode == "blue_br":
@@ -113,7 +116,6 @@ class Runner(object):
                 self.envs.action_space[0],
                 device=self.device,
             )
-
             self.blue_policy = Policy(
                 self.all_args,
                 self.envs.observation_space[-1],
@@ -121,16 +123,21 @@ class Runner(object):
                 self.envs.action_space[-1],
                 device=self.device,
             )
-            # restore model
-            if self.red_model_dir is not None:
-                self.restore("red")
-            if self.blue_model_dir is not None:
-                self.restore("blue")
 
             # algorithm
             self.red_trainer = TrainAlgo(self.all_args, self.red_policy, device=self.device)
             self.blue_trainer = TrainAlgo(self.all_args, self.blue_policy, device=self.device)
-        
+
+            # restore model
+            if self.red_model_dir is not None:
+                self.restore("red_policy")
+            if self.blue_model_dir is not None:
+                self.restore("blue_policy")
+            if self.use_valuenorm and self.red_valuenorm_dir is not None:
+                self.restore("red_valuenorm")
+            if self.use_valuenorm and self.blue_valuenorm_dir is not None:
+                self.restore("blue_valuenorm")
+
             # buffer
             self.red_buffer = SharedReplayBuffer(
                 self.all_args,
@@ -208,34 +215,47 @@ class Runner(object):
             torch.save(red_policy_actor.state_dict(), str(self.save_dir) + "/red_actor.pt")
             red_policy_critic = self.red_trainer.policy.critic
             torch.save(red_policy_critic.state_dict(), str(self.save_dir) + "/red_critic.pt")
+            if self.use_valuenorm:
+                red_value_normalizer = self.red_trainer.value_normalizer
+                torch.save(red_value_normalizer.state_dict(), str(self.save_dir) + "/red_value_normalizer.pt")
+
             blue_policy_actor = self.blue_trainer.policy.actor
             torch.save(blue_policy_actor.state_dict(), str(self.save_dir) + "/blue_actor.pt")
             blue_policy_critic = self.blue_trainer.policy.critic
             torch.save(blue_policy_critic.state_dict(), str(self.save_dir) + "/blue_critic.pt")
+            if self.use_valuenorm:
+                blue_value_normalizer = self.blue_trainer.value_normalizer
+                torch.save(blue_value_normalizer.state_dict(), str(self.save_dir) + "/blue_value_normalizer.pt")
 
-    def restore(self, side):
-        if side == "red":
+    def restore(self, model):
+        if model == "red_policy":
             if self.use_single_network:
                 red_policy_model_state_dict = torch.load(str(self.red_model_dir) + "/red_model.pt", map_location=self.device)
-                self.red_policy.model.load_state_dict(red_policy_model_state_dict)
+                self.red_trainer.policy.model.load_state_dict(red_policy_model_state_dict)
             else:
                 red_policy_actor_state_dict = torch.load(str(self.red_model_dir) + "/red_actor.pt", map_location=self.device)
-                self.red_policy.actor.load_state_dict(red_policy_actor_state_dict)
-                if not (self.all_args.use_render or self.all_args.use_eval):
-                    red_policy_critic_state_dict = torch.load(str(self.red_model_dir) + "/red_critic.pt", map_location=self.device)
-                    self.red_policy.critic.load_state_dict(red_policy_critic_state_dict)
-        elif side == "blue":
+                self.red_trainer.policy.actor.load_state_dict(red_policy_actor_state_dict)
+                # if not (self.all_args.use_render or self.all_args.use_eval):
+                red_policy_critic_state_dict = torch.load(str(self.red_model_dir) + "/red_critic.pt", map_location=self.device)
+                self.red_trainer.policy.critic.load_state_dict(red_policy_critic_state_dict)
+        elif model == "red_valuenorm":
+            red_value_normalizer_state_dict = torch.load(str(self.red_valuenorm_dir) + "/red_value_normalizer.pt", map_location=self.device)
+            self.red_trainer.value_normalizer.load_state_dict(red_value_normalizer_state_dict)
+        elif model == "blue_policy":
             if self.use_single_network:
                 blue_policy_model_state_dict = torch.load(str(self.blue_model_dir) + "/blue_model.pt", map_location=self.device)
-                self.blue_policy.model.load_state_dict(blue_policy_model_state_dict)
+                self.blue_trainer.policy.model.load_state_dict(blue_policy_model_state_dict)
             else:
                 blue_policy_actor_state_dict = torch.load(str(self.blue_model_dir) + "/blue_actor.pt", map_location=self.device)
-                self.blue_policy.actor.load_state_dict(blue_policy_actor_state_dict)
-                if not (self.all_args.use_render or self.all_args.use_eval):
-                    blue_policy_critic_state_dict = torch.load(str(self.blue_model_dir) + "/blue_critic.pt", map_location=self.device)
-                    self.blue_policy.critic.load_state_dict(blue_policy_critic_state_dict)
+                self.blue_trainer.policy.actor.load_state_dict(blue_policy_actor_state_dict)
+                # if not (self.all_args.use_render or self.all_args.use_eval):
+                blue_policy_critic_state_dict = torch.load(str(self.blue_model_dir) + "/blue_critic.pt", map_location=self.device)
+                self.blue_trainer.policy.critic.load_state_dict(blue_policy_critic_state_dict)
+        elif model == "blue_valuenorm":
+            blue_value_normalizer_state_dict = torch.load(str(self.blue_valuenorm_dir) + "/blue_value_normalizer.pt", map_location=self.device)
+            self.blue_trainer.value_normalizer.load_state_dict(blue_value_normalizer_state_dict)
         else:
-            raise NotImplementedError(f"Side {side} is not supported.")
+            raise NotImplementedError(f"Model {model} is not supported.")
  
     def log_train(self, red_train_infos, blue_train_infos, total_num_steps):
         if self.train_red:

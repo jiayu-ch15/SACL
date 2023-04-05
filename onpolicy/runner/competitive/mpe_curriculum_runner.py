@@ -19,11 +19,13 @@ class MPECurriculumRunner(Runner):
         self.curriculum_buffer = CurriculumBuffer(
             buffer_size=self.all_args.curriculum_buffer_size,
             update_method=self.all_args.update_method,
-            sample_method=self.all_args.sample_method,
+            sample_method="uniform" if self.all_args.sample_metric == "uniform" else "prioritized",
+            max_staleness=self.all_args.max_staleness,
         )
 
         self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
         self.env_infos = dict(
+            initial_dist=np.zeros(self.n_rollout_threads, dtype=int), 
             start_step=np.zeros(self.n_rollout_threads, dtype=int), 
             end_step=np.zeros(self.n_rollout_threads, dtype=int),
             episode_length=np.zeros(self.n_rollout_threads, dtype=int),
@@ -74,8 +76,14 @@ class MPECurriculumRunner(Runner):
                     f"FSP: {int(total_num_steps / (end - start))}."
                 )
                 # training info
+                red_value_mean, red_value_var = self.red_trainer.value_normalizer.running_mean_var()
+                blue_value_mean, blue_value_var = self.blue_trainer.value_normalizer.running_mean_var()
                 red_train_infos["step_reward"] = np.mean(self.red_buffer.rewards)
+                red_train_infos["value_normalizer_mean"] = np.mean(_t2n(red_value_mean))
+                red_train_infos["value_normalizer_var"] = np.mean(_t2n(red_value_var))
                 blue_train_infos["step_reward"] = np.mean(self.blue_buffer.rewards)
+                blue_train_infos["value_normalizer_mean"] = np.mean(_t2n(blue_value_mean))
+                blue_train_infos["value_normalizer_var"] = np.mean(_t2n(blue_value_var))
                 self.log_train(red_train_infos, blue_train_infos, total_num_steps)
                 print(
                     f"adv step reward: {red_train_infos['step_reward']:.2f}, "
@@ -84,6 +92,7 @@ class MPECurriculumRunner(Runner):
                 # env info
                 self.log_env(self.env_infos, total_num_steps)
                 print(
+                    f"initial distance: {np.mean(self.env_infos['initial_dist']):.2f}, "
                     f"start step: {np.mean(self.env_infos['start_step']):.2f}, "
                     f"end step: {np.mean(self.env_infos['end_step']):.2f}, "
                     f"episode length: {np.mean(self.env_infos['episode_length']):.2f}, "
@@ -92,6 +101,7 @@ class MPECurriculumRunner(Runner):
                 )
                 self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
                 self.env_infos = dict(
+                    initial_dist=np.zeros(self.n_rollout_threads, dtype=int), 
                     start_step=np.zeros(self.n_rollout_threads, dtype=int), 
                     end_step=np.zeros(self.n_rollout_threads, dtype=int),
                     episode_length=np.zeros(self.n_rollout_threads, dtype=int),
@@ -198,10 +208,19 @@ class MPECurriculumRunner(Runner):
         )
 
         # curriculum buffer
-        # new_states = [info[0]["state"] for info in infos]
-        # TODO: filter bad states
+        # TODO: better way to filter bad states
+
+        # # only red value
+        # denormalized_values = self.red_trainer.value_normalizer.denormalize(values[:, :self.num_red])
+        
+        # both red and blue value
+        denormalized_red_values = self.red_trainer.value_normalizer.denormalize(values[:, :self.num_red])
+        denormalized_blue_values = self.blue_trainer.value_normalizer.denormalize(values[:, -self.num_blue:])
+        denormalized_values = np.concatenate([denormalized_red_values, -denormalized_blue_values], axis=1)
+        
         new_states = []
-        for info in infos:
+        new_weights = []
+        for info, denomalized_value in zip(infos, denormalized_values):
             state = info[0]["state"]
             if np.any(np.abs(state[0:2]) > self.all_args.corner_max):
                 continue
@@ -214,11 +233,13 @@ class MPECurriculumRunner(Runner):
             if np.any(state[-1] >= self.all_args.horizon):
                 continue
             new_states.append(state)
-        self.curriculum_buffer.insert(new_states)
+            new_weights.append(np.var(denomalized_value))
+        self.curriculum_buffer.insert(new_states, new_weights)
 
         # info dict
         env_dones = np.all(dones, axis=1)
         for idx in np.arange(self.n_rollout_threads)[env_dones * self.no_info]:
+            self.env_infos["initial_dist"][idx] = infos[idx][-1]["initial_dist"]
             self.env_infos["start_step"][idx] = infos[idx][-1]["start_step"]
             self.env_infos["end_step"][idx] = infos[idx][-1]["num_steps"]
             self.env_infos["episode_length"][idx] = infos[idx][-1]["episode_length"]
@@ -334,13 +355,15 @@ class MPECurriculumRunner(Runner):
             adv_step_reward = np.mean(step_rewards[:, :, :self.num_red])
             good_step_reward = np.mean(step_rewards[:, :, -self.num_blue:])
 
+            initial_dist = infos[0][-1]["initial_dist"]
             start_step = infos[0][-1]["start_step"]
             end_step = infos[0][-1]["num_steps"]
             outside_per_step = infos[0][-1]["outside_per_step"]
             collision_per_step = infos[0][-1]["collision_per_step"]
             print(
                 f"episode {episode}: adv step rewards={adv_step_reward:.2f}, good step reward={good_step_reward:.2f}, "
-                f"start step={start_step}, end step={end_step}, outside per step={outside_per_step}, collision per step={collision_per_step}."
+                f"initial_dist={initial_dist}, start step={start_step}, end step={end_step}, "
+                f"outside per step={outside_per_step}, collision per step={collision_per_step}."
             )
 
             # save gif
