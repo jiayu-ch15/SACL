@@ -301,7 +301,7 @@ class MPERunner(Runner):
             f"adv step reward: {np.mean(eval_adv_step_reward):.2f}, "
             f"good step reward: {np.mean(eval_good_step_reward):.2f}, "
             f"outside per step: {np.mean(eval_outside_per_step):.4f}, "
-            f"collision per step: {np.mean(eval_collision_per_step):.4f}."
+            f"collision per step: {np.mean(eval_collision_per_step):.4f}.\n"
         )
         # print(
         #     f"start step: {np.mean(eval_start_step):.2f}, "

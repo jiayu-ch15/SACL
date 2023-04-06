@@ -1,11 +1,11 @@
 #!/bin/sh
 # exp config
-exp="2_corner-sacl-rb_variance**5-staleness_20-wo_time"
+exp="2_corner-sacl-rb_variance**5-wo_time"
 algo="mappo"
 seed=0
 # env config
 env="MPE"
-scenario="simple_tag_corner"
+scenario="simple_catch_corner"
 horizon=200
 corner_min=1.0
 corner_max=2.0
@@ -16,7 +16,6 @@ num_landmarks=2
 attn_size=32
 # training config
 training_mode="self_play"
-valuenorm_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_uniform-sp/wandb/run-20230404_053322-3a5vx194/files"
 num_env_steps=50000000
 episode_length=200
 n_rollout_threads=100
@@ -27,8 +26,7 @@ save_interval=50
 prob_curriculum=0.7
 curriculum_buffer_size=10000
 update_method="fps"
-sample_metric="variance"
-max_staleness=20
+sample_metric="rb_variance"
 # user name
 user_name="zelaix"
 wandb_name="sacl"
@@ -36,7 +34,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=6 python train/train_mpe_curriculum.py \
+CUDA_VISIBLE_DEVICES=0 python train/train_mpe_curriculum.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \

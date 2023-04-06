@@ -7,7 +7,7 @@ seed=0
 env="MPE"
 scenario="simple_tag_corner"
 horizon=200
-corner_min=-2.0
+corner_min=1.0
 corner_max=2.0
 num_adv=3
 num_good=1
@@ -19,11 +19,14 @@ n_rollout_threads=1
 # eval config
 n_eval_rollout_threads=100
 eval_episodes=100
-model_name=("sp" "sacl-wL-woT" "sacl-woL-woT")
+model_name=("sp" "sacl-unif" "sacl-var" "sacl-var**5" "sacl-rb_var" "sacl-rb_var**5")
 model_dir=(
-    "/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/min-2_max2-sp/wandb/run-20230402_172524-vs56mms4/files"
-    "/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/min1_max2-sacl-random_sample-w_landmark-wo_time/wandb/run-20230402_171212-2hxcxq6b/files"
-    "/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/min1_max2-sacl-random_sample-wo_landmark-wo_time/wandb/run-20230402_172220-2tkd9hne/files"
+    "/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_uniform-sp/wandb/run-20230405_072147-2w2sddz3/files"
+    "/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-uniform-wo_time/wandb/run-20230405_143444-2hngjx8z/files"
+    "/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-variance-wo_time/wandb/run-20230405_143758-4yi5jvmo/files"
+    "/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-variance**5-wo_time/wandb/run-20230405_144611-lji84yjt/files"
+    "/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-rb_variance-wo_time/wandb/run-20230405_144206-32c37840/files"
+    "/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-rb_variance**5-wo_time/wandb/run-20230405_144713-28h7cvs6/files"
 )
 
 # user name
@@ -31,8 +34,8 @@ user_name="zelaix"
 wandb_name="sacl"
 
 
-for i in 0 1 2; do
-    for j in 0 1 2; do
+for i in {0..5}; do
+    for j in {0..5}; do
         echo "======= ${model_name[i]} (adv) vs ${model_name[j]} (good) ======="
 
         CUDA_VISIBLE_DEVICES=5 python eval/eval_mpe_competitive.py \

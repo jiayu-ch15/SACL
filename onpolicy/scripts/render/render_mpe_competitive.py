@@ -31,8 +31,13 @@ def make_render_env(all_args):
 def parse_args(args, parser):
     parser.add_argument("--competitive", action="store_true", default=False, help="by default False, use competitive runner.")
     parser.add_argument("--training_mode", type=str,default="self_play", choices=["self_play", "red_br", "blue_br"])
+
+    parser.add_argument("--fixed_valuenorm", action="store_true", default=False, help="by default False, use fixed value norm")
+
     parser.add_argument("--red_model_dir", type=str, default=None, help="by default None, directory of fixed red model")
     parser.add_argument("--blue_model_dir", type=str, default=None, help="by default None, directory of fixed blue model")
+    parser.add_argument("--red_valuenorm_dir", type=str, default=None, help="by default None, directory of red value norm model")
+    parser.add_argument("--blue_valuenorm_dir", type=str, default=None, help="by default None, directory of blue value norm model")
     parser.add_argument("--scenario_name", type=str, default="simple_tag_corner", help="which scenario to run on")
     parser.add_argument("--horizon", type=int, default=200, help="environment horizon")
     parser.add_argument("--corner_min", type=float, default=2.0, help="minimum distance of corner")
@@ -129,9 +134,6 @@ def main(args):
     
     # post process
     envs.close()
-
-    runner.writter.export_scalars_to_json(str(runner.log_dir + "/summary.json"))
-    runner.writter.close()
 
 
 if __name__ == "__main__":

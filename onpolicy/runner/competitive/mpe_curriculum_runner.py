@@ -16,11 +16,10 @@ class MPECurriculumRunner(Runner):
         super(MPECurriculumRunner, self).__init__(config)
 
         self.prob_curriculum = self.all_args.prob_curriculum
+        self.sample_metric = self.all_args.sample_metric
         self.curriculum_buffer = CurriculumBuffer(
             buffer_size=self.all_args.curriculum_buffer_size,
             update_method=self.all_args.update_method,
-            sample_method="uniform" if self.all_args.sample_metric == "uniform" else "prioritized",
-            max_staleness=self.all_args.max_staleness,
         )
 
         self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
@@ -29,6 +28,9 @@ class MPECurriculumRunner(Runner):
             start_step=np.zeros(self.n_rollout_threads, dtype=int), 
             end_step=np.zeros(self.n_rollout_threads, dtype=int),
             episode_length=np.zeros(self.n_rollout_threads, dtype=int),
+            outside=np.zeros(self.n_rollout_threads, dtype=bool), 
+            collision=np.zeros(self.n_rollout_threads, dtype=bool),
+            escape=np.zeros(self.n_rollout_threads, dtype=bool),
             outside_per_step=np.zeros(self.n_rollout_threads, dtype=float), 
             collision_per_step=np.zeros(self.n_rollout_threads, dtype=float),
         )
@@ -54,11 +56,13 @@ class MPECurriculumRunner(Runner):
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
                 self.insert(data)
             # compute return
-            self.compute()
-            # update curiculum buffer
-            self.curriculum_buffer.update()
+            self.compute()            
             # train network
             red_train_infos, blue_train_infos = self.train()
+
+            # update curiculum buffer
+            self.update_curriculum()
+
             # post process
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
 
@@ -95,7 +99,10 @@ class MPECurriculumRunner(Runner):
                     f"initial distance: {np.mean(self.env_infos['initial_dist']):.2f}, "
                     f"start step: {np.mean(self.env_infos['start_step']):.2f}, "
                     f"end step: {np.mean(self.env_infos['end_step']):.2f}, "
-                    f"episode length: {np.mean(self.env_infos['episode_length']):.2f}, "
+                    f"episode length: {np.mean(self.env_infos['episode_length']):.2f}.\n"
+                    f"outside: {np.mean(self.env_infos['outside']):.2f}, "
+                    f"collision: {np.mean(self.env_infos['collision']):.2f}, "
+                    f"escape: {np.mean(self.env_infos['escape']):.2f}.\n"
                     f"outside per step: {np.mean(self.env_infos['outside_per_step']):.2f}, "
                     f"collision per step: {np.mean(self.env_infos['collision_per_step']):.2f}.\n"
                 )
@@ -105,6 +112,9 @@ class MPECurriculumRunner(Runner):
                     start_step=np.zeros(self.n_rollout_threads, dtype=int), 
                     end_step=np.zeros(self.n_rollout_threads, dtype=int),
                     episode_length=np.zeros(self.n_rollout_threads, dtype=int),
+                    outside=np.zeros(self.n_rollout_threads, dtype=bool), 
+                    collision=np.zeros(self.n_rollout_threads, dtype=bool),
+                    escape=np.zeros(self.n_rollout_threads, dtype=bool),
                     outside_per_step=np.zeros(self.n_rollout_threads, dtype=float), 
                     collision_per_step=np.zeros(self.n_rollout_threads, dtype=float),
                 )
@@ -133,6 +143,51 @@ class MPECurriculumRunner(Runner):
             initial_states = self.curriculum_buffer.sample(len(env_idx))
             obs[env_idx] = self.envs.partial_reset(env_idx.tolist(), initial_states)
         return obs
+    
+    def update_curriculum(self):
+        # update and get share obs
+        share_obs = self.curriculum_buffer.update_states()
+
+        # get weights according to metric
+        num_weights = share_obs.shape[0]
+        if self.sample_metric == "uniform":
+            weights = np.ones(num_weights, dtype=np.float32)
+        elif self.sample_metric == "variance":
+            red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)
+            red_values = self.red_trainer.policy.get_values(
+                np.concatenate(share_obs[:, :self.num_red]),
+                red_rnn_states_critic,
+                red_masks,
+            )
+            red_values = np.array(np.split(_t2n(red_values), num_weights))
+            red_values_denorm = self.red_trainer.value_normalizer.denormalize(red_values)
+            weights = np.var(red_values_denorm, axis=1)[:, 0]
+        elif self.sample_metric == "rb_variance":
+            red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)
+            red_values = self.red_trainer.policy.get_values(
+                np.concatenate(share_obs[:, :self.num_red]),
+                red_rnn_states_critic,
+                red_masks,
+            )
+            red_values = np.array(np.split(_t2n(red_values), num_weights))
+            red_values_denorm = self.red_trainer.value_normalizer.denormalize(red_values)
+
+            blue_rnn_states_critic = np.zeros((num_weights * self.num_blue, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            blue_masks = np.ones((num_weights * self.num_blue, 1), dtype=np.float32)
+            blue_values = self.blue_trainer.policy.get_values(
+                np.concatenate(share_obs[:, -self.num_blue:]),
+                blue_rnn_states_critic,
+                blue_masks,
+            )
+            blue_values = np.array(np.split(_t2n(blue_values), num_weights))
+            blue_values_denorm = self.blue_trainer.value_normalizer.denormalize(blue_values)
+
+            values_denorm = np.concatenate([red_values_denorm, -blue_values_denorm], axis=1)
+            weights = np.var(values_denorm, axis=1)[:, 0]
+    
+        self.curriculum_buffer.update_weights(weights)
 
     @torch.no_grad()
     def collect(self, step):
@@ -213,14 +268,14 @@ class MPECurriculumRunner(Runner):
         # # only red value
         # denormalized_values = self.red_trainer.value_normalizer.denormalize(values[:, :self.num_red])
         
-        # both red and blue value
-        denormalized_red_values = self.red_trainer.value_normalizer.denormalize(values[:, :self.num_red])
-        denormalized_blue_values = self.blue_trainer.value_normalizer.denormalize(values[:, -self.num_blue:])
-        denormalized_values = np.concatenate([denormalized_red_values, -denormalized_blue_values], axis=1)
+        # # both red and blue value
+        # denormalized_red_values = self.red_trainer.value_normalizer.denormalize(values[:, :self.num_red])
+        # denormalized_blue_values = self.blue_trainer.value_normalizer.denormalize(values[:, -self.num_blue:])
+        # denormalized_values = np.concatenate([denormalized_red_values, -denormalized_blue_values], axis=1)
         
         new_states = []
-        new_weights = []
-        for info, denomalized_value in zip(infos, denormalized_values):
+        new_share_obs = []
+        for info, share_obs in zip(infos, obs):
             state = info[0]["state"]
             if np.any(np.abs(state[0:2]) > self.all_args.corner_max):
                 continue
@@ -233,8 +288,8 @@ class MPECurriculumRunner(Runner):
             if np.any(state[-1] >= self.all_args.horizon):
                 continue
             new_states.append(state)
-            new_weights.append(np.var(denomalized_value))
-        self.curriculum_buffer.insert(new_states, new_weights)
+            new_share_obs.append(share_obs)
+        self.curriculum_buffer.insert(new_states, new_share_obs)
 
         # info dict
         env_dones = np.all(dones, axis=1)
@@ -243,6 +298,9 @@ class MPECurriculumRunner(Runner):
             self.env_infos["start_step"][idx] = infos[idx][-1]["start_step"]
             self.env_infos["end_step"][idx] = infos[idx][-1]["num_steps"]
             self.env_infos["episode_length"][idx] = infos[idx][-1]["episode_length"]
+            self.env_infos["outside"][idx] = (infos[idx][-1]["outside_per_step"] > 0)
+            self.env_infos["collision"][idx] = (infos[idx][-1]["collision_per_step"] > 0)
+            self.env_infos["escape"][idx] = (not self.env_infos["outside"][idx]) and (not self.env_infos["collision"][idx])
             self.env_infos["outside_per_step"][idx] = infos[idx][-1]["outside_per_step"]
             self.env_infos["collision_per_step"][idx] = infos[idx][-1]["collision_per_step"]
             self.no_info[idx] = False
