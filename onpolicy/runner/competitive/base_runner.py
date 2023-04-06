@@ -3,7 +3,7 @@ from tensorboardX import SummaryWriter
 import numpy as np
 import os
 import psutil
-import slackweb
+# import slackweb
 import socket
 import torch
 import wandb
@@ -201,7 +201,7 @@ class Runner(object):
             blue_train_infos = self.blue_trainer.train(self.blue_buffer)      
         self.blue_buffer.after_update()
 
-        self.log_system()
+        # self.log_system()
         return red_train_infos, blue_train_infos
 
     def save(self):

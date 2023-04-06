@@ -5,11 +5,12 @@ import torch
 
 from onpolicy.runner.competitive.base_runner import Runner
 from onpolicy.utils.curriculum_buffer import CurriculumBuffer
-
+import pdb
+import copy
+import wandb
 
 def _t2n(x):
     return x.detach().cpu().numpy()
-
 
 class MPECurriculumRunner(Runner):
     def __init__(self, config):
@@ -17,6 +18,8 @@ class MPECurriculumRunner(Runner):
 
         self.prob_curriculum = self.all_args.prob_curriculum
         self.sample_metric = self.all_args.sample_metric
+        self.alpha = self.all_args.alpha
+        self.beta = self.all_args.beta
         self.curriculum_buffer = CurriculumBuffer(
             buffer_size=self.all_args.curriculum_buffer_size,
             update_method=self.all_args.update_method,
@@ -34,6 +37,12 @@ class MPECurriculumRunner(Runner):
             outside_per_step=np.zeros(self.n_rollout_threads, dtype=float), 
             collision_per_step=np.zeros(self.n_rollout_threads, dtype=float),
         )
+        # for sample_metric == "variance_add_bias"
+        self.curriculum_infos = dict(V_variance=0.0,V_bias=0.0)
+        self.old_red_policy = copy.deepcopy(self.red_policy)
+        self.old_blue_policy = copy.deepcopy(self.blue_policy)
+        self.old_red_value_normalizer = copy.deepcopy(self.red_trainer.value_normalizer)
+        self.old_blue_value_normalizer = copy.deepcopy(self.blue_trainer.value_normalizer)
 
     def run(self):
         self.warmup()   
@@ -56,12 +65,19 @@ class MPECurriculumRunner(Runner):
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
                 self.insert(data)
             # compute return
-            self.compute()            
+            self.compute()    
+        
             # train network
             red_train_infos, blue_train_infos = self.train()
 
             # update curiculum buffer
             self.update_curriculum()
+
+            # hard-copy to get old_policy parameters
+            self.old_red_policy = copy.deepcopy(self.red_policy)
+            self.old_blue_policy = copy.deepcopy(self.blue_policy)
+            self.old_red_value_normalizer = copy.deepcopy(self.red_trainer.value_normalizer)
+            self.old_blue_value_normalizer = copy.deepcopy(self.blue_trainer.value_normalizer)
 
             # post process
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
@@ -118,10 +134,24 @@ class MPECurriculumRunner(Runner):
                     outside_per_step=np.zeros(self.n_rollout_threads, dtype=float), 
                     collision_per_step=np.zeros(self.n_rollout_threads, dtype=float),
                 )
+                # curriculum info
+                self.log_curriculum(self.curriculum_infos, total_num_steps)
+                print(
+                    f"V variance: {self.curriculum_infos['V_variance']:.2f}, "
+                    f"V bias: {self.curriculum_infos['V_bias']:.2f}."
+                )
+                self.curriculum_infos = dict(V_variance=0.0,V_bias=0.0)
 
             # eval
             if self.use_eval and episode % self.eval_interval == 0:
                 self.eval(total_num_steps)
+
+    def log_curriculum(self, curriculum_infos, total_num_steps):
+        for k, v in curriculum_infos.items():
+            if self.use_wandb:
+                wandb.log({k: v}, step=total_num_steps)
+            else:
+                self.writter.add_scalars(k, {k: v}, total_num_steps)
 
     def warmup(self):
         # reset env
@@ -147,7 +177,6 @@ class MPECurriculumRunner(Runner):
     def update_curriculum(self):
         # update and get share obs
         share_obs = self.curriculum_buffer.update_states()
-
         # get weights according to metric
         num_weights = share_obs.shape[0]
         if self.sample_metric == "uniform":
@@ -186,6 +215,61 @@ class MPECurriculumRunner(Runner):
 
             values_denorm = np.concatenate([red_values_denorm, -blue_values_denorm], axis=1)
             weights = np.var(values_denorm, axis=1)[:, 0]
+        elif self.sample_metric == "variance_add_bias":
+            # current red V_value
+            red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)
+            red_values = self.red_trainer.policy.get_values(
+                np.concatenate(share_obs[:, :self.num_red]),
+                red_rnn_states_critic,
+                red_masks,
+            )
+            red_values = np.array(np.split(_t2n(red_values), num_weights))
+            red_values_denorm = self.red_trainer.value_normalizer.denormalize(red_values)
+            # old red V_value
+            old_red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            old_red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)
+            old_red_values = self.old_red_policy.get_values(
+                np.concatenate(share_obs[:, :self.num_red]),
+                old_red_rnn_states_critic,
+                old_red_masks,
+            )
+            old_red_values = np.array(np.split(_t2n(old_red_values), num_weights))
+            old_red_values_denorm = self.old_red_value_normalizer.denormalize(old_red_values)
+
+            # current blue V_value
+            blue_rnn_states_critic = np.zeros((num_weights * self.num_blue, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            blue_masks = np.ones((num_weights * self.num_blue, 1), dtype=np.float32)
+            blue_values = self.blue_trainer.policy.get_values(
+                np.concatenate(share_obs[:, -self.num_blue:]),
+                blue_rnn_states_critic,
+                blue_masks,
+            )
+            blue_values = np.array(np.split(_t2n(blue_values), num_weights))
+            blue_values_denorm = self.blue_trainer.value_normalizer.denormalize(blue_values)
+
+            # old blue V_value
+            old_blue_rnn_states_critic = np.zeros((num_weights * self.num_blue, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            old_blue_masks = np.ones((num_weights * self.num_blue, 1), dtype=np.float32)
+            old_blue_values = self.old_blue_policy.get_values(
+                np.concatenate(share_obs[:, -self.num_blue:]),
+                old_blue_rnn_states_critic,
+                old_blue_masks,
+            )
+            old_blue_values = np.array(np.split(_t2n(old_blue_values), num_weights))
+            old_blue_values_denorm = self.old_blue_value_normalizer.denormalize(old_blue_values)
+
+            # concat current V value
+            values_denorm = np.concatenate([red_values_denorm, -blue_values_denorm], axis=1)
+            # concat old V value
+            old_values_denorm = np.concatenate([old_red_values_denorm, -old_blue_values_denorm], axis=1)
+            # get V_variance
+            V_variance = np.var(values_denorm, axis=1)[:, 0]
+            # get |V_current - V_old|
+            V_bias = np.mean(np.square(values_denorm - old_values_denorm),axis=1)[:, 0]
+
+            weights = self.beta * V_variance + self.alpha * V_bias
+            self.curriculum_infos = dict(V_variance=np.mean(V_variance),V_bias=np.mean(V_bias))
     
         self.curriculum_buffer.update_weights(weights)
 
@@ -304,49 +388,6 @@ class MPECurriculumRunner(Runner):
             self.env_infos["outside_per_step"][idx] = infos[idx][-1]["outside_per_step"]
             self.env_infos["collision_per_step"][idx] = infos[idx][-1]["collision_per_step"]
             self.no_info[idx] = False
-
-    # @torch.no_grad()
-    # def eval(self, total_num_steps):
-    #     eval_episode_rewards = []
-    #     eval_obs = self.eval_envs.reset()
-
-    #     eval_rnn_states = np.zeros((self.n_eval_rollout_threads, *self.buffer.rnn_states.shape[2:]), dtype=np.float32)
-    #     eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
-
-    #     for eval_step in range(self.episode_length):
-    #         self.trainer.prep_rollout()
-    #         eval_action, eval_rnn_states = self.trainer.policy.act(np.concatenate(eval_obs),
-    #                                             np.concatenate(eval_rnn_states),
-    #                                             np.concatenate(eval_masks),
-    #                                             deterministic=True)
-    #         eval_actions = np.array(np.split(_t2n(eval_action), self.n_eval_rollout_threads))
-    #         eval_rnn_states = np.array(np.split(_t2n(eval_rnn_states), self.n_eval_rollout_threads))
-            
-    #         if self.eval_envs.action_space[0].__class__.__name__ == "MultiDiscrete":
-    #             for i in range(self.eval_envs.action_space[0].shape):
-    #                 eval_uc_actions_env = np.eye(self.eval_envs.action_space[0].high[i]+1)[eval_actions[:, :, i]]
-    #                 if i == 0:
-    #                     eval_actions_env = eval_uc_actions_env
-    #                 else:
-    #                     eval_actions_env = np.concatenate((eval_actions_env, eval_uc_actions_env), axis=2)
-    #         elif self.eval_envs.action_space[0].__class__.__name__ == "Discrete":
-    #             eval_actions_env = np.squeeze(np.eye(self.eval_envs.action_space[0].n)[eval_actions], 2)
-    #         else:
-    #             raise NotImplementedError
-
-    #         # Obser reward and next obs
-    #         eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions_env)
-    #         eval_episode_rewards.append(eval_rewards)
-
-    #         eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
-    #         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
-    #         eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), 1), dtype=np.float32)
-
-    #     eval_episode_rewards = np.array(eval_episode_rewards)
-    #     eval_env_infos = {}
-    #     eval_env_infos["eval_average_episode_rewards"] = np.sum(np.array(eval_episode_rewards), axis=0)
-    #     print("eval average episode rewards of agent: " + str(np.mean(eval_env_infos["eval_average_episode_rewards"])))
-    #     self.log_env(eval_env_infos, total_num_steps)
 
     @torch.no_grad()
     def render(self):
