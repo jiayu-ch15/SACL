@@ -71,6 +71,7 @@ def parse_args(args, parser):
     parser.add_argument("--sample_metric", type=str,default="uniform", choices=["uniform", "variance", "rb_variance", "oracle", "variance_add_bias"])
     parser.add_argument("--alpha", type=float,default=0.0, help='trade-off for V_variance and V_bias')
     parser.add_argument("--beta", type=float,default=0.0, help='trade-off for V_variance and V_bias')
+    parser.add_argument("--num_critic", type=int,default=1, help='number of critic network')
     # parser.add_argument("--max_staleness", type=int, default=5, help="maximum staleness of state in curriculum buffer")
 
     all_args = parser.parse_known_args(args)[0]

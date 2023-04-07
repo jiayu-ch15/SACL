@@ -222,7 +222,7 @@ class R_MAPPO():
 
             self.policy.critic_optimizer[critic_id].step()
 
-        return value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, 
+        return value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, ratio
 
     def train(self, buffer, turn_on=True):
         if self._use_popart or self._use_valuenorm:
@@ -265,6 +265,7 @@ class R_MAPPO():
                     value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, ratio \
                         = self.ppo_update(sample, turn_on)
 
+                import pdb; pdb.set_trace()
                 train_info['value_loss'] += value_loss.item()
                 train_info['policy_loss'] += policy_loss.item()
                 train_info['dist_entropy'] += dist_entropy.item()

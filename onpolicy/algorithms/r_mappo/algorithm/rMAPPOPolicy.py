@@ -20,6 +20,7 @@ class R_MAPPOPolicy_ensemble:
 
         self.actor = R_Actor(args, self.obs_space, self.act_space, self.device)
         self.critic = [R_Critic(args, self.share_obs_space, self.device) for _ in range(self.num_critic)]
+        # self.critic = [R_Critic(args, self.share_obs_space, self.device)] * 3
         self.critic = nn.ModuleList(self.critic)
 
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=self.lr, eps=self.opti_eps, weight_decay=self.weight_decay)

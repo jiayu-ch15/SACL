@@ -1,8 +1,8 @@
 #!/bin/sh
 # exp config
-exp="2_corner-sacl-random"
+exp="debug"
 algo="mappo"
-seed=4
+seed=0
 # env config
 env="MPE"
 scenario="simple_tag_corner"
@@ -52,3 +52,4 @@ CUDA_VISIBLE_DEVICES=0 python train/train_mpe_curriculum.py \
 --max_staleness ${max_staleness} \
 --user_name ${user_name} \
 --wandb_name ${wandb_name} \
+--use_wandb \
