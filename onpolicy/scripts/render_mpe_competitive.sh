@@ -28,10 +28,13 @@ n_rollout_threads=1
 # model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/min1_max2-sacl-random_sample-wo_landmark-wo_time/wandb/run-20230402_172220-2tkd9hne/files"
 # model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_uniform-sp/wandb/run-20230405_072147-2w2sddz3/files"
 # model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-uniform-wo_time/wandb/run-20230405_143444-2hngjx8z/files"
-model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-variance-wo_time/wandb/run-20230405_143758-4yi5jvmo/files"
+# model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-variance-wo_time/wandb/run-20230405_143758-4yi5jvmo/files"
 # model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-variance**5-wo_time/wandb/run-20230405_144611-lji84yjt/files"
 # model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-rb_variance-wo_time/wandb/run-20230405_144206-32c37840/files"
 # model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-rb_variance**5-wo_time/wandb/run-20230405_144713-28h7cvs6/files"
+# model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_uniform-adv_br-uniform_sp@100M-from_scratch/wandb/run-20230407_080255-2ltp7wci/files/5M"
+model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_uniform-adv_br-uniform_sp_seed0@100M-from_pretrained/wandb/run-20230407_080547-1k7urah2/files/5M"
+# model_dir=""
 
 
 # user name
@@ -41,7 +44,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=7 xvfb-run -s "-screen 0 1400x900x24" python render/render_mpe_competitive.py \
+CUDA_VISIBLE_DEVICES=0 xvfb-run -s "-screen 0 1400x900x24" python render/render_mpe_competitive.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \

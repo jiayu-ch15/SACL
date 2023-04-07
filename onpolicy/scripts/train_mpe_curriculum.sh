@@ -1,11 +1,11 @@
 #!/bin/sh
 # exp config
-exp="2_corner-sacl-rb_variance**5-wo_time"
+exp="2_corner-sacl-rb_variance_mean-wo_time"
 algo="mappo"
-seed=0
+seed=2
 # env config
 env="MPE"
-scenario="simple_catch_corner"
+scenario="simple_tag_corner"
 horizon=200
 corner_min=1.0
 corner_max=2.0
@@ -16,7 +16,7 @@ num_landmarks=2
 attn_size=32
 # training config
 training_mode="self_play"
-num_env_steps=50000000
+num_env_steps=100000000
 episode_length=200
 n_rollout_threads=100
 ppo_epoch=5
@@ -26,7 +26,7 @@ save_interval=50
 prob_curriculum=0.7
 curriculum_buffer_size=10000
 update_method="fps"
-sample_metric="rb_variance"
+sample_metric="rb_variance_mean"
 # user name
 user_name="zelaix"
 wandb_name="sacl"
@@ -34,7 +34,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=0 python train/train_mpe_curriculum.py \
+CUDA_VISIBLE_DEVICES=4 python train/train_mpe_curriculum.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \

@@ -84,7 +84,7 @@ class CurriculumBuffer(object):
             initial_states = [None for _ in range(num_samples)]
         else:
             weights = self._weight_buffer / np.mean(self._weight_buffer)
-            probs = weights ** 5 / np.sum(weights ** 5)
+            probs = weights / np.sum(weights)
             sample_idx = np.random.choice(self._state_buffer.shape[0], num_samples, replace=True, p=probs)
             initial_states = [self._state_buffer[idx] for idx in sample_idx]
         return initial_states

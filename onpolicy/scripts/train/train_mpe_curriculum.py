@@ -64,15 +64,21 @@ def parse_args(args, parser):
     parser.add_argument("--num_adv", type=int, default=3, help="number of adversarial agents")
     parser.add_argument("--num_good", type=int, default=1, help="number of good agents")
     parser.add_argument("--num_landmarks", type=int, default=2, help="number of landmarks")
+    parser.add_argument("--save_ckpt_interval", type=int, default=250, help="checkpoint save intervel")
+
     # curriculum args
     parser.add_argument("--prob_curriculum", type=float, default=0.7, help="probability to reset initial state from curriculum")
     parser.add_argument("--curriculum_buffer_size", type=int, default=10000, help="size of curriculum buffer")
     parser.add_argument("--update_method", type=str,default="fps", choices=["random", "fps"])
-    parser.add_argument("--sample_metric", type=str,default="uniform", choices=["uniform", "variance", "rb_variance", "oracle"])
+    parser.add_argument("--sample_metric", type=str,default="uniform", choices=["uniform", "variance", "rb_variance", "rb_variance_mean", "oracle"])
     # parser.add_argument("--max_staleness", type=int, default=5, help="maximum staleness of state in curriculum buffer")
 
     all_args = parser.parse_known_args(args)[0]
     all_args.num_agents = all_args.num_adv + all_args.num_good
+    all_args.red_model_dir = all_args.red_model_dir.split(" ") if all_args.red_model_dir is not None else None
+    all_args.blue_model_dir = all_args.blue_model_dir.split(" ") if all_args.blue_model_dir is not None else None
+    all_args.red_valuenorm_dir = all_args.red_valuenorm_dir.split(" ") if all_args.red_valuenorm_dir is not None else None
+    all_args.blue_valuenorm_dir = all_args.blue_valuenorm_dir.split(" ") if all_args.blue_valuenorm_dir is not None else None
 
     return all_args
 

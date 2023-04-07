@@ -24,7 +24,7 @@ class MPECurriculumRunner(Runner):
 
         self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
         self.env_infos = dict(
-            initial_dist=np.zeros(self.n_rollout_threads, dtype=int), 
+            initial_dist=np.zeros(self.n_rollout_threads, dtype=float), 
             start_step=np.zeros(self.n_rollout_threads, dtype=int), 
             end_step=np.zeros(self.n_rollout_threads, dtype=int),
             episode_length=np.zeros(self.n_rollout_threads, dtype=int),
@@ -67,11 +67,15 @@ class MPECurriculumRunner(Runner):
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
 
             # save model
-            if (episode % self.save_interval == 0 or episode == episodes - 1):
+            if ((episode + 1) % self.save_interval == 0 or episode == episodes - 1):
                 self.save()
 
+            # save checkpoint
+            if (episode + 1) % self.save_ckpt_interval == 0:
+                self.save_ckpt(total_num_steps)
+
             # log information
-            if episode % self.log_interval == 0:
+            if (episode + 1) % self.log_interval == 0:
                 # basic info
                 end = time.time()
                 print(
@@ -108,7 +112,7 @@ class MPECurriculumRunner(Runner):
                 )
                 self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
                 self.env_infos = dict(
-                    initial_dist=np.zeros(self.n_rollout_threads, dtype=int), 
+                    initial_dist=np.zeros(self.n_rollout_threads, dtype=float), 
                     start_step=np.zeros(self.n_rollout_threads, dtype=int), 
                     end_step=np.zeros(self.n_rollout_threads, dtype=int),
                     episode_length=np.zeros(self.n_rollout_threads, dtype=int),
@@ -120,7 +124,7 @@ class MPECurriculumRunner(Runner):
                 )
 
             # eval
-            if self.use_eval and episode % self.eval_interval == 0:
+            if self.use_eval and (episode + 1) % self.eval_interval == 0:
                 self.eval(total_num_steps)
 
     def warmup(self):
@@ -186,7 +190,32 @@ class MPECurriculumRunner(Runner):
 
             values_denorm = np.concatenate([red_values_denorm, -blue_values_denorm], axis=1)
             weights = np.var(values_denorm, axis=1)[:, 0]
-    
+        # NOTE: only for test
+        elif self.sample_metric == "rb_variance_mean":
+            red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)
+            red_values = self.red_trainer.policy.get_values(
+                np.concatenate(share_obs[:, :self.num_red]),
+                red_rnn_states_critic,
+                red_masks,
+            )
+            red_values = np.array(np.split(_t2n(red_values), num_weights))
+            red_values_denorm = self.red_trainer.value_normalizer.denormalize(red_values)
+            red_values_denorm = np.mean(red_values_denorm, axis=1, keepdims=True)
+
+            blue_rnn_states_critic = np.zeros((num_weights * self.num_blue, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            blue_masks = np.ones((num_weights * self.num_blue, 1), dtype=np.float32)
+            blue_values = self.blue_trainer.policy.get_values(
+                np.concatenate(share_obs[:, -self.num_blue:]),
+                blue_rnn_states_critic,
+                blue_masks,
+            )
+            blue_values = np.array(np.split(_t2n(blue_values), num_weights))
+            blue_values_denorm = self.blue_trainer.value_normalizer.denormalize(blue_values)
+
+            values_denorm = np.concatenate([red_values_denorm, -blue_values_denorm], axis=1)
+            weights = np.var(values_denorm, axis=1)[:, 0]
+
         self.curriculum_buffer.update_weights(weights)
 
     @torch.no_grad()

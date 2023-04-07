@@ -16,7 +16,7 @@ class MPERunner(Runner):
 
         self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
         self.env_infos = dict(
-            initial_dist=np.zeros(self.n_rollout_threads, dtype=int), 
+            initial_dist=np.zeros(self.n_rollout_threads, dtype=float), 
             start_step=np.zeros(self.n_rollout_threads, dtype=int), 
             end_step=np.zeros(self.n_rollout_threads, dtype=int),
             episode_length=np.zeros(self.n_rollout_threads, dtype=int),
@@ -52,11 +52,15 @@ class MPERunner(Runner):
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
 
             # save model
-            if (episode % self.save_interval == 0 or episode == episodes - 1):
+            if ((episode + 1) % self.save_interval == 0 or episode == episodes - 1):
                 self.save()
 
+            # save checkpoint
+            if (episode + 1) % self.save_ckpt_interval == 0:
+                self.save_ckpt(total_num_steps)
+
             # log information
-            if episode % self.log_interval == 0:
+            if (episode + 1) % self.log_interval == 0:
                 # basic info
                 end = time.time()
                 print(
@@ -94,7 +98,7 @@ class MPERunner(Runner):
                 )
                 self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
                 self.env_infos = dict(
-                    initial_dist=np.zeros(self.n_rollout_threads, dtype=int), 
+                    initial_dist=np.zeros(self.n_rollout_threads, dtype=float), 
                     start_step=np.zeros(self.n_rollout_threads, dtype=int), 
                     end_step=np.zeros(self.n_rollout_threads, dtype=int),
                     episode_length=np.zeros(self.n_rollout_threads, dtype=int),
@@ -106,7 +110,7 @@ class MPERunner(Runner):
                 )
 
             # eval
-            if self.use_eval and episode % self.eval_interval == 0:
+            if self.use_eval and (episode + 1) % self.eval_interval == 0:
                 self.eval(total_num_steps)
 
     def warmup(self):
@@ -308,6 +312,67 @@ class MPERunner(Runner):
         #     f"end step: {np.mean(eval_end_step):.2f}, "
         #     f"episode length: {np.mean(eval_episode_length):.2f}."
         # )
+
+    @torch.no_grad()
+    def eval_head2head(self):
+        eval_adv_returns = []
+        eval_good_returns = []
+
+        episodes = self.eval_episodes // self.n_eval_rollout_threads
+        for episode in range(episodes):
+            eval_adv_rewards = []
+            eval_good_rewards = []
+
+            eval_obs = self.eval_envs.reset()
+            eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
+
+            for eval_step in range(self.episode_length):
+                # red action
+                self.red_trainer.prep_rollout()
+                eval_red_actions, eval_red_rnn_states = self.red_trainer.policy.act(
+                    np.concatenate(eval_obs[:, :self.num_red]),
+                    np.concatenate(eval_rnn_states[:, :self.num_red]),
+                    np.concatenate(eval_masks[:, :self.num_red]),
+                    deterministic=False,
+                )
+                eval_red_actions = np.array(np.split(_t2n(eval_red_actions), self.n_eval_rollout_threads))
+                eval_red_rnn_states = np.array(np.split(_t2n(eval_red_rnn_states), self.n_eval_rollout_threads))
+                
+                # blue action
+                self.blue_trainer.prep_rollout()
+                eval_blue_actions, eval_blue_rnn_states = self.blue_trainer.policy.act(
+                    np.concatenate(eval_obs[:, -self.num_blue:]),
+                    np.concatenate(eval_rnn_states[:, -self.num_blue:]),
+                    np.concatenate(eval_masks[:, -self.num_blue:]),
+                    deterministic=False,
+                )
+                eval_blue_actions = np.array(np.split(_t2n(eval_blue_actions), self.n_eval_rollout_threads))
+                eval_blue_rnn_states = np.array(np.split(_t2n(eval_blue_rnn_states), self.n_eval_rollout_threads))
+                
+                # concatenate and env action
+                eval_actions = np.concatenate([eval_red_actions, eval_blue_actions], axis=1)
+                eval_rnn_states = np.concatenate([eval_red_rnn_states, eval_blue_rnn_states], axis=1)
+                eval_actions_env = np.squeeze(np.eye(self.eval_envs.action_space[0].n)[eval_actions], 2)
+
+                # env step
+                eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions_env)
+                eval_adv_rewards.append(eval_rewards[:, 0])
+                eval_good_rewards.append(eval_rewards[:, -1])
+
+                eval_rnn_states[eval_dones == True] = np.zeros(((eval_dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
+                eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
+                eval_masks[eval_dones == True] = np.zeros(((eval_dones == True).sum(), 1), dtype=np.float32)
+
+            # info
+            eval_adv_returns.extend(np.sum(eval_adv_rewards, axis=0)[:, 0].tolist())
+            eval_good_returns.extend(np.sum(eval_good_rewards, axis=0)[:, 0].tolist())
+
+        print(
+            f"adv mean return: {np.mean(eval_adv_returns):.2f}, "
+            f"good mean return: {np.mean(eval_good_returns):.2f}.\n"
+        )
+        return np.mean(eval_adv_returns)
 
     @torch.no_grad()
     def render(self):
