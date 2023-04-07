@@ -1,6 +1,6 @@
 #!/bin/sh
 # exp config
-exp="2_corner-sacl-rb_variance_mean-wo_time"
+exp="2w_crnr-sacl-rb_var"
 algo="mappo"
 seed=2
 # env config
@@ -22,11 +22,12 @@ n_rollout_threads=100
 ppo_epoch=5
 log_interval=5
 save_interval=50
+save_ckpt_interval=250
 # curriculum config
 prob_curriculum=0.7
 curriculum_buffer_size=10000
 update_method="fps"
-sample_metric="rb_variance_mean"
+sample_metric="rb_variance"
 # user name
 user_name="zelaix"
 wandb_name="sacl"
@@ -34,10 +35,10 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=4 python train/train_mpe_curriculum.py \
+CUDA_VISIBLE_DEVICES=6 python train/train_mpe_curriculum.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
---corner_min ${corner_min} --corner_max ${corner_max} \
+--corner_min ${corner_min} --corner_max ${corner_max} --use_wall \
 --num_adv ${num_adv} --num_good ${num_good} --num_landmarks ${num_landmarks} \
 --use_attn --attn_size ${attn_size} --use_recurrent_policy \
 --num_env_steps ${num_env_steps} --episode_length ${episode_length} \
@@ -47,5 +48,5 @@ CUDA_VISIBLE_DEVICES=4 python train/train_mpe_curriculum.py \
 --curriculum_buffer_size ${curriculum_buffer_size} \
 --update_method ${update_method} --sample_metric ${sample_metric} \
 --max_staleness ${max_staleness} \
---user_name "zelaix" \
+--user_name ${user_name} \
 --wandb_name ${wandb_name}

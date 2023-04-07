@@ -2,7 +2,7 @@ from gym import spaces
 import copy
 import numpy as np
 
-from onpolicy.envs.mpe.core import World, Agent, Landmark
+from onpolicy.envs.mpe.core import World, Agent, Landmark, Wall
 from onpolicy.envs.mpe.scenario import BaseScenario
 
 
@@ -16,6 +16,7 @@ class Scenario(BaseScenario):
         self.corner_min = args.corner_min
         self.corner_max = args.corner_max
         self.horizon = args.horizon
+        self.use_wall = args.use_wall
 
         world = World()
         # set any world properties first
@@ -45,6 +46,15 @@ class Scenario(BaseScenario):
             landmark.movable = False
             landmark.size = 0.2
             landmark.boundary = False
+        # add walls
+        if self.use_wall:
+            world.walls = [
+                Wall("H", -self.corner_max, (-self.corner_max, self.corner_max)),
+                Wall("H", self.corner_max, (-self.corner_max, self.corner_max)),
+                Wall("V", -self.corner_max, (-self.corner_max, self.corner_max)),
+                Wall("V", self.corner_max, (-self.corner_max, self.corner_max)),
+            ]
+
         # make initial conditions
         self.reset_world(world)
         return world
@@ -113,13 +123,13 @@ class Scenario(BaseScenario):
                     landmark.state.p_vel = np.zeros(world.dim_p)
 
         else:  # set environment to initial_state
-            # # set start step
-            # self.start_step = int(initial_state[-1])
-            # world.world_step = int(initial_state[-1])
+            # set start step
+            self.start_step = int(initial_state[-1])
+            world.world_step = int(initial_state[-1])
 
-            # start from 0
-            self.start_step = 0
-            world.world_step = 0
+            # # start from 0
+            # self.start_step = 0
+            # world.world_step = 0
 
             # set agents
             for idx, agent in enumerate(world.agents):
@@ -207,17 +217,18 @@ class Scenario(BaseScenario):
                     rew -= 10
                     self.num_collision += 1
 
-        # agents are penalized for exiting the screen, so that they can be caught by the adversaries
-        def bound(x):
-            if x < self.corner_max - 0.1:
-                return 0
-            if x < self.corner_max:
-                return (x - (self.corner_max - 0.1)) * 10
-            return min(np.exp(2 * (x - self.corner_max)), 10)
-        for p in range(world.dim_p):
-            x = abs(agent.state.p_pos[p])
-            rew -= bound(x)
-        self.num_outside += np.any(np.abs(agent.state.p_pos) > self.corner_max)
+        if not self.use_wall:
+            # agents are penalized for exiting the screen, so that they can be caught by the adversaries
+            def bound(x):
+                if x < self.corner_max - 0.1:
+                    return 0
+                if x < self.corner_max:
+                    return (x - (self.corner_max - 0.1)) * 10
+                return min(np.exp(2 * (x - self.corner_max)), 10)
+            for p in range(world.dim_p):
+                x = abs(agent.state.p_pos[p])
+                rew -= bound(x)
+            self.num_outside += np.any(np.abs(agent.state.p_pos) > self.corner_max)
 
         return rew
 
@@ -236,17 +247,18 @@ class Scenario(BaseScenario):
                     if self.is_collision(ag, adv):
                         rew += 10
 
-        # Make env zero-sum: adversaryies are rewarded if good agents exits the screen.
-        def bound(x):
-            if x < self.corner_max - 0.1:
-                return 0
-            if x < self.corner_max:
-                return (x - (self.corner_max - 0.1)) * 10
-            return min(np.exp(2 * (x - self.corner_max)), 10)
-        for ag in agents:
-            for p in range(world.dim_p):
-                x = abs(ag.state.p_pos[p])
-                rew += bound(x)
+        if not self.use_wall:
+            # Make env zero-sum: adversaryies are rewarded if good agents exits the screen.
+            def bound(x):
+                if x < self.corner_max - 0.1:
+                    return 0
+                if x < self.corner_max:
+                    return (x - (self.corner_max - 0.1)) * 10
+                return min(np.exp(2 * (x - self.corner_max)), 10)
+            for ag in agents:
+                for p in range(world.dim_p):
+                    x = abs(ag.state.p_pos[p])
+                    rew += bound(x)
 
         return rew
 
