@@ -1,6 +1,6 @@
 #!/bin/sh
 # exp config
-exp="2_corner-sacl-variance_add_bias_beta0_alpha1"
+exp="2_corner-sacl-random"
 algo="mappo"
 seed=4
 # env config
@@ -28,7 +28,7 @@ curriculum_buffer_size=10000
 beta=0.0
 alpha=1.0
 update_method="fps"
-sample_metric="variance_add_bias"
+sample_metric="uniform"
 # user name
 user_name="chenjy"
 wandb_name="sacl"
@@ -36,7 +36,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=3 python train/train_mpe_curriculum.py \
+CUDA_VISIBLE_DEVICES=0 python train/train_mpe_curriculum.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \

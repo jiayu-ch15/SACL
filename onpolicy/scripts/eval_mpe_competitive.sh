@@ -19,23 +19,20 @@ n_rollout_threads=1
 # eval config
 n_eval_rollout_threads=100
 eval_episodes=100
-model_name=("sp" "sacl-unif" "sacl-var" "sacl-var**5" "sacl-rb_var" "sacl-rb_var**5")
+model_name=("sacl-unif" "sacl-bias" "sacl-var")
 model_dir=(
-    "/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_uniform-sp/wandb/run-20230405_072147-2w2sddz3/files"
-    "/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-uniform-wo_time/wandb/run-20230405_143444-2hngjx8z/files"
-    "/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-variance-wo_time/wandb/run-20230405_143758-4yi5jvmo/files"
-    "/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-variance**5-wo_time/wandb/run-20230405_144611-lji84yjt/files"
-    "/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-rb_variance-wo_time/wandb/run-20230405_144206-32c37840/files"
-    "/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-rb_variance**5-wo_time/wandb/run-20230405_144713-28h7cvs6/files"
+    "/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-random/wandb/run-20230406_131114-3hqxl9jp/files"
+    "/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-variance_add_bias_beta0_alpha1/wandb/run-20230406_082127-fq6vsove/files"
+    "/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-variance_add_bias_beta1_alpha0/wandb/run-20230406_081708-1fqtxi08/files"
 )
 
 # user name
-user_name="zelaix"
+user_name="chenjy"
 wandb_name="sacl"
 
 
-for i in {0..5}; do
-    for j in {0..5}; do
+for i in {0..2}; do
+    for j in {0..2}; do
         echo "======= ${model_name[i]} (adv) vs ${model_name[j]} (good) ======="
 
         CUDA_VISIBLE_DEVICES=5 python eval/eval_mpe_competitive.py \
