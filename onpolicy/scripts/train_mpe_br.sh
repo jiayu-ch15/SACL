@@ -1,6 +1,6 @@
 #!/bin/sh
 # exp config
-exp="2_uniform-adv_br"
+exp="2_uniform-adv_br-uniform_sp_seed0@100M-from_pretrained"
 algo="mappo"
 seed=0
 # env config
@@ -16,15 +16,16 @@ num_landmarks=2
 attn_size=32
 # training config
 training_mode="red_br"
-blue_model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/min-2_max2_sp/wandb/run-20230402_093218-3aqr22uz/files"
-# red_model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/min-2_max2_sp/wandb/run-20230402_093218-3aqr22uz/files"
+blue_model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_uniform-sp/wandb/run-20230406_072750-3c2mvcmr/files/100M"
+red_model_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_uniform-sp/wandb/run-20230406_072750-3c2mvcmr/files/100M"
+red_valuenorm_dir="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_uniform-sp/wandb/run-20230406_072750-3c2mvcmr/files/100M"
 num_env_steps=100000000
 episode_length=200
 n_rollout_threads=100
 ppo_epoch=5
 log_interval=5
 save_interval=50
-
+save_ckpt_interval=250
 # user name
 user_name="zelaix"
 wandb_name="sacl"
@@ -39,8 +40,10 @@ CUDA_VISIBLE_DEVICES=7 python train/train_mpe_competitive.py \
 --num_adv ${num_adv} --num_good ${num_good} --num_landmarks ${num_landmarks} \
 --use_attn --attn_size ${attn_size} --use_recurrent_policy \
 --training_mode ${training_mode} --blue_model_dir ${blue_model_dir} \
+--red_model_dir ${red_model_dir} --red_valuenorm_dir ${red_valuenorm_dir} \
 --num_env_steps ${num_env_steps} --episode_length ${episode_length} \
 --n_rollout_threads ${n_rollout_threads} --ppo_epoch ${ppo_epoch} \
 --log_interval ${log_interval} --save_interval ${save_interval} \
+--save_ckpt_interval ${save_ckpt_interval} \
 --user_name "zelaix" \
 --wandb_name ${wandb_name}

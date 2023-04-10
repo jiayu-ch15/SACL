@@ -111,7 +111,7 @@ class Agent(Entity):
 
 # multi-agent world
 class World(object):
-    def __init__(self):
+    def __init__(self, boundary=1.0, hard_boundary=False):
         # list of agents and entities (can change at execution-time!)
         self.agents = []
         self.landmarks = []
@@ -138,6 +138,9 @@ class World(object):
         self.world_step = 0
         self.num_agents = 0
         self.num_landmarks = 0
+        # hard boundary
+        self.boundary = boundary
+        self.hard_boundary = hard_boundary
 
     # return all entities in the world
     @property
@@ -276,6 +279,9 @@ class World(object):
                     entity.state.p_vel = entity.state.p_vel / np.sqrt(np.square(entity.state.p_vel[0]) +
                                                                       np.square(entity.state.p_vel[1])) * entity.max_speed
             entity.state.p_pos += entity.state.p_vel * self.dt
+            if self.hard_boundary:
+                entity.state.p_pos = np.clip(entity.state.p_pos, -self.boundary, self.boundary)
+
 
     def update_agent_state(self, agent):
         # set communication state (directly for now)
@@ -304,6 +310,10 @@ class World(object):
             # compute actual distance between entities
             delta_pos = entity_a.state.p_pos - entity_b.state.p_pos
             dist = np.sqrt(np.sum(np.square(delta_pos)))
+            if dist == 0.0:
+                dist = 1e-5
+                theta = np.random.uniform(low=-np.pi, high=np.pi, size=1)[0]
+                delta_pos = dist * np.array([np.sin(theta), np.cos(theta)])
             # minimum allowable distance
             dist_min = entity_a.size + entity_b.size
         # softmax penetration

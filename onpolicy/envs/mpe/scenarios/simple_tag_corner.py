@@ -16,8 +16,9 @@ class Scenario(BaseScenario):
         self.corner_min = args.corner_min
         self.corner_max = args.corner_max
         self.horizon = args.horizon
+        self.hard_boundary = args.hard_boundary
 
-        world = World()
+        world = World(self.corner_max, self.hard_boundary)
         # set any world properties first
         world.world_length = args.horizon
         world.dim_p = 2
@@ -207,17 +208,18 @@ class Scenario(BaseScenario):
                     rew -= 10
                     self.num_collision += 1
 
-        # agents are penalized for exiting the screen, so that they can be caught by the adversaries
-        def bound(x):
-            if x < self.corner_max - 0.1:
-                return 0
-            if x < self.corner_max:
-                return (x - (self.corner_max - 0.1)) * 10
-            return min(np.exp(2 * (x - self.corner_max)), 10)
-        for p in range(world.dim_p):
-            x = abs(agent.state.p_pos[p])
-            rew -= bound(x)
-        self.num_outside += np.any(np.abs(agent.state.p_pos) > self.corner_max)
+        if not self.hard_boundary:
+            # agents are penalized for exiting the screen, so that they can be caught by the adversaries
+            def bound(x):
+                if x < self.corner_max - 0.1:
+                    return 0
+                if x < self.corner_max:
+                    return (x - (self.corner_max - 0.1)) * 10
+                return min(np.exp(2 * (x - self.corner_max)), 10)
+            for p in range(world.dim_p):
+                x = abs(agent.state.p_pos[p])
+                rew -= bound(x)
+            self.num_outside += np.any(np.abs(agent.state.p_pos) > self.corner_max)
 
         return rew
 
@@ -236,17 +238,18 @@ class Scenario(BaseScenario):
                     if self.is_collision(ag, adv):
                         rew += 10
 
-        # Make env zero-sum: adversaryies are rewarded if good agents exits the screen.
-        def bound(x):
-            if x < self.corner_max - 0.1:
-                return 0
-            if x < self.corner_max:
-                return (x - (self.corner_max - 0.1)) * 10
-            return min(np.exp(2 * (x - self.corner_max)), 10)
-        for ag in agents:
-            for p in range(world.dim_p):
-                x = abs(ag.state.p_pos[p])
-                rew += bound(x)
+        if not self.hard_boundary:
+            # Make env zero-sum: adversaryies are rewarded if good agents exits the screen.
+            def bound(x):
+                if x < self.corner_max - 0.1:
+                    return 0
+                if x < self.corner_max:
+                    return (x - (self.corner_max - 0.1)) * 10
+                return min(np.exp(2 * (x - self.corner_max)), 10)
+            for ag in agents:
+                for p in range(world.dim_p):
+                    x = abs(ag.state.p_pos[p])
+                    rew += bound(x)
 
         return rew
 

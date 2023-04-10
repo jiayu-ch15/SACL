@@ -65,13 +65,13 @@ class Runner(object):
 
         # interval
         self.save_interval = self.all_args.save_interval
+        self.save_ckpt_interval = self.all_args.save_ckpt_interval
         self.use_eval = self.all_args.use_eval
         self.eval_interval = self.all_args.eval_interval
         self.log_interval = self.all_args.log_interval
 
         if self.use_render:
-            run_dir = Path(self.red_model_dir).parent.absolute()
-            self.gif_dir = f"{run_dir}/gifs"
+            self.gif_dir = f"{self.red_model_dir[0]}/gifs"
             if not os.path.exists(self.gif_dir):
                 os.makedirs(self.gif_dir)
         else:
@@ -130,9 +130,9 @@ class Runner(object):
 
             # restore model
             if self.red_model_dir is not None:
-                self.restore("red_policy")
+                self.restore("red_model")
             if self.blue_model_dir is not None:
-                self.restore("blue_policy")
+                self.restore("blue_model")
             if self.use_valuenorm and self.red_valuenorm_dir is not None:
                 self.restore("red_valuenorm")
             if self.use_valuenorm and self.blue_valuenorm_dir is not None:
@@ -165,6 +165,24 @@ class Runner(object):
 
     def insert(self, data):
         raise NotImplementedError
+    
+    @torch.no_grad()
+    def eval_head2head(self):
+        raise NotImplementedError
+    
+    @torch.no_grad()
+    def eval_cross_play(self):
+        num_red_models = len(self.red_model_dir)
+        num_blue_models = len(self.blue_model_dir)
+
+        cross_play_returns = np.zeros((num_red_models, num_blue_models), dtype=float)
+        for red_idx in range(num_red_models):
+            self.restore("red_model", red_idx)
+            for blue_idx in range(num_blue_models):
+                print(f"red model {red_idx} v.s. blue model {blue_idx}")
+                self.restore("blue_model", blue_idx)
+                cross_play_returns[red_idx, blue_idx] = self.eval_head2head()
+        np.save(f"{self.log_dir}/cross_play_returns.npy", cross_play_returns)
     
     @torch.no_grad()
     def compute(self):
@@ -207,52 +225,80 @@ class Runner(object):
     def save(self):
         if self.use_single_network:
             red_policy_model = self.red_trainer.policy.model
-            torch.save(red_policy_model.state_dict(), str(self.save_dir) + "/red_model.pt")
+            torch.save(red_policy_model.state_dict(), f"{self.save_dir}/red_model.pt")
             blue_policy_model = self.blue_trainer.policy.model
-            torch.save(blue_policy_model.state_dict(), str(self.save_dir) + "/blue_model.pt")
+            torch.save(blue_policy_model.state_dict(), f"{self.save_dir}/blue_model.pt")
         else:
             red_policy_actor = self.red_trainer.policy.actor
-            torch.save(red_policy_actor.state_dict(), str(self.save_dir) + "/red_actor.pt")
+            torch.save(red_policy_actor.state_dict(), f"{self.save_dir}/red_actor.pt")
             red_policy_critic = self.red_trainer.policy.critic
-            torch.save(red_policy_critic.state_dict(), str(self.save_dir) + "/red_critic.pt")
+            torch.save(red_policy_critic.state_dict(), f"{self.save_dir}/red_critic.pt")
             if self.use_valuenorm:
                 red_value_normalizer = self.red_trainer.value_normalizer
-                torch.save(red_value_normalizer.state_dict(), str(self.save_dir) + "/red_value_normalizer.pt")
+                torch.save(red_value_normalizer.state_dict(), f"{self.save_dir}/red_value_normalizer.pt")
 
             blue_policy_actor = self.blue_trainer.policy.actor
-            torch.save(blue_policy_actor.state_dict(), str(self.save_dir) + "/blue_actor.pt")
+            torch.save(blue_policy_actor.state_dict(), f"{self.save_dir}/blue_actor.pt")
             blue_policy_critic = self.blue_trainer.policy.critic
-            torch.save(blue_policy_critic.state_dict(), str(self.save_dir) + "/blue_critic.pt")
+            torch.save(blue_policy_critic.state_dict(), f"{self.save_dir}/blue_critic.pt")
             if self.use_valuenorm:
                 blue_value_normalizer = self.blue_trainer.value_normalizer
-                torch.save(blue_value_normalizer.state_dict(), str(self.save_dir) + "/blue_value_normalizer.pt")
+                torch.save(blue_value_normalizer.state_dict(), f"{self.save_dir}/blue_value_normalizer.pt")
+    
+    def save_ckpt(self, total_num_steps):
+        million_steps = int(total_num_steps // 1000000)
+        save_ckpt_dir = f"{self.save_dir}/{million_steps}M"
+        assert not os.path.exists(save_ckpt_dir), (f"checkpoint path {save_ckpt_dir} already exists.")
+        os.makedirs(save_ckpt_dir)
+        
+        if self.use_single_network:
+            red_policy_model = self.red_trainer.policy.model
+            torch.save(red_policy_model.state_dict(), f"{save_ckpt_dir}/red_model.pt")
+            blue_policy_model = self.blue_trainer.policy.model
+            torch.save(blue_policy_model.state_dict(), f"{save_ckpt_dir}/blue_model.pt")
+        else:
+            red_policy_actor = self.red_trainer.policy.actor
+            torch.save(red_policy_actor.state_dict(), f"{save_ckpt_dir}/red_actor.pt")
+            red_policy_critic = self.red_trainer.policy.critic
+            torch.save(red_policy_critic.state_dict(), f"{save_ckpt_dir}/red_critic.pt")
+            if self.use_valuenorm:
+                red_value_normalizer = self.red_trainer.value_normalizer
+                torch.save(red_value_normalizer.state_dict(), f"{save_ckpt_dir}/red_value_normalizer.pt")
 
-    def restore(self, model):
-        if model == "red_policy":
+            blue_policy_actor = self.blue_trainer.policy.actor
+            torch.save(blue_policy_actor.state_dict(), f"{save_ckpt_dir}/blue_actor.pt")
+            blue_policy_critic = self.blue_trainer.policy.critic
+            torch.save(blue_policy_critic.state_dict(), f"{save_ckpt_dir}/blue_critic.pt")
+            if self.use_valuenorm:
+                blue_value_normalizer = self.blue_trainer.value_normalizer
+                torch.save(blue_value_normalizer.state_dict(), f"{save_ckpt_dir}/blue_value_normalizer.pt")
+
+    def restore(self, model, idx=0):
+        if model == "red_model":
             if self.use_single_network:
-                red_policy_model_state_dict = torch.load(str(self.red_model_dir) + "/red_model.pt", map_location=self.device)
+                red_policy_model_state_dict = torch.load(f"{self.red_model_dir[idx]}/red_model.pt", map_location=self.device)
                 self.red_trainer.policy.model.load_state_dict(red_policy_model_state_dict)
             else:
-                red_policy_actor_state_dict = torch.load(str(self.red_model_dir) + "/red_actor.pt", map_location=self.device)
+                red_policy_actor_state_dict = torch.load(f"{self.red_model_dir[idx]}/red_actor.pt", map_location=self.device)
+                red_policy_critic_state_dict = torch.load(f"{self.red_model_dir[idx]}/red_critic.pt", map_location=self.device)
                 self.red_trainer.policy.actor.load_state_dict(red_policy_actor_state_dict)
                 # if not (self.all_args.use_render or self.all_args.use_eval):
-                red_policy_critic_state_dict = torch.load(str(self.red_model_dir) + "/red_critic.pt", map_location=self.device)
                 self.red_trainer.policy.critic.load_state_dict(red_policy_critic_state_dict)
         elif model == "red_valuenorm":
-            red_value_normalizer_state_dict = torch.load(str(self.red_valuenorm_dir) + "/red_value_normalizer.pt", map_location=self.device)
+            red_value_normalizer_state_dict = torch.load(f"{self.red_valuenorm_dir[idx]}/red_value_normalizer.pt", map_location=self.device)
             self.red_trainer.value_normalizer.load_state_dict(red_value_normalizer_state_dict)
-        elif model == "blue_policy":
+        elif model == "blue_model":
             if self.use_single_network:
-                blue_policy_model_state_dict = torch.load(str(self.blue_model_dir) + "/blue_model.pt", map_location=self.device)
+                blue_policy_model_state_dict = torch.load(f"{self.blue_model_dir[idx]}/blue_model.pt", map_location=self.device)
                 self.blue_trainer.policy.model.load_state_dict(blue_policy_model_state_dict)
             else:
-                blue_policy_actor_state_dict = torch.load(str(self.blue_model_dir) + "/blue_actor.pt", map_location=self.device)
+                blue_policy_actor_state_dict = torch.load(f"{self.blue_model_dir[idx]}/blue_actor.pt", map_location=self.device)
                 self.blue_trainer.policy.actor.load_state_dict(blue_policy_actor_state_dict)
                 # if not (self.all_args.use_render or self.all_args.use_eval):
-                blue_policy_critic_state_dict = torch.load(str(self.blue_model_dir) + "/blue_critic.pt", map_location=self.device)
+                blue_policy_critic_state_dict = torch.load(f"{self.blue_model_dir[idx]}/blue_critic.pt", map_location=self.device)
                 self.blue_trainer.policy.critic.load_state_dict(blue_policy_critic_state_dict)
         elif model == "blue_valuenorm":
-            blue_value_normalizer_state_dict = torch.load(str(self.blue_valuenorm_dir) + "/blue_value_normalizer.pt", map_location=self.device)
+            blue_value_normalizer_state_dict = torch.load(f"{self.blue_valuenorm_dir[idx]}/blue_value_normalizer.pt", map_location=self.device)
             self.blue_trainer.value_normalizer.load_state_dict(blue_value_normalizer_state_dict)
         else:
             raise NotImplementedError(f"Model {model} is not supported.")

@@ -64,11 +64,12 @@ def parse_args(args, parser):
     parser.add_argument("--num_adv", type=int, default=3, help="number of adversarial agents")
     parser.add_argument("--num_good", type=int, default=1, help="number of good agents")
     parser.add_argument("--num_landmarks", type=int, default=2, help="number of landmarks")
+    parser.add_argument("--hard_boundary", action="store_true", default=False, help="by default False, use hard boundary")
     # curriculum args
     parser.add_argument("--prob_curriculum", type=float, default=0.7, help="probability to reset initial state from curriculum")
     parser.add_argument("--curriculum_buffer_size", type=int, default=10000, help="size of curriculum buffer")
     parser.add_argument("--update_method", type=str,default="fps", choices=["random", "fps"])
-    parser.add_argument("--sample_metric", type=str,default="uniform", choices=["uniform", "variance", "rb_variance", "oracle", "variance_add_bias"])
+    parser.add_argument("--sample_metric", type=str,default="uniform", choices=["uniform", "variance", "rb_variance", "oracle", "variance_add_bias", "ensemble_mean_variance", "ensemble_individual_variance"])
     parser.add_argument("--alpha", type=float,default=0.0, help='trade-off for V_variance and V_bias')
     parser.add_argument("--beta", type=float,default=0.0, help='trade-off for V_variance and V_bias')
     parser.add_argument("--num_critic", type=int,default=1, help='number of critic network')

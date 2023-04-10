@@ -27,7 +27,7 @@ class MPECurriculumRunner(Runner):
 
         self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
         self.env_infos = dict(
-            initial_dist=np.zeros(self.n_rollout_threads, dtype=int), 
+            initial_dist=np.zeros(self.n_rollout_threads, dtype=float), 
             start_step=np.zeros(self.n_rollout_threads, dtype=int), 
             end_step=np.zeros(self.n_rollout_threads, dtype=int),
             episode_length=np.zeros(self.n_rollout_threads, dtype=int),
@@ -64,6 +64,9 @@ class MPECurriculumRunner(Runner):
                 # insert data into buffer
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
                 self.insert(data)
+                # update env info
+                if (episode + 1) % self.log_interval == 0:
+                    self.update_env_infos(dones, infos)
             # compute return
             self.compute()    
         
@@ -83,11 +86,15 @@ class MPECurriculumRunner(Runner):
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
 
             # save model
-            if (episode % self.save_interval == 0 or episode == episodes - 1):
+            if ((episode + 1) % self.save_interval == 0 or episode == episodes - 1):
                 self.save()
 
+            # save checkpoint
+            if (episode + 1) % self.save_ckpt_interval == 0:
+                self.save_ckpt(total_num_steps)
+
             # log information
-            if episode % self.log_interval == 0:
+            if (episode + 1) % self.log_interval == 0:
                 # basic info
                 end = time.time()
                 print(
@@ -118,13 +125,13 @@ class MPECurriculumRunner(Runner):
                     f"episode length: {np.mean(self.env_infos['episode_length']):.2f}.\n"
                     f"outside: {np.mean(self.env_infos['outside']):.2f}, "
                     f"collision: {np.mean(self.env_infos['collision']):.2f}, "
-                    f"escape: {np.mean(self.env_infos['escape']):.2f}.\n"
-                    f"outside per step: {np.mean(self.env_infos['outside_per_step']):.2f}, "
-                    f"collision per step: {np.mean(self.env_infos['collision_per_step']):.2f}.\n"
+                    f"escape: {np.mean(self.env_infos['escape']):.2f}, "
+                    f"outside per step: {np.mean(self.env_infos['outside_per_step']):.4f}, "
+                    f"collision per step: {np.mean(self.env_infos['collision_per_step']):.4f}.\n"
                 )
                 self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
                 self.env_infos = dict(
-                    initial_dist=np.zeros(self.n_rollout_threads, dtype=int), 
+                    initial_dist=np.zeros(self.n_rollout_threads, dtype=float), 
                     start_step=np.zeros(self.n_rollout_threads, dtype=int), 
                     end_step=np.zeros(self.n_rollout_threads, dtype=int),
                     episode_length=np.zeros(self.n_rollout_threads, dtype=int),
@@ -143,7 +150,7 @@ class MPECurriculumRunner(Runner):
                 self.curriculum_infos = dict(V_variance=0.0,V_bias=0.0)
 
             # eval
-            if self.use_eval and episode % self.eval_interval == 0:
+            if self.use_eval and (episode + 1) % self.eval_interval == 0:
                 self.eval(total_num_steps)
 
     def log_curriculum(self, curriculum_infos, total_num_steps):
@@ -375,6 +382,7 @@ class MPECurriculumRunner(Runner):
             new_share_obs.append(share_obs)
         self.curriculum_buffer.insert(new_states, new_share_obs)
 
+    def update_env_infos(self, dones, infos):
         # info dict
         env_dones = np.all(dones, axis=1)
         for idx in np.arange(self.n_rollout_threads)[env_dones * self.no_info]:

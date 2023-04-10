@@ -29,15 +29,18 @@ def make_render_env(all_args):
 
 
 def parse_args(args, parser):
+    # training args
     parser.add_argument("--competitive", action="store_true", default=False, help="by default False, use competitive runner.")
     parser.add_argument("--training_mode", type=str,default="self_play", choices=["self_play", "red_br", "blue_br"])
-
-    parser.add_argument("--fixed_valuenorm", action="store_true", default=False, help="by default False, use fixed value norm")
-
+    parser.add_argument("--save_ckpt_interval", type=int, default=250, help="checkpoint save intervel")
     parser.add_argument("--red_model_dir", type=str, default=None, help="by default None, directory of fixed red model")
     parser.add_argument("--blue_model_dir", type=str, default=None, help="by default None, directory of fixed blue model")
     parser.add_argument("--red_valuenorm_dir", type=str, default=None, help="by default None, directory of red value norm model")
     parser.add_argument("--blue_valuenorm_dir", type=str, default=None, help="by default None, directory of blue value norm model")
+
+    parser.add_argument("--fixed_valuenorm", action="store_true", default=False, help="by default False, use fixed value norm")
+
+    # env args
     parser.add_argument("--scenario_name", type=str, default="simple_tag_corner", help="which scenario to run on")
     parser.add_argument("--horizon", type=int, default=200, help="environment horizon")
     parser.add_argument("--corner_min", type=float, default=2.0, help="minimum distance of corner")
@@ -45,9 +48,14 @@ def parse_args(args, parser):
     parser.add_argument("--num_adv", type=int, default=3, help="number of adversarial agents")
     parser.add_argument("--num_good", type=int, default=1, help="number of good agents")
     parser.add_argument("--num_landmarks", type=int, default=2, help="number of landmarks")
+    parser.add_argument("--hard_boundary", action="store_true", default=False, help="by default False, use hard boundary")
 
     all_args = parser.parse_known_args(args)[0]
     all_args.num_agents = all_args.num_adv + all_args.num_good
+    all_args.red_model_dir = all_args.red_model_dir.split(" ") if all_args.red_model_dir is not None else None
+    all_args.blue_model_dir = all_args.blue_model_dir.split(" ") if all_args.blue_model_dir is not None else None
+    all_args.red_valuenorm_dir = all_args.red_valuenorm_dir.split(" ") if all_args.red_valuenorm_dir is not None else None
+    all_args.blue_valuenorm_dir = all_args.blue_valuenorm_dir.split(" ") if all_args.blue_valuenorm_dir is not None else None
 
     return all_args
 
