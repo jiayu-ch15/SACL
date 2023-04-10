@@ -1,8 +1,8 @@
 #!/bin/sh
 # exp config
-exp="debug"
+exp="ensemble_individual_variance"
 algo="mappo"
-seed=0
+seed=2
 # env config
 env="MPE"
 scenario="simple_tag_corner"
@@ -16,7 +16,7 @@ num_landmarks=2
 attn_size=32
 # training config
 training_mode="self_play"
-num_env_steps=50000000
+num_env_steps=100000000
 episode_length=200
 n_rollout_threads=100
 ppo_epoch=5
@@ -37,7 +37,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=0 python train/train_mpe_ensemble_curriculum.py \
+CUDA_VISIBLE_DEVICES=2 python train/train_mpe_ensemble_curriculum.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \
@@ -51,6 +51,6 @@ CUDA_VISIBLE_DEVICES=0 python train/train_mpe_ensemble_curriculum.py \
 --update_method ${update_method} --sample_metric ${sample_metric} \
 --alpha ${alpha} --beta ${beta} --num_critic ${num_critic} \
 --max_staleness ${max_staleness} \
+--hard_boundary \
 --user_name ${user_name} \
 --wandb_name ${wandb_name} \
---use_wandb \

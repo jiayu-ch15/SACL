@@ -85,6 +85,7 @@ class MPECurriculumRunner(Runner):
             # save model
             if (episode % self.save_interval == 0 or episode == episodes - 1):
                 self.save()
+                self.checkpoint_save(total_num_steps)
 
             # log information
             if episode % self.log_interval == 0:
@@ -137,8 +138,7 @@ class MPECurriculumRunner(Runner):
                 # curriculum info
                 self.log_curriculum(self.curriculum_infos, total_num_steps)
                 print(
-                    f"V variance: {self.curriculum_infos['V_variance']:.2f}, "
-                    f"V bias: {self.curriculum_infos['V_bias']:.2f}."
+                    f"V variance: {self.curriculum_infos['V_variance']:.2f}."
                 )
                 self.curriculum_infos = dict(V_variance=0.0,V_bias=0.0)
 
@@ -529,3 +529,10 @@ class MPECurriculumRunner(Runner):
             # save gif
             if self.all_args.save_gifs:
                 imageio.mimsave(f"{self.gif_dir}/episode{episode}.gif", all_frames[:-1], duration=self.all_args.ifi)
+
+    def checkpoint_save(self, total_num_steps):
+        red_policy_actor = self.red_trainer.policy.actor
+        torch.save(red_policy_actor.state_dict(), str(self.save_dir) + "/red_actor_{}.pt".format(total_num_steps))
+
+        blue_policy_actor = self.blue_trainer.policy.actor
+        torch.save(blue_policy_actor.state_dict(), str(self.save_dir) + "/blue_actor_{}.pt".format(total_num_steps))
