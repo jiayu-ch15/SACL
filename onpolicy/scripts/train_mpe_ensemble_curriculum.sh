@@ -29,7 +29,7 @@ beta=0.0
 alpha=1.0
 num_critic=3
 update_method="fps"
-sample_metric="uniform"
+sample_metric="variance_add_bias"
 # user name
 user_name="chenjy"
 wandb_name="sacl"
