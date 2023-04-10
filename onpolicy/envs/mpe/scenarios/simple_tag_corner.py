@@ -2,7 +2,7 @@ from gym import spaces
 import copy
 import numpy as np
 
-from onpolicy.envs.mpe.core import World, Agent, Landmark, Wall
+from onpolicy.envs.mpe.core import World, Agent, Landmark
 from onpolicy.envs.mpe.scenario import BaseScenario
 
 
@@ -46,7 +46,6 @@ class Scenario(BaseScenario):
             landmark.movable = False
             landmark.size = 0.2
             landmark.boundary = False
-
         # make initial conditions
         self.reset_world(world)
         return world
@@ -115,13 +114,13 @@ class Scenario(BaseScenario):
                     landmark.state.p_vel = np.zeros(world.dim_p)
 
         else:  # set environment to initial_state
-            # set start step
-            self.start_step = int(initial_state[-1])
-            world.world_step = int(initial_state[-1])
+            # # set start step
+            # self.start_step = int(initial_state[-1])
+            # world.world_step = int(initial_state[-1])
 
-            # # start from 0
-            # self.start_step = 0
-            # world.world_step = 0
+            # start from 0
+            self.start_step = 0
+            world.world_step = 0
 
             # set agents
             for idx, agent in enumerate(world.agents):
