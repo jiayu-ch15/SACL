@@ -37,7 +37,7 @@ class MPECurriculumRunner(Runner):
             outside_per_step=np.zeros(self.n_rollout_threads, dtype=float), 
             collision_per_step=np.zeros(self.n_rollout_threads, dtype=float),
         )
-        # for sample_metric == "variance_add_bias"
+        # sample_metric == "variance_add_bias"
         self.curriculum_infos = dict(V_variance=0.0,V_bias=0.0)
         self.old_red_policy = copy.deepcopy(self.red_policy)
         self.old_blue_policy = copy.deepcopy(self.blue_policy)

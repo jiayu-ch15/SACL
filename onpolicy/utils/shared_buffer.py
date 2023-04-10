@@ -280,7 +280,7 @@ class SharedReplayBuffer_ensemble(object):
                           num_mini_batch))
             mini_batch_size = batch_size // num_mini_batch
 
-        self.shuffle_batch = False
+        self.shuffle_batch = True
         if self.shuffle_batch:
             rand_actor = torch.randperm(batch_size).numpy()
             sampler_actor = [rand_actor[i*mini_batch_size:(i+1)*mini_batch_size] for i in range(num_mini_batch)]
@@ -301,7 +301,6 @@ class SharedReplayBuffer_ensemble(object):
                 sampler_critic.append(sampler_actor)
             # sampler critic: -> num_mini_batch * num_critic * mini_batch_size
             sampler_critic = np.array(sampler_critic).transpose(1,0,2).tolist()
-            import pdb; pdb.set_trace()
 
         if self._mixed_obs:
             share_obs = {}

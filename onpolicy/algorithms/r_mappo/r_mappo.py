@@ -182,6 +182,7 @@ class R_MAPPO():
                                                                               available_actions_batch,
                                                                               active_masks_actor_batch)
 
+
         # actor update
         ratio = torch.exp(action_log_probs - old_action_log_probs_actor_batch)
 
@@ -211,7 +212,7 @@ class R_MAPPO():
         # critic update
         value_loss = []
         for critic_id in range(self.num_critic):
-            value_loss.append(self.cal_value_loss(self.value_normalizer, values[critic_id], value_preds_critic_batch[:, critic_id], return_critic_batch[:, critic_id], active_masks_critic_batch[:,critic_id]))
+            value_loss.append(self.cal_value_loss(self.value_normalizer, values[critic_id].unsqueeze(1), value_preds_critic_batch[:, critic_id].unsqueeze(1), return_critic_batch[:, critic_id].unsqueeze(1), active_masks_critic_batch[:,critic_id]))
             self.policy.critic_optimizer[critic_id].zero_grad()
             (value_loss[critic_id] * self.value_loss_coef).backward()
 
@@ -229,9 +230,10 @@ class R_MAPPO():
             advantages = buffer.returns[:-1] - self.value_normalizer.denormalize(buffer.value_preds[:-1])
         else:
             advantages = buffer.returns[:-1] - buffer.value_preds[:-1]
+        if self.num_critic > 1:
+            advantages = np.mean(advantages, axis=3)[:,:,:,np.newaxis]
         advantages_copy = advantages.copy()
-        for critic_id in range(self.num_critic):
-            advantages_copy[:,:,:, critic_id, np.newaxis][buffer.active_masks[:-1] == 0.0] = np.nan
+        advantages_copy[buffer.active_masks[:-1] == 0.0] = np.nan
         mean_advantages = np.nanmean(advantages_copy)
         std_advantages = np.nanstd(advantages_copy)
         advantages = (advantages - mean_advantages) / (std_advantages + 1e-5)
@@ -265,8 +267,13 @@ class R_MAPPO():
                     value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, ratio \
                         = self.ppo_update(sample, turn_on)
 
-                import pdb; pdb.set_trace()
-                train_info['value_loss'] += value_loss.item()
+                if self.num_critic > 1:
+                    value_loss_mean = 0.0
+                    for idx in range(self.num_critic):
+                        value_loss_mean += value_loss[idx].item()
+                    train_info['value_loss'] = value_loss_mean / self.num_critic
+                else:
+                    train_info['value_loss'] += value_loss.item()
                 train_info['policy_loss'] += policy_loss.item()
                 train_info['dist_entropy'] += dist_entropy.item()
                 
