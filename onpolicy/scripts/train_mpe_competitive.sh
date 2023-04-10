@@ -1,14 +1,14 @@
 #!/bin/sh
 # exp config
-exp="2w_unif-sp"
+exp="1h_unif-sp"
 algo="mappo"
 seed=2
 # env config
 env="MPE"
 scenario="simple_tag_corner"
 horizon=200
-corner_min=-2.0
-corner_max=2.0
+corner_min=-1.0
+corner_max=1.0
 num_adv=3
 num_good=1
 num_landmarks=2
@@ -30,10 +30,10 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=7 python train/train_mpe_competitive.py \
+CUDA_VISIBLE_DEVICES=6 python train/train_mpe_competitive.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
---corner_min ${corner_min} --corner_max ${corner_max} --use_wall \
+--corner_min ${corner_min} --corner_max ${corner_max} --hard_boundary \
 --num_adv ${num_adv} --num_good ${num_good} --num_landmarks ${num_landmarks} \
 --use_attn --attn_size ${attn_size} --use_recurrent_policy \
 --training_mode ${training_mode} \

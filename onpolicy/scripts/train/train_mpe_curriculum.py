@@ -66,7 +66,7 @@ def parse_args(args, parser):
     parser.add_argument("--num_adv", type=int, default=3, help="number of adversarial agents")
     parser.add_argument("--num_good", type=int, default=1, help="number of good agents")
     parser.add_argument("--num_landmarks", type=int, default=2, help="number of landmarks")
-    parser.add_argument("--use_wall", action="store_true", default=False, help="by default False, use wall in env")
+    parser.add_argument("--hard_boundary", action="store_true", default=False, help="by default False, use hard boundary")
 
     # curriculum args
     parser.add_argument("--prob_curriculum", type=float, default=0.7, help="probability to reset initial state from curriculum")

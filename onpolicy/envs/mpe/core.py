@@ -111,7 +111,7 @@ class Agent(Entity):
 
 # multi-agent world
 class World(object):
-    def __init__(self):
+    def __init__(self, boundary=1.0, hard_boundary=False):
         # list of agents and entities (can change at execution-time!)
         self.agents = []
         self.landmarks = []
@@ -138,6 +138,9 @@ class World(object):
         self.world_step = 0
         self.num_agents = 0
         self.num_landmarks = 0
+        # hard boundary
+        self.boundary = boundary
+        self.hard_boundary = hard_boundary
 
     # return all entities in the world
     @property
@@ -276,6 +279,9 @@ class World(object):
                     entity.state.p_vel = entity.state.p_vel / np.sqrt(np.square(entity.state.p_vel[0]) +
                                                                       np.square(entity.state.p_vel[1])) * entity.max_speed
             entity.state.p_pos += entity.state.p_vel * self.dt
+            if self.hard_boundary:
+                entity.state.p_pos = np.clip(entity.state.p_pos, -self.boundary, self.boundary)
+
 
     def update_agent_state(self, agent):
         # set communication state (directly for now)
@@ -309,7 +315,7 @@ class World(object):
         # softmax penetration
         k = self.contact_margin
         penetration = np.logaddexp(0, -(dist - dist_min)/k)*k
-        force = self.contact_force * delta_pos / dist * penetration
+        force = self.contact_force * delta_pos / (dist + 1e-10) * penetration
         if entity_a.movable and entity_b.movable:
             # consider mass in collisions
             force_ratio = entity_b.mass / entity_a.mass

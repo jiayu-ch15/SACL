@@ -16,9 +16,9 @@ class Scenario(BaseScenario):
         self.corner_min = args.corner_min
         self.corner_max = args.corner_max
         self.horizon = args.horizon
-        self.use_wall = args.use_wall
+        self.hard_boundary = args.hard_boundary
 
-        world = World()
+        world = World(self.corner_max, self.hard_boundary)
         # set any world properties first
         world.world_length = args.horizon
         world.dim_p = 2
@@ -46,14 +46,6 @@ class Scenario(BaseScenario):
             landmark.movable = False
             landmark.size = 0.2
             landmark.boundary = False
-        # add walls
-        if self.use_wall:
-            world.walls = [
-                Wall("H", -self.corner_max, (-self.corner_max, self.corner_max)),
-                Wall("H", self.corner_max, (-self.corner_max, self.corner_max)),
-                Wall("V", -self.corner_max, (-self.corner_max, self.corner_max)),
-                Wall("V", self.corner_max, (-self.corner_max, self.corner_max)),
-            ]
 
         # make initial conditions
         self.reset_world(world)
@@ -217,7 +209,7 @@ class Scenario(BaseScenario):
                     rew -= 10
                     self.num_collision += 1
 
-        if not self.use_wall:
+        if not self.hard_boundary:
             # agents are penalized for exiting the screen, so that they can be caught by the adversaries
             def bound(x):
                 if x < self.corner_max - 0.1:
@@ -247,7 +239,7 @@ class Scenario(BaseScenario):
                     if self.is_collision(ag, adv):
                         rew += 10
 
-        if not self.use_wall:
+        if not self.hard_boundary:
             # Make env zero-sum: adversaryies are rewarded if good agents exits the screen.
             def bound(x):
                 if x < self.corner_max - 0.1:
