@@ -330,6 +330,66 @@ class MPECurriculumRunner(Runner):
             # get V_variance
             weights = np.var(values_denorm, axis=1)
             self.curriculum_infos = dict(V_variance=np.mean(weights))
+        elif self.sample_metric == "ensemble_var_add_bias":
+            # current red V_value
+            red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)
+            red_values = self.red_trainer.policy.get_values(
+                np.concatenate(share_obs[:, :self.num_red]),
+                red_rnn_states_critic,
+                red_masks,
+            )
+            red_values = np.array(np.split(_t2n(red_values), num_weights))
+            red_values_denorm = self.red_trainer.value_normalizer.denormalize(red_values)
+
+            # old red V_value
+            old_red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            old_red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)
+            old_red_values = self.old_red_policy.get_values(
+                np.concatenate(share_obs[:, :self.num_red]),
+                old_red_rnn_states_critic,
+                old_red_masks,
+            )
+            old_red_values = np.array(np.split(_t2n(old_red_values), num_weights))
+            old_red_values_denorm = self.old_red_value_normalizer.denormalize(old_red_values)
+
+            # current blue V_value
+            blue_rnn_states_critic = np.zeros((num_weights * self.num_blue, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            blue_masks = np.ones((num_weights * self.num_blue, 1), dtype=np.float32)
+            blue_values = self.blue_trainer.policy.get_values(
+                np.concatenate(share_obs[:, -self.num_blue:]),
+                blue_rnn_states_critic,
+                blue_masks,
+            )
+            blue_values = np.array(np.split(_t2n(blue_values), num_weights))
+            blue_values_denorm = self.blue_trainer.value_normalizer.denormalize(blue_values)
+
+            # old blue V_value
+            old_blue_rnn_states_critic = np.zeros((num_weights * self.num_blue, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            old_blue_masks = np.ones((num_weights * self.num_blue, 1), dtype=np.float32)
+            old_blue_values = self.old_blue_policy.get_values(
+                np.concatenate(share_obs[:, -self.num_blue:]),
+                old_blue_rnn_states_critic,
+                old_blue_masks,
+            )
+            old_blue_values = np.array(np.split(_t2n(old_blue_values), num_weights))
+            old_blue_values_denorm = self.old_blue_value_normalizer.denormalize(old_blue_values)
+
+            # concat current V value
+            values_denorm = np.concatenate([red_values_denorm, -blue_values_denorm], axis=1)
+            # concat old V value
+            old_values_denorm = np.concatenate([old_red_values_denorm, -old_blue_values_denorm], axis=1)
+            # reshape : [batch, num_agents * num_ensemble]
+            values_denorm = values_denorm.reshape(values_denorm.shape[0],-1)
+            old_values_denorm = old_values_denorm.reshape(old_values_denorm.shape[0],-1)
+
+            # get Var(V_current)
+            V_variance = np.var(values_denorm, axis=1)
+            # get |V_current - V_old|
+            V_bias = np.mean(np.square(values_denorm - old_values_denorm),axis=1)
+
+            weights = self.beta * V_variance + self.alpha * V_bias
+            self.curriculum_infos = dict(V_variance=np.mean(V_variance),V_bias=np.mean(V_bias))
     
         self.curriculum_buffer.update_weights(weights)
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 # exp config
-exp="ensemble_individual_variance"
+exp="ensemble_1var_1bias"
 algo="mappo"
 seed=2
 # env config
@@ -25,11 +25,11 @@ save_interval=50
 # curriculum config
 prob_curriculum=0.7
 curriculum_buffer_size=10000
-beta=0.0
+beta=1.0
 alpha=1.0
 num_critic=3
 update_method="fps"
-sample_metric="ensemble_individual_variance"
+sample_metric="ensemble_var_add_bias"
 # user name
 user_name="chenjy"
 wandb_name="sacl"
@@ -37,7 +37,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=2 python train/train_mpe_ensemble_curriculum.py \
+CUDA_VISIBLE_DEVICES=1 python train/train_mpe_ensemble_curriculum.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \

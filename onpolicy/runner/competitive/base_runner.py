@@ -280,10 +280,10 @@ class Runner(object):
                 self.red_trainer.policy.model.load_state_dict(red_policy_model_state_dict)
             else:
                 red_policy_actor_state_dict = torch.load(f"{self.red_model_dir[idx]}/red_actor.pt", map_location=self.device)
-                red_policy_critic_state_dict = torch.load(f"{self.red_model_dir[idx]}/red_critic.pt", map_location=self.device)
+                # red_policy_critic_state_dict = torch.load(f"{self.red_model_dir[idx]}/red_critic.pt", map_location=self.device)
                 self.red_trainer.policy.actor.load_state_dict(red_policy_actor_state_dict)
                 # if not (self.all_args.use_render or self.all_args.use_eval):
-                self.red_trainer.policy.critic.load_state_dict(red_policy_critic_state_dict)
+                # self.red_trainer.policy.critic.load_state_dict(red_policy_critic_state_dict)
         elif model == "red_valuenorm":
             red_value_normalizer_state_dict = torch.load(f"{self.red_valuenorm_dir[idx]}/red_value_normalizer.pt", map_location=self.device)
             self.red_trainer.value_normalizer.load_state_dict(red_value_normalizer_state_dict)
@@ -295,8 +295,8 @@ class Runner(object):
                 blue_policy_actor_state_dict = torch.load(f"{self.blue_model_dir[idx]}/blue_actor.pt", map_location=self.device)
                 self.blue_trainer.policy.actor.load_state_dict(blue_policy_actor_state_dict)
                 # if not (self.all_args.use_render or self.all_args.use_eval):
-                blue_policy_critic_state_dict = torch.load(f"{self.blue_model_dir[idx]}/blue_critic.pt", map_location=self.device)
-                self.blue_trainer.policy.critic.load_state_dict(blue_policy_critic_state_dict)
+                # blue_policy_critic_state_dict = torch.load(f"{self.blue_model_dir[idx]}/blue_critic.pt", map_location=self.device)
+                # self.blue_trainer.policy.critic.load_state_dict(blue_policy_critic_state_dict)
         elif model == "blue_valuenorm":
             blue_value_normalizer_state_dict = torch.load(f"{self.blue_valuenorm_dir[idx]}/blue_value_normalizer.pt", map_location=self.device)
             self.blue_trainer.value_normalizer.load_state_dict(blue_value_normalizer_state_dict)

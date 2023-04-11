@@ -349,4 +349,7 @@ def get_config():
     # pretrained parameters
     parser.add_argument("--model_dir", type=str, default=None, help="by default None. set the path to pretrained model.")
 
+    # cl parameters
+    parser.add_argument("--num_critic", type=int,default=1, help='number of critic network')
+
     return parser
