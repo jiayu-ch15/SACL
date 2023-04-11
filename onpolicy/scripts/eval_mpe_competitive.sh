@@ -19,7 +19,7 @@ n_rollout_threads=1
 # eval config
 n_eval_rollout_threads=100
 eval_episodes=100
-model_name=("sacl-unif" "sacl-bias" "sacl-var")
+model_name=("sacl-unif" "sacl-ensemble-mean-var" "sacl-ensemble-individual-var")
 model_dir=(
     "/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-random/wandb/run-20230406_131114-3hqxl9jp/files"
     "/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_corner-sacl-variance_add_bias_beta0_alpha1/wandb/run-20230406_082127-fq6vsove/files"
@@ -35,7 +35,7 @@ for i in {0..2}; do
     for j in {0..2}; do
         echo "======= ${model_name[i]} (adv) vs ${model_name[j]} (good) ======="
 
-        CUDA_VISIBLE_DEVICES=5 python eval/eval_mpe_competitive.py \
+        CUDA_VISIBLE_DEVICES=0 python eval/eval_mpe_competitive.py \
         --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
         --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
         --corner_min ${corner_min} --corner_max ${corner_max} \
