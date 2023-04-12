@@ -24,6 +24,7 @@ class MPECurriculumRunner(Runner):
             buffer_size=self.all_args.curriculum_buffer_size,
             update_method=self.all_args.update_method,
         )
+        self.config = config
 
         self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
         self.env_infos = dict(
@@ -43,6 +44,10 @@ class MPECurriculumRunner(Runner):
         self.old_blue_policy = copy.deepcopy(self.blue_policy)
         self.old_red_value_normalizer = copy.deepcopy(self.red_trainer.value_normalizer)
         self.old_blue_value_normalizer = copy.deepcopy(self.blue_trainer.value_normalizer)
+
+        if self.all_args.sample_metric == 'TDerror':
+            self.TD_evaluation_envs = config["TD_evaluation_envs"]
+            self.TD_n_rollout_threads = config['TD_config'].n_rollout_threads
 
     def run(self):
         self.warmup()   
@@ -277,6 +282,83 @@ class MPECurriculumRunner(Runner):
 
             weights = self.beta * V_variance + self.alpha * V_bias
             self.curriculum_infos = dict(V_variance=np.mean(V_variance),V_bias=np.mean(V_bias))
+        elif self.sample_metric == "TDerror":
+            # get current_V for red
+            red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)
+            red_values = self.red_trainer.policy.get_values(
+                np.concatenate(share_obs[:, :self.num_red]),
+                red_rnn_states_critic,
+                red_masks,
+            )
+            red_values = np.array(np.split(_t2n(red_values), num_weights))
+            red_values_denorm = self.red_trainer.value_normalizer.denormalize(red_values)
+
+            # get current_V for blue
+            blue_rnn_states_critic = np.zeros((num_weights * self.num_blue, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            blue_masks = np.ones((num_weights * self.num_blue, 1), dtype=np.float32)
+            blue_values = self.blue_trainer.policy.get_values(
+                np.concatenate(share_obs[:, -self.num_blue:]),
+                blue_rnn_states_critic,
+                blue_masks,
+            )
+            blue_values = np.array(np.split(_t2n(blue_values), num_weights))
+            blue_values_denorm = self.blue_trainer.value_normalizer.denormalize(blue_values)
+
+            # get actions, share_obs = obs
+            red_rnn_states_actor = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            red_actions, _ = self.red_trainer.policy.act(
+                np.concatenate(share_obs[:, :self.num_red]), 
+                red_rnn_states_actor, 
+                red_masks, 
+                deterministic=True)
+            red_actions = np.array(np.split(_t2n(red_actions), num_weights))
+            blue_rnn_states_actor = np.zeros((num_weights * self.num_blue, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            blue_actions, _ = self.blue_trainer.policy.act(
+                np.concatenate(share_obs[:, -self.num_blue:]), 
+                blue_rnn_states_actor, 
+                blue_masks, 
+                deterministic=True)
+            blue_actions = np.array(np.split(_t2n(blue_actions), num_weights))
+            actions = np.concatenate([red_actions, blue_actions], axis=1)
+            actions_env = np.squeeze(np.eye(self.envs.action_space[0].n)[actions], 2)
+
+            # env step
+            chunk = len(self.curriculum_buffer._state_buffer) // self.TD_n_rollout_threads
+            next_obs_all = []
+            rewards_all = []
+            for chunk_id in range(chunk):
+                initial_states = self.curriculum_buffer._state_buffer[chunk_id * self.TD_n_rollout_threads:(chunk_id + 1)*self.TD_n_rollout_threads]
+                env_idx = np.arange(self.TD_n_rollout_threads).tolist()
+                current_obs = self.TD_evaluation_envs.partial_reset(env_idx, initial_states)
+                next_obs, rewards, _, _ = self.TD_evaluation_envs.step(actions_env[chunk_id * self.TD_n_rollout_threads:(chunk_id + 1)*self.TD_n_rollout_threads])
+                next_obs_all.append(next_obs)
+                rewards_all.append(rewards)
+            next_obs_all = np.concatenate(next_obs_all,axis=0)
+            rewards_all = np.concatenate(rewards_all,axis=0)
+
+            # get next_V for red
+            red_next_values = self.red_trainer.policy.get_values(
+                np.concatenate(next_obs_all[:, :self.num_red]),
+                red_rnn_states_critic,
+                red_masks,
+            )
+            red_next_values = np.array(np.split(_t2n(red_next_values), num_weights))
+            red_next_values_denorm = self.red_trainer.value_normalizer.denormalize(red_next_values)
+
+            # get next_V for blue
+            blue_next_values = self.blue_trainer.policy.get_values(
+                np.concatenate(next_obs_all[:, -self.num_blue:]),
+                blue_rnn_states_critic,
+                blue_masks,
+            )
+            blue_next_values = np.array(np.split(_t2n(blue_next_values), num_weights))
+            blue_next_values_denorm = self.blue_trainer.value_normalizer.denormalize(blue_next_values)
+
+            values_denorm = np.concatenate([red_values_denorm, -blue_values_denorm], axis=1)
+            next_values_denorm = np.concatenate([red_next_values_denorm, -blue_next_values_denorm], axis=1)
+            TDerror = np.abs(rewards_all + self.all_args.gamma * next_values_denorm - values_denorm)
+            weights = np.mean(TDerror,axis=1)[:,0]
     
         self.curriculum_buffer.update_weights(weights)
 

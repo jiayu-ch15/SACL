@@ -1,6 +1,6 @@
 #!/bin/bash
 # exp config
-exp="eval-corner_unif-xp@50M"
+exp="eval-corner-xp@25M"
 algo="mappo"
 seed=0
 # env config
@@ -21,15 +21,24 @@ n_eval_rollout_threads=100
 eval_episodes=100
 
 
-model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/uniform/wandb/run-20230410_131954-2937oo8o/files/50M"
-model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/uniform/wandb/run-20230410_131959-3rstbiw6/files/50M"
-model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/uniform/wandb/run-20230410_132007-1tfhu8gn/files/50M"
-model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_mean_variance/wandb/run-20230410_132220-1etry7dv/files/50M"
-model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_mean_variance/wandb/run-20230410_132228-3coaw48c/files/50M"
-model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_mean_variance/wandb/run-20230410_132233-1qqrzsdj/files/50M"
-model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_individual_variance/wandb/run-20230410_132308-1zt784gi/files/50M"
-model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_individual_variance/wandb/run-20230410_132346-2rf96j6u/files/50M"
-model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_individual_variance/wandb/run-20230410_132353-3uxxrma8/files/50M"
+model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/uniform/wandb/run-20230410_131954-2937oo8o/files/25M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/uniform/wandb/run-20230410_131959-3rstbiw6/files/25M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/uniform/wandb/run-20230410_132007-1tfhu8gn/files/25M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_mean_variance/wandb/run-20230410_132220-1etry7dv/files/25M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_mean_variance/wandb/run-20230410_132228-3coaw48c/files/25M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_mean_variance/wandb/run-20230410_132233-1qqrzsdj/files/25M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_individual_variance/wandb/run-20230410_132308-1zt784gi/files/25M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_individual_variance/wandb/run-20230410_132346-2rf96j6u/files/25M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_individual_variance/wandb/run-20230410_132353-3uxxrma8/files/25M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/sp_unif/wandb/run-20230411_083102-1xor7hxa/files/25M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/sp_unif/wandb/run-20230411_083248-27m7pbv5/files/25M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/sp_unif/wandb/run-20230411_083256-3jvxuusf/files/25M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_bias/wandb/run-20230411_084722-1yq61vnp/files/25M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_bias/wandb/run-20230411_084818-1t6izewa/files/25M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_bias/wandb/run-20230411_084826-pakikq7c/files/25M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_1var_1bias/wandb/run-20230411_084854-28hpmltl/files/25M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_1var_1bias/wandb/run-20230411_084907-2xwxuj8y/files/25M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_1var_1bias/wandb/run-20230411_084920-2aihduhb/files/25M"
 
 # model_dir_list="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_uniform-sp/wandb/run-20230406_072750-3c2mvcmr/files/25M"
 # model_dir_list+=" /home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_uniform-sp/wandb/run-20230406_072904-24wskyj8/files/25M"

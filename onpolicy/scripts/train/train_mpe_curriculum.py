@@ -7,6 +7,7 @@ import socket
 import sys
 import torch
 import wandb
+import copy
 
 from onpolicy.config import get_config
 from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
@@ -72,7 +73,7 @@ def parse_args(args, parser):
     parser.add_argument("--prob_curriculum", type=float, default=0.7, help="probability to reset initial state from curriculum")
     parser.add_argument("--curriculum_buffer_size", type=int, default=10000, help="size of curriculum buffer")
     parser.add_argument("--update_method", type=str,default="fps", choices=["random", "fps"])
-    parser.add_argument("--sample_metric", type=str,default="uniform", choices=["uniform", "variance", "rb_variance", "oracle", "variance_add_bias"])
+    parser.add_argument("--sample_metric", type=str,default="uniform", choices=["uniform", "variance", "rb_variance", "oracle", "variance_add_bias", "TDerror"])
     parser.add_argument("--alpha", type=float,default=0.0, help='trade-off for V_variance and V_bias')
     parser.add_argument("--beta", type=float,default=0.0, help='trade-off for V_variance and V_bias')
     # parser.add_argument("--max_staleness", type=int, default=5, help="maximum staleness of state in curriculum buffer")
@@ -161,10 +162,20 @@ def main(args):
     num_red = all_args.num_adv
     num_blue = all_args.num_good
 
+    if all_args.sample_metric == 'TDerror':
+        TD_config = copy.deepcopy(all_args)
+        TD_config.n_rollout_threads = 500
+        TD_evaluation_envs = make_train_env(TD_config)
+    else:
+        TD_evaluation_envs = None
+        TD_config = None
+
     config = {
         "all_args": all_args,
+        "TD_config": TD_config,
         "envs": envs,
         "eval_envs": eval_envs,
+        "TD_evaluation_envs": TD_evaluation_envs,
         "num_agents": num_agents,
         "num_red": num_red,
         "num_blue": num_blue,
@@ -181,6 +192,8 @@ def main(args):
     envs.close()
     if all_args.use_eval and eval_envs is not envs:
         eval_envs.close()
+    if all_args.sample_metric == 'TDerror':
+        TD_evaluation_envs.close()
 
     if all_args.use_wandb:
         run.finish()

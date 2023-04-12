@@ -65,6 +65,7 @@ class Runner(object):
 
         # interval
         self.save_interval = self.all_args.save_interval
+        self.save_ckpt_interval = self.all_args.save_ckpt_interval
         self.use_eval = self.all_args.use_eval
         self.eval_interval = self.all_args.eval_interval
         self.log_interval = self.all_args.log_interval
@@ -227,6 +228,34 @@ class Runner(object):
             if self.use_valuenorm:
                 blue_value_normalizer = self.blue_trainer.value_normalizer
                 torch.save(blue_value_normalizer.state_dict(), str(self.save_dir) + "/blue_value_normalizer.pt")
+
+    def save_ckpt(self, total_num_steps):
+        million_steps = int(total_num_steps // 1000000)
+        save_ckpt_dir = f"{self.save_dir}/{million_steps}M"
+        assert not os.path.exists(save_ckpt_dir), (f"checkpoint path {save_ckpt_dir} already exists.")
+        os.makedirs(save_ckpt_dir)
+        
+        if self.use_single_network:
+            red_policy_model = self.red_trainer.policy.model
+            torch.save(red_policy_model.state_dict(), f"{save_ckpt_dir}/red_model.pt")
+            blue_policy_model = self.blue_trainer.policy.model
+            torch.save(blue_policy_model.state_dict(), f"{save_ckpt_dir}/blue_model.pt")
+        else:
+            red_policy_actor = self.red_trainer.policy.actor
+            torch.save(red_policy_actor.state_dict(), f"{save_ckpt_dir}/red_actor.pt")
+            red_policy_critic = self.red_trainer.policy.critic
+            torch.save(red_policy_critic.state_dict(), f"{save_ckpt_dir}/red_critic.pt")
+            if self.use_valuenorm:
+                red_value_normalizer = self.red_trainer.value_normalizer
+                torch.save(red_value_normalizer.state_dict(), f"{save_ckpt_dir}/red_value_normalizer.pt")
+
+            blue_policy_actor = self.blue_trainer.policy.actor
+            torch.save(blue_policy_actor.state_dict(), f"{save_ckpt_dir}/blue_actor.pt")
+            blue_policy_critic = self.blue_trainer.policy.critic
+            torch.save(blue_policy_critic.state_dict(), f"{save_ckpt_dir}/blue_critic.pt")
+            if self.use_valuenorm:
+                blue_value_normalizer = self.blue_trainer.value_normalizer
+                torch.save(blue_value_normalizer.state_dict(), f"{save_ckpt_dir}/blue_value_normalizer.pt")
 
     def restore(self, model):
         if model == "red_policy":

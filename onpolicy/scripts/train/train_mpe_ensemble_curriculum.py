@@ -51,6 +51,7 @@ def parse_args(args, parser):
     parser.add_argument("--competitive", action="store_true", default=False, help="by default False, use competitive runner.")
     parser.add_argument("--training_mode", type=str,default="self_play", choices=["self_play", "red_br", "blue_br"])
 
+    parser.add_argument("--save_ckpt_interval", type=int, default=250, help="checkpoint save intervel")
     parser.add_argument("--fixed_valuenorm", action="store_true", default=False, help="by default False, use fixed value norm")
     
     parser.add_argument("--red_model_dir", type=str, default=None, help="by default None, directory of fixed red model")

@@ -85,7 +85,10 @@ class MPECurriculumRunner(Runner):
             # save model
             if (episode % self.save_interval == 0 or episode == episodes - 1):
                 self.save()
-                self.checkpoint_save(total_num_steps)
+
+            # save checkpoint
+            if (episode + 1) % self.save_ckpt_interval == 0:
+                self.save_ckpt(total_num_steps)
 
             # log information
             if episode % self.log_interval == 0:
@@ -390,7 +393,7 @@ class MPECurriculumRunner(Runner):
 
             weights = self.beta * V_variance + self.alpha * V_bias
             self.curriculum_infos = dict(V_variance=np.mean(V_variance),V_bias=np.mean(V_bias))
-    
+        
         self.curriculum_buffer.update_weights(weights)
 
     @torch.no_grad()

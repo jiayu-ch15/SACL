@@ -45,7 +45,7 @@ class CurriculumBuffer(object):
             if self.update_method == "random":
                 random_idx = np.random.choice(all_states.shape[0], self.buffer_size, replace=False)
                 self._state_buffer = all_states[random_idx]
-                self._share_obs_buffer = all_share_obs[random_idx]                
+                self._share_obs_buffer = all_share_obs[random_idx]  
             elif self.update_method == "fps":
                 min_states = np.min(all_states, axis=0)
                 max_states = np.max(all_states, axis=0)
