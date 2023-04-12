@@ -38,7 +38,7 @@ class CurriculumBuffer(object):
             all_share_obs = np.concatenate([self._share_obs_buffer, all_share_obs], axis=0)
 
         # update 
-        if all_states.shape[0] <= self.buffer_size:
+        if all_states.shape[0] <= self.buffer_size or self.update_method == "greedy":
             self._state_buffer = all_states
             self._share_obs_buffer = all_share_obs
         else:
@@ -75,6 +75,12 @@ class CurriculumBuffer(object):
 
     def update_weights(self, weights):
         self._weight_buffer = weights.copy()
+        if self.update_method == 'greedy':
+            if len(self._weight_buffer) > self.buffer_size:
+                self._weight_buffer, self._state_buffer, self._share_obs_buffer = self._buffer_sort(self._weight_buffer, self._state_buffer, self._share_obs_buffer)
+                self._weight_buffer = self._weight_buffer[len(self._weight_buffer) - self.buffer_size:]
+                self._state_buffer = self._state_buffer[len(self._state_buffer) - self.buffer_size:]
+                self._share_obs_buffer = self._share_obs_buffer[len(self._share_obs_buffer) - self.buffer_size:]
 
     def sample(self, num_samples):
         """
@@ -88,3 +94,10 @@ class CurriculumBuffer(object):
             sample_idx = np.random.choice(self._state_buffer.shape[0], num_samples, replace=True, p=probs)
             initial_states = [self._state_buffer[idx] for idx in sample_idx]
         return initial_states
+    
+    # for update_metric = greedy
+    def _buffer_sort(self, list1, *args): # sort by list1, ascending order
+        zipped = zip(list1,*args)
+        sort_zipped = sorted(zipped,key=lambda x:(x[0],np.mean(x[1])))
+        result = zip(*sort_zipped)
+        return [list(x) for x in result]

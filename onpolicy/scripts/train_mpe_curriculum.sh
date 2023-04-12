@@ -2,7 +2,7 @@
 # exp config
 exp="TDerror"
 algo="mappo"
-seed=0
+seed=2
 # env config
 env="MPE"
 scenario="simple_tag_corner"

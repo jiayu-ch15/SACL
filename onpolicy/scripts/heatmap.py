@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import pdb
-data = np.load('/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/eval-corner-xp@50M/run1/logs/cross_play_returns.npy')
+data = np.load('/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/eval-corner-xp@75M/run2/logs/cross_play_returns.npy')
 num_exp = 6
 padding = 3
 mean = np.zeros(shape=(num_exp,num_exp))
@@ -21,8 +21,8 @@ ax = sns.heatmap(
     square=True, linewidths=2, cbar=False, cmap="coolwarm",
     xticklabels=labels, yticklabels=labels,
 )
-ax.set_title("Predator Reward @ 50M")
+ax.set_title("Predator Reward @ 75M")
 
 plt.tight_layout()
 # plt.show()
-plt.savefig("../cross_play@50M.png")
+plt.savefig("../cross_play@75M.png")
