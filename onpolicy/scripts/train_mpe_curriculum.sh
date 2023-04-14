@@ -38,7 +38,7 @@ ulimit -n 16384
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=6 python train/train_mpe_curriculum.py \
+CUDA_VISIBLE_DEVICES=0 python train/train_mpe_curriculum.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} --hard_boundary \

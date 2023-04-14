@@ -78,9 +78,9 @@ class CurriculumBuffer(object):
         if self.update_method == 'greedy':
             if len(self._weight_buffer) > self.buffer_size:
                 self._weight_buffer, self._state_buffer, self._share_obs_buffer = self._buffer_sort(self._weight_buffer, self._state_buffer, self._share_obs_buffer)
-                self._weight_buffer = self._weight_buffer[len(self._weight_buffer) - self.buffer_size:]
-                self._state_buffer = self._state_buffer[len(self._state_buffer) - self.buffer_size:]
-                self._share_obs_buffer = self._share_obs_buffer[len(self._share_obs_buffer) - self.buffer_size:]
+                self._weight_buffer = np.array(self._weight_buffer[len(self._weight_buffer) - self.buffer_size:])
+                self._state_buffer = np.array(self._state_buffer[len(self._state_buffer) - self.buffer_size:])
+                self._share_obs_buffer = np.array(self._share_obs_buffer[len(self._share_obs_buffer) - self.buffer_size:])
 
     def sample(self, num_samples):
         """

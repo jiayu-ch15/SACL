@@ -39,6 +39,9 @@ model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_
 model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_1var_1bias/wandb/run-20230411_084854-28hpmltl/files/75M"
 model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_1var_1bias/wandb/run-20230411_084907-2xwxuj8y/files/75M"
 model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_1var_1bias/wandb/run-20230411_084920-2aihduhb/files/75M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/rb_var/wandb/run-20230412_061330-2vmcdj33/files/75M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/rb_var/wandb/run-20230412_061427-35ylucuj/files/75M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/rb_var/wandb/run-20230412_061439-23yn83a0/files/75M"
 
 # model_dir_list="/home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_uniform-sp/wandb/run-20230406_072750-3c2mvcmr/files/25M"
 # model_dir_list+=" /home/zelaix/projects/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/2_uniform-sp/wandb/run-20230406_072904-24wskyj8/files/25M"
