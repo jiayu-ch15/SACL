@@ -194,7 +194,8 @@ class MPECurriculumRunner(Runner):
             )
             red_values = np.array(np.split(_t2n(red_values), num_weights))
             red_values_denorm = self.red_trainer.value_normalizer.denormalize(red_values)
-            weights = np.var(red_values_denorm, axis=1)[:, 0]
+            red_values_denorm = red_values_denorm.reshape(red_values_denorm.shape[0],-1)
+            weights = np.var(red_values_denorm, axis=1)
         elif self.sample_metric == "rb_variance":
             red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
             red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)

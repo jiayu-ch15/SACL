@@ -1,9 +1,9 @@
 #!/bin/sh
 # exp config
 # exp="debug"
-exp="ensemble3_greedy"
+exp="adv_var_ensemble4"
 algo="mappo"
-seed=2
+seed=1
 # env config
 env="MPE"
 scenario="simple_tag_corner"
@@ -29,9 +29,9 @@ prob_curriculum=0.7
 curriculum_buffer_size=10000
 beta=1.0
 alpha=0.7
-num_critic=3
-update_method="greedy"
-sample_metric="ensemble_individual_variance"
+num_critic=4
+update_method="fps"
+sample_metric="variance"
 # user name
 user_name="chenjy"
 wandb_name="sacl"
@@ -39,7 +39,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=5 python train/train_mpe_ensemble_curriculum.py \
+CUDA_VISIBLE_DEVICES=0 python train/train_mpe_ensemble_curriculum.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \
