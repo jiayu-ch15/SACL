@@ -58,10 +58,10 @@ class Runner(object):
         self.blue_model_dir = self.all_args.blue_model_dir
         self.red_valuenorm_dir = self.all_args.red_valuenorm_dir
         self.blue_valuenorm_dir = self.all_args.blue_valuenorm_dir
-        if self.training_mode == "red_br":
-            assert (self.blue_model_dir is not None), ("to train a red br, you should set the value of --blue_model_dir")
-        if self.training_mode == "blue_br":
-            assert (self.red_model_dir is not None), ("to train a blue br, your should set the value of --red_model_dir")
+        # if self.training_mode == "red_br":
+        #     assert (self.blue_model_dir is not None), ("to train a red br, you should set the value of --blue_model_dir")
+        # if self.training_mode == "blue_br":
+        #     assert (self.red_model_dir is not None), ("to train a blue br, your should set the value of --red_model_dir")
 
         # interval
         self.save_interval = self.all_args.save_interval
