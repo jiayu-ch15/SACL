@@ -1,6 +1,6 @@
 #!/bin/sh
 # exp config
-exp="corner_randommodel_model1-from_pretrained25M_warmup"
+exp="corner_ensemble_var_model3@45M-from_pretrained100M"
 # exp="debug"
 algo="mappo"
 seed=0
@@ -17,9 +17,9 @@ num_landmarks=2
 attn_size=32
 # training config
 training_mode="red_br"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_07bias/wandb/run-20230414_031706-2kot9l67/files/50M"
-red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/sp_unif/wandb/run-20230411_083102-1xor7hxa/files/25M"
-red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/sp_unif/wandb/run-20230411_083102-1xor7hxa/files/25M"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_individual_variance/wandb/run-20230410_132353-3uxxrma8/files/45M"
+red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_individual_variance/wandb/run-20230410_132308-1zt784gi/files/100M"
+red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_individual_variance/wandb/run-20230410_132308-1zt784gi/files/100M"
 num_env_steps=200000000
 episode_length=200
 n_rollout_threads=100
@@ -27,7 +27,7 @@ ppo_epoch=5
 log_interval=5
 save_interval=50
 save_ckpt_interval=250
-warm_up=250 # 5M
+warm_up=0 # 5M
 # user name
 user_name="chenjy"
 wandb_name="sacl"
@@ -51,4 +51,4 @@ CUDA_VISIBLE_DEVICES=3 python train/train_mpe_competitive.py \
 --wandb_name ${wandb_name} \
 --warm_up ${warm_up} \
 --red_model_dir ${red_model_dir} --red_valuenorm_dir ${red_valuenorm_dir} \
-# --blue_model_dir ${blue_model_dir} \
+--blue_model_dir ${blue_model_dir} \
