@@ -15,6 +15,7 @@ class MPERunner(Runner):
         super(MPERunner, self).__init__(config)
 
         self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
+        self.warm_up_timestep = self.all_args.warm_up * self.n_rollout_threads * self.episode_length
         self.env_infos = dict(
             initial_dist=np.zeros(self.n_rollout_threads, dtype=float), 
             start_step=np.zeros(self.n_rollout_threads, dtype=int), 
@@ -32,6 +33,7 @@ class MPERunner(Runner):
 
         start = time.time()
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
+        total_num_steps = 0
 
         for episode in range(episodes):
             if self.use_linear_lr_decay:
@@ -50,7 +52,7 @@ class MPERunner(Runner):
                     self.update_env_infos(dones, infos)
             # compute return and update network
             self.compute()
-            red_train_infos, blue_train_infos = self.train()
+            red_train_infos, blue_train_infos = self.train(total_num_steps=total_num_steps)
             # post process
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
 
@@ -129,6 +131,7 @@ class MPERunner(Runner):
     @torch.no_grad()
     def collect(self, step):
         # red trainer
+        deterministic_red = False if self.train_red else True
         self.red_trainer.prep_rollout()
         red_values, red_actions, red_action_log_probs, red_rnn_states, red_rnn_states_critic = self.red_trainer.policy.get_actions(
             np.concatenate(self.red_buffer.share_obs[step]),
@@ -136,6 +139,7 @@ class MPERunner(Runner):
             np.concatenate(self.red_buffer.rnn_states[step]),
             np.concatenate(self.red_buffer.rnn_states_critic[step]),
             np.concatenate(self.red_buffer.masks[step]),
+            deterministic=deterministic_red
         )
         # [self.envs, agents, dim]
         red_values = np.array(np.split(_t2n(red_values), self.n_rollout_threads))
@@ -143,7 +147,9 @@ class MPERunner(Runner):
         red_action_log_probs = np.array(np.split(_t2n(red_action_log_probs), self.n_rollout_threads))
         red_rnn_states = np.array(np.split(_t2n(red_rnn_states), self.n_rollout_threads))
         red_rnn_states_critic = np.array(np.split(_t2n(red_rnn_states_critic), self.n_rollout_threads))
+        
         # blue trainer
+        deterministic_blue = False if self.train_blue else True
         self.blue_trainer.prep_rollout()
         blue_values, blue_actions, blue_action_log_probs, blue_rnn_states, blue_rnn_states_critic = self.blue_trainer.policy.get_actions(
             np.concatenate(self.blue_buffer.share_obs[step]),
@@ -151,6 +157,7 @@ class MPERunner(Runner):
             np.concatenate(self.blue_buffer.rnn_states[step]),
             np.concatenate(self.blue_buffer.rnn_states_critic[step]),
             np.concatenate(self.blue_buffer.masks[step]),
+            deterministic=deterministic_blue
         )
         # [self.envs, agents, dim]
         blue_values = np.array(np.split(_t2n(blue_values), self.n_rollout_threads))
@@ -199,6 +206,25 @@ class MPERunner(Runner):
             masks=masks[:, -self.num_blue:],
         )
 
+    def train(self, total_num_steps=0):
+        red_train_infos = {}
+        # warm up = 0 if not br
+        if self.train_red:
+            turn_on = total_num_steps >= self.warm_up_timestep
+            self.red_trainer.prep_training()
+            red_train_infos = self.red_trainer.train(self.red_buffer, turn_on=turn_on)      
+        self.red_buffer.after_update()
+
+        blue_train_infos = {}
+        if self.train_blue:
+            turn_on = total_num_steps >= self.warm_up_timestep
+            self.blue_trainer.prep_training()
+            blue_train_infos = self.blue_trainer.train(self.blue_buffer, turn_on=turn_on)      
+        self.blue_buffer.after_update()
+
+        # self.log_system()
+        return red_train_infos, blue_train_infos
+
     def update_env_infos(self, dones, infos):
         # info dict
         env_dones = np.all(dones, axis=1)
@@ -244,7 +270,7 @@ class MPERunner(Runner):
                     np.concatenate(eval_rnn_states[:, :self.num_red]),
                     np.concatenate(eval_rnn_states_critic[:, :self.num_red]),
                     np.concatenate(eval_masks[:, :self.num_red]),
-                    deterministic=False,
+                    deterministic=True,
                 )
                 eval_red_values = np.array(np.split(_t2n(eval_red_values), self.n_eval_rollout_threads))
                 eval_red_actions = np.array(np.split(_t2n(eval_red_actions), self.n_eval_rollout_threads))
@@ -259,7 +285,7 @@ class MPERunner(Runner):
                     np.concatenate(eval_rnn_states[:, -self.num_blue:]),
                     np.concatenate(eval_rnn_states_critic[:, -self.num_blue:]),
                     np.concatenate(eval_masks[:, -self.num_blue:]),
-                    deterministic=False,
+                    deterministic=True,
                 )
                 eval_blue_values = np.array(np.split(_t2n(eval_blue_values), self.n_eval_rollout_threads))
                 eval_blue_actions = np.array(np.split(_t2n(eval_blue_actions), self.n_eval_rollout_threads))
@@ -338,7 +364,7 @@ class MPERunner(Runner):
                     np.concatenate(eval_obs[:, :self.num_red]),
                     np.concatenate(eval_rnn_states[:, :self.num_red]),
                     np.concatenate(eval_masks[:, :self.num_red]),
-                    deterministic=False,
+                    deterministic=True,
                 )
                 eval_red_actions = np.array(np.split(_t2n(eval_red_actions), self.n_eval_rollout_threads))
                 eval_red_rnn_states = np.array(np.split(_t2n(eval_red_rnn_states), self.n_eval_rollout_threads))
@@ -349,7 +375,7 @@ class MPERunner(Runner):
                     np.concatenate(eval_obs[:, -self.num_blue:]),
                     np.concatenate(eval_rnn_states[:, -self.num_blue:]),
                     np.concatenate(eval_masks[:, -self.num_blue:]),
-                    deterministic=False,
+                    deterministic=True,
                 )
                 eval_blue_actions = np.array(np.split(_t2n(eval_blue_actions), self.n_eval_rollout_threads))
                 eval_blue_rnn_states = np.array(np.split(_t2n(eval_blue_rnn_states), self.n_eval_rollout_threads))
@@ -403,7 +429,7 @@ class MPERunner(Runner):
                     np.concatenate(obs[:, :self.num_red]),
                     np.concatenate(rnn_states[:, :self.num_red]),
                     np.concatenate(masks[:, :self.num_red]),
-                    deterministic=False,
+                    deterministic=True,
                 )
                 red_actions = np.array(np.split(_t2n(red_actions), self.n_rollout_threads))
                 red_rnn_states = np.array(np.split(_t2n(red_rnn_states), self.n_rollout_threads))
@@ -413,7 +439,7 @@ class MPERunner(Runner):
                     np.concatenate(obs[:, -self.num_blue:]),
                     np.concatenate(rnn_states[:, -self.num_blue:]),
                     np.concatenate(masks[:, -self.num_blue:]),
-                    deterministic=False,
+                    deterministic=True,
                 )
                 blue_actions = np.array(np.split(_t2n(blue_actions), self.n_rollout_threads))
                 blue_rnn_states = np.array(np.split(_t2n(blue_rnn_states), self.n_rollout_threads))
