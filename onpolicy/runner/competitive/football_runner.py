@@ -9,7 +9,8 @@ import torch
 import wandb
 
 from onpolicy.utils.util import update_linear_schedule
-from onpolicy.runner.shared.base_runner import Runner
+# from onpolicy.runner.shared.base_runner import Runner
+from onpolicy.runner.competitive.base_runner import Runner
 
 
 def _t2n(x):
