@@ -7,6 +7,7 @@ import imageio
 import numpy as np
 import torch
 import wandb
+import pdb
 
 from onpolicy.utils.util import update_linear_schedule
 from onpolicy.runner.shared.base_runner import Runner
@@ -19,6 +20,8 @@ class FootballRunner(Runner):
     def __init__(self, config):
         super(FootballRunner, self).__init__(config)
         self.env_infos = defaultdict(list)
+        self.num_red = config['all_args'].num_red
+        self.num_blue = config['all_args'].num_blue
        
     def run(self):
         self.warmup()   
@@ -66,8 +69,10 @@ class FootballRunner(Runner):
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
                 
-                train_infos["average_episode_rewards"] = np.mean(self.buffer.rewards) * self.episode_length
-                print("average episode rewards is {}".format(train_infos["average_episode_rewards"]))
+                train_infos["red_episode_rewards"] = np.mean(self.buffer.rewards[:,:,:self.num_red]) * self.episode_length
+                train_infos["blue_episode_rewards"] = np.mean(self.buffer.rewards[:,:,-self.num_blue::]) * self.episode_length
+                print("red episode rewards is {}".format(train_infos["red_episode_rewards"]))
+                print("blue episode rewards is {}".format(train_infos["blue_episode_rewards"]))
                 self.log_train(train_infos, total_num_steps)
                 self.log_env(self.env_infos, total_num_steps)
                 self.env_infos = defaultdict(list)

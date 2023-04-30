@@ -27,6 +27,9 @@ class FootballEnv(object):
 
     def __init__(self, args):
         self.num_agents = args.num_agents
+        self.num_red = args.num_red
+        self.num_blue = args.num_blue
+        self.zero_sum = args.zero_sum
         self.scenario_name = args.scenario_name
         
         # make env
@@ -36,8 +39,8 @@ class FootballEnv(object):
                 stacked=args.use_stacked_frames,
                 representation=args.representation,
                 rewards=args.rewards,
-                number_of_left_players_agent_controls=args.num_agents,
-                number_of_right_players_agent_controls=0,
+                number_of_left_players_agent_controls=args.num_red,
+                number_of_right_players_agent_controls=args.num_blue,
                 channel_dimensions=(args.smm_width, args.smm_height),
                 render=(args.use_render and args.save_gifs)
             )
@@ -48,8 +51,8 @@ class FootballEnv(object):
                 stacked=args.use_stacked_frames,
                 representation=args.representation,
                 rewards=args.rewards,
-                number_of_left_players_agent_controls=args.num_agents,
-                number_of_right_players_agent_controls=0,
+                number_of_left_players_agent_controls=args.num_red,
+                number_of_right_players_agent_controls=args.num_blue,
                 channel_dimensions=(args.smm_width, args.smm_height),
                 # video related params
                 write_full_episode_dumps=True,
@@ -77,7 +80,7 @@ class FootballEnv(object):
             else:
                 for idx in range(self.num_agents):
                     self.action_space.append(spaces.Discrete(
-                        n=self.env.action_space[idx].n
+                        n=self.env.action_space.nvec[idx]
                     ))
                     self.observation_space.append(spaces.Box(
                         low=self.env.observation_space.low[idx][:feature_length],
@@ -99,7 +102,7 @@ class FootballEnv(object):
             else:
                 for idx in range(self.num_agents):
                     self.action_space.append(spaces.Discrete(
-                        n=self.env.action_space[idx].n
+                        n=self.env.action_space.nvec[idx]
                     ))
                     self.observation_space.append(spaces.Box(
                         low=self.env.observation_space.low[idx],
@@ -114,8 +117,8 @@ class FootballEnv(object):
                         dtype=self.env.observation_space.dtype
                     ))
 
-
-    def reset(self):
+    def reset(self, task=None):
+        # TODO CL reset
         obs = self.env.reset()
         obs = self._obs_wrapper(obs)
         if self.remove_redundancy:
@@ -132,9 +135,12 @@ class FootballEnv(object):
         if self.zero_feature:
             obs[obs == -1] = 0
         reward = reward.reshape(self.num_agents, 1)
-        if self.share_reward:
-            global_reward = np.sum(reward)
-            reward = [[global_reward]] * self.num_agents
+        
+        # red : sum(red), blue : sum(blue)
+        if self.zero_sum:
+            red_reward = np.mean(reward[:self.num_red])
+            blue_reward = - red_reward
+            reward = [[red_reward]] * self.num_red + [[blue_reward]] * self.num_blue
 
         done = np.array([done] * self.num_agents)
         info = self._info_wrapper(info)

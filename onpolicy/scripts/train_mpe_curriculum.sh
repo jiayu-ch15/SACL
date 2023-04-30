@@ -1,8 +1,8 @@
 #!/bin/sh
 # exp config
-exp="TDerror"
+exp="debug"
 algo="mappo"
-seed=2
+seed=0
 # env config
 env="MPE"
 scenario="simple_tag_corner"

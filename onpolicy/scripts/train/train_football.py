@@ -88,7 +88,13 @@ def parse_args(args, parser):
                         help="by default, do not save render video. If set, save video.")
     parser.add_argument("--video_dir", type=str, default="", 
                         help="directory to save videos.")
-                        
+    parser.add_argument("--fixed_valuenorm", action="store_true", default=False, help="by default False, use fixed value norm")
+
+    # self play
+    parser.add_argument("--num_red", type=int, default=3)
+    parser.add_argument("--num_blue", type=int, default=1)
+    parser.add_argument("--zero_sum", action="store_true", default=False)
+
     all_args = parser.parse_known_args(args)[0]
 
     return all_args
@@ -126,22 +132,17 @@ def main(args):
 
     # wandb
     if all_args.use_wandb:
-        run = wandb.init(config=all_args,
-                         project="tune_hyperparameters",
-                         entity=all_args.wandb_name,
-                         notes=socket.gethostname(),
-                         name="-".join([
-                            all_args.algorithm_name,
-                            all_args.experiment_name,
-                            "rollout" + str(all_args.n_rollout_threads),
-                            "minibatch" + str(all_args.num_mini_batch),
-                            "epoch" + str(all_args.ppo_epoch),
-                            "seed" + str(all_args.seed)
-                         ]),
-                         group=all_args.scenario_name,
-                         dir=str(run_dir),
-                         job_type="training",
-                         reinit=True)
+        run = wandb.init(
+            config=all_args,
+            project=all_args.wandb_name,
+            entity=all_args.user_name,
+            notes=socket.gethostname(),
+            name=f"{all_args.experiment_name}-seed{all_args.seed}",
+            group=all_args.env_name,
+            dir=str(run_dir),
+            job_type="training",
+            reinit=True,
+        )
     else:
         if not run_dir.exists():
             curr_run = 'run1'

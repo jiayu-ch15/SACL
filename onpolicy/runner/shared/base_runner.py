@@ -10,7 +10,7 @@ from onpolicy.utils.shared_buffer import SharedReplayBuffer
 from onpolicy.utils.util import update_linear_schedule
 import socket
 import psutil
-import slackweb
+# import slackweb
 webhook_url = " https://hooks.slack.com/services/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"
 
 def _t2n(x):
@@ -140,7 +140,7 @@ class Runner(object):
         self.trainer.prep_training()
         train_infos = self.trainer.train(self.buffer)      
         self.buffer.after_update()
-        self.log_system()
+        # self.log_system()
         return train_infos
 
     def save(self):

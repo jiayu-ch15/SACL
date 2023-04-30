@@ -88,6 +88,18 @@ def parse_args(args, parser):
                         help="by default, do not save render video. If set, save video.")
     parser.add_argument("--video_dir", type=str, default="", 
                         help="directory to save videos.")
+    
+    # self play
+    parser.add_argument("--num_red", type=int, default=3)
+    parser.add_argument("--num_blue", type=int, default=1)
+    parser.add_argument("--training_mode", type=str,default="self_play", choices=["self_play", "red_br", "blue_br"])
+    parser.add_argument("--save_ckpt_interval", type=int, default=250, help="checkpoint save intervel")
+    parser.add_argument("--red_model_dir", type=str, default=None, help="by default None, directory of fixed red model")
+    parser.add_argument("--blue_model_dir", type=str, default=None, help="by default None, directory of fixed blue model")
+    parser.add_argument("--red_valuenorm_dir", type=str, default=None, help="by default None, directory of red value norm model")
+    parser.add_argument("--blue_valuenorm_dir", type=str, default=None, help="by default None, directory of blue value norm model")
+
+    parser.add_argument("--fixed_valuenorm", action="store_true", default=False, help="by default False, use fixed value norm")
                         
     all_args = parser.parse_known_args(args)[0]
 
@@ -172,11 +184,16 @@ def main(args):
     eval_envs = make_eval_env(all_args) if all_args.use_eval else None
     num_agents = all_args.num_agents
 
+    num_red = all_args.num_red
+    num_blue = all_args.num_blue
+
     config = {
         "all_args": all_args,
         "envs": envs,
         "eval_envs": eval_envs,
         "num_agents": num_agents,
+        "num_red": num_red,
+        "num_blue": num_blue,
         "device": device,
         "run_dir": run_dir
     }

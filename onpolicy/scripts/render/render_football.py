@@ -68,6 +68,7 @@ def parse_args(args, parser):
                         help="by default, do not save render video. If set, save video.")
     parser.add_argument("--video_dir", type=str, default="", 
                         help="directory to save videos.")
+    parser.add_argument("--fixed_valuenorm", action="store_true", default=False, help="by default False, use fixed value norm")
                         
     all_args = parser.parse_known_args(args)[0]
 

@@ -11,6 +11,7 @@ import wandb
 from onpolicy.utils.util import update_linear_schedule
 # from onpolicy.runner.shared.base_runner import Runner
 from onpolicy.runner.competitive.base_runner import Runner
+import pdb
 
 
 def _t2n(x):
@@ -76,35 +77,62 @@ class FootballRunner(Runner):
             # eval
             if total_num_steps % self.eval_interval == 0 and self.use_eval:
                 self.eval(total_num_steps)
-
+        
     def warmup(self):
         # reset env
         obs = self.envs.reset()
-
-        # insert obs to buffer
-        self.buffer.share_obs[0] = obs.copy()
-        self.buffer.obs[0] = obs.copy()
+        pdb.set_trace()
+        # red buffer
+        self.red_buffer.obs[0] = obs[:, :self.num_red].copy()
+        self.red_buffer.share_obs[0] = obs[:, :self.num_red].copy()
+        # blue buffer
+        self.blue_buffer.obs[0] = obs[:, -self.num_blue:].copy()
+        self.blue_buffer.share_obs[0] = obs[:, -self.num_blue:].copy()        
 
     @torch.no_grad()
     def collect(self, step):
-        self.trainer.prep_rollout()
-
-        # [n_envs, n_agents, ...] -> [n_envs*n_agents, ...]
-        values, actions, action_log_probs, rnn_states, rnn_states_critic = self.trainer.policy.get_actions(
-            np.concatenate(self.buffer.share_obs[step]),
-            np.concatenate(self.buffer.obs[step]),
-            np.concatenate(self.buffer.rnn_states[step]),
-            np.concatenate(self.buffer.rnn_states_critic[step]),
-            np.concatenate(self.buffer.masks[step])
+        # red trainer
+        deterministic_red = False if self.train_red else True
+        self.red_trainer.prep_rollout()
+        red_values, red_actions, red_action_log_probs, red_rnn_states, red_rnn_states_critic = self.red_trainer.policy.get_actions(
+            np.concatenate(self.red_buffer.share_obs[step]),
+            np.concatenate(self.red_buffer.obs[step]),
+            np.concatenate(self.red_buffer.rnn_states[step]),
+            np.concatenate(self.red_buffer.rnn_states_critic[step]),
+            np.concatenate(self.red_buffer.masks[step]),
+            deterministic=deterministic_red
         )
-
-        # [n_envs*n_agents, ...] -> [n_envs, n_agents, ...]
-        values = np.array(np.split(_t2n(values), self.n_rollout_threads))
-        actions = np.array(np.split(_t2n(actions), self.n_rollout_threads))
-        action_log_probs = np.array(np.split(_t2n(action_log_probs), self.n_rollout_threads))
-        rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
-        rnn_states_critic = np.array(np.split(_t2n(rnn_states_critic), self.n_rollout_threads))
-
+        # [self.envs, agents, dim]
+        red_values = np.array(np.split(_t2n(red_values), self.n_rollout_threads))
+        red_actions = np.array(np.split(_t2n(red_actions), self.n_rollout_threads))
+        red_action_log_probs = np.array(np.split(_t2n(red_action_log_probs), self.n_rollout_threads))
+        red_rnn_states = np.array(np.split(_t2n(red_rnn_states), self.n_rollout_threads))
+        red_rnn_states_critic = np.array(np.split(_t2n(red_rnn_states_critic), self.n_rollout_threads))
+        
+        # blue trainer
+        deterministic_blue = False if self.train_blue else True
+        self.blue_trainer.prep_rollout()
+        blue_values, blue_actions, blue_action_log_probs, blue_rnn_states, blue_rnn_states_critic = self.blue_trainer.policy.get_actions(
+            np.concatenate(self.blue_buffer.share_obs[step]),
+            np.concatenate(self.blue_buffer.obs[step]),
+            np.concatenate(self.blue_buffer.rnn_states[step]),
+            np.concatenate(self.blue_buffer.rnn_states_critic[step]),
+            np.concatenate(self.blue_buffer.masks[step]),
+            deterministic=deterministic_blue
+        )
+        # [self.envs, agents, dim]
+        blue_values = np.array(np.split(_t2n(blue_values), self.n_rollout_threads))
+        blue_actions = np.array(np.split(_t2n(blue_actions), self.n_rollout_threads))
+        blue_action_log_probs = np.array(np.split(_t2n(blue_action_log_probs), self.n_rollout_threads))
+        blue_rnn_states = np.array(np.split(_t2n(blue_rnn_states), self.n_rollout_threads))
+        blue_rnn_states_critic = np.array(np.split(_t2n(blue_rnn_states_critic), self.n_rollout_threads))
+        # concatenate
+        values = np.concatenate([red_values, blue_values], axis=1)
+        actions = np.concatenate([red_actions, blue_actions], axis=1)
+        action_log_probs = np.concatenate([red_action_log_probs, blue_action_log_probs], axis=1)
+        rnn_states = np.concatenate([red_rnn_states, blue_rnn_states], axis=1)
+        rnn_states_critic = np.concatenate([red_rnn_states_critic, blue_rnn_states_critic], axis=1)
+        
         actions_env = [actions[idx, :, 0] for idx in range(self.n_rollout_threads)]
 
         return values, actions, action_log_probs, rnn_states, rnn_states_critic, actions_env
@@ -141,6 +169,25 @@ class FootballRunner(Runner):
             rewards=rewards,
             masks=masks
         )
+
+    def train(self, total_num_steps=0):
+        red_train_infos = {}
+        # warm up = 0 if not br
+        if self.train_red:
+            turn_on = total_num_steps >= self.warm_up_timestep
+            self.red_trainer.prep_training()
+            red_train_infos = self.red_trainer.train(self.red_buffer, turn_on=turn_on)      
+        self.red_buffer.after_update()
+
+        blue_train_infos = {}
+        if self.train_blue:
+            turn_on = total_num_steps >= self.warm_up_timestep
+            self.blue_trainer.prep_training()
+            blue_train_infos = self.blue_trainer.train(self.blue_buffer, turn_on=turn_on)      
+        self.blue_buffer.after_update()
+
+        # self.log_system()
+        return red_train_infos, blue_train_infos
 
     def log_env(self, env_infos, total_num_steps):
         for k, v in env_infos.items():
