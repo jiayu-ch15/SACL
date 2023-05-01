@@ -3,7 +3,7 @@
 env="Football"
 scenario="academy_3_vs_1_with_keeper"
 algo="rmappo"
-exp="3v1_sp_rewards_scoring"
+exp="3v1_sp_rewards_scoring_200thred"
 seed=1
 
 
@@ -12,8 +12,8 @@ num_red=3
 num_blue=1
 num_agents=4
 representation="simple115v2"
+rewards="scoring,checkpoints"
 # rewards="scoring"
-rewards="scoring"
 
 # train param
 num_env_steps=200000000
@@ -30,14 +30,14 @@ eval_episodes=100
 n_eval_rollout_threads=100 # 100
 
 # tune param
-n_rollout_threads=100 # 1000
+n_rollout_threads=300 # 1000
 ppo_epoch=5 # 5, 10, 15
 num_mini_batch=2 # 2, 4
 
 
 echo "n_rollout_threads: ${n_rollout_threads} \t ppo_epoch: ${ppo_epoch} \t num_mini_batch: ${num_mini_batch}"
 
-CUDA_VISIBLE_DEVICES=0 python train/train_football.py \
+CUDA_VISIBLE_DEVICES=2 python train/train_football.py \
 --env_name ${env} --scenario_name ${scenario} \
 --algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} \
 --num_agents ${num_agents} --representation ${representation} \

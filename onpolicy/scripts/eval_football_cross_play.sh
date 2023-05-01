@@ -37,7 +37,7 @@ num_mini_batch=2 # 2, 4
 model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/rmappo/3v1_sp_rewards_scoring/wandb/run-20230430_151932-3usnwd94/files"
 model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/rmappo/3v1_sp_rewards_scoring_checkpoints/wandb/run-20230430_151915-p1lbpo8v/files"
 
-CUDA_VISIBLE_DEVICES=1 python eval/eval_football_cross_play.py \
+CUDA_VISIBLE_DEVICES=2 python eval/eval_football_cross_play.py \
 --env_name ${env} --scenario_name ${scenario} \
 --algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} \
 --num_agents ${num_agents} --representation ${representation} \
