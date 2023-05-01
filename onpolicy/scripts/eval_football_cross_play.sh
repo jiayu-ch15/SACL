@@ -3,7 +3,7 @@
 env="Football"
 scenario="academy_3_vs_1_with_keeper"
 algo="rmappo"
-exp="3v1_sp_rewards_scoring"
+exp="debug"
 seed=1
 
 
@@ -34,10 +34,10 @@ n_rollout_threads=100 # 1000
 ppo_epoch=5 # 5, 10, 15
 num_mini_batch=2 # 2, 4
 
+model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/rmappo/3v1_sp_rewards_scoring/wandb/run-20230430_151932-3usnwd94/files"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/rmappo/3v1_sp_rewards_scoring_checkpoints/wandb/run-20230430_151915-p1lbpo8v/files"
 
-echo "n_rollout_threads: ${n_rollout_threads} \t ppo_epoch: ${ppo_epoch} \t num_mini_batch: ${num_mini_batch}"
-
-CUDA_VISIBLE_DEVICES=0 python train/train_football.py \
+CUDA_VISIBLE_DEVICES=1 python eval/eval_football_cross_play.py \
 --env_name ${env} --scenario_name ${scenario} \
 --algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} \
 --num_agents ${num_agents} --representation ${representation} \
@@ -51,3 +51,5 @@ CUDA_VISIBLE_DEVICES=0 python train/train_football.py \
 --eval_interval ${eval_interval} --eval_episodes ${eval_episodes} \
 --n_eval_rollout_threads ${n_eval_rollout_threads} \
 --user_name "chenjy" --wandb_name "football" --rewards ${rewards} \
+--red_model_dir "${model_dir_list}" --blue_model_dir "${model_dir_list}" \
+--use_wandb \

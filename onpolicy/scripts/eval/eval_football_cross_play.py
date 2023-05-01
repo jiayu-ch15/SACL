@@ -96,7 +96,17 @@ def parse_args(args, parser):
     parser.add_argument("--zero_sum", action="store_true", default=False)
     parser.add_argument("--save_ckpt_interval", type=int, default=250, help="checkpoint save intervel")
 
+    # cross play
+    parser.add_argument("--red_model_dir", type=str, default=None, help="by default None, directory of fixed red model")
+    parser.add_argument("--blue_model_dir", type=str, default=None, help="by default None, directory of fixed blue model")
+    parser.add_argument("--red_valuenorm_dir", type=str, default=None, help="by default None, directory of red value norm model")
+    parser.add_argument("--blue_valuenorm_dir", type=str, default=None, help="by default None, directory of blue value norm model")
+
     all_args = parser.parse_known_args(args)[0]
+    all_args.red_model_dir = all_args.red_model_dir.split(" ") if all_args.red_model_dir is not None else None
+    all_args.blue_model_dir = all_args.blue_model_dir.split(" ") if all_args.blue_model_dir is not None else None
+    all_args.red_valuenorm_dir = all_args.red_valuenorm_dir.split(" ") if all_args.red_valuenorm_dir is not None else None
+    all_args.blue_valuenorm_dir = all_args.blue_valuenorm_dir.split(" ") if all_args.blue_valuenorm_dir is not None else None
 
     return all_args
 
@@ -190,7 +200,7 @@ def main(args):
         from onpolicy.runner.separated.football_runner import FootballRunner as Runner
 
     runner = Runner(config)
-    runner.run()
+    runner.eval_cross_play()
     
     # post process
     envs.close()

@@ -7,14 +7,14 @@ exp="render"
 seed=1
 
 # football params
-num_agents=3
+num_agents=4
 representation="simple115v2"
 dump_frequency=1
 
 # render params
-render_episodes=3
+render_episodes=10
 n_rollout_threads=1
-model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/rmappo/3v1_sp/wandb/run-20230426_164034-besg41d5/files"
+model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/rmappo/3v1_sp_rewards_scoring/wandb/run-20230430_151932-3usnwd94/files"
 
 # --save_videos is preferred instead of --save_gifs 
 # because .avi file is much smaller than .gif file

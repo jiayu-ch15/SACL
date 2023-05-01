@@ -20,8 +20,10 @@ class FootballRunner(Runner):
     def __init__(self, config):
         super(FootballRunner, self).__init__(config)
         self.env_infos = defaultdict(list)
+        self.all_args = config['all_args']
         self.num_red = config['all_args'].num_red
         self.num_blue = config['all_args'].num_blue
+        self.save_ckpt_interval = self.all_args.save_ckpt_interval
        
     def run(self):
         self.warmup()   
@@ -55,6 +57,10 @@ class FootballRunner(Runner):
             # save model
             if (total_num_steps % self.save_interval == 0 or episode == episodes - 1):
                 self.save()
+
+            # save checkpoint
+            if (episode + 1) % self.save_ckpt_interval == 0:
+                self.save_ckpt(total_num_steps)
 
             # log information
             if total_num_steps % self.log_interval == 0:
@@ -146,6 +152,20 @@ class FootballRunner(Runner):
             masks=masks
         )
 
+    def save_ckpt(self, total_num_steps):
+        million_steps = int(total_num_steps // 1000000)
+        save_ckpt_dir = f"{self.save_dir}/{million_steps}M"
+        assert not os.path.exists(save_ckpt_dir), (f"checkpoint path {save_ckpt_dir} already exists.")
+        os.makedirs(save_ckpt_dir)
+        
+        policy_actor = self.trainer.policy.actor
+        torch.save(policy_actor.state_dict(), f"{save_ckpt_dir}/actor.pt")
+        policy_critic = self.trainer.policy.critic
+        torch.save(policy_critic.state_dict(), f"{save_ckpt_dir}/critic.pt")
+        if self.use_valuenorm:
+            value_normalizer = self.trainer.value_normalizer
+            torch.save(value_normalizer.state_dict(), f"{save_ckpt_dir}/value_normalizer.pt")
+
     def log_env(self, env_infos, total_num_steps):
         for k, v in env_infos.items():
             if len(v) > 0:
@@ -153,6 +173,140 @@ class FootballRunner(Runner):
                     wandb.log({k: np.mean(v)}, step=total_num_steps)
                 else:
                     self.writter.add_scalars(k, {k: np.mean(v)}, total_num_steps)    
+
+    def cross_play_restore(self, model, idx=0):
+        self.red_model_dir = self.all_args.red_model_dir
+        self.blue_model_dir = self.all_args.blue_model_dir
+        if model == "red_model":
+            red_policy_actor_state_dict = torch.load(f"{self.red_model_dir[idx]}/actor.pt", map_location=self.device)
+            self.red_trainer.policy.actor.load_state_dict(red_policy_actor_state_dict)
+        elif model == "blue_model":
+            blue_policy_actor_state_dict = torch.load(f"{self.blue_model_dir[idx]}/actor.pt", map_location=self.device)
+            self.blue_trainer.policy.actor.load_state_dict(blue_policy_actor_state_dict)
+        else:
+            raise NotImplementedError(f"Model {model} is not supported.")
+
+    @torch.no_grad()
+    def eval_cross_play(self):
+        num_red_models = len(self.all_args.red_model_dir)
+        num_blue_models = len(self.all_args.blue_model_dir)
+
+        from onpolicy.algorithms.r_mappo.r_mappo import R_MAPPO as TrainAlgo
+        from onpolicy.algorithms.r_mappo.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
+        # NN initialization
+        self.red_policy = Policy(
+            self.all_args,
+            self.envs.observation_space[0],
+            self.envs.share_observation_space[0] if self.use_centralized_V else self.envs.observation_space[0],
+            self.envs.action_space[0],
+            device=self.device,
+        )
+        self.blue_policy = Policy(
+            self.all_args,
+            self.envs.observation_space[-1],
+            self.envs.share_observation_space[-1] if self.use_centralized_V else self.envs.observation_space[-1],
+            self.envs.action_space[-1],
+            device=self.device,
+        )
+
+        # algorithm
+        self.red_trainer = TrainAlgo(self.all_args, self.red_policy, device=self.device)
+        self.blue_trainer = TrainAlgo(self.all_args, self.blue_policy, device=self.device)
+
+        self.eval_episodes = self.all_args.eval_episodes
+
+        cross_play_returns = np.zeros((num_red_models, num_blue_models), dtype=float)
+        for red_idx in range(num_red_models):
+            self.cross_play_restore("red_model", red_idx)
+            for blue_idx in range(num_blue_models):
+                print(f"red model {red_idx} v.s. blue model {blue_idx}")
+                self.cross_play_restore("blue_model", blue_idx)
+                cross_play_returns[red_idx, blue_idx] = self.eval_head2head()
+        np.save(f"{self.log_dir}/cross_play_returns.npy", cross_play_returns)
+
+    # todo
+    @torch.no_grad()
+    def eval_head2head(self):
+        # reset envs and init rnn and mask
+        eval_obs = self.eval_envs.reset()
+        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+        eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
+
+        # init eval goals
+        num_done = 0
+        eval_goals = np.zeros(self.all_args.eval_episodes)
+        eval_win_rates = np.zeros(self.all_args.eval_episodes)
+        eval_steps = np.zeros(self.all_args.eval_episodes)
+        step = 0
+        quo = self.all_args.eval_episodes // self.n_eval_rollout_threads
+        rem = self.all_args.eval_episodes % self.n_eval_rollout_threads
+        done_episodes_per_thread = np.zeros(self.n_eval_rollout_threads, dtype=int)
+        eval_episodes_per_thread = done_episodes_per_thread + quo
+        eval_episodes_per_thread[:rem] += 1
+        unfinished_thread = (done_episodes_per_thread != eval_episodes_per_thread)
+
+        # loop until enough episodes
+        while num_done < self.all_args.eval_episodes and step < self.episode_length:
+            # red action
+            self.red_trainer.prep_rollout()
+            eval_red_actions, eval_red_rnn_states = self.red_trainer.policy.act(
+                np.concatenate(eval_obs[:, :self.num_red]),
+                np.concatenate(eval_rnn_states[:, :self.num_red]),
+                np.concatenate(eval_masks[:, :self.num_red]),
+                deterministic=self.all_args.eval_deterministic,
+            )
+            eval_red_actions = np.array(np.split(_t2n(eval_red_actions), self.n_eval_rollout_threads))
+            eval_red_rnn_states = np.array(np.split(_t2n(eval_red_rnn_states), self.n_eval_rollout_threads))
+            
+            # blue action
+            self.blue_trainer.prep_rollout()
+            eval_blue_actions, eval_blue_rnn_states = self.blue_trainer.policy.act(
+                np.concatenate(eval_obs[:, -self.num_blue:]),
+                np.concatenate(eval_rnn_states[:, -self.num_blue:]),
+                np.concatenate(eval_masks[:, -self.num_blue:]),
+                deterministic=self.all_args.eval_deterministic,
+            )
+            eval_blue_actions = np.array(np.split(_t2n(eval_blue_actions), self.n_eval_rollout_threads))
+            eval_blue_rnn_states = np.array(np.split(_t2n(eval_blue_rnn_states), self.n_eval_rollout_threads))
+            
+            # concatenate and env action
+            eval_actions = np.concatenate([eval_red_actions, eval_blue_actions], axis=1)
+            eval_rnn_states = np.concatenate([eval_red_rnn_states, eval_blue_rnn_states], axis=1)
+            # eval_actions_env = np.squeeze(np.eye(self.eval_envs.action_space[0].n)[eval_actions], 2)
+            eval_actions_env = [eval_actions[idx, :, 0] for idx in range(self.n_eval_rollout_threads)]
+
+            # step
+            eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions_env)
+
+            # update goals if done
+            eval_dones_env = np.all(eval_dones, axis=-1)
+            eval_dones_unfinished_env = eval_dones_env[unfinished_thread]
+            if np.any(eval_dones_unfinished_env):
+                for idx_env in range(self.n_eval_rollout_threads):
+                    if unfinished_thread[idx_env] and eval_dones_env[idx_env]:
+                        eval_goals[num_done] = eval_infos[idx_env]["score_reward"]
+                        eval_win_rates[num_done] = 1 if eval_infos[idx_env]["score_reward"] > 0 else 0
+                        eval_steps[num_done] = eval_infos[idx_env]["max_steps"] - eval_infos[idx_env]["steps_left"]
+                        # print("episode {:>2d} done by env {:>2d}: {}".format(num_done, idx_env, eval_infos[idx_env]["score_reward"]))
+                        num_done += 1
+                        done_episodes_per_thread[idx_env] += 1
+            unfinished_thread = (done_episodes_per_thread != eval_episodes_per_thread)
+
+            # reset rnn and masks for done envs
+            eval_rnn_states[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            eval_masks = np.ones((self.all_args.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
+            eval_masks[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
+            step += 1
+
+        # get expected goal
+        eval_expected_goal = np.mean(eval_goals)
+        eval_expected_win_rate = np.mean(eval_win_rates)
+        eval_expected_step = np.mean(eval_steps)
+    
+        # log and print
+        print()
+        print("eval expected win rate is {}.".format(eval_expected_win_rate), "eval expected step is {}.\n".format(eval_expected_step))
+        return eval_expected_goal
 
     @torch.no_grad()
     def eval(self, total_num_steps):
@@ -223,14 +377,9 @@ class FootballRunner(Runner):
     
         # log and print
         print("eval expected goal is {}.".format(eval_expected_goal))
-        if self.use_wandb:
-            wandb.log({"expected_goal": eval_expected_goal}, step=total_num_steps)
-            wandb.log({"eval_expected_win_rate": eval_expected_win_rate}, step=total_num_steps)
-            wandb.log({"expected_step": eval_expected_step}, step=total_num_steps)
-        else:
-            self.writter.add_scalars("expected_goal", {"expected_goal": eval_expected_goal}, total_num_steps)
-            self.writter.add_scalars("eval_expected_win_rate", {"eval_expected_win_rate": eval_expected_win_rate}, total_num_steps)
-            self.writter.add_scalars("expected_step", {"expected_step": eval_expected_step}, total_num_steps)
+        wandb.log({"expected_goal": eval_expected_goal}, step=total_num_steps)
+        wandb.log({"eval_expected_win_rate": eval_expected_win_rate}, step=total_num_steps)
+        wandb.log({"expected_step": eval_expected_step}, step=total_num_steps)
 
     @torch.no_grad()
     def render(self):        

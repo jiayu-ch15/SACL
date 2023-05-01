@@ -70,6 +70,11 @@ def parse_args(args, parser):
                         help="directory to save videos.")
     parser.add_argument("--fixed_valuenorm", action="store_true", default=False, help="by default False, use fixed value norm")
                         
+    # self play
+    parser.add_argument("--num_red", type=int, default=3)
+    parser.add_argument("--num_blue", type=int, default=1)
+    parser.add_argument("--zero_sum", action="store_true", default=False)
+
     all_args = parser.parse_known_args(args)[0]
 
     return all_args
