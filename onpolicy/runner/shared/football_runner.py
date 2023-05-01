@@ -304,7 +304,6 @@ class FootballRunner(Runner):
         eval_expected_step = np.mean(eval_steps)
     
         # log and print
-        print()
         print("eval expected win rate is {}.".format(eval_expected_win_rate), "eval expected step is {}.\n".format(eval_expected_step))
         return eval_expected_goal
 

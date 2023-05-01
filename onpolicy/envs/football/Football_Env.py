@@ -120,6 +120,9 @@ class FootballEnv(object):
     def reset(self, task=None):
         # TODO CL reset
         obs = self.env.reset()
+
+        # set state by task
+
         obs = self._obs_wrapper(obs)
         if self.remove_redundancy:
             obs = obs[:, KEEP_INDEX[self.scenario_name]]
