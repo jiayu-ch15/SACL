@@ -88,19 +88,22 @@ def parse_args(args, parser):
                         help="by default, do not save render video. If set, save video.")
     parser.add_argument("--video_dir", type=str, default="", 
                         help="directory to save videos.")
-    
+    parser.add_argument("--fixed_valuenorm", action="store_true", default=False, help="by default False, use fixed value norm")
+
     # self play
     parser.add_argument("--num_red", type=int, default=3)
     parser.add_argument("--num_blue", type=int, default=1)
-    parser.add_argument("--training_mode", type=str,default="self_play", choices=["self_play", "red_br", "blue_br"])
+    parser.add_argument("--zero_sum", action="store_true", default=False)
     parser.add_argument("--save_ckpt_interval", type=int, default=250, help="checkpoint save intervel")
-    parser.add_argument("--red_model_dir", type=str, default=None, help="by default None, directory of fixed red model")
-    parser.add_argument("--blue_model_dir", type=str, default=None, help="by default None, directory of fixed blue model")
-    parser.add_argument("--red_valuenorm_dir", type=str, default=None, help="by default None, directory of red value norm model")
-    parser.add_argument("--blue_valuenorm_dir", type=str, default=None, help="by default None, directory of blue value norm model")
 
-    parser.add_argument("--fixed_valuenorm", action="store_true", default=False, help="by default False, use fixed value norm")
-                        
+    # curriculum args
+    parser.add_argument("--prob_curriculum", type=float, default=0.7, help="probability to reset initial state from curriculum")
+    parser.add_argument("--curriculum_buffer_size", type=int, default=10000, help="size of curriculum buffer")
+    parser.add_argument("--update_method", type=str,default="fps", choices=["random", "greedy", "fps"])
+    parser.add_argument("--sample_metric", type=str,default="uniform", choices=["uniform", "variance", "rb_variance", "oracle", "variance_add_bias", "ensemble_mean_variance", "ensemble_individual_variance", "ensemble_var_add_bias"])
+    parser.add_argument("--alpha", type=float,default=0.0, help='trade-off for V_variance and V_bias')
+    parser.add_argument("--beta", type=float,default=0.0, help='trade-off for V_variance and V_bias')
+
     all_args = parser.parse_known_args(args)[0]
 
     return all_args
@@ -138,22 +141,17 @@ def main(args):
 
     # wandb
     if all_args.use_wandb:
-        run = wandb.init(config=all_args,
-                         project="tune_hyperparameters",
-                         entity=all_args.wandb_name,
-                         notes=socket.gethostname(),
-                         name="-".join([
-                            all_args.algorithm_name,
-                            all_args.experiment_name,
-                            "rollout" + str(all_args.n_rollout_threads),
-                            "minibatch" + str(all_args.num_mini_batch),
-                            "epoch" + str(all_args.ppo_epoch),
-                            "seed" + str(all_args.seed)
-                         ]),
-                         group=all_args.scenario_name,
-                         dir=str(run_dir),
-                         job_type="training",
-                         reinit=True)
+        run = wandb.init(
+            config=all_args,
+            project=all_args.wandb_name,
+            entity=all_args.user_name,
+            notes=socket.gethostname(),
+            name=f"{all_args.experiment_name}-seed{all_args.seed}",
+            group=all_args.env_name,
+            dir=str(run_dir),
+            job_type="training",
+            reinit=True,
+        )
     else:
         if not run_dir.exists():
             curr_run = 'run1'
@@ -184,22 +182,20 @@ def main(args):
     eval_envs = make_eval_env(all_args) if all_args.use_eval else None
     num_agents = all_args.num_agents
 
-    num_red = all_args.num_red
-    num_blue = all_args.num_blue
-
     config = {
         "all_args": all_args,
         "envs": envs,
         "eval_envs": eval_envs,
         "num_agents": num_agents,
-        "num_red": num_red,
-        "num_blue": num_blue,
         "device": device,
         "run_dir": run_dir
     }
 
     # run experiments
-    from onpolicy.runner.competitive.football_runner import FootballRunner as Runner
+    if all_args.share_policy:
+        from onpolicy.runner.shared.football_curriculum_runner import FootballRunner as Runner
+    else:
+        from onpolicy.runner.separated.football_runner import FootballRunner as Runner
 
     runner = Runner(config)
     runner.run()

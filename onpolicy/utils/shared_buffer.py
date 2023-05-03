@@ -652,6 +652,206 @@ class SharedReplayBuffer_ensemble(object):
 
             yield share_obs_batch, obs_batch, rnn_states_batch, rnn_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ, available_actions_batch
 
+    def recurrent_generator_ensemble(self, advantages, num_mini_batch=None, data_chunk_length=None):
+        episode_length, _, num_agents = self.rewards.shape[0:3]
+        n_rollout_threads = self.n_rollout_threads
+        batch_size = n_rollout_threads * episode_length * num_agents
+        data_chunks = batch_size // data_chunk_length  # [C=r*T*M/L]
+        mini_batch_size = data_chunks // num_mini_batch
+
+        assert n_rollout_threads * episode_length * num_agents >= data_chunk_length, (
+            "PPO requires the number of processes ({})* number of agents ({}) * episode length ({}) "
+            "to be greater than or equal to the number of "
+            "data chunk length ({}).".format(n_rollout_threads, num_agents, episode_length ,data_chunk_length))
+
+        self.shuffle_batch = True
+        if self.shuffle_batch:
+            rand_actor = torch.randperm(batch_size).numpy()
+            sampler_actor = [rand_actor[i*mini_batch_size:(i+1)*mini_batch_size] for i in range(num_mini_batch)]
+
+            # diff mini_batch for multi-critic
+            rand_critic = []
+            sampler_critic = []
+            for critic_id in range(self.num_critic):
+                rand_critic.append(torch.randperm(batch_size).numpy())
+                sampler_critic.append([rand_critic[critic_id][i*mini_batch_size:(i+1)*mini_batch_size] for i in range(num_mini_batch)])
+            # sampler critic: -> num_mini_batch * num_critic * mini_batch_size
+            sampler_critic = np.array(sampler_critic).transpose(1,0,2).tolist()
+        else:
+            rand_actor = torch.randperm(batch_size).numpy()
+            sampler_actor = [rand_actor[i*mini_batch_size:(i+1)*mini_batch_size] for i in range(num_mini_batch)]
+            sampler_critic = []
+            for critic_id in range(self.num_critic):
+                sampler_critic.append(sampler_actor)
+            # sampler critic: -> num_mini_batch * num_critic * mini_batch_size
+            sampler_critic = np.array(sampler_critic).transpose(1,0,2).tolist()
+
+
+        share_obs_critic = _cast(self.share_obs[:-1])
+        obs_actor = _cast(self.obs[:-1])
+
+        rnn_states_actor = self.rnn_states[:-1].transpose(1, 2, 0, 3, 4).reshape(-1, *self.rnn_states.shape[3:])
+        actions_actor = _cast(self.actions)
+        masks_actor = _cast(self.masks[:-1])
+        active_masks_actor = _cast(self.active_masks[:-1]) 
+        advantages_actor = _cast(advantages)
+        action_log_probs_actor = _cast(self.action_log_probs)
+
+        rnn_states_critic = self.rnn_states_critic[:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.rnn_states_critic.shape[3:])
+        masks_critic = _cast(self.masks[:-1])
+        value_preds_critic = self.value_preds[:-1].transpose(1, 2, 0, 3, 4).reshape(-1, *self.value_preds.shape[3:])
+        returns_critic = self.returns[:-1].transpose(1, 2, 0, 3, 4).reshape(-1, *self.returns.shape[3:])
+        active_masks_critic = _cast(self.active_masks[:-1]) 
+
+        if self.available_actions is not None:
+            available_actions_actor = _cast(self.available_actions[:-1])
+
+        # for indices in sampler:
+        for indices_actor, indices_critic in zip(sampler_actor, sampler_critic):
+
+            if self._mixed_obs:
+                share_obs_batch = defaultdict(list)
+                obs_batch = defaultdict(list)
+            else:
+                share_obs_critic_batch = []
+                obs_actor_batch = []
+
+            rnn_states_actor_batch = []
+            rnn_states_critic_batch = []
+            actions_actor_batch = []
+            available_actions_actor_batch = []
+            value_preds_critic_batch = []
+            return_critic_batch = []
+            masks_actor_batch = []
+            masks_critic_batch = []
+            active_masks_actor_batch = []
+            active_masks_critic_batch = []
+            old_action_log_probs_actor_batch = []
+            adv_targ_actor = []
+
+            L, N = data_chunk_length, mini_batch_size
+
+            for index in indices_actor:
+                ind = index * data_chunk_length
+                # size [T+1 N M Dim]-->[T N M Dim]-->[N,M,T,Dim]-->[N*M*T,Dim]-->[L,Dim]
+                if self._mixed_obs:
+                    for key in share_obs.keys():
+                        share_obs_batch[key].append(share_obs[key][ind:ind+data_chunk_length])
+                    for key in obs.keys():
+                        obs_batch[key].append(obs[key][ind:ind+data_chunk_length])
+                else:
+                    # share_obs_batch.append(share_obs[ind:ind+data_chunk_length])
+                    obs_actor_batch.append(obs_actor[ind:ind+data_chunk_length])
+
+                actions_actor_batch.append(actions_actor[ind:ind+data_chunk_length])
+                if self.available_actions is not None:
+                    available_actions_actor_batch.append(available_actions_actor[ind:ind+data_chunk_length])
+                masks_actor_batch.append(masks_actor[ind:ind+data_chunk_length])
+                active_masks_actor_batch.append(active_masks_actor[ind:ind+data_chunk_length])
+                old_action_log_probs_actor_batch.append(action_log_probs_actor[ind:ind+data_chunk_length])
+                adv_targ_actor.append(advantages_actor[ind:ind+data_chunk_length])
+                # size [T+1 N M Dim]-->[T N M Dim]-->[N M T Dim]-->[N*M*T,Dim]-->[1,Dim]
+                rnn_states_actor_batch.append(rnn_states_actor[ind])
+            # These are all from_numpys of size (L, N, Dim) 
+            if self._mixed_obs:
+                pass
+            else:        
+                obs_actor_batch = np.stack(obs_actor_batch, axis=1)
+
+            actions_actor_batch = np.stack(actions_actor_batch, axis=1)
+            if self.available_actions is not None:
+                available_actions_actor_batch = np.stack(available_actions_actor_batch, axis=1)
+            masks_actor_batch = np.stack(masks_actor_batch, axis=1)
+            active_masks_actor_batch = np.stack(active_masks_actor_batch, axis=1)
+            old_action_log_probs_actor_batch = np.stack(old_action_log_probs_actor_batch, axis=1)
+            adv_targ_actor = np.stack(adv_targ_actor, axis=1)
+
+            # States is just a (N, -1) from_numpy
+            rnn_states_actor_batch = np.stack(rnn_states_actor_batch).reshape(N, *self.rnn_states.shape[3:])
+            
+            # Flatten the (L, N, ...) from_numpys to (L * N, ...)
+            if self._mixed_obs:
+                pass
+            else:
+                obs_actor_batch = _flatten(L, N, obs_actor_batch)
+            actions_actor_batch = _flatten(L, N, actions_actor_batch)
+            if self.available_actions is not None:
+                available_actions_actor_batch = _flatten(L, N, available_actions_actor_batch)
+            else:
+                available_actions_batch = None
+            masks_actor_batch = _flatten(L, N, masks_actor_batch)
+            active_masks_actor_batch = _flatten(L, N, active_masks_actor_batch)
+            old_action_log_probs_actor_batch = _flatten(L, N, old_action_log_probs_actor_batch)
+            adv_targ_actor = _flatten(L, N, adv_targ_actor)
+
+            # first stack data_chunk, then stack critic_id
+            for critic_id in range(self.num_critic):
+                share_obs_critic_batch_one = []
+                value_preds_critic_batch_one = []
+                return_critic_batch_one = []
+                masks_critic_batch_one = []
+                active_masks_critic_batch_one = []
+                rnn_states_critic_batch_one = []
+                for index in indices_critic[critic_id]:
+                    ind = index * data_chunk_length
+                    # size [T+1 N M Dim]-->[T N M Dim]-->[N,M,T,Dim]-->[N*M*T,Dim]-->[L,Dim]
+                    if self._mixed_obs:
+                        for key in share_obs.keys():
+                            share_obs_batch[key].append(share_obs[key][ind:ind+data_chunk_length])
+                        for key in obs.keys():
+                            obs_batch[key].append(obs[key][ind:ind+data_chunk_length])
+                    else:
+                        share_obs_critic_batch_one.append(share_obs_critic[ind:ind+data_chunk_length])
+
+                    value_preds_critic_batch_one.append(value_preds_critic[ind:ind+data_chunk_length, critic_id])
+                    return_critic_batch_one.append(returns_critic[ind:ind+data_chunk_length,critic_id])
+                    masks_critic_batch_one.append(masks_critic[ind:ind+data_chunk_length])
+                    active_masks_critic_batch_one.append(active_masks_critic[ind:ind+data_chunk_length])
+                    rnn_states_critic_batch_one.append(rnn_states_critic[ind,critic_id])
+                
+                # These are all from_numpys of size (L, N, Dim) 
+                if self._mixed_obs:
+                    pass
+                else:        
+                    share_obs_critic_batch_one = np.stack(share_obs_critic_batch_one, axis=1)
+
+                masks_critic_batch_one = np.stack(masks_critic_batch_one, axis=1)
+                active_masks_critic_batch_one = np.stack(active_masks_critic_batch_one, axis=1)
+                value_preds_critic_batch_one = np.stack(value_preds_critic_batch_one, axis=1)
+                return_critic_batch_one = np.stack(return_critic_batch_one, axis=1)
+
+                # States is just a (N, -1) from_numpy
+                rnn_states_critic_batch_one = np.stack(rnn_states_critic_batch_one).reshape(N, *self.rnn_states_critic.shape[4:])
+                
+                # Flatten the (L, N, ...) from_numpys to (L * N, ...)
+                if self._mixed_obs:
+                    pass
+                else:
+                    share_obs_critic_batch_one = _flatten(L, N, share_obs_critic_batch_one)
+                masks_critic_batch_one = _flatten(L, N, masks_critic_batch_one)
+                active_masks_critic_batch_one = _flatten(L, N, active_masks_critic_batch_one)
+                value_preds_critic_batch_one = _flatten(L, N, value_preds_critic_batch_one)
+                return_critic_batch_one = _flatten(L, N ,return_critic_batch_one)
+
+                # handle num_critic
+                share_obs_critic_batch.append(share_obs_critic_batch_one)
+                masks_critic_batch.append(masks_critic_batch_one)
+                active_masks_critic_batch.append(active_masks_critic_batch_one)
+                value_preds_critic_batch.append(value_preds_critic_batch_one)
+                return_critic_batch.append(return_critic_batch_one)
+                rnn_states_critic_batch.append(rnn_states_critic_batch_one)
+            
+            # handle num_critic
+            share_obs_critic_batch = np.stack(share_obs_critic_batch, axis=1)
+            masks_critic_batch = np.stack(masks_critic_batch, axis=1)
+            active_masks_critic_batch = np.stack(active_masks_critic_batch, axis=1)
+            value_preds_critic_batch = np.stack(value_preds_critic_batch, axis=1)
+            return_critic_batch = np.stack(return_critic_batch, axis=1)
+            rnn_states_critic_batch = np.stack(rnn_states_critic_batch,axis=1)
+
+            yield obs_actor_batch, rnn_states_actor_batch, actions_actor_batch, masks_actor_batch, active_masks_actor_batch, adv_targ_actor, old_action_log_probs_actor_batch, available_actions_batch, \
+                  share_obs_critic_batch, rnn_states_critic_batch, masks_critic_batch, value_preds_critic_batch, return_critic_batch, active_masks_critic_batch
+
 class SharedReplayBuffer(object):
     def __init__(self, args, num_agents, obs_space, share_obs_space, act_space):
         self.episode_length = args.episode_length

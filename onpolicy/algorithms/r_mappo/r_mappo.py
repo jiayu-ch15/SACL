@@ -249,7 +249,10 @@ class R_MAPPO():
 
         for _ in range(self.ppo_epoch):
             if self._use_recurrent_policy:
-                data_generator = buffer.recurrent_generator(advantages, self.num_mini_batch, self.data_chunk_length)
+                if self.num_critic > 1 :
+                    data_generator = buffer.recurrent_generator_ensemble(advantages, self.num_mini_batch, self.data_chunk_length)
+                else:
+                    data_generator = buffer.recurrent_generator(advantages, self.num_mini_batch, self.data_chunk_length)
             elif self._use_naive_recurrent:
                 data_generator = buffer.naive_recurrent_generator(advantages, self.num_mini_batch)
             else:
