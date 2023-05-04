@@ -7,7 +7,7 @@ from itertools import chain
 import torch
 from tensorboardX import SummaryWriter
 from onpolicy.utils.shared_buffer import SharedReplayBuffer
-from onpolicy.utils.shared_buffer import SharedReplayBuffer_ensemble
+from onpolicy.utils.shared_buffer import SharedReplayBuffer_football_ensemble
 from onpolicy.utils.util import update_linear_schedule
 import socket
 import psutil
@@ -110,7 +110,7 @@ class Runner(object):
             self.trainer = TrainAlgo(self.all_args, self.policy, device = self.device)
         
             # buffer
-            self.buffer = SharedReplayBuffer_ensemble(
+            self.buffer = SharedReplayBuffer_football_ensemble(
                 self.all_args,
                 self.num_agents,
                 self.envs.observation_space[0],

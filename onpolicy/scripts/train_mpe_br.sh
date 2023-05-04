@@ -1,7 +1,7 @@
 #!/bin/sh
 # exp config
 # exp="corner_PSRO_model1@5M-from_scratch"
-exp="corner_sp_unif_model3@40M-from_loadred"
+exp="corner_greedy_model3@40M-from_loadred"
 # exp="debug"
 algo="mappo"
 seed=0
@@ -18,11 +18,11 @@ num_landmarks=2
 attn_size=32
 # training config
 training_mode="red_br"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/sp_unif/wandb/run-20230411_083256-3jvxuusf/files/40M"
-red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sp_unif_model3@40M-from_pretrained100M/wandb/run-20230424_025343-xmnwsu13/files/65M"
-red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sp_unif_model3@40M-from_pretrained100M/wandb/run-20230424_025343-xmnwsu13/files/65M"
-# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_individual_variance/wandb/run-20230410_132308-1zt784gi/files/100M"
-# red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_individual_variance/wandb/run-20230410_132308-1zt784gi/files/100M"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/sacl_update_method_greedy/wandb/run-20230501_140714-4m896rti/files/40M"
+# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_07bias/wandb/run-20230414_031641-n9dn372p/files/100M"
+# red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_07bias/wandb/run-20230414_031641-n9dn372p/files/100M"
+red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl_greedy_model3@40M-from_scratch/wandb/run-20230502_070249-1lfoqgtl/files/155M"
+red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl_greedy_model3@40M-from_scratch/wandb/run-20230502_070249-1lfoqgtl/files/155M"
 num_env_steps=200000000
 episode_length=200
 n_rollout_threads=100
@@ -38,7 +38,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=0 python train/train_mpe_competitive.py \
+CUDA_VISIBLE_DEVICES=3 python train/train_mpe_competitive.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \
