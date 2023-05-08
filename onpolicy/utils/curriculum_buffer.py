@@ -7,10 +7,11 @@ import torch
 
 class CurriculumBuffer(object):
 
-    def __init__(self, buffer_size, update_method="fps"):
+    def __init__(self, buffer_size, update_method="fps", scenario='mpe'):
         self.eps = 1e-10
         self.buffer_size = buffer_size
         self.update_method = update_method
+        self.scenario = scenario
 
         self._state_buffer = np.zeros((0, 1), dtype=np.float32)
         self._weight_buffer = np.zeros((0, 1), dtype=np.float32)
@@ -52,9 +53,14 @@ class CurriculumBuffer(object):
                 all_states_normalized = (all_states - min_states) / (max_states - min_states + self.eps)
                 # mask unnecessary dim
                 # consider_dim = np.array([True for _ in range(21)])  # consider everything.
-                consider_dim = np.array([True for _ in range(20)] + [False])  # w.o. time.
-                # consider_dim = np.array([True for _ in range(16)] + [False for _ in range(4)] + [True])  # w.o. landmarks.
-                # consider_dim = np.array([True for _ in range(16)] + [False for _ in range(5)])  # w.o. time and landmarks.
+                if self.scenario == 'mpe':
+                    consider_dim = np.array([True for _ in range(20)] + [False])  # w.o. time.
+                    # consider_dim = np.array([True for _ in range(16)] + [False for _ in range(4)] + [True])  # w.o. landmarks.
+                    # consider_dim = np.array([True for _ in range(16)] + [False for _ in range(5)])  # w.o. time and landmarks.
+                elif self.scenario == 'football':
+                    consider_dim = np.ones(all_states_normalized.shape[-1],dtype=bool)
+                else:
+                    consider_dim = np.ones(all_states_normalized.shape[-1],dtype=bool)
                 all_states_tensor = torch.tensor(all_states_normalized[np.newaxis, :, consider_dim])
                 # farthest point sampling
                 fps_idx = farthest_point_sampler(all_states_tensor, self.buffer_size)[0].numpy()
@@ -95,6 +101,10 @@ class CurriculumBuffer(object):
             initial_states = [self._state_buffer[idx] for idx in sample_idx]
         return initial_states
     
+    def save_task(self, model_dir, episode):
+        np.save('{}/tasks_{}.npy'.format(model_dir,episode), self._state_buffer)
+        np.save('{}/scores_{}.npy'.format(model_dir,episode), self._weight_buffer)
+
     # for update_metric = greedy
     def _buffer_sort(self, list1, *args): # sort by list1, ascending order
         zipped = zip(list1,*args)

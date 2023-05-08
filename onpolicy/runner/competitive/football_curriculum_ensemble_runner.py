@@ -10,7 +10,7 @@ import wandb
 import pdb
 
 from onpolicy.utils.util import update_linear_schedule
-from onpolicy.runner.shared.base_ensemble_runner import Runner
+from onpolicy.runner.competitive.base_ensemble_runner import Runner
 from onpolicy.utils.curriculum_buffer import CurriculumBuffer
 import copy
 
@@ -33,15 +33,20 @@ class FootballRunner(Runner):
         self.sample_metric = self.all_args.sample_metric
         self.alpha = self.all_args.alpha
         self.beta = self.all_args.beta
+        self.num_critic = self.all_args.num_critic
         self.curriculum_buffer = CurriculumBuffer(
             buffer_size=self.all_args.curriculum_buffer_size,
             update_method=self.all_args.update_method,
+            scenario='football'
         )
-        self.curriculum_infos = dict(V_variance=0.0,V_bias=0.0)
+        self.curriculum_infos = dict(V_variance=0.0,V_bias=0.0,)
+        self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
 
         # for V_bias
-        self.old_policy = copy.deepcopy(self.policy)
-        self.old_value_normalizer = copy.deepcopy(self.trainer.value_normalizer)
+        self.old_red_policy = copy.deepcopy(self.red_policy)
+        self.old_blue_policy = copy.deepcopy(self.blue_policy)
+        self.old_red_value_normalizer = copy.deepcopy(self.red_trainer.value_normalizer)
+        self.old_blue_value_normalizer = copy.deepcopy(self.blue_trainer.value_normalizer)
        
     def run(self):
         self.warmup()   
@@ -68,21 +73,33 @@ class FootballRunner(Runner):
 
             # compute return and update network
             self.compute()
-            train_infos = self.train()
+            
+            # train network
+            red_train_infos, blue_train_infos = self.train()
 
             # update curiculum buffer
             self.update_curriculum()
+
+            # hard-copy to get old_policy parameters
+            self.old_red_policy = copy.deepcopy(self.red_policy)
+            self.old_blue_policy = copy.deepcopy(self.blue_policy)
+            self.old_red_value_normalizer = copy.deepcopy(self.red_trainer.value_normalizer)
+            self.old_blue_value_normalizer = copy.deepcopy(self.blue_trainer.value_normalizer)
             
             # post process
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
             
             # save model
-            if (total_num_steps % self.save_interval == 0 or episode == episodes - 1):
+            if (episode % self.save_interval == 0 or episode == episodes - 1):
                 self.save()
 
             # save checkpoint
-            if (total_num_steps % self.save_ckpt_interval == 0 or episode == episodes - 1):
+            if (episode + 1) % self.save_ckpt_interval == 0:
                 self.save_ckpt(total_num_steps)
+
+            if ((episode + 1) % 25 == 0 or episode == episodes - 1):
+                self.curriculum_buffer.save_task(model_dir=self.save_dir, episode=episode)
+
 
             # log information
             if total_num_steps % self.log_interval == 0:
@@ -97,46 +114,161 @@ class FootballRunner(Runner):
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
                 
-                train_infos["red_episode_rewards"] = np.mean(self.buffer.rewards[:,:,:self.num_red]) * self.episode_length
-                train_infos["blue_episode_rewards"] = np.mean(self.buffer.rewards[:,:,-self.num_blue::]) * self.episode_length
-                print("red episode rewards is {}".format(train_infos["red_episode_rewards"]))
-                print("blue episode rewards is {}".format(train_infos["blue_episode_rewards"]))
-                self.log_train(train_infos, total_num_steps)
+                red_train_infos["episode_rewards"] = np.mean(self.red_buffer.rewards) * self.episode_length
+                blue_train_infos["episode_rewards"] = np.mean(self.blue_buffer.rewards) * self.episode_length
+                print("red episode rewards is {}".format(red_train_infos["episode_rewards"]))
+                print("blue episode rewards is {}".format(blue_train_infos["episode_rewards"]))
+                self.log_train(red_train_infos, blue_train_infos, total_num_steps)
                 self.log_env(self.env_infos, total_num_steps)
+                # add CL infos
+                self.curriculum_infos['buffer_length'] = len(self.curriculum_buffer._state_buffer)
+                self.curriculum_infos['buffer_score'] = np.mean(self.curriculum_buffer._weight_buffer)
+                self.log_curriculum(self.curriculum_infos, total_num_steps)
+                self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
                 self.env_infos = defaultdict(list)
 
             # eval
             if total_num_steps % self.eval_interval == 0 and self.use_eval:
                 self.eval(total_num_steps)
 
+    def log_curriculum(self, curriculum_infos, total_num_steps):
+        for k, v in curriculum_infos.items():
+            if self.use_wandb:
+                wandb.log({k: v}, step=total_num_steps)
+            else:
+                self.writter.add_scalars(k, {k: v}, total_num_steps)
+
     def warmup(self):
         # reset env
         obs = self.envs.reset()
+        # red buffer
+        self.red_buffer.obs[0] = obs[:, :self.num_red].copy()
+        self.red_buffer.share_obs[0] = obs[:, :self.num_red].copy()
+        # blue buffer
+        self.blue_buffer.obs[0] = obs[:, -self.num_blue:].copy()
+        self.blue_buffer.share_obs[0] = obs[:, -self.num_blue:].copy()
 
-        # insert obs to buffer
-        self.buffer.share_obs[0] = obs.copy()
-        self.buffer.obs[0] = obs.copy()
+    def reset_subgames(self, obs, dones):
+        # reset subgame: env is done and p~U[0, 1] < prob_curriculum
+        env_dones = np.all(dones, axis=1)
+        use_curriculum = (np.random.uniform(size=self.n_rollout_threads) < self.prob_curriculum)
+        env_idx = np.arange(self.n_rollout_threads)[env_dones * use_curriculum]
+        # sample initial states and reset
+        if len(env_idx) != 0:
+            initial_states = self.curriculum_buffer.sample(len(env_idx))
+            obs[env_idx] = self.envs.partial_reset(env_idx.tolist(), initial_states)
+        return obs
+
+    def update_curriculum(self):
+        # update and get share obs
+        share_obs = self.curriculum_buffer.update_states()
+        # get weights according to metric
+        num_weights = share_obs.shape[0]
+        if self.sample_metric == "uniform":
+            weights = np.ones(num_weights, dtype=np.float32)
+        elif self.sample_metric == "ensemble_var_add_bias":
+            # current red V_value
+            red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)
+            red_values = self.red_trainer.policy.get_values(
+                np.concatenate(share_obs[:, :self.num_red]),
+                red_rnn_states_critic,
+                red_masks,
+            )
+            red_values = np.array(np.split(_t2n(red_values), num_weights))
+            red_values_denorm = self.red_trainer.value_normalizer.denormalize(red_values)
+
+            # old red V_value
+            old_red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            old_red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)
+            old_red_values = self.old_red_policy.get_values(
+                np.concatenate(share_obs[:, :self.num_red]),
+                old_red_rnn_states_critic,
+                old_red_masks,
+            )
+            old_red_values = np.array(np.split(_t2n(old_red_values), num_weights))
+            old_red_values_denorm = self.old_red_value_normalizer.denormalize(old_red_values)
+
+            # current blue V_value
+            blue_rnn_states_critic = np.zeros((num_weights * self.num_blue, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            blue_masks = np.ones((num_weights * self.num_blue, 1), dtype=np.float32)
+            blue_values = self.blue_trainer.policy.get_values(
+                np.concatenate(share_obs[:, -self.num_blue:]),
+                blue_rnn_states_critic,
+                blue_masks,
+            )
+            blue_values = np.array(np.split(_t2n(blue_values), num_weights))
+            blue_values_denorm = self.blue_trainer.value_normalizer.denormalize(blue_values)
+
+            # old blue V_value
+            old_blue_rnn_states_critic = np.zeros((num_weights * self.num_blue, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            old_blue_masks = np.ones((num_weights * self.num_blue, 1), dtype=np.float32)
+            old_blue_values = self.old_blue_policy.get_values(
+                np.concatenate(share_obs[:, -self.num_blue:]),
+                old_blue_rnn_states_critic,
+                old_blue_masks,
+            )
+            old_blue_values = np.array(np.split(_t2n(old_blue_values), num_weights))
+            old_blue_values_denorm = self.old_blue_value_normalizer.denormalize(old_blue_values)
+
+            # concat current V value
+            values_denorm = np.concatenate([red_values_denorm, -blue_values_denorm], axis=1)
+            # concat old V value
+            old_values_denorm = np.concatenate([old_red_values_denorm, -old_blue_values_denorm], axis=1)
+            # reshape : [batch, num_agents * num_ensemble]
+            values_denorm = values_denorm.reshape(values_denorm.shape[0],-1)
+            old_values_denorm = old_values_denorm.reshape(old_values_denorm.shape[0],-1)
+
+            # get Var(V_current)
+            V_variance = np.var(values_denorm, axis=1)
+            # get |V_current - V_old|
+            V_bias = np.mean(np.square(values_denorm - old_values_denorm),axis=1)
+
+            weights = self.beta * V_variance + self.alpha * V_bias
+            self.curriculum_infos = dict(V_variance=np.mean(V_variance),V_bias=np.mean(V_bias))
+        
+        self.curriculum_buffer.update_weights(weights)
 
     @torch.no_grad()
     def collect(self, step):
-        self.trainer.prep_rollout()
-
-        # [n_envs, n_agents, ...] -> [n_envs*n_agents, ...]
-        values, actions, action_log_probs, rnn_states, rnn_states_critic = self.trainer.policy.get_actions(
-            np.concatenate(self.buffer.share_obs[step]),
-            np.concatenate(self.buffer.obs[step]),
-            np.concatenate(self.buffer.rnn_states[step]),
-            np.concatenate(self.buffer.rnn_states_critic[step]),
-            np.concatenate(self.buffer.masks[step])
+        # red trainer
+        self.red_trainer.prep_rollout()
+        red_values, red_actions, red_action_log_probs, red_rnn_states, red_rnn_states_critic = self.red_trainer.policy.get_actions(
+            np.concatenate(self.red_buffer.share_obs[step]),
+            np.concatenate(self.red_buffer.obs[step]),
+            np.concatenate(self.red_buffer.rnn_states[step]),
+            np.concatenate(self.red_buffer.rnn_states_critic[step]),
+            np.concatenate(self.red_buffer.masks[step]),
         )
-
-        # [n_envs*n_agents, ...] -> [n_envs, n_agents, ...]
-        values = np.array(np.split(_t2n(values), self.n_rollout_threads))
-        actions = np.array(np.split(_t2n(actions), self.n_rollout_threads))
-        action_log_probs = np.array(np.split(_t2n(action_log_probs), self.n_rollout_threads))
-        rnn_states = np.array(np.split(_t2n(rnn_states), self.n_rollout_threads))
-        rnn_states_critic = np.array(np.split(_t2n(rnn_states_critic), self.n_rollout_threads))
-
+        # [self.envs, agents, dim]
+        # values:[self.envs, agents, num_critic]
+        red_values = np.array(np.split(_t2n(red_values), self.n_rollout_threads))
+        red_actions = np.array(np.split(_t2n(red_actions), self.n_rollout_threads))
+        red_action_log_probs = np.array(np.split(_t2n(red_action_log_probs), self.n_rollout_threads))
+        red_rnn_states = np.array(np.split(_t2n(red_rnn_states), self.n_rollout_threads))
+        red_rnn_states_critic = np.array(np.split(_t2n(red_rnn_states_critic), self.n_rollout_threads))
+        # blue trainer
+        self.blue_trainer.prep_rollout()
+        blue_values, blue_actions, blue_action_log_probs, blue_rnn_states, blue_rnn_states_critic = self.blue_trainer.policy.get_actions(
+            np.concatenate(self.blue_buffer.share_obs[step]),
+            np.concatenate(self.blue_buffer.obs[step]),
+            np.concatenate(self.blue_buffer.rnn_states[step]),
+            np.concatenate(self.blue_buffer.rnn_states_critic[step]),
+            np.concatenate(self.blue_buffer.masks[step]),
+        )
+        # [self.envs, agents, dim]
+        blue_values = np.array(np.split(_t2n(blue_values), self.n_rollout_threads))
+        blue_actions = np.array(np.split(_t2n(blue_actions), self.n_rollout_threads))
+        blue_action_log_probs = np.array(np.split(_t2n(blue_action_log_probs), self.n_rollout_threads))
+        blue_rnn_states = np.array(np.split(_t2n(blue_rnn_states), self.n_rollout_threads))
+        blue_rnn_states_critic = np.array(np.split(_t2n(blue_rnn_states_critic), self.n_rollout_threads))
+        # concatenate
+        values = np.concatenate([red_values, blue_values], axis=1)
+        actions = np.concatenate([red_actions, blue_actions], axis=1)
+        action_log_probs = np.concatenate([red_action_log_probs, blue_action_log_probs], axis=1)
+        rnn_states = np.concatenate([red_rnn_states, blue_rnn_states], axis=1)
+        rnn_states_critic = np.concatenate([red_rnn_states_critic, blue_rnn_states_critic], axis=1)
+        
         actions_env = [actions[idx, :, 0] for idx in range(self.n_rollout_threads)]
 
         return values, actions, action_log_probs, rnn_states, rnn_states_critic, actions_env
@@ -162,114 +294,50 @@ class FootballRunner(Runner):
         masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
         masks[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
 
-        self.buffer.insert(
-            share_obs=obs,
-            obs=obs,
-            rnn_states=rnn_states,
-            rnn_states_critic=rnn_states_critic,
-            actions=actions,
-            action_log_probs=action_log_probs,
-            value_preds=values,
-            rewards=rewards,
-            masks=masks
+        # red buffer
+        self.red_buffer.insert(
+            share_obs=obs[:, :self.num_red],
+            obs=obs[:, :self.num_red],
+            rnn_states=rnn_states[:, :self.num_red],
+            rnn_states_critic=rnn_states_critic[:, :self.num_red],
+            actions=actions[:, :self.num_red],
+            action_log_probs=action_log_probs[:, :self.num_red],
+            value_preds=values[:, :self.num_red],
+            rewards=rewards[:, :self.num_red],
+            masks=masks[:, :self.num_red],
+        )
+        # blue buffer
+        self.blue_buffer.insert(
+            share_obs=obs[:, -self.num_blue:],
+            obs=obs[:, -self.num_blue:],
+            rnn_states=rnn_states[:, -self.num_blue:],
+            rnn_states_critic=rnn_states_critic[:, -self.num_blue:],
+            actions=actions[:, -self.num_blue:],
+            action_log_probs=action_log_probs[:, -self.num_blue:],
+            value_preds=values[:, -self.num_blue:],
+            rewards=rewards[:, -self.num_blue:],
+            masks=masks[:, -self.num_blue:],
         )
 
-    def reset_subgames(self, obs, dones):
-        # reset subgame: env is done and p~U[0, 1] < prob_curriculum
-        env_dones = np.all(dones, axis=1)
-        use_curriculum = (np.random.uniform(size=self.n_rollout_threads) < self.prob_curriculum)
-        env_idx = np.arange(self.n_rollout_threads)[env_dones * use_curriculum]
-        # sample initial states and reset
-        if len(env_idx) != 0:
-            initial_states = self.curriculum_buffer.sample(len(env_idx))
-            obs[env_idx] = self.envs.partial_reset(env_idx.tolist(), initial_states)
-        return obs
-
-    def update_curriculum(self):
-        # update and get share obs
-        share_obs = self.curriculum_buffer.update_states()
-        # get weights according to metric
-        num_weights = share_obs.shape[0]
-        if self.sample_metric == "uniform":
-            weights = np.ones(num_weights, dtype=np.float32)
-        elif self.sample_metric == "rb_variance":
-            agent_rnn_states_critic = np.zeros((num_weights * self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            agent_masks = np.ones((num_weights * self.num_agents, 1), dtype=np.float32)
-            agent_values = self.trainer.policy.get_values(
-                np.concatenate(share_obs),
-                agent_rnn_states_critic,
-                agent_masks,
-            )
-            agent_values = np.array(np.split(_t2n(agent_values), num_weights))
-            agent_values_denorm = self.trainer.value_normalizer.denormalize(agent_values)
-            red_values_denorm = copy.deepcopy(agent_values_denorm[:, :self.num_red])
-            blue_values_denorm = copy.deepcopy(agent_values_denorm[:, -self.num_blue:])
-            all_values_denorm = np.concatenate([red_values_denorm, -blue_values_denorm], axis=1)
-            weights = np.var(all_values_denorm, axis=1)[:, 0]
-        elif self.sample_metric == "ensemble_var_add_bias":
-            # current V_value
-            agent_rnn_states_critic = np.zeros((num_weights * self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            agent_masks = np.ones((num_weights * self.num_agents, 1), dtype=np.float32)
-            agent_values = self.trainer.policy.get_values(
-                np.concatenate(share_obs),
-                agent_rnn_states_critic,
-                agent_masks,
-            )
-            agent_values = np.array(np.split(_t2n(agent_values), num_weights))
-            agent_values_denorm = self.trainer.value_normalizer.denormalize(agent_values)
-            red_values_denorm = copy.deepcopy(agent_values_denorm[:, :self.num_red])
-            blue_values_denorm = copy.deepcopy(agent_values_denorm[:, -self.num_blue:])
-            all_values_denorm = np.concatenate([red_values_denorm, -blue_values_denorm], axis=1)
-
-            # old V_value
-            old_agent_rnn_states_critic = np.zeros((num_weights * self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            old_agent_masks = np.ones((num_weights * self.num_agents, 1), dtype=np.float32)
-            old_agent_values = self.old_policy.get_values(
-                np.concatenate(share_obs),
-                old_agent_rnn_states_critic,
-                old_agent_masks,
-            )
-            old_agent_values = np.array(np.split(_t2n(old_agent_values), num_weights))
-            old_agent_values_denorm = self.old_value_normalizer.denormalize(old_agent_values)
-            old_red_values_denorm = copy.deepcopy(old_agent_values_denorm[:, :self.num_red])
-            old_blue_values_denorm = copy.deepcopy(old_agent_values_denorm[:, -self.num_blue:])
-            old_all_values_denorm = np.concatenate([old_red_values_denorm, -old_blue_values_denorm], axis=1)
-
-            # reshape : [batch, num_agents * num_ensemble]
-            all_values_denorm = all_values_denorm.reshape(all_values_denorm.shape[0],-1)
-            old_all_values_denorm = old_all_values_denorm.reshape(old_all_values_denorm.shape[0],-1)
-
-            # get Var(V_current)
-            V_variance = np.var(all_values_denorm, axis=1)
-            # get |V_current - V_old|
-            V_bias = np.mean(np.square(all_values_denorm - old_all_values_denorm),axis=1)
-
-            weights = self.beta * V_variance + self.alpha * V_bias
-            self.curriculum_infos = dict(V_variance=np.mean(V_variance),V_bias=np.mean(V_bias))
-        
-        self.curriculum_buffer.update_weights(weights)
-
-    def save_ckpt(self, total_num_steps):
-        million_steps = int(total_num_steps // 1000000)
-        save_ckpt_dir = f"{self.save_dir}/{million_steps}M"
-        assert not os.path.exists(save_ckpt_dir), (f"checkpoint path {save_ckpt_dir} already exists.")
-        os.makedirs(save_ckpt_dir)
-        
-        policy_actor = self.trainer.policy.actor
-        torch.save(policy_actor.state_dict(), f"{save_ckpt_dir}/actor.pt")
-        policy_critic = self.trainer.policy.critic
-        torch.save(policy_critic.state_dict(), f"{save_ckpt_dir}/critic.pt")
-        if self.use_valuenorm:
-            value_normalizer = self.trainer.value_normalizer
-            torch.save(value_normalizer.state_dict(), f"{save_ckpt_dir}/value_normalizer.pt")
-
-    def log_env(self, env_infos, total_num_steps):
-        for k, v in env_infos.items():
-            if len(v) > 0:
-                if self.use_wandb:
-                    wandb.log({k: np.mean(v)}, step=total_num_steps)
-                else:
-                    self.writter.add_scalars(k, {k: np.mean(v)}, total_num_steps)    
+        # curriculum buffer
+        new_states = []
+        new_share_obs = []
+        for info, share_obs in zip(infos, obs):
+            state = info["state"]
+            # filter bad states
+            ball_x_y = state[:2]
+            other_x_y_distance = np.sum(np.square(state[3:].reshape(-1,2) - ball_x_y),axis=1)
+            if info['bad_state']:
+                continue
+            elif ball_x_y[0] < 0.62: 
+                # ball >= 0.62, only in the right
+                continue
+            elif not np.sum(other_x_y_distance <= 0.02**2):
+                # the active player has the ball
+                continue
+            new_states.append(state)
+            new_share_obs.append(share_obs)
+        self.curriculum_buffer.insert(new_states, new_share_obs)
 
     def cross_play_restore(self, model, idx=0):
         self.red_model_dir = self.all_args.red_model_dir
@@ -325,7 +393,7 @@ class FootballRunner(Runner):
     def eval_head2head(self):
         # reset envs and init rnn and mask
         eval_obs = self.eval_envs.reset()
-        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents,  self.recurrent_N, self.hidden_size), dtype=np.float32)
         eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
 
         # init eval goals
@@ -403,6 +471,7 @@ class FootballRunner(Runner):
         print("eval expected win rate is {}.".format(eval_expected_win_rate), "eval expected step is {}.\n".format(eval_expected_step))
         return eval_expected_goal
 
+    # TODO
     @torch.no_grad()
     def eval(self, total_num_steps):
         # reset envs and init rnn and mask
@@ -485,8 +554,14 @@ class FootballRunner(Runner):
         render_goals = np.zeros(self.all_args.render_episodes)
         for i_episode in range(self.all_args.render_episodes):
             render_obs = render_env.reset()
-            render_rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            render_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+            # render_rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            # render_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+
+            red_render_rnn_states = np.zeros((self.n_rollout_threads, self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            red_render_masks = np.ones((self.n_rollout_threads, self.num_red, 1), dtype=np.float32)
+
+            blue_render_rnn_states = np.zeros((self.n_rollout_threads, self.num_blue, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            blue_render_masks = np.ones((self.n_rollout_threads, self.num_blue, 1), dtype=np.float32)
 
             if self.all_args.save_gifs:        
                 frames = []
@@ -496,16 +571,27 @@ class FootballRunner(Runner):
             render_dones = False
             while not np.any(render_dones):
                 self.trainer.prep_rollout()
-                render_actions, render_rnn_states = self.trainer.policy.act(
-                    np.concatenate(render_obs),
-                    np.concatenate(render_rnn_states),
-                    np.concatenate(render_masks),
+                red_render_actions, red_render_rnn_states = self.trainer.policy.act(
+                    np.concatenate(render_obs[:,:self.num_red]),
+                    np.concatenate(red_render_rnn_states),
+                    np.concatenate(red_render_masks),
                     deterministic=True
                 )
-
                 # [n_envs*n_agents, ...] -> [n_envs, n_agents, ...]
-                render_actions = np.array(np.split(_t2n(render_actions), self.n_rollout_threads))
-                render_rnn_states = np.array(np.split(_t2n(render_rnn_states), self.n_rollout_threads))
+                red_render_actions = np.array(np.split(_t2n(red_render_actions), self.n_rollout_threads))
+                red_render_rnn_states = np.array(np.split(_t2n(red_render_rnn_states), self.n_rollout_threads))
+
+                blue_render_actions, blue_render_rnn_states = self.trainer.policy.act(
+                    np.concatenate(render_obs[:,-self.num_red:]),
+                    np.concatenate(blue_render_rnn_states),
+                    np.concatenate(blue_render_masks),
+                    deterministic=True
+                )
+                # [n_envs*n_agents, ...] -> [n_envs, n_agents, ...]
+                blue_render_actions = np.array(np.split(_t2n(blue_render_actions), self.n_rollout_threads))
+                blue_render_rnn_states = np.array(np.split(_t2n(blue_render_rnn_states), self.n_rollout_threads))
+
+                render_actions = np.concatenate([red_render_actions, blue_render_actions], axis=1)
 
                 render_actions_env = [render_actions[idx, :, 0] for idx in range(self.n_rollout_threads)]
 

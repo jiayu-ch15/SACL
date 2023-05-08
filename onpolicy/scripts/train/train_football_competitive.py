@@ -203,7 +203,7 @@ def main(args):
 
     # run experiments
     if all_args.share_policy:
-        from onpolicy.runner.competitive.football_curriculum_ensemble_runner import FootballRunner as Runner
+        from onpolicy.runner.competitive.football_runner import FootballRunner as Runner
     else:
         from onpolicy.runner.separated.football_runner import FootballRunner as Runner
 

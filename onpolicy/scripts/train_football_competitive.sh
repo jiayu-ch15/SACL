@@ -2,17 +2,17 @@
 # exp param
 env="Football"
 # scenario="academy_pass_and_shoot_with_keeper"
-scenario="academy_run_pass_and_shoot_with_keeper"
-# scenario="academy_3_vs_1_with_keeper"
+# scenario="academy_run_pass_and_shoot_with_keeper"
+scenario="academy_3_vs_1_with_keeper"
 algo="mappo"
-exp="1var_run_pass_shoot"
+exp="sp_3v1"
 seed=0
 
 
 # football param
-num_red=2
+num_red=3
 num_blue=1
-num_agents=3
+num_agents=4
 representation="simple115v2"
 rewards="scoring,checkpoints"
 # rewards="scoring"
@@ -37,22 +37,13 @@ n_rollout_threads=200 # 1000
 ppo_epoch=10 # 5, 10, 15
 num_mini_batch=2 # 2, 4
 
-# CL
-prob_curriculum=0.7
-curriculum_buffer_size=10000
-beta=1.0
-alpha=0.0
-num_critic=3
-update_method="fps"
-sample_metric="ensemble_var_add_bias"
-
 # sp
 training_mode='self_play'
 
 
 echo "n_rollout_threads: ${n_rollout_threads} \t ppo_epoch: ${ppo_epoch} \t num_mini_batch: ${num_mini_batch}"
 
-CUDA_VISIBLE_DEVICES=2 python train/train_football_curriculum.py \
+CUDA_VISIBLE_DEVICES=1 python train/train_football_competitive.py \
 --env_name ${env} --scenario_name ${scenario} \
 --algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} \
 --num_agents ${num_agents} --representation ${representation} \
@@ -67,6 +58,3 @@ CUDA_VISIBLE_DEVICES=2 python train/train_football_curriculum.py \
 --eval_interval ${eval_interval} --eval_episodes ${eval_episodes} \
 --n_eval_rollout_threads ${n_eval_rollout_threads} \
 --user_name "chenjy" --wandb_name "football" --rewards ${rewards} \
---prob_curriculum ${prob_curriculum} --curriculum_buffer_size ${curriculum_buffer_size} \
---beta ${beta} --alpha ${alpha} --num_critic ${num_critic} \
---sample_metric ${sample_metric} --update_method ${update_method} \

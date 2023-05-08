@@ -593,10 +593,3 @@ class MPECurriculumRunner(Runner):
             # save gif
             if self.all_args.save_gifs:
                 imageio.mimsave(f"{self.gif_dir}/episode{episode}.gif", all_frames[:-1], duration=self.all_args.ifi)
-
-    def checkpoint_save(self, total_num_steps):
-        red_policy_actor = self.red_trainer.policy.actor
-        torch.save(red_policy_actor.state_dict(), str(self.save_dir) + "/red_actor_{}.pt".format(total_num_steps))
-
-        blue_policy_actor = self.blue_trainer.policy.actor
-        torch.save(blue_policy_actor.state_dict(), str(self.save_dir) + "/blue_actor_{}.pt".format(total_num_steps))
