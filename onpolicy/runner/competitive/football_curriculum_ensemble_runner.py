@@ -42,6 +42,12 @@ class FootballRunner(Runner):
         self.curriculum_infos = dict(V_variance=0.0,V_bias=0.0,)
         self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
 
+        # the ball should be on the right of the boundary
+        if self.all_args.scenario_name == 'academy_3_vs_1_with_keeper':
+            self.boundary = 0.62
+        elif self.all_args.scenario_name == 'academy_pass_and_shoot_with_keeper' or self.all_args.scenario_name == 'academy_run_pass_and_shoot_with_keeper':
+            self.boundary = 0.7
+
         # for V_bias
         self.old_red_policy = copy.deepcopy(self.red_policy)
         self.old_blue_policy = copy.deepcopy(self.blue_policy)
@@ -179,15 +185,16 @@ class FootballRunner(Runner):
             red_values_denorm = self.red_trainer.value_normalizer.denormalize(red_values)
 
             # old red V_value
-            old_red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            old_red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)
-            old_red_values = self.old_red_policy.get_values(
-                np.concatenate(share_obs[:, :self.num_red]),
-                old_red_rnn_states_critic,
-                old_red_masks,
-            )
-            old_red_values = np.array(np.split(_t2n(old_red_values), num_weights))
-            old_red_values_denorm = self.old_red_value_normalizer.denormalize(old_red_values)
+            if self.alpha > 0.0:
+                old_red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
+                old_red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)
+                old_red_values = self.old_red_policy.get_values(
+                    np.concatenate(share_obs[:, :self.num_red]),
+                    old_red_rnn_states_critic,
+                    old_red_masks,
+                )
+                old_red_values = np.array(np.split(_t2n(old_red_values), num_weights))
+                old_red_values_denorm = self.old_red_value_normalizer.denormalize(old_red_values)
 
             # current blue V_value
             blue_rnn_states_critic = np.zeros((num_weights * self.num_blue, self.recurrent_N, self.hidden_size), dtype=np.float32)
@@ -201,30 +208,37 @@ class FootballRunner(Runner):
             blue_values_denorm = self.blue_trainer.value_normalizer.denormalize(blue_values)
 
             # old blue V_value
-            old_blue_rnn_states_critic = np.zeros((num_weights * self.num_blue, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            old_blue_masks = np.ones((num_weights * self.num_blue, 1), dtype=np.float32)
-            old_blue_values = self.old_blue_policy.get_values(
-                np.concatenate(share_obs[:, -self.num_blue:]),
-                old_blue_rnn_states_critic,
-                old_blue_masks,
-            )
-            old_blue_values = np.array(np.split(_t2n(old_blue_values), num_weights))
-            old_blue_values_denorm = self.old_blue_value_normalizer.denormalize(old_blue_values)
+            if self.alpha:
+                old_blue_rnn_states_critic = np.zeros((num_weights * self.num_blue, self.recurrent_N, self.hidden_size), dtype=np.float32)
+                old_blue_masks = np.ones((num_weights * self.num_blue, 1), dtype=np.float32)
+                old_blue_values = self.old_blue_policy.get_values(
+                    np.concatenate(share_obs[:, -self.num_blue:]),
+                    old_blue_rnn_states_critic,
+                    old_blue_masks,
+                )
+                old_blue_values = np.array(np.split(_t2n(old_blue_values), num_weights))
+                old_blue_values_denorm = self.old_blue_value_normalizer.denormalize(old_blue_values)
 
             # concat current V value
             values_denorm = np.concatenate([red_values_denorm, -blue_values_denorm], axis=1)
-            # concat old V value
-            old_values_denorm = np.concatenate([old_red_values_denorm, -old_blue_values_denorm], axis=1)
             # reshape : [batch, num_agents * num_ensemble]
             values_denorm = values_denorm.reshape(values_denorm.shape[0],-1)
-            old_values_denorm = old_values_denorm.reshape(old_values_denorm.shape[0],-1)
+
+            # concat old V value
+            if self.alpha > 0.0:
+                old_values_denorm = np.concatenate([old_red_values_denorm, -old_blue_values_denorm], axis=1)
+                old_values_denorm = old_values_denorm.reshape(old_values_denorm.shape[0],-1)
 
             # get Var(V_current)
             V_variance = np.var(values_denorm, axis=1)
-            # get |V_current - V_old|
-            V_bias = np.mean(np.square(values_denorm - old_values_denorm),axis=1)
 
-            weights = self.beta * V_variance + self.alpha * V_bias
+            if self.alpha > 0.0:
+                # get |V_current - V_old|
+                V_bias = np.mean(np.square(values_denorm - old_values_denorm),axis=1)
+                weights = self.beta * V_variance + self.alpha * V_bias
+            else:
+                V_bias = -1.0 # invalid
+                weights = V_variance
             self.curriculum_infos = dict(V_variance=np.mean(V_variance),V_bias=np.mean(V_bias))
         
         self.curriculum_buffer.update_weights(weights)
@@ -326,14 +340,17 @@ class FootballRunner(Runner):
             state = info["state"]
             # filter bad states
             ball_x_y = state[:2]
-            other_x_y_distance = np.sum(np.square(state[3:].reshape(-1,2) - ball_x_y),axis=1)
+            left_agent = state[5:5 + self.num_red * 2]
+            right_agent = state[5 + (self.num_red + 1) * 2: 5 + (self.num_red + 1) * 2 + self.num_blue * 2]
+            agent_pos = np.concatenate([left_agent, right_agent])
+            x_y_distance = np.sum(np.square(agent_pos.reshape(-1,2) - ball_x_y),axis=1)
             if info['bad_state']:
                 continue
-            elif ball_x_y[0] < 0.62: 
-                # ball >= 0.62, only in the right
+            elif ball_x_y[0] < self.boundary: 
+                # only at the right
                 continue
-            elif not np.sum(other_x_y_distance <= 0.02**2):
-                # the active player has the ball
+            elif not np.sum(x_y_distance <= 0.02**2):
+                # the RL agent has the ball
                 continue
             new_states.append(state)
             new_share_obs.append(share_obs)
