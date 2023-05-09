@@ -8,8 +8,8 @@ import pdb
 # labels=["ensemble3", "rb_variance(ensemble1)", "ensmeble5", "3adv_var_ensemble4"]
 # data = np.load('/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/metric@75M/run1/logs/cross_play_returns.npy')
 # labels=["random", "sp_unif", "ensemble_var", "TDerror", "1var_07bias"]
-data = np.load('/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/var_bias_ab@25M/run1/logs/cross_play_returns.npy')
-labels=["ensemble_var", "ensemble_bias", "1var_1bias", "1var_03bias", "1var_05bias", "1var_07bias"]
+data = np.load('/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/main@40M/run1/logs/cross_play_returns.npy')
+labels=["sacl", "sp", "fsp", "psro"]
 num_exp = len(labels)
 padding = 3
 mean = np.zeros(shape=(num_exp,num_exp))
@@ -27,8 +27,8 @@ ax = sns.heatmap(
     square=True, linewidths=2, cbar=False, cmap="coolwarm",
     xticklabels=labels, yticklabels=labels,
 )
-ax.set_title("Predator Reward @ 25M")
+ax.set_title("Predator Reward")
 
 plt.tight_layout()
 # plt.show()
-plt.savefig("../var_bias@25M.png")
+plt.savefig("../main@40M.pdf")

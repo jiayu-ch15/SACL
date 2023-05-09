@@ -194,6 +194,138 @@ class FootballRunner(Runner):
             masks=masks[:, -self.num_blue:],
         )
 
+    def cross_play_restore(self, model, idx=0):
+        self.red_model_dir = self.all_args.red_model_dir
+        self.blue_model_dir = self.all_args.blue_model_dir
+        if model == "red_model":
+            red_policy_actor_state_dict = torch.load(f"{self.red_model_dir[idx]}/red_actor.pt", map_location=self.device)
+            self.red_trainer.policy.actor.load_state_dict(red_policy_actor_state_dict)
+        elif model == "blue_model":
+            blue_policy_actor_state_dict = torch.load(f"{self.blue_model_dir[idx]}/blue_actor.pt", map_location=self.device)
+            self.blue_trainer.policy.actor.load_state_dict(blue_policy_actor_state_dict)
+        else:
+            raise NotImplementedError(f"Model {model} is not supported.")
+
+    @torch.no_grad()
+    def eval_cross_play(self):
+        num_red_models = len(self.all_args.red_model_dir)
+        num_blue_models = len(self.all_args.blue_model_dir)
+
+        from onpolicy.algorithms.r_mappo.r_mappo import R_MAPPO as TrainAlgo
+        from onpolicy.algorithms.r_mappo.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
+        # NN initialization
+        self.red_policy = Policy(
+            self.all_args,
+            self.envs.observation_space[0],
+            self.envs.share_observation_space[0] if self.use_centralized_V else self.envs.observation_space[0],
+            self.envs.action_space[0],
+            device=self.device,
+        )
+        self.blue_policy = Policy(
+            self.all_args,
+            self.envs.observation_space[-1],
+            self.envs.share_observation_space[-1] if self.use_centralized_V else self.envs.observation_space[-1],
+            self.envs.action_space[-1],
+            device=self.device,
+        )
+
+        # algorithm
+        self.red_trainer = TrainAlgo(self.all_args, self.red_policy, device=self.device)
+        self.blue_trainer = TrainAlgo(self.all_args, self.blue_policy, device=self.device)
+
+        self.eval_episodes = self.all_args.eval_episodes
+
+        cross_play_returns = np.zeros((num_red_models, num_blue_models), dtype=float)
+        for red_idx in range(num_red_models):
+            self.cross_play_restore("red_model", red_idx)
+            for blue_idx in range(num_blue_models):
+                print(f"red model {red_idx} v.s. blue model {blue_idx}")
+                self.cross_play_restore("blue_model", blue_idx)
+                cross_play_returns[red_idx, blue_idx] = self.eval_head2head()
+        np.save(f"{self.log_dir}/cross_play_returns.npy", cross_play_returns)
+
+    @torch.no_grad()
+    def eval_head2head(self):
+        # reset envs and init rnn and mask
+        eval_obs = self.eval_envs.reset()
+        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents,  self.recurrent_N, self.hidden_size), dtype=np.float32)
+        eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
+
+        # init eval goals
+        num_done = 0
+        eval_goals = np.zeros(self.all_args.eval_episodes)
+        eval_win_rates = np.zeros(self.all_args.eval_episodes)
+        eval_steps = np.zeros(self.all_args.eval_episodes)
+        step = 0
+        quo = self.all_args.eval_episodes // self.n_eval_rollout_threads
+        rem = self.all_args.eval_episodes % self.n_eval_rollout_threads
+        done_episodes_per_thread = np.zeros(self.n_eval_rollout_threads, dtype=int)
+        eval_episodes_per_thread = done_episodes_per_thread + quo
+        eval_episodes_per_thread[:rem] += 1
+        unfinished_thread = (done_episodes_per_thread != eval_episodes_per_thread)
+
+        # loop until enough episodes
+        while num_done < self.all_args.eval_episodes and step < self.episode_length:
+            # red action
+            self.red_trainer.prep_rollout()
+            eval_red_actions, eval_red_rnn_states = self.red_trainer.policy.act(
+                np.concatenate(eval_obs[:, :self.num_red]),
+                np.concatenate(eval_rnn_states[:, :self.num_red]),
+                np.concatenate(eval_masks[:, :self.num_red]),
+                deterministic=self.all_args.eval_deterministic,
+            )
+            eval_red_actions = np.array(np.split(_t2n(eval_red_actions), self.n_eval_rollout_threads))
+            eval_red_rnn_states = np.array(np.split(_t2n(eval_red_rnn_states), self.n_eval_rollout_threads))
+            
+            # blue action
+            self.blue_trainer.prep_rollout()
+            eval_blue_actions, eval_blue_rnn_states = self.blue_trainer.policy.act(
+                np.concatenate(eval_obs[:, -self.num_blue:]),
+                np.concatenate(eval_rnn_states[:, -self.num_blue:]),
+                np.concatenate(eval_masks[:, -self.num_blue:]),
+                deterministic=self.all_args.eval_deterministic,
+            )
+            eval_blue_actions = np.array(np.split(_t2n(eval_blue_actions), self.n_eval_rollout_threads))
+            eval_blue_rnn_states = np.array(np.split(_t2n(eval_blue_rnn_states), self.n_eval_rollout_threads))
+            
+            # concatenate and env action
+            eval_actions = np.concatenate([eval_red_actions, eval_blue_actions], axis=1)
+            eval_rnn_states = np.concatenate([eval_red_rnn_states, eval_blue_rnn_states], axis=1)
+            # eval_actions_env = np.squeeze(np.eye(self.eval_envs.action_space[0].n)[eval_actions], 2)
+            eval_actions_env = [eval_actions[idx, :, 0] for idx in range(self.n_eval_rollout_threads)]
+
+            # step
+            eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions_env)
+
+            # update goals if done
+            eval_dones_env = np.all(eval_dones, axis=-1)
+            eval_dones_unfinished_env = eval_dones_env[unfinished_thread]
+            if np.any(eval_dones_unfinished_env):
+                for idx_env in range(self.n_eval_rollout_threads):
+                    if unfinished_thread[idx_env] and eval_dones_env[idx_env]:
+                        eval_goals[num_done] = eval_infos[idx_env]["score_reward"]
+                        eval_win_rates[num_done] = 1 if eval_infos[idx_env]["score_reward"] > 0 else 0
+                        eval_steps[num_done] = eval_infos[idx_env]["max_steps"] - eval_infos[idx_env]["steps_left"]
+                        # print("episode {:>2d} done by env {:>2d}: {}".format(num_done, idx_env, eval_infos[idx_env]["score_reward"]))
+                        num_done += 1
+                        done_episodes_per_thread[idx_env] += 1
+            unfinished_thread = (done_episodes_per_thread != eval_episodes_per_thread)
+
+            # reset rnn and masks for done envs
+            eval_rnn_states[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            eval_masks = np.ones((self.all_args.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
+            eval_masks[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
+            step += 1
+
+        # get expected goal
+        eval_expected_goal = np.mean(eval_goals)
+        eval_expected_win_rate = np.mean(eval_win_rates)
+        eval_expected_step = np.mean(eval_steps)
+    
+        # log and print
+        print("eval expected win rate is {}.".format(eval_expected_win_rate), "eval expected step is {}.\n".format(eval_expected_step))
+        return eval_expected_win_rate
+
     # TODO
     @torch.no_grad()
     def eval(self, total_num_steps):
@@ -292,9 +424,10 @@ class FootballRunner(Runner):
                 frames.append(image)
 
             render_dones = False
+            env_step = 0
             while not np.any(render_dones):
-                self.trainer.prep_rollout()
-                red_render_actions, red_render_rnn_states = self.trainer.policy.act(
+                self.red_trainer.prep_rollout()
+                red_render_actions, red_render_rnn_states = self.red_trainer.policy.act(
                     np.concatenate(render_obs[:,:self.num_red]),
                     np.concatenate(red_render_rnn_states),
                     np.concatenate(red_render_masks),
@@ -304,8 +437,9 @@ class FootballRunner(Runner):
                 red_render_actions = np.array(np.split(_t2n(red_render_actions), self.n_rollout_threads))
                 red_render_rnn_states = np.array(np.split(_t2n(red_render_rnn_states), self.n_rollout_threads))
 
-                blue_render_actions, blue_render_rnn_states = self.trainer.policy.act(
-                    np.concatenate(render_obs[:,-self.num_red:]),
+                self.blue_trainer.prep_rollout()
+                blue_render_actions, blue_render_rnn_states = self.blue_trainer.policy.act(
+                    np.concatenate(render_obs[:,-self.num_blue:]),
                     np.concatenate(blue_render_rnn_states),
                     np.concatenate(blue_render_masks),
                     deterministic=True
@@ -320,6 +454,7 @@ class FootballRunner(Runner):
 
                 # step
                 render_obs, render_rewards, render_dones, render_infos = render_env.step(render_actions_env)
+                env_step += 1
 
                 # append frame
                 if self.all_args.save_gifs:        

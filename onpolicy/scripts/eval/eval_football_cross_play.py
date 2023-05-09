@@ -96,6 +96,8 @@ def parse_args(args, parser):
     parser.add_argument("--zero_sum", action="store_true", default=False)
     parser.add_argument("--save_ckpt_interval", type=int, default=250, help="checkpoint save intervel")
 
+    parser.add_argument("--training_mode", type=str,default="self_play", choices=["self_play", "red_br", "blue_br"])
+
     # cross play
     parser.add_argument("--red_model_dir", type=str, default=None, help="by default None, directory of fixed red model")
     parser.add_argument("--blue_model_dir", type=str, default=None, help="by default None, directory of fixed blue model")
@@ -182,20 +184,24 @@ def main(args):
     # env init
     envs = make_train_env(all_args)
     eval_envs = make_eval_env(all_args) if all_args.use_eval else None
-    num_agents = all_args.num_agents
+    num_red = all_args.num_red
+    num_blue = all_args.num_blue
+    num_agents = num_red + num_blue
 
     config = {
         "all_args": all_args,
         "envs": envs,
         "eval_envs": eval_envs,
         "num_agents": num_agents,
+        "num_red": num_red,
+        "num_blue": num_blue,
         "device": device,
         "run_dir": run_dir
     }
 
     # run experiments
     if all_args.share_policy:
-        from onpolicy.runner.shared.football_runner import FootballRunner as Runner
+        from onpolicy.runner.competitive.football_runner import FootballRunner as Runner
     else:
         from onpolicy.runner.separated.football_runner import FootballRunner as Runner
 

@@ -74,8 +74,28 @@ def parse_args(args, parser):
     parser.add_argument("--num_red", type=int, default=3)
     parser.add_argument("--num_blue", type=int, default=1)
     parser.add_argument("--zero_sum", action="store_true", default=False)
+    parser.add_argument("--save_ckpt_interval", type=int, default=250, help="checkpoint save intervel")
+    parser.add_argument("--training_mode", type=str,default="self_play", choices=["self_play", "red_br", "blue_br"])
+    
+    parser.add_argument("--red_model_dir", type=str, default=None, help="by default None, directory of fixed red model")
+    parser.add_argument("--blue_model_dir", type=str, default=None, help="by default None, directory of fixed blue model")
+    parser.add_argument("--red_valuenorm_dir", type=str, default=None, help="by default None, directory of red value norm model")
+    parser.add_argument("--blue_valuenorm_dir", type=str, default=None, help="by default None, directory of blue value norm model")
+
+    # curriculum args
+    parser.add_argument("--prob_curriculum", type=float, default=0.7, help="probability to reset initial state from curriculum")
+    parser.add_argument("--curriculum_buffer_size", type=int, default=10000, help="size of curriculum buffer")
+    parser.add_argument("--update_method", type=str,default="fps", choices=["random", "greedy", "fps"])
+    parser.add_argument("--sample_metric", type=str,default="uniform", choices=["uniform", "variance", "rb_variance", "oracle", "variance_add_bias", "ensemble_mean_variance", "ensemble_individual_variance", "ensemble_var_add_bias"])
+    parser.add_argument("--alpha", type=float,default=0.0, help='trade-off for V_variance and V_bias')
+    parser.add_argument("--beta", type=float,default=0.0, help='trade-off for V_variance and V_bias')
 
     all_args = parser.parse_known_args(args)[0]
+
+    all_args.red_model_dir = all_args.red_model_dir.split(" ") if all_args.red_model_dir is not None else None
+    all_args.blue_model_dir = all_args.blue_model_dir.split(" ") if all_args.blue_model_dir is not None else None
+    all_args.red_valuenorm_dir = all_args.red_valuenorm_dir.split(" ") if all_args.red_valuenorm_dir is not None else None
+    all_args.blue_valuenorm_dir = all_args.blue_valuenorm_dir.split(" ") if all_args.blue_valuenorm_dir is not None else None
 
     return all_args
 
@@ -92,7 +112,7 @@ def main(args):
         raise NotImplementedError
 
     assert all_args.use_render, ("u need to set use_render be True")
-    assert not (all_args.model_dir == None or all_args.model_dir == ""), ("set model_dir first")
+    # assert not (all_args.model_dir == None or all_args.model_dir == ""), ("set model_dir first")
     assert all_args.n_rollout_threads==1, ("only support to use 1 env to render.")
 
     # cuda
@@ -109,7 +129,7 @@ def main(args):
         torch.set_num_threads(all_args.n_training_threads)
 
     # run dir and video dir
-    run_dir = Path(all_args.model_dir).parent.absolute()
+    run_dir = Path(all_args.red_model_dir[0]).parent.absolute()
     if all_args.save_videos and all_args.video_dir == "":
         video_dir = run_dir / "videos"
         all_args.video_dir = str(video_dir)
@@ -131,20 +151,24 @@ def main(args):
 
     # env init
     envs = make_train_env(all_args)
-    num_agents = all_args.num_agents
+    num_red = all_args.num_red
+    num_blue = all_args.num_blue
+    num_agents = num_red + num_blue
 
     config = {
         "all_args": all_args,
         "envs": envs,
         "eval_envs": None,
         "num_agents": num_agents,
+        "num_red": num_red,
+        "num_blue": num_blue,
         "device": device,
         "run_dir": run_dir
     }
 
     # run experiments
     if all_args.share_policy:
-        from onpolicy.runner.shared.football_runner import FootballRunner as Runner
+        from onpolicy.runner.competitive.football_runner import FootballRunner as Runner
     else:
         from onpolicy.runner.separated.football_runner import FootballRunner as Runner
 
