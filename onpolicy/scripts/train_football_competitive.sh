@@ -6,7 +6,8 @@ env="Football"
 scenario="academy_3_vs_1_with_keeper"
 algo="mappo"
 exp="sp_3v1"
-seed=0
+# exp="debug"
+seed=2
 
 
 # football param
@@ -39,6 +40,7 @@ num_mini_batch=2 # 2, 4
 
 # sp
 training_mode='self_play'
+model_dir='/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sp_3v1/wandb/run-20230508_081054-2p0jg2f9/files/80M'
 
 
 echo "n_rollout_threads: ${n_rollout_threads} \t ppo_epoch: ${ppo_epoch} \t num_mini_batch: ${num_mini_batch}"
@@ -58,3 +60,5 @@ CUDA_VISIBLE_DEVICES=6 python train/train_football_competitive.py \
 --eval_interval ${eval_interval} --eval_episodes ${eval_episodes} \
 --n_eval_rollout_threads ${n_eval_rollout_threads} \
 --user_name "chenjy" --wandb_name "football" --rewards ${rewards} \
+# --red_model_dir ${model_dir} --blue_model_dir ${model_dir} \
+# --red_valuenorm_dir ${model_dir} --blue_valuenorm_dir ${model_dir} \

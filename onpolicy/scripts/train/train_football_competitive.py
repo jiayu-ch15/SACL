@@ -111,6 +111,11 @@ def parse_args(args, parser):
     parser.add_argument("--beta", type=float,default=0.0, help='trade-off for V_variance and V_bias')
 
     all_args = parser.parse_known_args(args)[0]
+    all_args.num_agents = all_args.num_red + all_args.num_blue
+    all_args.red_model_dir = all_args.red_model_dir.split(" ") if all_args.red_model_dir is not None else None
+    all_args.blue_model_dir = all_args.blue_model_dir.split(" ") if all_args.blue_model_dir is not None else None
+    all_args.red_valuenorm_dir = all_args.red_valuenorm_dir.split(" ") if all_args.red_valuenorm_dir is not None else None
+    all_args.blue_valuenorm_dir = all_args.blue_valuenorm_dir.split(" ") if all_args.blue_valuenorm_dir is not None else None
 
     return all_args
 
