@@ -1,14 +1,14 @@
 #!/bin/sh
 # exp config
-# exp="debug"
-exp="full_sacl"
+exp="debug"
+# exp="full_sacl"
 algo="mappo"
-seed=2
+seed=0
 # env config
 env="MPE"
 scenario="simple_tag_corner"
 horizon=200
-corner_min=-2.0
+corner_min=1.0
 corner_max=2.0
 num_adv=3
 num_good=1
@@ -39,7 +39,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=2 python train/train_mpe_ensemble_curriculum.py \
+CUDA_VISIBLE_DEVICES=2 python train/train_mpe_gan.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \
@@ -56,3 +56,4 @@ CUDA_VISIBLE_DEVICES=2 python train/train_mpe_ensemble_curriculum.py \
 --hard_boundary \
 --user_name ${user_name} \
 --wandb_name ${wandb_name} \
+--use_wandb \

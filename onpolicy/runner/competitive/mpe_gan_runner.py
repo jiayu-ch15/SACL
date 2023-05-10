@@ -100,6 +100,38 @@ class StateGAN(StateGenerator):
     def discriminator_predict(self, states):
         return self.gan.discriminator_predict(states)
 
+class GANBuffer(object):
+
+    def __init__(self):
+        self._state_buffer = np.zeros((0, 1), dtype=np.float32)
+        self._weight_buffer = np.zeros((0, 1), dtype=np.float32)
+        self._share_obs_buffer = np.zeros((0, 1), dtype=np.float32)
+        self._temp_state_buffer = []
+        self._temp_share_obs_buffer = []
+    
+    def insert(self, states, share_obs):
+        """
+        input:
+            states: list of np.array(size=(state_dim, ))
+            weight: list of np.array(size=(1, ))
+        """
+        self._temp_state_buffer.extend(copy.deepcopy(states))
+        self._temp_share_obs_buffer.extend(copy.deepcopy(share_obs))
+
+    def update_states(self):
+        self._state_buffer = np.array(self._temp_state_buffer)
+        self._share_obs_buffer = np.array(self._temp_share_obs_buffer)
+
+        # reset temp state and weight buffer
+        self._temp_state_buffer = []
+        self._temp_share_obs_buffer = []
+
+        return self._share_obs_buffer.copy()
+
+    # normalize
+    def update_weights(self, weights):
+        self._weight_buffer = (weights - np.min(weights)) / (np.max(weights) - np.min(weights))
+
 class MPECurriculumRunner(Runner):
     def __init__(self, config):
         super(MPECurriculumRunner, self).__init__(config)
@@ -108,10 +140,8 @@ class MPECurriculumRunner(Runner):
         self.sample_metric = self.all_args.sample_metric
         self.alpha = self.all_args.alpha
         self.beta = self.all_args.beta
-        self.curriculum_buffer = CurriculumBuffer(
-            buffer_size=self.all_args.curriculum_buffer_size,
-            update_method=self.all_args.update_method,
-        )
+        self.gan_buffer = GANBuffer()
+        self.num_landmarks = self.all_args.num_landmarks
 
         self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
         self.env_infos = dict(
@@ -131,8 +161,9 @@ class MPECurriculumRunner(Runner):
         self.old_blue_policy = copy.deepcopy(self.blue_policy)
         self.old_red_value_normalizer = copy.deepcopy(self.red_trainer.value_normalizer)
         self.old_blue_value_normalizer = copy.deepcopy(self.blue_trainer.value_normalizer)
+        self.create_goalproposal_gan()
 
-    def init_gan(self):
+    def create_goalproposal_gan(self):
         self.gan_configs = {
             'cuda':True,
             'batch_size': 64,
@@ -153,21 +184,18 @@ class MPECurriculumRunner(Runner):
             'R_max': 0.7,
         }
 
-    def create_goalproposal_gan(self):
         # init the gan
-        self.gan_configs['goal_size'] = self.num_agents * 4 + self.num_landmarks * 2
-        self.boundary = self.config['all_args'].boundary_max
+        self.gan_configs['goal_size'] = self.num_agents * 4 + self.num_landmarks * 2 + 1
+        self.boundary = self.all_args.corner_max
         self.max_speed = 1.3
-        self.gan_configs['goal_center'] = np.zeros(self.num_agents * 4 + self.num_landmarks * 2, dtype=int)
-        self.gan_configs['goal_range'] = np.vstack([np.array([-self.max_speed] * self.num_agents * 2 + [-self.boundary] * (self.num_agents + self.num_landmarks) * 2),
-                                                    np.array([self.max_speed] * self.num_agents * 2 + [self.boundary] * (self.num_agents + self.num_landmarks) * 2)])
-        gan = StateGAN(gan_configs = self.gan_configs, state_range=self.gan_configs['goal_range'])
+        self.gan_configs['goal_center'] = np.zeros(self.num_agents * 4 + self.num_landmarks * 2 + 1, dtype=int)
+        self.gan_configs['goal_range'] = np.vstack([np.array([-self.max_speed] * self.num_agents * 2 + [-self.boundary] * (self.num_agents + self.num_landmarks) * 2 + [0]),
+                                                    np.array([self.max_speed] * self.num_agents * 2 + [self.boundary] * (self.num_agents + self.num_landmarks) * 2 + [self.all_args.episode_length - 1])])
+        self.gan = StateGAN(gan_configs = self.gan_configs, state_range=self.gan_configs['goal_range'])
 
-        # init the StateCollection
-        # all_goals = StateCollection(distance_threshold=self.goal_configs['coll_eps'])
-        all_goals = StateCollection(max_len=self.all_args.buffer_length,distance_threshold=self.goal_configs['coll_eps'])
-
-        return gan, all_goals
+        # pretrain the gan
+        dis_loss, gen_loss = self.gan.pretrain_uniform(size=50000,outer_iters=self.gan_configs['gan_outer_iters'])
+        print('discriminator_loss:',str(dis_loss.cpu()), 'generator_loss:',str(gen_loss.cpu()))
 
     def run(self):
         self.warmup()   
@@ -190,13 +218,14 @@ class MPECurriculumRunner(Runner):
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic
                 self.insert(data)
             # compute return
-            self.compute()    
-        
+            self.compute()
+            
             # train network
             red_train_infos, blue_train_infos = self.train()
 
-            # update curiculum buffer
             self.update_curriculum()
+            # train gan
+            self.train_gan()
 
             # hard-copy to get old_policy parameters
             self.old_red_policy = copy.deepcopy(self.red_policy)
@@ -298,168 +327,16 @@ class MPECurriculumRunner(Runner):
         env_idx = np.arange(self.n_rollout_threads)[env_dones * use_curriculum]
         # sample initial states and reset
         if len(env_idx) != 0:
-            initial_states = self.curriculum_buffer.sample(len(env_idx))
+            initial_states, _ = self.gan.sample_states_with_noise(len(env_idx))
             obs[env_idx] = self.envs.partial_reset(env_idx.tolist(), initial_states)
         return obs
     
     def update_curriculum(self):
         # update and get share obs
-        share_obs = self.curriculum_buffer.update_states()
+        share_obs = self.gan_buffer.update_states()
         # get weights according to metric
         num_weights = share_obs.shape[0]
-        if self.sample_metric == "uniform":
-            weights = np.ones(num_weights, dtype=np.float32)
-        elif self.sample_metric == "variance":
-            red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)
-            red_values = self.red_trainer.policy.get_values(
-                np.concatenate(share_obs[:, :self.num_red]),
-                red_rnn_states_critic,
-                red_masks,
-            )
-            red_values = np.array(np.split(_t2n(red_values), num_weights))
-            red_values_denorm = self.red_trainer.value_normalizer.denormalize(red_values)
-            red_values_denorm = red_values_denorm.reshape(red_values_denorm.shape[0],-1)
-            weights = np.var(red_values_denorm, axis=1)
-        elif self.sample_metric == "rb_variance":
-            red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)
-            red_values = self.red_trainer.policy.get_values(
-                np.concatenate(share_obs[:, :self.num_red]),
-                red_rnn_states_critic,
-                red_masks,
-            )
-            red_values = np.array(np.split(_t2n(red_values), num_weights))
-            red_values_denorm = self.red_trainer.value_normalizer.denormalize(red_values)
-
-            blue_rnn_states_critic = np.zeros((num_weights * self.num_blue, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            blue_masks = np.ones((num_weights * self.num_blue, 1), dtype=np.float32)
-            blue_values = self.blue_trainer.policy.get_values(
-                np.concatenate(share_obs[:, -self.num_blue:]),
-                blue_rnn_states_critic,
-                blue_masks,
-            )
-            blue_values = np.array(np.split(_t2n(blue_values), num_weights))
-            blue_values_denorm = self.blue_trainer.value_normalizer.denormalize(blue_values)
-
-            values_denorm = np.concatenate([red_values_denorm, -blue_values_denorm], axis=1)
-            weights = np.var(values_denorm, axis=1)[:, 0]
-        elif self.sample_metric == "rb_variance_add_bias":
-            # current red V_value
-            red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)
-            red_values = self.red_trainer.policy.get_values(
-                np.concatenate(share_obs[:, :self.num_red]),
-                red_rnn_states_critic,
-                red_masks,
-            )
-            red_values = np.array(np.split(_t2n(red_values), num_weights))
-            red_values_denorm = self.red_trainer.value_normalizer.denormalize(red_values)
-            # old red V_value
-            old_red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            old_red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)
-            old_red_values = self.old_red_policy.get_values(
-                np.concatenate(share_obs[:, :self.num_red]),
-                old_red_rnn_states_critic,
-                old_red_masks,
-            )
-            old_red_values = np.array(np.split(_t2n(old_red_values), num_weights))
-            old_red_values_denorm = self.old_red_value_normalizer.denormalize(old_red_values)
-
-            # current blue V_value
-            blue_rnn_states_critic = np.zeros((num_weights * self.num_blue, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            blue_masks = np.ones((num_weights * self.num_blue, 1), dtype=np.float32)
-            blue_values = self.blue_trainer.policy.get_values(
-                np.concatenate(share_obs[:, -self.num_blue:]),
-                blue_rnn_states_critic,
-                blue_masks,
-            )
-            blue_values = np.array(np.split(_t2n(blue_values), num_weights))
-            blue_values_denorm = self.blue_trainer.value_normalizer.denormalize(blue_values)
-
-            # old blue V_value
-            old_blue_rnn_states_critic = np.zeros((num_weights * self.num_blue, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            old_blue_masks = np.ones((num_weights * self.num_blue, 1), dtype=np.float32)
-            old_blue_values = self.old_blue_policy.get_values(
-                np.concatenate(share_obs[:, -self.num_blue:]),
-                old_blue_rnn_states_critic,
-                old_blue_masks,
-            )
-            old_blue_values = np.array(np.split(_t2n(old_blue_values), num_weights))
-            old_blue_values_denorm = self.old_blue_value_normalizer.denormalize(old_blue_values)
-
-            # concat current V value
-            values_denorm = np.concatenate([red_values_denorm, -blue_values_denorm], axis=1)
-            # concat old V value
-            old_values_denorm = np.concatenate([old_red_values_denorm, -old_blue_values_denorm], axis=1)
-            # get V_variance
-            V_variance = np.var(values_denorm, axis=1)[:, 0]
-            # get |V_current - V_old|
-            V_bias = np.mean(np.square(values_denorm - old_values_denorm),axis=1)[:, 0]
-
-            weights = self.beta * V_variance + self.alpha * V_bias
-            self.curriculum_infos = dict(V_variance=np.mean(V_variance),V_bias=np.mean(V_bias))
-        elif self.sample_metric == "ensemble_mean_variance":
-            # current red V_value
-            red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)
-            red_values = self.red_trainer.policy.get_values(
-                np.concatenate(share_obs[:, :self.num_red]),
-                red_rnn_states_critic,
-                red_masks,
-            )
-            red_values = np.array(np.split(_t2n(red_values), num_weights))
-            red_values_denorm = self.red_trainer.value_normalizer.denormalize(red_values)
-
-            # current blue V_value
-            blue_rnn_states_critic = np.zeros((num_weights * self.num_blue, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            blue_masks = np.ones((num_weights * self.num_blue, 1), dtype=np.float32)
-            blue_values = self.blue_trainer.policy.get_values(
-                np.concatenate(share_obs[:, -self.num_blue:]),
-                blue_rnn_states_critic,
-                blue_masks,
-            )
-            blue_values = np.array(np.split(_t2n(blue_values), num_weights))
-            blue_values_denorm = self.blue_trainer.value_normalizer.denormalize(blue_values)
-
-            # concat current V value
-            values_denorm = np.concatenate([red_values_denorm, -blue_values_denorm], axis=1)
-            # mean by num_agents
-            values_denorm = np.mean(values_denorm, axis=1)
-            # get V_variance
-            weights = np.var(values_denorm, axis=1)
-            self.curriculum_infos = dict(V_variance=np.mean(weights))
-        elif self.sample_metric == "ensemble_individual_variance":
-            # current red V_value
-            red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)
-            red_values = self.red_trainer.policy.get_values(
-                np.concatenate(share_obs[:, :self.num_red]),
-                red_rnn_states_critic,
-                red_masks,
-            )
-            red_values = np.array(np.split(_t2n(red_values), num_weights))
-            red_values_denorm = self.red_trainer.value_normalizer.denormalize(red_values)
-
-            # current blue V_value
-            blue_rnn_states_critic = np.zeros((num_weights * self.num_blue, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            blue_masks = np.ones((num_weights * self.num_blue, 1), dtype=np.float32)
-            blue_values = self.blue_trainer.policy.get_values(
-                np.concatenate(share_obs[:, -self.num_blue:]),
-                blue_rnn_states_critic,
-                blue_masks,
-            )
-            blue_values = np.array(np.split(_t2n(blue_values), num_weights))
-            blue_values_denorm = self.blue_trainer.value_normalizer.denormalize(blue_values)
-
-            # concat current V value
-            values_denorm = np.concatenate([red_values_denorm, -blue_values_denorm], axis=1)
-            # reshape : [batch, num_agents * num_ensemble]
-            values_denorm = values_denorm.reshape(values_denorm.shape[0],-1)
-            # get V_variance
-            weights = np.var(values_denorm, axis=1)
-            self.curriculum_infos = dict(V_variance=np.mean(weights))
-        elif self.sample_metric == "ensemble_var_add_bias":
+        if self.sample_metric == "ensemble_var_add_bias":
             # current red V_value
             red_rnn_states_critic = np.zeros((num_weights * self.num_red, self.recurrent_N, self.hidden_size), dtype=np.float32)
             red_masks = np.ones((num_weights * self.num_red, 1), dtype=np.float32)
@@ -520,7 +397,14 @@ class MPECurriculumRunner(Runner):
             weights = self.beta * V_variance + self.alpha * V_bias
             self.curriculum_infos = dict(V_variance=np.mean(V_variance),V_bias=np.mean(V_bias))
         
-        self.curriculum_buffer.update_weights(weights)
+        self.gan_buffer.update_weights(weights)
+
+    def train_gan(self):
+        labels = np.zeros((len(self.gan_buffer._weight_buffer),1), dtype = int)
+        for i in range(len(self.gan_buffer._weight_buffer)):
+            if self.gan_buffer._weight_buffer[i] <= self.goal_configs['R_max'] and self.gan_buffer._weight_buffer[i] >= self.goal_configs['R_min']:
+                labels[i] = 1
+        self.gan.train(self.gan_buffer._state_buffer, labels)
 
     @torch.no_grad()
     def collect(self, step):
@@ -623,7 +507,7 @@ class MPECurriculumRunner(Runner):
                 continue
             new_states.append(state)
             new_share_obs.append(share_obs)
-        self.curriculum_buffer.insert(new_states, new_share_obs)
+        self.gan_buffer.insert(new_states, new_share_obs)
 
         # info dict
         env_dones = np.all(dones, axis=1)

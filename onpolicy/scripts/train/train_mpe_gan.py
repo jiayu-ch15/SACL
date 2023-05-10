@@ -11,7 +11,7 @@ import wandb
 from onpolicy.config import get_config
 from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
 from onpolicy.envs.mpe.MPE_env import MPEEnv
-from onpolicy.runner.competitive.mpe_curriculum_ensemble_runner import MPECurriculumRunner as Runner
+from onpolicy.runner.competitive.mpe_gan_runner import MPECurriculumRunner as Runner
 
 
 def make_train_env(all_args):
