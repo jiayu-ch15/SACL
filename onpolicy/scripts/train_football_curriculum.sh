@@ -1,18 +1,18 @@
 #!/bin/sh
 # exp param
 env="Football"
-scenario="academy_pass_and_shoot_with_keeper"
+# scenario="academy_pass_and_shoot_with_keeper"
 # scenario="academy_run_pass_and_shoot_with_keeper"
-# scenario="academy_3_vs_1_with_keeper"
+scenario="academy_3_vs_1_with_keeper"
 algo="mappo"
-exp="1var_pass_shoot"
+exp="sacl_3v1"
 seed=2
 
 
 # football param
-num_red=2
+num_red=3
 num_blue=1
-num_agents=3
+num_agents=4
 representation="simple115v2"
 rewards="scoring,checkpoints"
 # rewards="scoring"
@@ -52,7 +52,7 @@ training_mode='self_play'
 
 echo "n_rollout_threads: ${n_rollout_threads} \t ppo_epoch: ${ppo_epoch} \t num_mini_batch: ${num_mini_batch}"
 
-CUDA_VISIBLE_DEVICES=1 python train/train_football_curriculum.py \
+CUDA_VISIBLE_DEVICES=7 python train/train_football_curriculum.py \
 --env_name ${env} --scenario_name ${scenario} \
 --algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} \
 --num_agents ${num_agents} --representation ${representation} \

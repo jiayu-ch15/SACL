@@ -2,8 +2,8 @@
 # exp params
 env="Football"
 # scenario="academy_3_vs_1_with_keeper"
-# scenario="academy_pass_and_shoot_with_keeper"
-scenario="academy_run_pass_and_shoot_with_keeper"
+scenario="academy_pass_and_shoot_with_keeper"
+# scenario="academy_run_pass_and_shoot_with_keeper"
 algo="mappo"
 exp="render"
 seed=1
@@ -21,7 +21,7 @@ training_mode='self_play'
 # render params
 render_episodes=10
 n_rollout_threads=1
-model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sp_run_pass_shot/wandb/run-20230508_063806-1r5fw89o/files/80M"
+model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/1var_pass_shoot_scoring_checkpoint/wandb/run-20230509_163007-1rpswcoo/files/40M"
 # model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/1var_run_pass_shoot/wandb/run-20230508_064054-3fnzv0aq/files/10M"
 
 # --save_videos is preferred instead of --save_gifs 

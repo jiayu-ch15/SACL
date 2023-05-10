@@ -2,8 +2,8 @@
 # exp param
 env="Football"
 # scenario="academy_3_vs_1_with_keeper"
-# scenario="academy_pass_and_shoot_with_keeper"
-scenario="academy_run_pass_and_shoot_with_keeper"
+scenario="academy_pass_and_shoot_with_keeper"
+# scenario="academy_run_pass_and_shoot_with_keeper"
 algo="mappo"
 exp="debug"
 seed=1
@@ -36,8 +36,8 @@ n_rollout_threads=100 # 1000
 ppo_epoch=10 # 5, 10, 15
 num_mini_batch=2 # 2, 4
 
-model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/1var_run_pass_shoot/wandb/run-20230508_064054-3fnzv0aq/files/20M"
-model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sp_run_pass_shot/wandb/run-20230508_063806-1r5fw89o/files/20M"
+model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/1var_pass_shoot_scoring_checkpoint/wandb/run-20230509_163007-1rpswcoo/files/40M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sp_pass_shoot_scoring_checkpoint/wandb/run-20230509_162611-hcxi6g1u/files/40M"
 
 CUDA_VISIBLE_DEVICES=2 python eval/eval_football_cross_play.py \
 --env_name ${env} --scenario_name ${scenario} \
