@@ -81,10 +81,12 @@ class FootballRunner(Runner):
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
                 
-                red_train_infos["episode_rewards"] = np.mean(self.red_buffer.rewards) * self.episode_length
-                blue_train_infos["episode_rewards"] = np.mean(self.blue_buffer.rewards) * self.episode_length
-                print("red episode rewards is {}".format(red_train_infos["episode_rewards"]))
-                print("blue episode rewards is {}".format(blue_train_infos["episode_rewards"]))
+                if self.train_red:
+                    red_train_infos["episode_rewards"] = np.mean(self.red_buffer.rewards) * self.episode_length
+                    print("red episode rewards is {}".format(red_train_infos["episode_rewards"]))
+                if self.train_blue:
+                    blue_train_infos["episode_rewards"] = np.mean(self.blue_buffer.rewards) * self.episode_length
+                    print("blue episode rewards is {}".format(blue_train_infos["episode_rewards"]))
                 self.log_train(red_train_infos, blue_train_infos, total_num_steps)
                 self.log_env(self.env_infos, total_num_steps)
                 self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
@@ -193,6 +195,22 @@ class FootballRunner(Runner):
             rewards=rewards[:, -self.num_blue:],
             masks=masks[:, -self.num_blue:],
         )
+
+    def train(self):
+        red_train_infos = {}
+        if self.train_red:
+            self.red_trainer.prep_training()
+            red_train_infos = self.red_trainer.train(self.red_buffer)      
+        self.red_buffer.after_update()
+
+        blue_train_infos = {}
+        if self.train_blue:
+            self.blue_trainer.prep_training()
+            blue_train_infos = self.blue_trainer.train(self.blue_buffer)      
+        self.blue_buffer.after_update()
+
+        # self.log_system()
+        return red_train_infos, blue_train_infos
 
     def cross_play_restore(self, model, idx=0):
         self.red_model_dir = self.all_args.red_model_dir
