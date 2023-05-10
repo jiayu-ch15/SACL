@@ -1,9 +1,9 @@
 #!/bin/sh
 # exp config
-exp="debug"
-# exp="full_sacl"
+# exp="debug"
+exp="corner_gan"
 algo="mappo"
-seed=0
+seed=2
 # env config
 env="MPE"
 scenario="simple_tag_corner"
@@ -28,7 +28,7 @@ save_ckpt_interval=250
 prob_curriculum=0.7
 curriculum_buffer_size=10000
 beta=1.0
-alpha=0.7
+alpha=1.0
 num_critic=3
 update_method="fps"
 sample_metric="ensemble_var_add_bias"
@@ -56,4 +56,3 @@ CUDA_VISIBLE_DEVICES=2 python train/train_mpe_gan.py \
 --hard_boundary \
 --user_name ${user_name} \
 --wandb_name ${wandb_name} \
---use_wandb \
