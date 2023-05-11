@@ -888,7 +888,7 @@ class MPECurriculumRunner(Runner):
         self.max_speed = 1.3
         self.num_landmarks = self.all_args.num_landmarks
         self.gmm_buffer = GMMBuffer()
-        self.goals_gmm = ALPGMM(mins = [-self.max_speed] * (self.num_agents * 2) + [-self.corner_max] * (self.num_agents * 2 + self.num_landmarks * 2), maxs= [self.max_speed] * (self.num_agents * 2) + [self.corner_max] * (self.num_agents * 2 + self.num_landmarks * 2), seed=self.all_args.seed, env_reward_lb=None, env_reward_ub=None)
+        self.goals_gmm = ALPGMM(mins = [-self.max_speed] * (self.num_agents * 2) + [-self.corner_max] * (self.num_agents * 2 + self.num_landmarks * 2) + [0], maxs= [self.max_speed] * (self.num_agents * 2) + [self.corner_max] * (self.num_agents * 2 + self.num_landmarks * 2) + [self.all_args.episode_length - 1], seed=self.all_args.seed, env_reward_lb=None, env_reward_ub=None)
 
     def run(self):
         self.warmup()   
@@ -918,7 +918,8 @@ class MPECurriculumRunner(Runner):
 
             self.update_curriculum()
             # train gan
-            self.goals_gmm.episodic_update(self.gmm_buffer._state_buffer,self.gmm_buffer._weight_buffer, is_success=None)  
+            for idx in range(len(self.gmm_buffer._state_buffer)):
+                self.goals_gmm.episodic_update(self.gmm_buffer._state_buffer[idx],self.gmm_buffer._weight_buffer[idx], is_success=None)  
 
             # hard-copy to get old_policy parameters
             self.old_red_policy = copy.deepcopy(self.red_policy)

@@ -1,7 +1,7 @@
 #!/bin/sh
 # exp config
 exp="corner_gmm"
-# exp="full_sacl"
+# exp="debug"
 algo="mappo"
 seed=2
 # env config

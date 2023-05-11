@@ -44,9 +44,15 @@ class FootballRunner(Runner):
 
         # the ball should be on the right of the boundary
         if self.all_args.scenario_name == 'academy_3_vs_1_with_keeper':
-            self.boundary = 0.62
+            self.x_min = 0.62
+            self.x_max = 1.1
+            self.y_min = -0.44
+            self.y_max = 0.44
         elif self.all_args.scenario_name == 'academy_pass_and_shoot_with_keeper' or self.all_args.scenario_name == 'academy_run_pass_and_shoot_with_keeper':
-            self.boundary = 0.7
+            self.x_min = 0.7
+            self.x_max = 1.1
+            self.y_min = -0.44
+            self.y_max = 0.44
 
         # for V_bias
         self.old_red_policy = copy.deepcopy(self.red_policy)
@@ -337,21 +343,29 @@ class FootballRunner(Runner):
         new_states = []
         new_share_obs = []
         for info, share_obs in zip(infos, obs):
-            state = info["state"]
+            state = info["state"] # save the real state
             # filter bad states
-            ball_x_y = state[:2]
-            left_agent = state[5:5 + self.num_red * 2]
-            right_agent = state[5 + (self.num_red + 1) * 2: 5 + (self.num_red + 1) * 2 + self.num_blue * 2]
-            agent_pos = np.concatenate([left_agent, right_agent])
-            x_y_distance = np.sum(np.square(agent_pos.reshape(-1,2) - ball_x_y),axis=1)
+            ball_x_y = state[:2].reshape(-1,2)
+            left_GM = state[3:5]
+            left_agent = state[5:5 + self.num_red * 2].reshape(-1,2)
+            right_GM = state[3 + (self.num_red + 1) * 2: 5 + (self.num_red + 1) * 2].reshape(-1,2)
+            right_agent = state[5 + (self.num_red + 1) * 2: 5 + (self.num_red + 1) * 2 + self.num_blue * 2].reshape(-1,2)
+            check_pos = np.concatenate([ball_x_y, left_agent, right_GM, right_agent]) # w.o. left_GM
+            agent_pos = np.concatenate([left_agent, right_agent]) # w.o. GM
+            x_y_distance = np.sum(np.square(agent_pos - ball_x_y),axis=1)
             if info['bad_state']:
                 continue
-            elif ball_x_y[0] < self.boundary: 
-                # only at the right
+            elif left_GM[0] < - self.x_max or left_GM[0] > - self.x_min \
+                or left_GM[1] < self.y_min or left_GM[1] > self.y_max: 
+                # left_GM - left
                 continue
-            elif not np.sum(x_y_distance <= 0.02**2):
-                # the RL agent has the ball
+            elif np.any(check_pos[:,0] < self.x_min) or np.any(check_pos[:,0] > self.x_max) \
+                or np.any(check_pos[:,1] < self.y_min) or np.any(check_pos[:,1] > self.y_max): 
+                # ball, left_agent, right_GM and right_agent - right
                 continue
+            # elif not np.any(x_y_distance <= 0.02**2):
+            #     # the RL agent has the ball
+            #     continue
             new_states.append(state)
             new_share_obs.append(share_obs)
         self.curriculum_buffer.insert(new_states, new_share_obs)

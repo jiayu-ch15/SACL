@@ -1,18 +1,18 @@
 #!/bin/sh
 # exp param
 env="Football"
-# scenario="academy_3_vs_1_with_keeper"
-scenario="academy_pass_and_shoot_with_keeper"
+scenario="academy_3_vs_1_with_keeper"
+# scenario="academy_pass_and_shoot_with_keeper"
 # scenario="academy_run_pass_and_shoot_with_keeper"
 algo="mappo"
-exp="debug"
+exp="3v1@80M"
 seed=1
 
 
 # football param
-num_red=2
+num_red=3
 num_blue=1
-num_agents=3
+num_agents=4
 representation="simple115v2"
 # rewards="scoring"
 rewards="scoring,checkpoints"
@@ -36,8 +36,21 @@ n_rollout_threads=100 # 1000
 ppo_epoch=10 # 5, 10, 15
 num_mini_batch=2 # 2, 4
 
-model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/1var_pass_shoot_scoring_checkpoint/wandb/run-20230509_163007-1rpswcoo/files/40M"
-model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sp_pass_shoot_scoring_checkpoint/wandb/run-20230509_162611-hcxi6g1u/files/40M"
+# run_pass_shoot
+# model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_run_pass_shoot/wandb/run-20230510_090433-1x26obqv/files/90M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_run_pass_shoot/wandb/run-20230510_090447-2cmmtzbt/files/90M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_run_pass_shoot/wandb/run-20230510_090610-1jpwv2br/files/90M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sp_run_pass_shoot/wandb/run-20230510_161123-1r9yxdnk/files/90M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sp_run_pass_shoot/wandb/run-20230510_161157-1wp0hx6b/files/90M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sp_run_pass_shoot/wandb/run-20230510_161225-2rtofoe8/files/90M"
+
+# 3v1
+model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1/wandb/run-20230510_090639-32y0rkb0/files/70M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1/wandb/run-20230510_090651-3ot80vux/files/70M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1/wandb/run-20230510_090703-1prykami/files/70M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sp_3v1/wandb/run-20230510_160142-2gbicx88/files/70M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sp_3v1/wandb/run-20230510_160230-2fgwz31p/files/70M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sp_3v1/wandb/run-20230510_160249-3gp37cos/files/70M"
 
 CUDA_VISIBLE_DEVICES=2 python eval/eval_football_cross_play.py \
 --env_name ${env} --scenario_name ${scenario} \

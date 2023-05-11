@@ -1,7 +1,7 @@
 #!/bin/sh
 # exp config
-# exp="corner_PSRO_model1@5M-from_scratch"
-exp="corner_rnad_model3@40M-from_pretrained40M"
+exp="corner_gan_model2@40M-from_pretrained40M"
+# exp="full_fsp_model3@35M-from_pretrained40M"
 # exp="debug"
 algo="mappo"
 seed=0
@@ -9,7 +9,7 @@ seed=0
 env="MPE"
 scenario="simple_tag_corner"
 horizon=200
-corner_min=-2.0
+corner_min=1.0
 corner_max=2.0
 num_adv=3
 num_good=1
@@ -18,7 +18,7 @@ num_landmarks=2
 attn_size=32
 # training config
 training_mode="red_br"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_rnad/wandb/run-20230509_134248-2vk7pv32/files/40M"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_gan/wandb/run-20230510_131527-2ozyz9pm/files/40M"
 # red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_07bias/wandb/run-20230414_031641-n9dn372p/files/100M"
 # red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_07bias/wandb/run-20230414_031641-n9dn372p/files/100M"
 red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_07bias/wandb/run-20230414_031641-n9dn372p/files/40M"
@@ -38,7 +38,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=6 python train/train_mpe_competitive.py \
+CUDA_VISIBLE_DEVICES=4 python train/train_mpe_competitive.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \

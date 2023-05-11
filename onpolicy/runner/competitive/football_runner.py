@@ -472,6 +472,7 @@ class FootballRunner(Runner):
 
                 # step
                 render_obs, render_rewards, render_dones, render_infos = render_env.step(render_actions_env)
+                # print('dones', render_dones, 'ball_obs', render_obs[0,0,88:91], 'left_obs', render_obs[0,0,:22], 'right_obs', render_obs[0,0,44:66])
                 env_step += 1
 
                 # append frame

@@ -1,18 +1,18 @@
 #!/bin/sh
 # exp param
 env="Football"
-# scenario="academy_pass_and_shoot_with_keeper"
+scenario="academy_pass_and_shoot_with_keeper"
 # scenario="academy_run_pass_and_shoot_with_keeper"
-scenario="academy_3_vs_1_with_keeper"
+# scenario="academy_3_vs_1_with_keeper"
 algo="mappo"
-exp="sacl_3v1"
-seed=2
+exp="debug"
+seed=0
 
 
 # football param
-num_red=3
+num_red=2
 num_blue=1
-num_agents=4
+num_agents=3
 representation="simple115v2"
 rewards="scoring,checkpoints"
 # rewards="scoring"
@@ -52,7 +52,7 @@ training_mode='self_play'
 
 echo "n_rollout_threads: ${n_rollout_threads} \t ppo_epoch: ${ppo_epoch} \t num_mini_batch: ${num_mini_batch}"
 
-CUDA_VISIBLE_DEVICES=7 python train/train_football_curriculum.py \
+CUDA_VISIBLE_DEVICES=2 python train/train_football_curriculum.py \
 --env_name ${env} --scenario_name ${scenario} \
 --algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} \
 --num_agents ${num_agents} --representation ${representation} \
@@ -70,3 +70,4 @@ CUDA_VISIBLE_DEVICES=7 python train/train_football_curriculum.py \
 --prob_curriculum ${prob_curriculum} --curriculum_buffer_size ${curriculum_buffer_size} \
 --beta ${beta} --alpha ${alpha} --num_critic ${num_critic} \
 --sample_metric ${sample_metric} --update_method ${update_method} \
+--use_wandb \
