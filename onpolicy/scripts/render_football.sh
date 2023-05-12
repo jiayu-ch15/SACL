@@ -19,10 +19,10 @@ dump_frequency=1
 training_mode='self_play'
 
 # render params
-render_episodes=1
+render_episodes=10
 n_rollout_threads=1
-model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sp_pass_shoot_scoring_checkpoint/wandb/run-20230509_162640-rvfn0mxp/files/90M"
-# model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sacl_pass_shoot/wandb/run-20230510_090321-3v91pyam/files/90M"
+red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sp_pass_shoot_scoring_checkpoint/wandb/run-20230509_162640-rvfn0mxp/files/60M"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sacl_pass_shoot/wandb/run-20230511_120028-22s47f2m/files/60M"
 
 # --save_videos is preferred instead of --save_gifs 
 # because .avi file is much smaller than .gif file
@@ -36,8 +36,8 @@ CUDA_VISIBLE_DEVICES=0 python render/render_football.py \
 --num_red ${num_red} --num_blue ${num_blue}  \
 --use_render \
 --render_episodes ${render_episodes} --n_rollout_threads ${n_rollout_threads} \
---red_model_dir ${model_dir} --blue_model_dir ${model_dir} \
---red_valuenorm_dir ${model_dir} --blue_valuenorm_dir ${model_dir} \
+--red_model_dir ${red_model_dir} --blue_model_dir ${blue_model_dir} \
+--red_valuenorm_dir ${red_model_dir} --blue_valuenorm_dir ${blue_model_dir} \
 --save_videos \
 --user_name "chenjy" \
 --use_wandb \

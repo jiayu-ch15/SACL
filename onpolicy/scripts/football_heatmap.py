@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import pdb
-data = np.load('/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/3v1@80M/run1/logs/cross_play_returns.npy')
+data = np.load('/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/3v1@50M/run1/logs/cross_play_win_rate.npy')
 labels=["sacl", "sp"]
 num_exp = len(labels)
 padding = 3
@@ -25,4 +25,4 @@ ax.set_title("Red Reward")
 
 plt.tight_layout()
 # plt.show()
-plt.savefig("../3v1@80M.pdf")
+plt.savefig("../3v1_win_rate@50M.pdf")

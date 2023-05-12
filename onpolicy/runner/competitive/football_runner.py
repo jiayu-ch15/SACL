@@ -253,13 +253,15 @@ class FootballRunner(Runner):
 
         self.eval_episodes = self.all_args.eval_episodes
 
+        cross_play_win_rate = np.zeros((num_red_models, num_blue_models), dtype=float)
         cross_play_returns = np.zeros((num_red_models, num_blue_models), dtype=float)
         for red_idx in range(num_red_models):
             self.cross_play_restore("red_model", red_idx)
             for blue_idx in range(num_blue_models):
                 print(f"red model {red_idx} v.s. blue model {blue_idx}")
                 self.cross_play_restore("blue_model", blue_idx)
-                cross_play_returns[red_idx, blue_idx] = self.eval_head2head()
+                cross_play_win_rate[red_idx, blue_idx], cross_play_returns[red_idx, blue_idx] = self.eval_head2head()
+        np.save(f"{self.log_dir}/cross_play_win_rate.npy", cross_play_win_rate)
         np.save(f"{self.log_dir}/cross_play_returns.npy", cross_play_returns)
 
     @torch.no_grad()
@@ -274,6 +276,7 @@ class FootballRunner(Runner):
         eval_goals = np.zeros(self.all_args.eval_episodes)
         eval_win_rates = np.zeros(self.all_args.eval_episodes)
         eval_steps = np.zeros(self.all_args.eval_episodes)
+        eval_returns = []
         step = 0
         quo = self.all_args.eval_episodes // self.n_eval_rollout_threads
         rem = self.all_args.eval_episodes % self.n_eval_rollout_threads
@@ -314,6 +317,7 @@ class FootballRunner(Runner):
 
             # step
             eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions_env)
+            eval_returns.append(eval_rewards[:,0,0])
 
             # update goals if done
             eval_dones_env = np.all(eval_dones, axis=-1)
@@ -336,13 +340,14 @@ class FootballRunner(Runner):
             step += 1
 
         # get expected goal
+        eval_returns = np.mean(np.sum(np.stack(eval_returns,axis=1),axis=1))
         eval_expected_goal = np.mean(eval_goals)
         eval_expected_win_rate = np.mean(eval_win_rates)
         eval_expected_step = np.mean(eval_steps)
     
         # log and print
-        print("eval expected win rate is {}.".format(eval_expected_win_rate), "eval expected step is {}.\n".format(eval_expected_step))
-        return eval_expected_win_rate
+        print("eval expected return is {}.".format(eval_returns), "eval expected win rate is {}.".format(eval_expected_win_rate), "eval expected step is {}.\n".format(eval_expected_step))
+        return eval_expected_win_rate, eval_returns
 
     # TODO
     @torch.no_grad()
