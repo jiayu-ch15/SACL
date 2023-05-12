@@ -17,7 +17,12 @@ attn_size=32
 # render config
 render_episodes=5
 n_rollout_threads=1
-model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_random_blue_from_pretrained100M/wandb/run-20230419_035628-1z9ua29w/files"
+red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/fsp/wandb/run-20230418_130715-1nvu4lrq/files/40M"
+# blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/fsp/wandb/run-20230418_130715-1nvu4lrq/files/40M"
+# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/sp_corner/wandb/run-20230411_083339-rdx6xz91/files/40M"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/sp_corner/wandb/run-20230411_083339-rdx6xz91/files/40M"
+# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_07bias/wandb/run-20230414_031641-n9dn372p/files/40M"
+# blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_07bias/wandb/run-20230414_031641-n9dn372p/files/40M"
 
 # user name
 user_name="chenjy"
@@ -33,6 +38,6 @@ CUDA_VISIBLE_DEVICES=0 xvfb-run -s "-screen 0 1400x900x24" python render/render_
 --use_attn --attn_size ${attn_size} --use_recurrent_policy \
 --use_render --save_gifs --render_episodes ${render_episodes} \
 --n_rollout_threads ${n_rollout_threads} \
---red_model_dir ${model_dir} --blue_model_dir ${model_dir} \
---red_valuenorm_dir ${model_dir} --blue_valuenorm_dir ${model_dir} \
+--red_model_dir ${red_model_dir} --blue_model_dir ${blue_model_dir} \
+--red_valuenorm_dir ${red_model_dir} --blue_valuenorm_dir ${blue_model_dir} \
 --use_wandb

@@ -2,8 +2,8 @@
 # exp params
 env="Football"
 # scenario="academy_3_vs_1_with_keeper"
-scenario="academy_pass_and_shoot_with_keeper"
-# scenario="academy_run_pass_and_shoot_with_keeper"
+# scenario="academy_pass_and_shoot_with_keeper"
+scenario="academy_run_pass_and_shoot_with_keeper"
 algo="mappo"
 exp="render"
 seed=0
@@ -21,7 +21,7 @@ training_mode='self_play'
 # render params
 render_episodes=10
 n_rollout_threads=1
-model_dir="/home/yuchao/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sacl_pass_shoot/wandb/run-20230512_145307-wbg7epwc/files"
+model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sp_run_pass_shoot/wandb/run-20230512_064756-1yjqksmx/files"
 
 # --save_videos is preferred instead of --save_gifs 
 # because .avi file is much smaller than .gif file

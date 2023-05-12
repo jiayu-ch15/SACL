@@ -1,6 +1,6 @@
 #!/bin/sh
 # exp config
-exp="full_fsp_model2@25M-from_pretrained40M"
+exp="full_fsp_model3@25M-from_pretrained100M"
 # exp="full_fsp_model3@35M-from_pretrained40M"
 # exp="debug"
 algo="mappo"
@@ -18,11 +18,11 @@ num_landmarks=2
 attn_size=32
 # training config
 training_mode="red_br"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_fsp/wandb/run-20230507_103857-1erz3k4p/files/25M"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_fsp/wandb/run-20230507_103905-lyv7zkzm/files/25M"
 # red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sp_model1@15M-from_pretrained40M/wandb/run-20230509_025545-2u0obm9a/files/200M"
 # red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sp_model1@15M-from_pretrained40M/wandb/run-20230509_025545-2u0obm9a/files/200M"
-red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_07bias/wandb/run-20230414_031641-n9dn372p/files/40M"
-red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_07bias/wandb/run-20230414_031641-n9dn372p/files/40M"
+red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sp/wandb/run-20230411_083102-1xor7hxa/files/100M"
+red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sp/wandb/run-20230411_083102-1xor7hxa/files/100M"
 num_env_steps=200000000
 episode_length=200
 n_rollout_threads=100
@@ -38,7 +38,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=5 python train/train_mpe_competitive.py \
+CUDA_VISIBLE_DEVICES=2 python train/train_mpe_competitive.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \
