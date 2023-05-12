@@ -148,7 +148,7 @@ class FootballEnv(object):
         # get state by obs
         ball_state = obs[0, 88:91]
         left_state = obs[0, : (self.num_red + 1) * 2]
-        right_state =  - obs[0, 44 : 44 + (self.num_blue + 1) * 2]
+        right_state =  obs[0, 44 : 44 + (self.num_blue + 1) * 2]
         info['state'] = np.concatenate([ball_state, left_state, right_state])
 
         return obs, reward, done, info

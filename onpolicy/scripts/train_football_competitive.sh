@@ -7,13 +7,13 @@ scenario="academy_run_pass_and_shoot_with_keeper"
 algo="mappo"
 exp="sp_run_pass_shoot"
 # exp="debug"
-seed=2
+seed=0
 
 
 # football param
+num_agents=3
 num_red=2
 num_blue=1
-num_agents=3
 representation="simple115v2"
 rewards="scoring,checkpoints"
 # rewards="scoring"

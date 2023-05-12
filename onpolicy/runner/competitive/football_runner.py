@@ -81,10 +81,12 @@ class FootballRunner(Runner):
                                 self.num_env_steps,
                                 int(total_num_steps / (end - start))))
                 
-                red_train_infos["episode_rewards"] = np.mean(self.red_buffer.rewards) * self.episode_length
-                blue_train_infos["episode_rewards"] = np.mean(self.blue_buffer.rewards) * self.episode_length
-                print("red episode rewards is {}".format(red_train_infos["episode_rewards"]))
-                print("blue episode rewards is {}".format(blue_train_infos["episode_rewards"]))
+                if self.train_red:
+                    red_train_infos["episode_rewards"] = np.mean(self.red_buffer.rewards) * self.episode_length
+                    print("red episode rewards is {}".format(red_train_infos["episode_rewards"]))
+                if self.train_blue:
+                    blue_train_infos["episode_rewards"] = np.mean(self.blue_buffer.rewards) * self.episode_length
+                    print("blue episode rewards is {}".format(blue_train_infos["episode_rewards"]))
                 self.log_train(red_train_infos, blue_train_infos, total_num_steps)
                 self.log_env(self.env_infos, total_num_steps)
                 self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
@@ -194,6 +196,22 @@ class FootballRunner(Runner):
             masks=masks[:, -self.num_blue:],
         )
 
+    def train(self):
+        red_train_infos = {}
+        if self.train_red:
+            self.red_trainer.prep_training()
+            red_train_infos = self.red_trainer.train(self.red_buffer)      
+        self.red_buffer.after_update()
+
+        blue_train_infos = {}
+        if self.train_blue:
+            self.blue_trainer.prep_training()
+            blue_train_infos = self.blue_trainer.train(self.blue_buffer)      
+        self.blue_buffer.after_update()
+
+        # self.log_system()
+        return red_train_infos, blue_train_infos
+
     def cross_play_restore(self, model, idx=0):
         self.red_model_dir = self.all_args.red_model_dir
         self.blue_model_dir = self.all_args.blue_model_dir
@@ -235,13 +253,15 @@ class FootballRunner(Runner):
 
         self.eval_episodes = self.all_args.eval_episodes
 
+        cross_play_win_rate = np.zeros((num_red_models, num_blue_models), dtype=float)
         cross_play_returns = np.zeros((num_red_models, num_blue_models), dtype=float)
         for red_idx in range(num_red_models):
             self.cross_play_restore("red_model", red_idx)
             for blue_idx in range(num_blue_models):
                 print(f"red model {red_idx} v.s. blue model {blue_idx}")
                 self.cross_play_restore("blue_model", blue_idx)
-                cross_play_returns[red_idx, blue_idx] = self.eval_head2head()
+                cross_play_win_rate[red_idx, blue_idx], cross_play_returns[red_idx, blue_idx] = self.eval_head2head()
+        np.save(f"{self.log_dir}/cross_play_win_rate.npy", cross_play_win_rate)
         np.save(f"{self.log_dir}/cross_play_returns.npy", cross_play_returns)
 
     @torch.no_grad()
@@ -256,6 +276,7 @@ class FootballRunner(Runner):
         eval_goals = np.zeros(self.all_args.eval_episodes)
         eval_win_rates = np.zeros(self.all_args.eval_episodes)
         eval_steps = np.zeros(self.all_args.eval_episodes)
+        eval_returns = []
         step = 0
         quo = self.all_args.eval_episodes // self.n_eval_rollout_threads
         rem = self.all_args.eval_episodes % self.n_eval_rollout_threads
@@ -296,6 +317,7 @@ class FootballRunner(Runner):
 
             # step
             eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions_env)
+            eval_returns.append(eval_rewards[:,0,0])
 
             # update goals if done
             eval_dones_env = np.all(eval_dones, axis=-1)
@@ -318,13 +340,14 @@ class FootballRunner(Runner):
             step += 1
 
         # get expected goal
+        eval_returns = np.mean(np.sum(np.stack(eval_returns,axis=1),axis=1))
         eval_expected_goal = np.mean(eval_goals)
         eval_expected_win_rate = np.mean(eval_win_rates)
         eval_expected_step = np.mean(eval_steps)
     
         # log and print
-        print("eval expected win rate is {}.".format(eval_expected_win_rate), "eval expected step is {}.\n".format(eval_expected_step))
-        return eval_expected_win_rate
+        print("eval expected return is {}.".format(eval_returns), "eval expected win rate is {}.".format(eval_expected_win_rate), "eval expected step is {}.\n".format(eval_expected_step))
+        return eval_expected_win_rate, eval_returns
 
     # TODO
     @torch.no_grad()
@@ -431,7 +454,7 @@ class FootballRunner(Runner):
                     np.concatenate(render_obs[:,:self.num_red]),
                     np.concatenate(red_render_rnn_states),
                     np.concatenate(red_render_masks),
-                    deterministic=True
+                    deterministic=False
                 )
                 # [n_envs*n_agents, ...] -> [n_envs, n_agents, ...]
                 red_render_actions = np.array(np.split(_t2n(red_render_actions), self.n_rollout_threads))
@@ -442,7 +465,7 @@ class FootballRunner(Runner):
                     np.concatenate(render_obs[:,-self.num_blue:]),
                     np.concatenate(blue_render_rnn_states),
                     np.concatenate(blue_render_masks),
-                    deterministic=True
+                    deterministic=False
                 )
                 # [n_envs*n_agents, ...] -> [n_envs, n_agents, ...]
                 blue_render_actions = np.array(np.split(_t2n(blue_render_actions), self.n_rollout_threads))
@@ -454,6 +477,7 @@ class FootballRunner(Runner):
 
                 # step
                 render_obs, render_rewards, render_dones, render_infos = render_env.step(render_actions_env)
+                # print('dones', render_dones, 'ball_obs', render_obs[0,0,88:91], 'left_obs', render_obs[0,0,:22], 'right_obs', render_obs[0,0,44:66])
                 env_step += 1
 
                 # append frame

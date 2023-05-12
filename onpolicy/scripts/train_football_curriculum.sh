@@ -1,21 +1,21 @@
 #!/bin/sh
 # exp param
 env="Football"
-scenario="academy_pass_and_shoot_with_keeper"
+# scenario="academy_pass_and_shoot_with_keeper"
 # scenario="academy_run_pass_and_shoot_with_keeper"
-# scenario="academy_3_vs_1_with_keeper"
+scenario="academy_3_vs_1_with_keeper"
 algo="mappo"
-exp="1var_pass_shoot_scoring_debug"
+exp="debug"
 seed=0
 
 
 # football param
-num_red=2
+num_red=3
 num_blue=1
-num_agents=3
+num_agents=4
 representation="simple115v2"
-# rewards="scoring,checkpoints"
-rewards="scoring"
+rewards="scoring,checkpoints"
+# rewards="scoring"
 
 # train param
 num_env_steps=500000000
@@ -70,3 +70,4 @@ CUDA_VISIBLE_DEVICES=0 python train/train_football_curriculum.py \
 --prob_curriculum ${prob_curriculum} --curriculum_buffer_size ${curriculum_buffer_size} \
 --beta ${beta} --alpha ${alpha} --num_critic ${num_critic} \
 --sample_metric ${sample_metric} --update_method ${update_method} \
+--use_wandb \

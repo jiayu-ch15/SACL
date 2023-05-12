@@ -42,12 +42,6 @@ class FootballRunner(Runner):
         self.curriculum_infos = dict(V_variance=0.0,V_bias=0.0,)
         self.no_info = np.ones(self.n_rollout_threads, dtype=bool)
 
-        # the ball should be on the right of the boundary
-        if self.all_args.scenario_name == 'academy_3_vs_1_with_keeper':
-            self.boundary = 0.62
-        elif self.all_args.scenario_name == 'academy_pass_and_shoot_with_keeper' or self.all_args.scenario_name == 'academy_run_pass_and_shoot_with_keeper':
-            self.boundary = 0.7
-
         # for V_bias
         self.old_red_policy = copy.deepcopy(self.red_policy)
         self.old_blue_policy = copy.deepcopy(self.blue_policy)
@@ -337,21 +331,47 @@ class FootballRunner(Runner):
         new_states = []
         new_share_obs = []
         for info, share_obs in zip(infos, obs):
-            state = info["state"]
+            state = info["state"] # save the real state
             # filter bad states
             ball_x_y = state[:2]
-            left_agent = state[5:5 + self.num_red * 2]
-            right_agent = state[5 + (self.num_red + 1) * 2: 5 + (self.num_red + 1) * 2 + self.num_blue * 2]
-            agent_pos = np.concatenate([left_agent, right_agent])
-            x_y_distance = np.sum(np.square(agent_pos.reshape(-1,2) - ball_x_y),axis=1)
             if info['bad_state']:
                 continue
-            elif ball_x_y[0] < self.boundary: 
-                # only at the right
-                continue
-            elif not np.sum(x_y_distance <= 0.02**2):
-                # the RL agent has the ball
-                continue
+            elif self.all_args.scenario_name == 'academy_pass_and_shoot_with_keeper' or self.all_args.scenario_name == 'academy_run_pass_and_shoot_with_keeper':
+                ball = state[:2] # left
+                left_GM = state[3:5]
+                left_1 = state[5:7] # center
+                left_2 = state[7:9] # upper
+                right_GM = state[9:11] 
+                right_1 = state[11:13] # upper
+                if ball[0] < 0.7 or ball[0] > 1.01 or ball[1] > 0.3 or ball[1] < -0.3:
+                    continue
+                if left_1[0] < 0.7 or left_1[0] > 1.01 or left_1[1] > 0.31 or left_1[1] < -0.31:
+                    continue
+                if left_2[0] < 0.7 or left_2[0] > 1.01 or left_2[1] > 0.0 or left_2[1] < -0.31:
+                    continue
+                if right_1[0] < 0.7 or right_1[0] > 1.01 or right_1[1] > 0.31 or right_1[1] < -0.31:
+                    continue
+            elif self.all_args.scenario_name == 'academy_3_vs_1_with_keeper':
+                ball = state[:2] # left
+                left_GM = state[3:5]
+                left_1 = state[5:7] # center
+                left_2 = state[7:9] # upper
+                left_3 = state[9:11] # upper
+                right_GM = state[11:13] 
+                right_1 = state[13:15] # upper
+                if ball[0] < 0.62 or ball[0] > 1.01 or ball[1] > 0.2 or ball[1] < -0.2:
+                    continue
+                if left_1[0] < 0.6 or left_1[0] > 1.01 or left_1[1] > 0.2 or left_1[1] < -0.2:
+                    continue
+                if left_2[0] < 0.7 or left_2[0] > 1.01 or left_2[1] < 0.0 or left_2[1] > 0.21:
+                    continue
+                if left_3[0] < 0.7 or left_3[0] > 1.01 or left_3[1] > 0.0 or left_3[1] < -0.21:
+                    continue
+                if right_1[0] < 0.75 or right_1[0] > 1.01 or right_1[1] > 0.2 or right_1[1] < -0.2:
+                    continue
+            # elif not np.any(x_y_distance <= 0.02**2):
+            #     # the RL agent has the ball
+            #     continue
             new_states.append(state)
             new_share_obs.append(share_obs)
         self.curriculum_buffer.insert(new_states, new_share_obs)
@@ -592,7 +612,7 @@ class FootballRunner(Runner):
                     np.concatenate(render_obs[:,:self.num_red]),
                     np.concatenate(red_render_rnn_states),
                     np.concatenate(red_render_masks),
-                    deterministic=True
+                    deterministic=False
                 )
                 # [n_envs*n_agents, ...] -> [n_envs, n_agents, ...]
                 red_render_actions = np.array(np.split(_t2n(red_render_actions), self.n_rollout_threads))
@@ -602,7 +622,7 @@ class FootballRunner(Runner):
                     np.concatenate(render_obs[:,-self.num_red:]),
                     np.concatenate(blue_render_rnn_states),
                     np.concatenate(blue_render_masks),
-                    deterministic=True
+                    deterministic=False
                 )
                 # [n_envs*n_agents, ...] -> [n_envs, n_agents, ...]
                 blue_render_actions = np.array(np.split(_t2n(blue_render_actions), self.n_rollout_threads))
