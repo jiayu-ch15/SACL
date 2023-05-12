@@ -1,6 +1,6 @@
 #!/bin/bash
 # exp config
-exp="main@40M"
+exp="corner@40M"
 algo="mappo"
 seed=0
 # env config
@@ -32,25 +32,25 @@ model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_
 model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/psro/wandb/run-20230421_131147-3vcovmuo/files/40M"
 model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/psro/wandb/run-20230421_131156-a9kwyf9x/files/40M"
 model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/psro/wandb/run-20230421_131208-2pw62a01/files/40M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_rnad/wandb/run-20230509_134231-2kdswwzg/files/40M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_rnad/wandb/run-20230509_134240-tqvjucxx/files/40M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_rnad/wandb/run-20230509_134248-2vk7pv32/files/40M"
 
-# model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_individual_variance/wandb/run-20230410_132308-1zt784gi/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_individual_variance/wandb/run-20230410_132346-2rf96j6u/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_individual_variance/wandb/run-20230410_132353-3uxxrma8/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_bias/wandb/run-20230411_084722-1yq61vnp/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_bias/wandb/run-20230411_084818-1t6izewa/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_bias/wandb/run-20230411_084826-pakikq7c/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_1var_1bias/wandb/run-20230411_084854-28hpmltl/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_1var_1bias/wandb/run-20230411_084907-2xwxuj8y/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_1var_1bias/wandb/run-20230411_084920-2aihduhb/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_03bias/wandb/run-20230414_031520-1au56hm5/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_03bias/wandb/run-20230414_031539-20k7w2mu/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_03bias/wandb/run-20230414_031600-1ahueu1k/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_05bias/wandb/run-20230414_031421-2jmxganc/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_05bias/wandb/run-20230414_031435-3hra1xz4/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_05bias/wandb/run-20230414_031454-2xf83xvw/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_07bias/wandb/run-20230414_031641-n9dn372p/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_07bias/wandb/run-20230414_031654-1r8njnjd/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_07bias/wandb/run-20230414_031706-2kot9l67/files/100M"
+# model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sacl/wandb/run-20230507_103514-1nl9q1sd/files/40M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sacl/wandb/run-20230507_103523-2incs51i/files/40M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sacl/wandb/run-20230507_103531-2lr1ikex/files/40M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sp/wandb/run-20230411_083102-1xor7hxa/files/40M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sp/wandb/run-20230411_083248-27m7pbv5/files/40M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sp/wandb/run-20230411_083256-3jvxuusf/files/40M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_fsp/wandb/run-20230507_103846-3g678fph/files/40M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_fsp/wandb/run-20230507_103857-1erz3k4p/files/40M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_fsp/wandb/run-20230507_103905-lyv7zkzm/files/40M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_psro/wandb/run-20230507_103940-sobiz3b3/files/40M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_psro/wandb/run-20230507_103951-1xdr8ex2/files/40M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_psro/wandb/run-20230507_104001-322zyf8q/files/40M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_rnad/wandb/run-20230509_134201-3mzciuaj/files/40M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_rnad/wandb/run-20230509_134209-2dngqteu/files/40M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_rnad/wandb/run-20230509_134215-34o5yszd/files/40M"
 
 # model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_individual_variance/wandb/run-20230410_132308-1zt784gi/files/100M"
 # model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/ensemble_individual_variance/wandb/run-20230410_132346-2rf96j6u/files/100M"
@@ -71,7 +71,7 @@ user_name="chenjy"
 wandb_name="sacl"
 
 
-CUDA_VISIBLE_DEVICES=7 python eval/eval_mpe_cross_play.py \
+CUDA_VISIBLE_DEVICES=3 python eval/eval_mpe_cross_play.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} --hard_boundary \

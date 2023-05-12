@@ -11,9 +11,9 @@ seed=0
 
 
 # football param
+num_agents=4
 num_red=3
 num_blue=1
-num_agents=4
 representation="simple115v2"
 rewards="scoring,checkpoints"
 # rewards="scoring"
