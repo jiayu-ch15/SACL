@@ -25,4 +25,4 @@ ax.set_title("Red Reward")
 
 plt.tight_layout()
 # plt.show()
-plt.savefig("../3v1_win_rate@50M.pdf")
+plt.savefig("../3v1@50M.pdf")
