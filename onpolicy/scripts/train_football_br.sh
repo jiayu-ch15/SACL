@@ -1,12 +1,12 @@
 #!/bin/sh
 # exp param
 env="Football"
-# scenario="academy_pass_and_shoot_with_keeper"
-scenario="academy_run_pass_and_shoot_with_keeper"
+scenario="academy_pass_and_shoot_with_keeper"
+# scenario="academy_run_pass_and_shoot_with_keeper"
 # scenario="academy_3_vs_1_with_keeper"
 algo="mappo"
 # exp="sp_run_pass_shoot_scoring_checkpoint"
-exp="sp_run_pass_shoot_model1_blue@100M"
+exp="sp_pass_shoot_model3_blue@100M"
 seed=0
 
 
@@ -40,19 +40,19 @@ num_mini_batch=2 # 2, 4
 
 # red br
 # training_mode="red_br"
-# blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sp_run_pass_shoot/wandb/run-20230510_161225-2rtofoe8/files/100M"
-# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sp_run_pass_shoot/wandb/run-20230510_161225-2rtofoe8/files/100M"
-# red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sp_run_pass_shoot/wandb/run-20230510_161225-2rtofoe8/files/100M"
+# blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sp_pass_shoot/wandb/run-20230512_064738-1giem989/files/100M"
+# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sp_pass_shoot/wandb/run-20230512_064738-1giem989/files/100M"
+# red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sp_pass_shoot/wandb/run-20230512_064738-1giem989/files/100M"
 
 # blue br
 training_mode="blue_br"
-red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sp_run_pass_shoot/wandb/run-20230510_161123-1r9yxdnk/files/100M"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sp_run_pass_shoot/wandb/run-20230510_161123-1r9yxdnk/files/100M"
-blue_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sp_run_pass_shoot/wandb/run-20230510_161123-1r9yxdnk/files/100M"
+red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sp_pass_shoot/wandb/run-20230512_064738-1giem989/files/100M"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sp_pass_shoot/wandb/run-20230512_064738-1giem989/files/100M"
+blue_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sp_pass_shoot/wandb/run-20230512_064738-1giem989/files/100M"
 
 echo "n_rollout_threads: ${n_rollout_threads} \t ppo_epoch: ${ppo_epoch} \t num_mini_batch: ${num_mini_batch}"
 
-CUDA_VISIBLE_DEVICES=2 python train/train_football_competitive.py \
+CUDA_VISIBLE_DEVICES=1 python train/train_football_competitive.py \
 --env_name ${env} --scenario_name ${scenario} \
 --algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} \
 --num_agents ${num_agents} --representation ${representation} \
@@ -68,6 +68,7 @@ CUDA_VISIBLE_DEVICES=2 python train/train_football_competitive.py \
 --n_eval_rollout_threads ${n_eval_rollout_threads} \
 --user_name "chenjy" --wandb_name "football" --rewards ${rewards} \
 --red_model_dir ${red_model_dir} --blue_model_dir ${blue_model_dir} --blue_valuenorm_dir ${blue_valuenorm_dir} \
+# --blue_model_dir ${blue_model_dir} --red_model_dir ${red_model_dir} --red_valuenorm_dir ${red_valuenorm_dir} \
 
 # red br
 # --blue_model_dir ${blue_model_dir} --red_model_dir ${red_model_dir} --red_valuenorm_dir ${red_valuenorm_dir} \
