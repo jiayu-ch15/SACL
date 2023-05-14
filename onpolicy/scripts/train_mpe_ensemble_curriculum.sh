@@ -1,7 +1,7 @@
 #!/bin/sh
 # exp config
 # exp="debug"
-exp="full_sacl"
+exp="full_sacl_1var_1bias"
 algo="mappo"
 seed=2
 # env config
@@ -28,7 +28,7 @@ save_ckpt_interval=250
 prob_curriculum=0.7
 curriculum_buffer_size=10000
 beta=1.0
-alpha=0.7
+alpha=1.0
 num_critic=3
 update_method="fps"
 sample_metric="ensemble_var_add_bias"
@@ -39,7 +39,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=2 python train/train_mpe_ensemble_curriculum.py \
+CUDA_VISIBLE_DEVICES=3 python train/train_mpe_ensemble_curriculum.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \
