@@ -293,7 +293,7 @@ class FootballRunner(Runner):
                 np.concatenate(eval_obs[:, :self.num_red]),
                 np.concatenate(eval_rnn_states[:, :self.num_red]),
                 np.concatenate(eval_masks[:, :self.num_red]),
-                deterministic=self.all_args.eval_deterministic,
+                deterministic=False,
             )
             eval_red_actions = np.array(np.split(_t2n(eval_red_actions), self.n_eval_rollout_threads))
             eval_red_rnn_states = np.array(np.split(_t2n(eval_red_rnn_states), self.n_eval_rollout_threads))
@@ -304,7 +304,7 @@ class FootballRunner(Runner):
                 np.concatenate(eval_obs[:, -self.num_blue:]),
                 np.concatenate(eval_rnn_states[:, -self.num_blue:]),
                 np.concatenate(eval_masks[:, -self.num_blue:]),
-                deterministic=self.all_args.eval_deterministic,
+                deterministic=False,
             )
             eval_blue_actions = np.array(np.split(_t2n(eval_blue_actions), self.n_eval_rollout_threads))
             eval_blue_rnn_states = np.array(np.split(_t2n(eval_blue_rnn_states), self.n_eval_rollout_threads))
@@ -380,7 +380,7 @@ class FootballRunner(Runner):
                 np.concatenate(eval_obs),
                 np.concatenate(eval_rnn_states),
                 np.concatenate(eval_masks),
-                deterministic=self.all_args.eval_deterministic
+                deterministic=False
             )
             
             # [n_envs*n_agents, ...] -> [n_envs, n_agents, ...]
