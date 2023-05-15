@@ -100,7 +100,6 @@ class FootballRunner(Runner):
             if ((episode + 1) % 25 == 0 or episode == episodes - 1):
                 self.curriculum_buffer.save_task(model_dir=self.save_dir, episode=episode)
 
-
             # log information
             if total_num_steps % self.log_interval == 0:
                 end = time.time()

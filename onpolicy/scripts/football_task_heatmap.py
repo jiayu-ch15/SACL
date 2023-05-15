@@ -3,9 +3,9 @@ import numpy as np
 import seaborn as sns
 import pdb
 
-episode = 99
+episode = 0
 # model_dir='3v1_1var/wandb/run-20230505_150104-25sa3piw'
-model_dir="/home/yuchao/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1_have_the_ball/wandb/run-20230515_200926-1vahe2mq/files"
+model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/3v1_debug/run1/models"
 task = np.load(model_dir + '/tasks_{}.npy'.format(episode))
 score = np.load(model_dir + '/scores_{}.npy'.format(episode))
 
@@ -44,12 +44,13 @@ def plot_heatmap(task, episode, model_dir, name='ball', task_truth=np.array([0.6
     y = np.linspace(start=y_min,stop=y_max,num=num,endpoint=True)
     heatmap = np.zeros(shape=(num,num))
     for task_one in task:
+        index_x = 0
         for x_idx in range(len(x)-1):
-            if task_one[0] > x[x_idx] and task_one[0] <= x[x_idx + 1]:
+            if task_one[0] >= x[x_idx] and task_one[0] < x[x_idx + 1]:
                 index_x = x_idx
                 break
         for y_idx in range(len(y)-1):
-            if task_one[1] > y[y_idx] and task_one[1] <= y[y_idx + 1]:
+            if task_one[1] >= y[y_idx] and task_one[1] < y[y_idx + 1]:
                 index_y = y_idx
                 break
         heatmap[index_x,index_y] += 1
@@ -91,6 +92,7 @@ def plot_heatmap(task, episode, model_dir, name='ball', task_truth=np.array([0.6
         data=heatmap_truth.T, fmt="s", 
         square=True, linewidths=2, cbar=False, cmap="coolwarm",
         xticklabels=xlabels, yticklabels=ylabels,
+        vmin=10
     )
     ax.set_title("Heatmap of the {}_groundtruth".format(name))
 
