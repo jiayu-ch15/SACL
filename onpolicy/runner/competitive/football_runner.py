@@ -266,6 +266,8 @@ class FootballRunner(Runner):
 
     @torch.no_grad()
     def eval_head2head(self):
+        choose_deterministic = True
+
         # reset envs and init rnn and mask
         eval_obs = self.eval_envs.reset()
         eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents,  self.recurrent_N, self.hidden_size), dtype=np.float32)
@@ -293,7 +295,7 @@ class FootballRunner(Runner):
                 np.concatenate(eval_obs[:, :self.num_red]),
                 np.concatenate(eval_rnn_states[:, :self.num_red]),
                 np.concatenate(eval_masks[:, :self.num_red]),
-                deterministic=True,
+                deterministic=choose_deterministic,
             )
             eval_red_actions = np.array(np.split(_t2n(eval_red_actions), self.n_eval_rollout_threads))
             eval_red_rnn_states = np.array(np.split(_t2n(eval_red_rnn_states), self.n_eval_rollout_threads))
@@ -304,7 +306,7 @@ class FootballRunner(Runner):
                 np.concatenate(eval_obs[:, -self.num_blue:]),
                 np.concatenate(eval_rnn_states[:, -self.num_blue:]),
                 np.concatenate(eval_masks[:, -self.num_blue:]),
-                deterministic=False,
+                deterministic=choose_deterministic,
             )
             eval_blue_actions = np.array(np.split(_t2n(eval_blue_actions), self.n_eval_rollout_threads))
             eval_blue_rnn_states = np.array(np.split(_t2n(eval_blue_rnn_states), self.n_eval_rollout_threads))
@@ -348,80 +350,6 @@ class FootballRunner(Runner):
         # log and print
         print("eval expected return is {}.".format(eval_returns), "eval expected win rate is {}.".format(eval_expected_win_rate), "eval expected step is {}.\n".format(eval_expected_step))
         return eval_expected_win_rate, eval_returns
-
-    # TODO
-    @torch.no_grad()
-    def eval(self, total_num_steps):
-        # reset envs and init rnn and mask
-        eval_obs = self.eval_envs.reset()
-        eval_rnn_states = np.zeros((self.n_eval_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
-        eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
-
-        # init eval goals
-        num_done = 0
-        eval_goals = np.zeros(self.all_args.eval_episodes)
-        eval_win_rates = np.zeros(self.all_args.eval_episodes)
-        eval_steps = np.zeros(self.all_args.eval_episodes)
-        step = 0
-        quo = self.all_args.eval_episodes // self.n_eval_rollout_threads
-        rem = self.all_args.eval_episodes % self.n_eval_rollout_threads
-        done_episodes_per_thread = np.zeros(self.n_eval_rollout_threads, dtype=int)
-        eval_episodes_per_thread = done_episodes_per_thread + quo
-        eval_episodes_per_thread[:rem] += 1
-        unfinished_thread = (done_episodes_per_thread != eval_episodes_per_thread)
-
-        # loop until enough episodes
-        while num_done < self.all_args.eval_episodes and step < self.episode_length:
-            # get actions
-            self.trainer.prep_rollout()
-
-            # [n_envs, n_agents, ...] -> [n_envs*n_agents, ...]
-            eval_actions, eval_rnn_states = self.trainer.policy.act(
-                np.concatenate(eval_obs),
-                np.concatenate(eval_rnn_states),
-                np.concatenate(eval_masks),
-                deterministic=True
-            )
-            
-            # [n_envs*n_agents, ...] -> [n_envs, n_agents, ...]
-            eval_actions = np.array(np.split(_t2n(eval_actions), self.n_eval_rollout_threads))
-            eval_rnn_states = np.array(np.split(_t2n(eval_rnn_states), self.n_eval_rollout_threads))
-
-            eval_actions_env = [eval_actions[idx, :, 0] for idx in range(self.n_eval_rollout_threads)]
-
-            # step
-            eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions_env)
-
-            # update goals if done
-            eval_dones_env = np.all(eval_dones, axis=-1)
-            eval_dones_unfinished_env = eval_dones_env[unfinished_thread]
-            if np.any(eval_dones_unfinished_env):
-                for idx_env in range(self.n_eval_rollout_threads):
-                    if unfinished_thread[idx_env] and eval_dones_env[idx_env]:
-                        eval_goals[num_done] = eval_infos[idx_env]["score_reward"]
-                        eval_win_rates[num_done] = 1 if eval_infos[idx_env]["score_reward"] > 0 else 0
-                        eval_steps[num_done] = eval_infos[idx_env]["max_steps"] - eval_infos[idx_env]["steps_left"]
-                        # print("episode {:>2d} done by env {:>2d}: {}".format(num_done, idx_env, eval_infos[idx_env]["score_reward"]))
-                        num_done += 1
-                        done_episodes_per_thread[idx_env] += 1
-            unfinished_thread = (done_episodes_per_thread != eval_episodes_per_thread)
-
-            # reset rnn and masks for done envs
-            eval_rnn_states[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            eval_masks = np.ones((self.all_args.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
-            eval_masks[eval_dones_env == True] = np.zeros(((eval_dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
-            step += 1
-
-        # get expected goal
-        eval_expected_goal = np.mean(eval_goals)
-        eval_expected_win_rate = np.mean(eval_win_rates)
-        eval_expected_step = np.mean(eval_steps)
-    
-        # log and print
-        print("eval expected goal is {}.".format(eval_expected_goal))
-        wandb.log({"expected_goal": eval_expected_goal}, step=total_num_steps)
-        wandb.log({"eval_expected_win_rate": eval_expected_win_rate}, step=total_num_steps)
-        wandb.log({"expected_step": eval_expected_step}, step=total_num_steps)
 
     @torch.no_grad()
     def render(self):        

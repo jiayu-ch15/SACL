@@ -1,16 +1,16 @@
 #!/bin/sh
 # exp params
 env="Football"
-# scenario="academy_3_vs_1_with_keeper"
-scenario="academy_pass_and_shoot_with_keeper"
+scenario="academy_3_vs_1_with_keeper"
+# scenario="academy_pass_and_shoot_with_keeper"
 # scenario="academy_run_pass_and_shoot_with_keeper"
 algo="mappo"
 exp="render"
 seed=0
 
 # football params
-num_agents=3
-num_red=2
+num_agents=4
+num_red=3
 num_blue=1
 representation="simple115v2"
 dump_frequency=1
@@ -22,9 +22,9 @@ training_mode='self_play'
 render_episodes=20
 n_rollout_threads=1
 # red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1/wandb/run-20230512_190340-x9n2omu3/files/100M"
-# blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1/wandb/run-20230512_190340-x9n2omu3/files/100M"
-red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sacl_pass_shoot/wandb/run-20230512_185552-3q43bqb6/files/100M"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sacl_pass_shoot/wandb/run-20230512_185552-3q43bqb6/files/100M"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1/wandb/run-20230512_190340-x9n2omu3/files/100M"
+red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/psro_3v1_population375/wandb/run-20230513_163727-1pcnb6hx/files/80M"
+# blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/psro_3v1_population375/wandb/run-20230513_163727-1pcnb6hx/files/80M"
 
 # --save_videos is preferred instead of --save_gifs 
 # because .avi file is much smaller than .gif file
