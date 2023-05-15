@@ -5,8 +5,8 @@ env="Football"
 # scenario="academy_run_pass_and_shoot_with_keeper"
 scenario="academy_3_vs_1_with_keeper"
 algo="mappo"
-exp="sacl_3v1"
-seed=0
+exp="sacl_3v1_has_the_ball"
+seed=2
 
 
 # football param
@@ -52,7 +52,7 @@ training_mode='self_play'
 
 echo "n_rollout_threads: ${n_rollout_threads} \t ppo_epoch: ${ppo_epoch} \t num_mini_batch: ${num_mini_batch}"
 
-CUDA_VISIBLE_DEVICES=0 python train/train_football_curriculum.py \
+CUDA_VISIBLE_DEVICES=5 python train/train_football_curriculum.py \
 --env_name ${env} --scenario_name ${scenario} \
 --algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} \
 --num_agents ${num_agents} --representation ${representation} \

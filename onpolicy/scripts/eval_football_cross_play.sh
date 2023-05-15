@@ -5,7 +5,7 @@ scenario="academy_3_vs_1_with_keeper"
 # scenario="academy_pass_and_shoot_with_keeper"
 # scenario="academy_run_pass_and_shoot_with_keeper"
 algo="mappo"
-exp="3v1_sacl100M_vs_fsp70M_True"
+exp="3v1_sacl130M_vs_fsp70M_True"
 seed=1
 
 
@@ -53,9 +53,9 @@ num_mini_batch=2 # 2, 4
 # model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sp_run_pass_shoot/wandb/run-20230512_064813-1oie460z/files/30M"
 
 # 3v1
-model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1/wandb/run-20230512_190340-x9n2omu3/files/100M"
-model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1/wandb/run-20230512_190401-27ydowni/files/100M"
-model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1/wandb/run-20230512_190414-3prnpswd/files/100M"
+model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1/wandb/run-20230512_190340-x9n2omu3/files/130M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1/wandb/run-20230512_190401-27ydowni/files/130M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1/wandb/run-20230512_190414-3prnpswd/files/130M"
 # model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sp_3v1/wandb/run-20230512_064846-45icn2r5/files/100M"
 # model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sp_3v1/wandb/run-20230512_064857-2grkzhbk/files/100M"
 # model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sp_3v1/wandb/run-20230512_064902-2at9k5p7/files/100M"
