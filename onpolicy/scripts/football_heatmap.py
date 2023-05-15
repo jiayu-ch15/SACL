@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import pdb
-data = np.load('/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/ps@sacl_vs_sp@20M/run1/logs/cross_play_win_rate.npy')
+data = np.load('/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/ps@sacl_vs_sp_deterministic_new@40M/run1/logs/cross_play_win_rate.npy')
 # labels=["sacl", "sp"]
 labels=["sacl", "sp"]
 num_exp = len(labels)
@@ -26,4 +26,4 @@ ax.set_title("Red Reward")
 
 plt.tight_layout()
 # plt.show()
-plt.savefig("../ps@20M.pdf")
+plt.savefig("../ps_deterministic_new@40M.pdf")
