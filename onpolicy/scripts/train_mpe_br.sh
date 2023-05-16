@@ -1,6 +1,6 @@
 #!/bin/sh
 # exp config
-exp="full_sacl_1var0bias_model2@10M-from_scratch"
+exp="full_rnad_entropy01_model3@40M-from_sp40M"
 # exp="full_fsp_model3@35M-from_pretrained40M"
 # exp="debug"
 algo="mappo"
@@ -18,11 +18,11 @@ num_landmarks=2
 attn_size=32
 # training config
 training_mode="red_br"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sacl_1var_0bias/wandb/run-20230514_082858-33mctyct/files/10M"
-# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sp_model1@15M-from_pretrained40M/wandb/run-20230509_025545-2u0obm9a/files/200M"
-# red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sp_model1@15M-from_pretrained40M/wandb/run-20230509_025545-2u0obm9a/files/200M"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_rnad_entropy01/wandb/run-20230515_151327-pupoodqy/files/40M"
 red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sp/wandb/run-20230411_083102-1xor7hxa/files/40M"
 red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sp/wandb/run-20230411_083102-1xor7hxa/files/40M"
+# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sacl_1var0bias_model1@5M-from_sp40M/wandb/run-20230515_095534-2ojlayak/files/65M"
+# red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sacl_1var0bias_model1@5M-from_sp40M/wandb/run-20230515_095534-2ojlayak/files/65M"
 num_env_steps=200000000
 episode_length=200
 n_rollout_threads=100
@@ -38,7 +38,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=0 python train/train_mpe_competitive.py \
+CUDA_VISIBLE_DEVICES=2 python train/train_mpe_competitive.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \
@@ -54,4 +54,4 @@ CUDA_VISIBLE_DEVICES=0 python train/train_mpe_competitive.py \
 --wandb_name ${wandb_name} \
 --warm_up ${warm_up} \
 --blue_model_dir ${blue_model_dir} \
-# --red_model_dir ${red_model_dir} --red_valuenorm_dir ${red_valuenorm_dir} \
+--red_model_dir ${red_model_dir} --red_valuenorm_dir ${red_valuenorm_dir} \
