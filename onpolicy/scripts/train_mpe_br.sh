@@ -1,6 +1,6 @@
 #!/bin/sh
 # exp config
-exp="full_sacl_1var0bias_model3@40M-from_sp40M"
+exp="full_sacl_1var0bias_model2@10M-from_scratch"
 # exp="full_fsp_model3@35M-from_pretrained40M"
 # exp="debug"
 algo="mappo"
@@ -18,7 +18,7 @@ num_landmarks=2
 attn_size=32
 # training config
 training_mode="red_br"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sacl_1var_0bias/wandb/run-20230514_083001-2mrnjsue/files/40M"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sacl_1var_0bias/wandb/run-20230514_082858-33mctyct/files/10M"
 # red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sp_model1@15M-from_pretrained40M/wandb/run-20230509_025545-2u0obm9a/files/200M"
 # red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sp_model1@15M-from_pretrained40M/wandb/run-20230509_025545-2u0obm9a/files/200M"
 red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sp/wandb/run-20230411_083102-1xor7hxa/files/40M"
@@ -54,4 +54,4 @@ CUDA_VISIBLE_DEVICES=0 python train/train_mpe_competitive.py \
 --wandb_name ${wandb_name} \
 --warm_up ${warm_up} \
 --blue_model_dir ${blue_model_dir} \
---red_model_dir ${red_model_dir} --red_valuenorm_dir ${red_valuenorm_dir} \
+# --red_model_dir ${red_model_dir} --red_valuenorm_dir ${red_valuenorm_dir} \
