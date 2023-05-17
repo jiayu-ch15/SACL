@@ -2,12 +2,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import pdb
-data = np.load('/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/debug@40M/run2/logs/cross_play_returns.npy')
-labels=["SP", "FSP"]
+data = np.load('/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_new@40M/run1/logs/cross_play_returns.npy')
+# labels=["SP", "FSP"]
 # data = np.load('/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/easy@40M/run1/logs/cross_play_returns.npy')
 # labels=["SACL", "SP", "FSP", "PSRO", "R-NaD"]
 # data = np.load('/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/hard@40M/run1/logs/cross_play_returns.npy')
-# labels=["SACL", "SP", "FSP", "PSRO", "R-NaD"]
+labels=["SACL", "SP", "FSP", "PSRO", "NeuRD"]
 num_exp = len(labels)
 padding = 3
 mean = np.zeros(shape=(num_exp,num_exp))
@@ -30,4 +30,4 @@ ax.set_title("Predator Reward")
 
 plt.tight_layout()
 # plt.show()
-plt.savefig("../debug@40M.png")
+plt.savefig("../hard@40M.pdf")
