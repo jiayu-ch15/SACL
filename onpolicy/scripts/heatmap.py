@@ -21,10 +21,9 @@ for i in range(mean.shape[0]):
 
 sns.set(rc={"figure.figsize":(5.5, 5.5)})
 ax = sns.heatmap(
-    data=mean, annot=annotation, fmt="s", 
+    data=np.log(mean), annot=annotation, fmt="s", 
     square=True, linewidths=2, cbar=False, cmap="coolwarm",
     xticklabels=labels, yticklabels=labels,
-    vmin=50, vmax=800
 )
 ax.set_title("Predator Reward")
 

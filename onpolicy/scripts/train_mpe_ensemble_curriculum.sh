@@ -1,14 +1,14 @@
 #!/bin/sh
 # exp config
-# exp="debug"
-exp="full_sacl_1var_1bias"
+exp="task_heatmap"
+# exp="full_sacl_1var_1bias"
 algo="mappo"
-seed=2
+seed=0
 # env config
 env="MPE"
 scenario="simple_tag_corner"
 horizon=200
-corner_min=-2.0
+corner_min=1.0
 corner_max=2.0
 num_adv=3
 num_good=1
@@ -36,6 +36,10 @@ sample_metric="ensemble_var_add_bias"
 user_name="chenjy"
 wandb_name="sacl"
 
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files/40M"
+blue_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files/40M"
+red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files/40M"
+red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files/40M"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
@@ -56,3 +60,6 @@ CUDA_VISIBLE_DEVICES=3 python train/train_mpe_ensemble_curriculum.py \
 --hard_boundary \
 --user_name ${user_name} \
 --wandb_name ${wandb_name} \
+--use_wandb \
+--blue_model_dir ${blue_model_dir} --blue_valuenorm_dir ${blue_valuenorm_dir} \
+--red_model_dir ${red_model_dir} --red_valuenorm_dir ${red_valuenorm_dir} \

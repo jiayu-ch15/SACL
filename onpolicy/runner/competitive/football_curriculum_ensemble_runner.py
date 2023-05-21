@@ -342,11 +342,8 @@ class FootballRunner(Runner):
                 left_2 = state[7:9] # upper
                 right_GM = state[9:11] 
                 right_1 = state[11:13] # upper
-                agent_pos = np.stack([left_1, left_2, right_1])
-                x_y_distance = np.sum(np.square(agent_pos - ball),axis=1)
-                if not np.any(x_y_distance <= 0.02**2):
-                    # the RL agent has the ball
-                    continue
+                # agent_pos = np.stack([left_1, left_2, right_1])
+                # x_y_distance = np.sum(np.square(agent_pos - ball),axis=1)
                 if ball[0] < 0.7 or ball[0] > 1.01 or ball[1] > 0.3 or ball[1] < -0.3:
                     continue
                 if left_1[0] < 0.7 or left_1[0] > 1.01 or left_1[1] > 0.31 or left_1[1] < -0.31:
@@ -363,11 +360,8 @@ class FootballRunner(Runner):
                 left_3 = state[9:11] # upper
                 right_GM = state[11:13] 
                 right_1 = state[13:15] # upper
-                agent_pos = np.stack([left_1, left_2, left_3, right_1])
-                x_y_distance = np.sum(np.square(agent_pos - ball),axis=1)
-                if not np.any(x_y_distance <= 0.02**2):
-                    # the RL agent has the ball
-                    continue
+                # agent_pos = np.stack([left_1, left_2, left_3, right_1])
+                # x_y_distance = np.sum(np.square(agent_pos - ball),axis=1)
                 if ball[0] < 0.62 or ball[0] > 1.01 or ball[1] > 0.2 or ball[1] < -0.2:
                     continue
                 if left_1[0] < 0.6 or left_1[0] > 1.01 or left_1[1] > 0.2 or left_1[1] < -0.2:

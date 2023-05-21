@@ -1,6 +1,6 @@
 #!/bin/sh
 # exp config
-exp="corner_rnad_entropy01_model3@40M-from_sp40M"
+exp="corner_sacl_p1_model1@40M-from_loadred"
 # exp="full_fsp_model3@35M-from_pretrained40M"
 # exp="debug"
 algo="mappo"
@@ -9,7 +9,7 @@ seed=0
 env="MPE"
 scenario="simple_tag_corner"
 horizon=200
-corner_min=-2.0
+corner_min=1.0
 corner_max=2.0
 num_adv=3
 num_good=1
@@ -18,11 +18,11 @@ num_landmarks=2
 attn_size=32
 # training config
 training_mode="red_br"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_rnad_entropy01/wandb/run-20230515_160417-1ovajz5d/files/40M"
-red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sp/wandb/run-20230411_083102-1xor7hxa/files/40M"
-red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sp/wandb/run-20230411_083102-1xor7hxa/files/40M"
-# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sacl_1var0bias_model1@5M-from_sp40M/wandb/run-20230515_095534-2ojlayak/files/65M"
-# red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/full_sacl_1var0bias_model1@5M-from_sp40M/wandb/run-20230515_095534-2ojlayak/files/65M"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/sacl_p1/wandb/run-20230507_102945-2lgwpp58/files/40M"
+red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl_p1_model1@40M-from_loadred_full/wandb/run-20230520_152122-2tm8fjji/files/90M"
+red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl_p1_model1@40M-from_loadred_full/wandb/run-20230520_152122-2tm8fjji/files/90M"
+# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl_buffer20000_model3@5M-from_sp40M_full/wandb/run-20230519_152104-316txokq/files/90M"
+# red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl_buffer20000_model3@5M-from_sp40M_full/wandb/run-20230519_152104-316txokq/files/90M"
 num_env_steps=200000000
 episode_length=200
 n_rollout_threads=100
@@ -38,7 +38,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=1 python train/train_mpe_competitive.py \
+CUDA_VISIBLE_DEVICES=2 python train/train_mpe_competitive.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \
@@ -54,4 +54,4 @@ CUDA_VISIBLE_DEVICES=1 python train/train_mpe_competitive.py \
 --wandb_name ${wandb_name} \
 --warm_up ${warm_up} \
 --blue_model_dir ${blue_model_dir} \
-# --red_model_dir ${red_model_dir} --red_valuenorm_dir ${red_valuenorm_dir} \
+--red_model_dir ${red_model_dir} --red_valuenorm_dir ${red_valuenorm_dir} \
