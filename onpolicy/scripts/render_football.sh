@@ -19,11 +19,11 @@ dump_frequency=1
 training_mode='self_play'
 
 # render params
-render_episodes=20
+render_episodes=10
 n_rollout_threads=1
 
-red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_run_pass_shoot/wandb/run-20230512_185715-17m6wngm/files/100M"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_run_pass_shoot/wandb/run-20230512_185715-17m6wngm/files/100M"
+red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_500M/wandb/run-20230522_064156-3uixcky7/files"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/fsp_run_pass_shoot/wandb/run-20230514_083712-1z2k6tgs/files/30M"
 
 # red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1/wandb/run-20230512_190340-x9n2omu3/files/100M"
 # blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1/wandb/run-20230512_190340-x9n2omu3/files/100M"

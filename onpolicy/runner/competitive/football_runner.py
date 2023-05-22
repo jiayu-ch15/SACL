@@ -355,7 +355,7 @@ class FootballRunner(Runner):
     def render(self):        
         # reset envs and init rnn and mask
         render_env = self.envs
-        choose_deterministic = False
+        choose_deterministic = True
 
         # init goal
         render_goals = np.zeros(self.all_args.render_episodes)
