@@ -86,9 +86,6 @@ class MPECurriculumRunner(Runner):
             # save model
             if (episode % self.save_interval == 0 or episode == episodes - 1):
                 self.save()
-        
-            self.curriculum_buffer.save_task(model_dir=self.save_dir, episode=episode)
-            pdb.set_trace()
 
             # save checkpoint
             if (episode + 1) % self.save_ckpt_interval == 0:

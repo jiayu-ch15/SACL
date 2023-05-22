@@ -5,8 +5,8 @@ env="Football"
 # scenario="academy_run_pass_and_shoot_with_keeper"
 scenario="academy_3_vs_1_with_keeper"
 algo="mappo"
-exp="sacl_3v1_has_the_ball"
-seed=2
+exp="sacl_3v1_final"
+seed=0
 
 
 # football param

@@ -344,13 +344,13 @@ class FootballRunner(Runner):
                 right_1 = state[11:13] # upper
                 # agent_pos = np.stack([left_1, left_2, right_1])
                 # x_y_distance = np.sum(np.square(agent_pos - ball),axis=1)
-                if ball[0] < 0.7 or ball[0] > 1.01 or ball[1] > 0.3 or ball[1] < -0.3:
+                if ball[0] < 0.7 or ball[0] > 0.9 or ball[1] > 0.3 or ball[1] < -0.3:
                     continue
-                if left_1[0] < 0.7 or left_1[0] > 1.01 or left_1[1] > 0.31 or left_1[1] < -0.31:
+                if left_1[0] < 0.7 or left_1[0] > 0.9 or left_1[1] > 0.31 or left_1[1] < -0.31:
                     continue
-                if left_2[0] < 0.7 or left_2[0] > 1.01 or left_2[1] > 0.0 or left_2[1] < -0.31:
+                if left_2[0] < 0.7 or left_2[0] > 0.9 or left_2[1] > 0.0 or left_2[1] < -0.31:
                     continue
-                if right_1[0] < 0.7 or right_1[0] > 1.01 or right_1[1] > 0.31 or right_1[1] < -0.31:
+                if right_1[0] < 0.7 or right_1[0] > 0.9 or right_1[1] > 0.31 or right_1[1] < -0.31:
                     continue
             elif self.all_args.scenario_name == 'academy_3_vs_1_with_keeper':
                 ball = state[:2] # left
@@ -362,19 +362,16 @@ class FootballRunner(Runner):
                 right_1 = state[13:15] # upper
                 # agent_pos = np.stack([left_1, left_2, left_3, right_1])
                 # x_y_distance = np.sum(np.square(agent_pos - ball),axis=1)
-                if ball[0] < 0.62 or ball[0] > 1.01 or ball[1] > 0.2 or ball[1] < -0.2:
+                if ball[0] < 0.62 or ball[0] > 0.9 or ball[1] > 0.2 or ball[1] < -0.2:
                     continue
-                if left_1[0] < 0.6 or left_1[0] > 1.01 or left_1[1] > 0.2 or left_1[1] < -0.2:
+                if left_1[0] < 0.6 or left_1[0] > 0.9 or left_1[1] > 0.2 or left_1[1] < -0.2:
                     continue
-                if left_2[0] < 0.7 or left_2[0] > 1.01 or left_2[1] < 0.0 or left_2[1] > 0.21:
+                if left_2[0] < 0.7 or left_2[0] > 0.9 or left_2[1] < 0.0 or left_2[1] > 0.21:
                     continue
-                if left_3[0] < 0.7 or left_3[0] > 1.01 or left_3[1] > 0.0 or left_3[1] < -0.21:
+                if left_3[0] < 0.7 or left_3[0] > 0.9 or left_3[1] > 0.0 or left_3[1] < -0.21:
                     continue
-                if right_1[0] < 0.75 or right_1[0] > 1.01 or right_1[1] > 0.2 or right_1[1] < -0.2:
+                if right_1[0] < 0.75 or right_1[0] > 0.9 or right_1[1] > 0.2 or right_1[1] < -0.2:
                     continue
-            # elif not np.any(x_y_distance <= 0.02**2):
-            #     # the RL agent has the ball
-            #     continue
             new_states.append(state)
             new_share_obs.append(share_obs)
         self.curriculum_buffer.insert(new_states, new_share_obs)

@@ -2,9 +2,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import pdb
-data = np.load('/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/ps@50_True_old_all/run1/logs/cross_play_win_rate.npy')
-labels=["sacl", "sp", "fsp", "psro"]
-# labels=["sacl", "sp"]
+data = np.load('/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/3v1@100M_True/run1/logs/cross_play_win_rate.npy')
+labels=["sacl", "sp", "fsp", "psro", "NeuRD"]
+# labels=["sacl", "psro"]
 num_exp = len(labels)
 padding = 3
 mean = np.zeros(shape=(num_exp,num_exp))
@@ -22,8 +22,8 @@ ax = sns.heatmap(
     square=True, linewidths=2, cbar=False, cmap="coolwarm",
     xticklabels=labels, yticklabels=labels,
 )
-ax.set_title("Red Reward")
+ax.set_title("Win rate of the red team", fontsize=22)
 
 plt.tight_layout()
 # plt.show()
-plt.savefig("../ps@50M_old_True_all.pdf")
+plt.savefig("../3v1@100M.pdf")
