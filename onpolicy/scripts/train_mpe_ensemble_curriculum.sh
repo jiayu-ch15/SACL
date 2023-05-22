@@ -1,9 +1,9 @@
 #!/bin/sh
 # exp config
-exp="task_heatmap"
-# exp="full_sacl_1var_1bias"
+# exp="task_heatmap"
+exp="sacl_1var_3bias"
 algo="mappo"
-seed=0
+seed=2
 # env config
 env="MPE"
 scenario="simple_tag_corner"
@@ -28,7 +28,7 @@ save_ckpt_interval=250
 prob_curriculum=0.7
 curriculum_buffer_size=10000
 beta=1.0
-alpha=1.0
+alpha=3.0
 num_critic=3
 update_method="fps"
 sample_metric="ensemble_var_add_bias"
@@ -43,7 +43,7 @@ red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=3 python train/train_mpe_ensemble_curriculum.py \
+CUDA_VISIBLE_DEVICES=2 python train/train_mpe_ensemble_curriculum.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \
@@ -60,6 +60,6 @@ CUDA_VISIBLE_DEVICES=3 python train/train_mpe_ensemble_curriculum.py \
 --hard_boundary \
 --user_name ${user_name} \
 --wandb_name ${wandb_name} \
---use_wandb \
---blue_model_dir ${blue_model_dir} --blue_valuenorm_dir ${blue_valuenorm_dir} \
---red_model_dir ${red_model_dir} --red_valuenorm_dir ${red_valuenorm_dir} \
+# --use_wandb \
+# --blue_model_dir ${blue_model_dir} --blue_valuenorm_dir ${blue_valuenorm_dir} \
+# --red_model_dir ${red_model_dir} --red_valuenorm_dir ${red_valuenorm_dir} \

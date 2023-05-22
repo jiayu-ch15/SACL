@@ -266,7 +266,7 @@ class FootballRunner(Runner):
 
     @torch.no_grad()
     def eval_head2head(self):
-        choose_deterministic = True
+        choose_deterministic = False
 
         # reset envs and init rnn and mask
         eval_obs = self.eval_envs.reset()
@@ -355,6 +355,7 @@ class FootballRunner(Runner):
     def render(self):        
         # reset envs and init rnn and mask
         render_env = self.envs
+        choose_deterministic = False
 
         # init goal
         render_goals = np.zeros(self.all_args.render_episodes)
@@ -382,7 +383,7 @@ class FootballRunner(Runner):
                     np.concatenate(render_obs[:,:self.num_red]),
                     np.concatenate(red_render_rnn_states),
                     np.concatenate(red_render_masks),
-                    deterministic=True
+                    deterministic=choose_deterministic
                 )
                 # [n_envs*n_agents, ...] -> [n_envs, n_agents, ...]
                 red_render_actions = np.array(np.split(_t2n(red_render_actions), self.n_rollout_threads))
@@ -393,7 +394,7 @@ class FootballRunner(Runner):
                     np.concatenate(render_obs[:,-self.num_blue:]),
                     np.concatenate(blue_render_rnn_states),
                     np.concatenate(blue_render_masks),
-                    deterministic=True
+                    deterministic=choose_deterministic
                 )
                 # [n_envs*n_agents, ...] -> [n_envs, n_agents, ...]
                 blue_render_actions = np.array(np.split(_t2n(blue_render_actions), self.n_rollout_threads))

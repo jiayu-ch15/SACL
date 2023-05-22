@@ -49,21 +49,21 @@ for landmark_id in range(num_landmarks):
         heat_map['landmark_' + str(landmark_id)][index[0],index[1]] += 1
     heat_map['landmark_' + str(landmark_id)] = heat_map['landmark_' + str(landmark_id)]
 
-adv_data=np.random.uniform(1.0, 2.0, 20000).reshape(-1,2)
-heat_map = np.zeros(shape=(grid_size, grid_size))
-for idx in range(adv_data.shape[0]):
-    index = ((adv_data[idx] - start_pos) // map_delta).astype(int)
-    heat_map[index[0],index[1]] += 1
+# adv_data=np.random.uniform(1.0, 2.0, 20000).reshape(-1,2)
+# heat_map = np.zeros(shape=(grid_size, grid_size))
+# for idx in range(adv_data.shape[0]):
+#     index = ((adv_data[idx] - start_pos) // map_delta).astype(int)
+#     heat_map[index[0],index[1]] += 1
 
 sns.set(rc={"figure.figsize":(8, 8)})
 ax = sns.heatmap(
-    data=heat_map.astype(int).T, fmt="s", 
+    data=np.flip(heat_map['adv_0'].astype(int),axis=0), fmt="s", 
     square=True, linewidths=2, cbar=False, cmap="coolwarm",
-    xticklabels=xlabels, yticklabels=ylabels,
+    xticklabels=xlabels, yticklabels=np.flip(ylabels),
     # vmin=10
 )
 ax.set_title("Heatmap of the predator", fontsize=22)
 
 plt.tight_layout()
 # plt.show()
-plt.savefig('sp_hm.pdf')
+plt.savefig('sacl_hm.pdf')

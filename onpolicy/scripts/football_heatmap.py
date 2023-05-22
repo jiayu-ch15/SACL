@@ -20,9 +20,11 @@ sns.set(rc={"figure.figsize":(8, 8)})
 ax = sns.heatmap(
     data=mean, annot=annotation, fmt="s", 
     square=True, linewidths=2, cbar=False, cmap="coolwarm",
-    xticklabels=labels, yticklabels=labels,
+    xticklabels=labels, yticklabels=labels, annot_kws={"fontsize":20}
 )
 ax.set_title("Win rate of the red team", fontsize=22)
+plt.xticks(fontsize=20)
+plt.yticks(fontsize=20)
 
 plt.tight_layout()
 # plt.show()

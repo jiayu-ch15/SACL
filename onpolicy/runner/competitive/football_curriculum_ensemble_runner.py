@@ -342,8 +342,16 @@ class FootballRunner(Runner):
                 left_2 = state[7:9] # upper
                 right_GM = state[9:11] 
                 right_1 = state[11:13] # upper
-                # agent_pos = np.stack([left_1, left_2, right_1])
-                # x_y_distance = np.sum(np.square(agent_pos - ball),axis=1)
+                # # boundary 1
+                # if ball[0] < 0.7 or ball[0] > 0.9 or ball[1] > 0.3 or ball[1] < -0.3:
+                #     continue
+                # if left_1[0] < 0.7 or left_1[0] > 0.9 or left_1[1] > 0.31 or left_1[1] < -0.31:
+                #     continue
+                # if left_2[0] < 0.7 or left_2[0] > 0.9 or left_2[1] > 0.0 or left_2[1] < -0.31:
+                #     continue
+                # if right_1[0] < 0.7 or right_1[0] > 0.9 or right_1[1] > 0.31 or right_1[1] < -0.31:
+                #     continue
+                # boundary 2
                 if ball[0] < 0.7 or ball[0] > 0.9 or ball[1] > 0.3 or ball[1] < -0.3:
                     continue
                 if left_1[0] < 0.7 or left_1[0] > 0.9 or left_1[1] > 0.31 or left_1[1] < -0.31:
