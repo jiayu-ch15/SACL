@@ -5,8 +5,9 @@ env="Football"
 scenario="academy_run_pass_and_shoot_with_keeper"
 # scenario="academy_3_vs_1_with_keeper"
 algo="mappo"
-exp="sacl_rps_checksstates_boundary1"
-seed=0
+exp="sacl_rps_500M_boundary3"
+# exp="sacl_debug"
+seed=2
 
 
 # football param
@@ -48,11 +49,12 @@ sample_metric="ensemble_var_add_bias"
 
 # sp
 training_mode='self_play'
-
+red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/psro_run_pass_shoot_population375/wandb/run-20230513_163345-3e4ytns6/files/100M"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/psro_run_pass_shoot_population375/wandb/run-20230513_163345-3e4ytns6/files/100M"
 
 echo "n_rollout_threads: ${n_rollout_threads} \t ppo_epoch: ${ppo_epoch} \t num_mini_batch: ${num_mini_batch}"
 
-CUDA_VISIBLE_DEVICES=3 python train/train_football_curriculum.py \
+CUDA_VISIBLE_DEVICES=0 python train/train_football_curriculum.py \
 --env_name ${env} --scenario_name ${scenario} \
 --algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} \
 --num_agents ${num_agents} --representation ${representation} \
@@ -70,3 +72,5 @@ CUDA_VISIBLE_DEVICES=3 python train/train_football_curriculum.py \
 --prob_curriculum ${prob_curriculum} --curriculum_buffer_size ${curriculum_buffer_size} \
 --beta ${beta} --alpha ${alpha} --num_critic ${num_critic} \
 --sample_metric ${sample_metric} --update_method ${update_method} \
+# --use_wandb \
+# --red_model_dir ${red_model_dir} --blue_model_dir ${blue_model_dir} \

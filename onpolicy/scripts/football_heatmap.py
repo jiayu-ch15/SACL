@@ -2,9 +2,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import pdb
-data = np.load('/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/rps@sacl_140Mvs_sacl_30M/run2/logs/cross_play_win_rate.npy')
-# labels=["sacl", "sp", "fsp", "psro", "NeuRD"]
-labels=["sacl140M", "sacl30M_new"]
+data = np.load('/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/rps@sacl40M_vs_baseline100/run1/logs/cross_play_win_rate.npy')
+labels=["sacl", "sp", "fsp", "psro", "NeuRD"]
+# labels=["sacl_boundary3", "psro40M"]
 num_exp = len(labels)
 padding = 3
 mean = np.zeros(shape=(num_exp,num_exp))
@@ -28,4 +28,4 @@ plt.yticks(fontsize=20)
 
 plt.tight_layout()
 # plt.show()
-plt.savefig("../rps@sacl140_vs_sacl30new2.png")
+plt.savefig("../rps@40M.pdf")
