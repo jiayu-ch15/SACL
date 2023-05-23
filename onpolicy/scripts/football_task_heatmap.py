@@ -3,9 +3,9 @@ import numpy as np
 import seaborn as sns
 import pdb
 
-episode = 1174
+episode = 1874
 # model_dir='3v1_1var/wandb/run-20230505_150104-25sa3piw'
-model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_500M_boundary3/wandb/run-20230522_184115-34q7qxbf/files"
+model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_run_pass_shoot_have_the_ball/wandb/run-20230514_234041-aivzn5qt/files"
 task = np.load(model_dir + '/tasks_{}.npy'.format(episode))
 score = np.load(model_dir + '/scores_{}.npy'.format(episode))
 
@@ -83,7 +83,6 @@ def plot_heatmap(task, episode, model_dir, name='ball', task_truth=np.array([0.6
             index_y = y_idx
             y_truth_in_task = True
             break
-    pdb.set_trace()
     if x_truth_in_task:
         heatmap_truth[index_x,index_y] = 10000
     else:
@@ -113,12 +112,12 @@ def plot_heatmap(task, episode, model_dir, name='ball', task_truth=np.array([0.6
 
 
 # run pass shoot
-# plot_heatmap(task=ball_x_y,episode=episode, model_dir=model_dir,name='ball', task_truth=np.array([0.7, -0.28])) # appro 0.63
-# plot_heatmap(task=left_GK,episode=episode, model_dir=model_dir,name='left_GK', task_truth=np.array([-1.0,0.0]))
+plot_heatmap(task=ball_x_y,episode=episode, model_dir=model_dir,name='ball', task_truth=np.array([0.7, -0.28])) # appro 0.63
+plot_heatmap(task=left_GK,episode=episode, model_dir=model_dir,name='left_GK', task_truth=np.array([-1.0,0.0]))
 plot_heatmap(task=left_1,episode=episode, model_dir=model_dir,name='left_1', task_truth=np.array([0.7,0.0]))
-# plot_heatmap(task=left_2,episode=episode, model_dir=model_dir,name='left_2', task_truth=np.array([0.7,-0.3]))
-# plot_heatmap(task=right_GK,episode=episode, model_dir=model_dir,name='right_GK', task_truth=np.array([1.0,0.0]))
-# plot_heatmap(task=right_1,episode=episode, model_dir=model_dir,name='right_1', task_truth=np.array([0.75,-0.1]))
+plot_heatmap(task=left_2,episode=episode, model_dir=model_dir,name='left_2', task_truth=np.array([0.7,-0.3]))
+plot_heatmap(task=right_GK,episode=episode, model_dir=model_dir,name='right_GK', task_truth=np.array([1.0,0.0]))
+plot_heatmap(task=right_1,episode=episode, model_dir=model_dir,name='right_1', task_truth=np.array([0.75,-0.1]))
 
 # 3v1
 # plot_heatmap(task=ball_x_y,episode=episode, model_dir=model_dir,name='ball', task_truth=np.array([0.6, 0.0])) # appro 0.63
