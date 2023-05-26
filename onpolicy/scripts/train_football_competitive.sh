@@ -1,11 +1,11 @@
 #!/bin/sh
 # exp param
 env="Football"
-scenario="academy_pass_and_shoot_with_keeper"
-# scenario="academy_run_pass_and_shoot_with_keeper"
+# scenario="academy_pass_and_shoot_with_keeper"
+scenario="academy_run_pass_and_shoot_with_keeper"
 # scenario="academy_3_vs_1_with_keeper"
 algo="mappo"
-exp="sp_ps_500M"
+exp="sp_rps_500M"
 # exp="debug"
 seed=2
 
