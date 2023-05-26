@@ -1,16 +1,16 @@
 #!/bin/sh
 # exp params
 env="Football"
-# scenario="academy_3_vs_1_with_keeper"
+scenario="academy_3_vs_1_with_keeper"
 # scenario="academy_pass_and_shoot_with_keeper"
-scenario="academy_run_pass_and_shoot_with_keeper"
+# scenario="academy_run_pass_and_shoot_with_keeper"
 algo="mappo"
 exp="render"
 seed=0
 
 # football params
-num_agents=3
-num_red=2
+num_agents=4
+num_red=3
 num_blue=1
 representation="simple115v2"
 dump_frequency=1
@@ -19,11 +19,11 @@ dump_frequency=1
 training_mode='self_play'
 
 # render params
-render_episodes=10
+render_episodes=20
 n_rollout_threads=1
 
-red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_500M_boundary3/wandb/run-20230522_184115-34q7qxbf/files"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_500M_boundary3/wandb/run-20230522_184115-34q7qxbf/files"
+red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1_500M/wandb/run-20230522_063445-md6txb0a/files"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/psro_3v1_500M/wandb/run-20230522_061755-30c75xeu/files"
 
 # red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1/wandb/run-20230512_190340-x9n2omu3/files/100M"
 # blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1/wandb/run-20230512_190340-x9n2omu3/files/100M"
@@ -40,7 +40,7 @@ blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/acad
 
 echo "render ${render_episodes} episodes"
 
-CUDA_VISIBLE_DEVICES=0 python render/render_football.py \
+CUDA_VISIBLE_DEVICES=1 python render/render_football.py \
 --env_name ${env} --scenario_name ${scenario} \
 --algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} \
 --num_agents ${num_agents} --representation ${representation} \

@@ -2,17 +2,17 @@
 # exp param
 env="Football"
 # scenario="academy_pass_and_shoot_with_keeper"
-scenario="academy_run_pass_and_shoot_with_keeper"
-# scenario="academy_3_vs_1_with_keeper"
+# scenario="academy_run_pass_and_shoot_with_keeper"
+scenario="academy_3_vs_1_with_keeper"
 algo="mappo"
-exp="sp_rps_500M"
+exp="sp_3v1_500M"
 # exp="debug"
-seed=0
+seed=2
 
 
 # football param
-num_agents=3
-num_red=2
+num_agents=4
+num_red=3
 num_blue=1
 representation="simple115v2"
 rewards="scoring,checkpoints"

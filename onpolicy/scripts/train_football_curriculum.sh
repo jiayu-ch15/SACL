@@ -5,7 +5,7 @@ env="Football"
 scenario="academy_run_pass_and_shoot_with_keeper"
 # scenario="academy_3_vs_1_with_keeper"
 algo="mappo"
-exp="sacl_rps_haveball_500M"
+exp="sacl_rps_haveball_500M_loadmodel3100M"
 seed=2
 
 
@@ -48,8 +48,8 @@ sample_metric="ensemble_var_add_bias"
 
 # sp
 training_mode='self_play'
-red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/psro_run_pass_shoot_population375/wandb/run-20230513_163345-3e4ytns6/files/100M"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/psro_run_pass_shoot_population375/wandb/run-20230513_163345-3e4ytns6/files/100M"
+red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_500M/wandb/run-20230522_064224-1unmjbws/files"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_500M/wandb/run-20230522_064224-1unmjbws/files"
 
 echo "n_rollout_threads: ${n_rollout_threads} \t ppo_epoch: ${ppo_epoch} \t num_mini_batch: ${num_mini_batch}"
 
@@ -71,4 +71,4 @@ CUDA_VISIBLE_DEVICES=0 python train/train_football_curriculum.py \
 --prob_curriculum ${prob_curriculum} --curriculum_buffer_size ${curriculum_buffer_size} \
 --beta ${beta} --alpha ${alpha} --num_critic ${num_critic} \
 --sample_metric ${sample_metric} --update_method ${update_method} \
-# --red_model_dir ${red_model_dir} --blue_model_dir ${blue_model_dir} \
+--red_model_dir ${red_model_dir} --blue_model_dir ${blue_model_dir} \

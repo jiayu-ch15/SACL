@@ -1,6 +1,6 @@
 #!/bin/sh
 # exp config
-exp="corner_sacl_1var3bias_model3@40M-from_sacl40M"
+exp="corner_sacl_1var3bias_model1@30M-from_loadred"
 # exp="full_fsp_model3@35M-from_pretrained40M"
 # exp="debug"
 algo="mappo"
@@ -18,11 +18,11 @@ num_landmarks=2
 attn_size=32
 # training config
 training_mode="red_br"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031706-2kot9l67/files/40M"
-red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files/40M"
-red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files/40M"
-# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl_buffer20000_model3@5M-from_sp40M_full/wandb/run-20230519_152104-316txokq/files/90M"
-# red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl_buffer20000_model3@5M-from_sp40M_full/wandb/run-20230519_152104-316txokq/files/90M"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/sacl_1var_3bias/wandb/run-20230522_085701-36wd6wgr/files/30M"
+# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/sacl_1var_3bias/wandb/run-20230522_085701-36wd6wgr/files/40M"
+# red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/sacl_1var_3bias/wandb/run-20230522_085701-36wd6wgr/files/40M"
+red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl_1var3bias_model1@30M-from_sp40M_full/wandb/run-20230524_034904-2uae196m/files"
+red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl_1var3bias_model1@30M-from_sp40M_full/wandb/run-20230524_034904-2uae196m/files"
 num_env_steps=200000000
 episode_length=200
 n_rollout_threads=100
