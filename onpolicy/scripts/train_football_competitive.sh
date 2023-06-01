@@ -2,10 +2,10 @@
 # exp param
 env="Football"
 # scenario="academy_pass_and_shoot_with_keeper"
-scenario="academy_run_pass_and_shoot_with_keeper"
-# scenario="academy_3_vs_1_with_keeper"
+# scenario="academy_run_pass_and_shoot_with_keeper"
+scenario="academy_3_vs_1_with_keeper"
 algo="mappo"
-exp="sp_rps_500M"
+exp="sp_3v1_500M"
 # exp="debug"
 seed=2
 
