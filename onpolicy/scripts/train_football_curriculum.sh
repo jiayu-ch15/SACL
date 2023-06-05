@@ -53,7 +53,7 @@ blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/acad
 
 echo "n_rollout_threads: ${n_rollout_threads} \t ppo_epoch: ${ppo_epoch} \t num_mini_batch: ${num_mini_batch}"
 
-CUDA_VISIBLE_DEVICES=2 python train/train_football_curriculum.py \
+CUDA_VISIBLE_DEVICES=1 python train/train_football_curriculum.py \
 --env_name ${env} --scenario_name ${scenario} \
 --algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} \
 --num_agents ${num_agents} --representation ${representation} \
