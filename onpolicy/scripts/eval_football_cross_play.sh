@@ -1,18 +1,18 @@
 #!/bin/sh
 # exp param
 env="Football"
-scenario="academy_3_vs_1_with_keeper"
-# scenario="academy_pass_and_shoot_with_keeper"
+# scenario="academy_3_vs_1_with_keeper"
+scenario="academy_pass_and_shoot_with_keeper"
 # scenario="academy_run_pass_and_shoot_with_keeper"
 algo="mappo"
-exp="3v1@sacl_sp"
+exp="ps@400M_True"
 seed=0
 
 
 # football param
-num_red=3
+num_red=2
 num_blue=1
-num_agents=4
+num_agents=3
 representation="simple115v2"
 # rewards="scoring"
 rewards="scoring,checkpoints"
@@ -37,21 +37,21 @@ ppo_epoch=10 # 5, 10, 15
 num_mini_batch=2 # 2, 4
 
 # pass_shoot
-# model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sacl_pass_shoot/wandb/run-20230512_185552-3q43bqb6/files/50M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sacl_pass_shoot/wandb/run-20230512_185608-1zvrb2ns/files/50M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sacl_pass_shoot/wandb/run-20230512_185624-39n0215i/files/50M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sp_pass_shoot/wandb/run-20230512_064647-3ak4zyya/files/50M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sp_pass_shoot/wandb/run-20230512_064712-3umlsevp/files/50M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sp_pass_shoot/wandb/run-20230512_064738-1giem989/files/50M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/fsp_pass_shoot/wandb/run-20230514_083422-37rrl3j0/files/50M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/fsp_pass_shoot/wandb/run-20230514_083546-29c0knsb/files/50M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/fsp_pass_shoot/wandb/run-20230514_083643-35zkjcbm/files/50M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/psro_pass_shoot_population25M/wandb/run-20230513_154055-1wd3azff/files/50M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/psro_pass_shoot_population25M/wandb/run-20230513_154223-18z7pe0v/files/50M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/psro_pass_shoot_population25M/wandb/run-20230513_154247-6psp787d/files/50M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/rnad_ps_entropy01_again/wandb/run-20230516_085430-6puzczhb/files/50M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/rnad_ps_entropy01_again/wandb/run-20230516_085554-2g9sqz44/files/50M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/rnad_ps_entropy01_again/wandb/run-20230516_085611-10nuf2rh/files/50M"
+model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sacl_ps_500M/wandb/run-20230522_063900-2vyzs3ri/files/300M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sacl_ps_500M/wandb/run-20230522_063930-jhbalacf/files/300M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sacl_ps_500M/wandb/run-20230522_063942-23pehbwg/files/300M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sp_ps_500M/wandb/run-20230526_091349-gnzzrvao/files/300M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sp_ps_500M/wandb/run-20230526_091440-1x0cs0kd/files/300M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/sp_ps_500M/wandb/run-20230526_091454-2drwrdg9/files/300M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/fsp_ps_500M/wandb/run-20230608_111946-1is43gn1/files/300M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/fsp_ps_500M/wandb/run-20230608_112122-252a8dv9/files/300M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/fsp_ps_500M/wandb/run-20230608_112140-hzh29vkc/files/300M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/psro_ps_500M/wandb/run-20230522_062726-1kmsnyue/files/300M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/psro_ps_500M/wandb/run-20230522_062951-2zp9yvbh/files/300M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/psro_ps_500M/wandb/run-20230522_063111-2ok00htf/files/300M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/neurd_ps_500M/wandb/run-20230603_092913-3fpnxq0i/files/300M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/neurd_ps_500M/wandb/run-20230603_092940-n41i6gqe/files/300M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/neurd_ps_500M/wandb/run-20230603_093008-9nquujiy/files/300M"
 
 # run_pass_shoot
 # model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_haveball_500M/wandb/run-20230523_130406-1gdoommg/files/30M"
@@ -71,21 +71,21 @@ num_mini_batch=2 # 2, 4
 # model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/rnad_rps_model2_load90M/wandb/run-20230516_202756-34hz539l/files/10M"
 
 # 3v1
-model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1_500M/wandb/run-20230522_063445-md6txb0a/files/350M"
-model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1_500M/wandb/run-20230522_063705-341vdo3t/files/350M"
-model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1_500M/wandb/run-20230522_063714-2p5oicm0/files/350M"
-model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sp_3v1_500M/wandb/run-20230525_045802-287bxf67/files"
-model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sp_3v1_500M/wandb/run-20230525_045905-x2ni9hrt/files"
-model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sp_3v1_500M/wandb/run-20230525_045915-2r9nn8gj/files"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/fsp_3v1/wandb/run-20230514_084047-1kkdh69t/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/fsp_3v1/wandb/run-20230514_084105-27qs4y4n/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/fsp_3v1/wandb/run-20230514_084135-1u0c9m8k/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/psro_3v1_500M/wandb/run-20230522_061755-30c75xeu/files/340M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/psro_3v1_500M/wandb/run-20230522_061825-1rvjt5sr/files/340M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/psro_3v1_500M/wandb/run-20230522_061843-3uj8ms0o/files/340M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/rnad_3v1_entropy01/wandb/run-20230516_085243-aup94dxv/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/rnad_3v1_entropy01/wandb/run-20230516_085319-2y6qs8fq/files/100M"
-# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/rnad_3v1_entropy01/wandb/run-20230516_085338-3p7qfz3b/files/100M"
+# model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1_500M/wandb/run-20230522_063445-md6txb0a/files/400M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1_500M/wandb/run-20230522_063705-341vdo3t/files/400M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1_500M/wandb/run-20230522_063714-2p5oicm0/files/400M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sp_3v1_500M/wandb/run-20230525_045802-287bxf67/files/400M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sp_3v1_500M/wandb/run-20230531_094908-ka7bolux/files/400M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sp_3v1_500M/wandb/run-20230531_095041-pc7zb6uh/files/400M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/fsp_3v1_500M/wandb/run-20230530_105950-3nnfk334/files/400M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/fsp_3v1_500M/wandb/run-20230530_110027-5p52ko1y/files/400M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/fsp_3v1_500M/wandb/run-20230530_110115-1m0by60l/files/400M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/psro_3v1_500M/wandb/run-20230522_061755-30c75xeu/files/400M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/psro_3v1_500M/wandb/run-20230522_061825-1rvjt5sr/files/400M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/psro_3v1_500M/wandb/run-20230522_061843-3uj8ms0o/files/400M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/neurd_3v1_500M/wandb/run-20230603_092727-ql2puxcl/files/400M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/neurd_3v1_500M/wandb/run-20230603_092804-13umhm80/files/400M"
+# model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/neurd_3v1_500M/wandb/run-20230603_092831-2ive4suq/files/400M"
 
 CUDA_VISIBLE_DEVICES=0 python eval/eval_football_cross_play.py \
 --env_name ${env} --scenario_name ${scenario} \
