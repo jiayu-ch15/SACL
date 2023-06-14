@@ -5,7 +5,7 @@ env="Football"
 scenario="academy_run_pass_and_shoot_with_keeper"
 # scenario="academy_3_vs_1_with_keeper"
 algo="mappo"
-exp="fsp_rps_model3_blue@400M"
+exp="sacl_rps_model1_blue@400M"
 # exp="psro_3v1_model3_blue@100M_again"
 seed=0
 
