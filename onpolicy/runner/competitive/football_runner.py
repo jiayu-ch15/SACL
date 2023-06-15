@@ -266,7 +266,7 @@ class FootballRunner(Runner):
 
     @torch.no_grad()
     def eval_head2head(self):
-        choose_deterministic = False
+        choose_deterministic = True
 
         # reset envs and init rnn and mask
         eval_obs = self.eval_envs.reset()

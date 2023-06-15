@@ -332,7 +332,6 @@ class FootballRunner(Runner):
         for info, share_obs in zip(infos, obs):
             state = info["state"] # save the real state
             # filter bad states
-            ball_x_y = state[:2]
             if info['bad_state']:
                 continue
             elif self.all_args.scenario_name == 'academy_pass_and_shoot_with_keeper':
@@ -361,16 +360,7 @@ class FootballRunner(Runner):
                 # agent_pos = np.stack([left_1, left_2, right_1])
                 # x_y_distance = np.sum(np.square(agent_pos - ball),axis=1)
                 # # boundary 1
-                if ball[0] < 0.7 or ball[0] > 0.9 or ball[1] > 0.3 or ball[1] < -0.3:
-                    continue
-                if left_1[0] < 0.7 or left_1[0] > 0.9 or left_1[1] > 0.31 or left_1[1] < -0.31:
-                    continue
-                if left_2[0] < 0.7 or left_2[0] > 0.9 or left_2[1] > 0.0 or left_2[1] < -0.31:
-                    continue
-                if right_1[0] < 0.7 or right_1[0] > 0.9 or right_1[1] > 0.31 or right_1[1] < -0.31:
-                    continue
-                # # boundary 2, ball only on the top
-                # if ball[0] < 0.7 or ball[0] > 0.9 or ball[1] > 0.0 or ball[1] < -0.3:
+                # if ball[0] < 0.7 or ball[0] > 0.9 or ball[1] > 0.3 or ball[1] < -0.3:
                 #     continue
                 # if left_1[0] < 0.7 or left_1[0] > 0.9 or left_1[1] > 0.31 or left_1[1] < -0.31:
                 #     continue
@@ -378,6 +368,15 @@ class FootballRunner(Runner):
                 #     continue
                 # if right_1[0] < 0.7 or right_1[0] > 0.9 or right_1[1] > 0.31 or right_1[1] < -0.31:
                 #     continue
+                # # boundary 2, ball only on the top
+                if ball[0] < 0.7 or ball[0] > 0.9 or ball[1] > 0.0 or ball[1] < -0.3:
+                    continue
+                if left_1[0] < 0.7 or left_1[0] > 0.9 or left_1[1] > 0.31 or left_1[1] < -0.31:
+                    continue
+                if left_2[0] < 0.7 or left_2[0] > 0.9 or left_2[1] > 0.0 or left_2[1] < -0.31:
+                    continue
+                if right_1[0] < 0.7 or right_1[0] > 0.9 or right_1[1] > 0.0 or right_1[1] < -0.31:
+                    continue
                 # boundary 3, narrow boundary
                 # if ball[0] < 0.7 or ball[0] > 0.9 or ball[1] > 0.0 or ball[1] < -0.3:
                 #     continue

@@ -4,7 +4,7 @@ import seaborn as sns
 import pdb
 
 episode = 6524
-model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sacl_3v1_500M/wandb/run-20230522_063445-md6txb0a/files"
+model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_500M/wandb/run-20230608_192754-1fy640hu/files"
 task = np.load(model_dir + '/tasks_{}.npy'.format(episode))
 score = np.load(model_dir + '/scores_{}.npy'.format(episode))
 
