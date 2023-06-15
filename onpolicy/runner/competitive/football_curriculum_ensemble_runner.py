@@ -369,6 +369,15 @@ class FootballRunner(Runner):
                 # if right_1[0] < 0.7 or right_1[0] > 0.9 or right_1[1] > 0.31 or right_1[1] < -0.31:
                 #     continue
                 # # boundary 2, ball only on the top
+                # if ball[0] < 0.7 or ball[0] > 0.9 or ball[1] > 0.0 or ball[1] < -0.3:
+                #     continue
+                # if left_1[0] < 0.7 or left_1[0] > 0.9 or left_1[1] > 0.31 or left_1[1] < -0.31:
+                #     continue
+                # if left_2[0] < 0.7 or left_2[0] > 0.9 or left_2[1] > 0.0 or left_2[1] < -0.31:
+                #     continue
+                # if right_1[0] < 0.7 or right_1[0] > 0.9 or right_1[1] > 0.0 or right_1[1] < -0.31:
+                #     continue
+                # boundary 3
                 if ball[0] < 0.7 or ball[0] > 0.9 or ball[1] > 0.0 or ball[1] < -0.3:
                     continue
                 if left_1[0] < 0.7 or left_1[0] > 0.9 or left_1[1] > 0.31 or left_1[1] < -0.31:
@@ -377,15 +386,6 @@ class FootballRunner(Runner):
                     continue
                 if right_1[0] < 0.7 or right_1[0] > 0.9 or right_1[1] > 0.0 or right_1[1] < -0.31:
                     continue
-                # boundary 3, narrow boundary
-                # if ball[0] < 0.7 or ball[0] > 0.9 or ball[1] > 0.0 or ball[1] < -0.3:
-                #     continue
-                # if left_1[0] < 0.7 or left_1[0] > 0.9 or left_1[1] > 0.0 or left_1[1] < -0.1:
-                #     continue
-                # if left_2[0] < 0.7 or left_2[0] > 0.9 or left_2[1] > -0.1 or left_2[1] < -0.31:
-                #     continue
-                # if right_1[0] < 0.75 or right_1[0] > 0.9 or right_1[1] > 0.0 or right_1[1] < -0.3:
-                #     continue
             elif self.all_args.scenario_name == 'academy_3_vs_1_with_keeper':
                 ball = state[:2] # left
                 left_GM = state[3:5]
