@@ -5,7 +5,7 @@ env="Football"
 scenario="academy_run_pass_and_shoot_with_keeper"
 # scenario="academy_3_vs_1_with_keeper"
 algo="mappo"
-exp="sacl_rps_500M_v2"
+exp="sacl_rps_v4_500M"
 seed=2
 
 
@@ -71,4 +71,5 @@ CUDA_VISIBLE_DEVICES=1 python train/train_football_curriculum.py \
 --prob_curriculum ${prob_curriculum} --curriculum_buffer_size ${curriculum_buffer_size} \
 --beta ${beta} --alpha ${alpha} --num_critic ${num_critic} \
 --sample_metric ${sample_metric} --update_method ${update_method} \
+# --use_wandb \
 # --red_model_dir ${red_model_dir} --blue_model_dir ${blue_model_dir} \
