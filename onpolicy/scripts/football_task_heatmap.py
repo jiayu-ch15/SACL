@@ -3,43 +3,42 @@ import numpy as np
 import seaborn as sns
 import pdb
 
-episode = 6524
-model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_500M/wandb/run-20230608_192754-1fy640hu/files"
+episode = 4949
+model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_v3_500M/wandb/run-20230619_075431-abv49lur/files"
 task = np.load(model_dir + '/tasks_{}.npy'.format(episode))
 score = np.load(model_dir + '/scores_{}.npy'.format(episode))
 
 # sampler_tasks
 weights = score / np.mean(score)
 probs = weights / np.sum(weights)
-pdb.set_trace()
 sample_idx = np.random.choice(score.shape[0], 10000, replace=True, p=probs)
 initial_states = [task[idx] for idx in sample_idx]
 initial_states = np.array(initial_states)
 
 # 3v1
-ball_x_y = task[:,:2]
-left_GK = task[:, 3:5]
-left_1 = task[:,5:7]
-left_2 = task[:,7:9]
-left_3 = task[:,9:11]
-right_GK = task[:, 11:13]
-right_1 = task[:, 13:]
-
-prioritized_ball_x_y = initial_states[:,:2]
-prioritized_left_GK = initial_states[:, 3:5]
-prioritized_left_1 = initial_states[:,5:7]
-prioritized_left_2 = initial_states[:,7:9]
-prioritized_left_3 = initial_states[:,9:11]
-prioritized_right_GK = initial_states[:, 11:13]
-prioritized_right_1 = initial_states[:, 13:]
-
-# pass_shoot
 # ball_x_y = task[:,:2]
 # left_GK = task[:, 3:5]
 # left_1 = task[:,5:7]
 # left_2 = task[:,7:9]
-# right_GK = task[:, 9:11]
-# right_1 = task[:, 11:]
+# left_3 = task[:,9:11]
+# right_GK = task[:, 11:13]
+# right_1 = task[:, 13:]
+
+# prioritized_ball_x_y = initial_states[:,:2]
+# prioritized_left_GK = initial_states[:, 3:5]
+# prioritized_left_1 = initial_states[:,5:7]
+# prioritized_left_2 = initial_states[:,7:9]
+# prioritized_left_3 = initial_states[:,9:11]
+# prioritized_right_GK = initial_states[:, 11:13]
+# prioritized_right_1 = initial_states[:, 13:]
+
+# pass_shoot
+ball_x_y = task[:,:2]
+left_GK = task[:, 3:5]
+left_1 = task[:,5:7]
+left_2 = task[:,7:9]
+right_GK = task[:, 9:11]
+right_1 = task[:, 11:]
 
 # groundtruth
 # 3v1
@@ -127,26 +126,26 @@ def plot_heatmap(task, episode, model_dir, name='ball', task_truth=np.array([0.6
 
 
 # run pass shoot
-# plot_heatmap(task=ball_x_y,episode=episode, model_dir=model_dir,name='ball', task_truth=np.array([0.7, -0.28])) # appro 0.63
-# plot_heatmap(task=left_GK,episode=episode, model_dir=model_dir,name='left_GK', task_truth=np.array([-1.0,0.0]))
-# plot_heatmap(task=left_1,episode=episode, model_dir=model_dir,name='left_1', task_truth=np.array([0.7,0.0]))
-# plot_heatmap(task=left_2,episode=episode, model_dir=model_dir,name='left_2', task_truth=np.array([0.7,-0.3]))
-# plot_heatmap(task=right_GK,episode=episode, model_dir=model_dir,name='right_GK', task_truth=np.array([1.0,0.0]))
-# plot_heatmap(task=right_1,episode=episode, model_dir=model_dir,name='right_1', task_truth=np.array([0.75,-0.1]))
+plot_heatmap(task=ball_x_y,episode=episode, model_dir=model_dir,name='ball', task_truth=np.array([0.7, -0.28])) # appro 0.63
+plot_heatmap(task=left_GK,episode=episode, model_dir=model_dir,name='left_GK', task_truth=np.array([-1.0,0.0]))
+plot_heatmap(task=left_1,episode=episode, model_dir=model_dir,name='left_1', task_truth=np.array([0.7,0.0]))
+plot_heatmap(task=left_2,episode=episode, model_dir=model_dir,name='left_2', task_truth=np.array([0.7,-0.3]))
+plot_heatmap(task=right_GK,episode=episode, model_dir=model_dir,name='right_GK', task_truth=np.array([1.0,0.0]))
+plot_heatmap(task=right_1,episode=episode, model_dir=model_dir,name='right_1', task_truth=np.array([0.75,-0.1]))
 
 # 3v1
-plot_heatmap(task=ball_x_y,episode=episode, model_dir=model_dir,name='ball', task_truth=np.array([0.6, 0.0])) # appro 0.63
-plot_heatmap(task=left_GK,episode=episode, model_dir=model_dir,name='left_GK', task_truth=np.array([-1.0,0.0]))
-plot_heatmap(task=left_1,episode=episode, model_dir=model_dir,name='left_1', task_truth=np.array([0.6,0.0]))
-plot_heatmap(task=left_2,episode=episode, model_dir=model_dir,name='left_2', task_truth=np.array([0.7,0.2]))
-plot_heatmap(task=left_3,episode=episode, model_dir=model_dir,name='left_3', task_truth=np.array([0.7,-0.2]))
-plot_heatmap(task=right_GK,episode=episode, model_dir=model_dir,name='right_GK', task_truth=np.array([1.0,0.0]))
-plot_heatmap(task=right_1,episode=episode, model_dir=model_dir,name='right_1', task_truth=np.array([0.75,0.0]))
+# plot_heatmap(task=ball_x_y,episode=episode, model_dir=model_dir,name='ball', task_truth=np.array([0.6, 0.0])) # appro 0.63
+# plot_heatmap(task=left_GK,episode=episode, model_dir=model_dir,name='left_GK', task_truth=np.array([-1.0,0.0]))
+# plot_heatmap(task=left_1,episode=episode, model_dir=model_dir,name='left_1', task_truth=np.array([0.6,0.0]))
+# plot_heatmap(task=left_2,episode=episode, model_dir=model_dir,name='left_2', task_truth=np.array([0.7,0.2]))
+# plot_heatmap(task=left_3,episode=episode, model_dir=model_dir,name='left_3', task_truth=np.array([0.7,-0.2]))
+# plot_heatmap(task=right_GK,episode=episode, model_dir=model_dir,name='right_GK', task_truth=np.array([1.0,0.0]))
+# plot_heatmap(task=right_1,episode=episode, model_dir=model_dir,name='right_1', task_truth=np.array([0.75,0.0]))
 
-plot_heatmap(task=prioritized_ball_x_y,episode=episode, model_dir=model_dir,name='prioritized_ball', task_truth=np.array([0.6, 0.0])) # appro 0.63
-plot_heatmap(task=prioritized_left_GK,episode=episode, model_dir=model_dir,name='prioritized_left_GK', task_truth=np.array([-1.0,0.0]))
-plot_heatmap(task=prioritized_left_1,episode=episode, model_dir=model_dir,name='prioritized_left_1', task_truth=np.array([0.6,0.0]))
-plot_heatmap(task=prioritized_left_2,episode=episode, model_dir=model_dir,name='prioritized_left_2', task_truth=np.array([0.7,0.2]))
-plot_heatmap(task=prioritized_left_3,episode=episode, model_dir=model_dir,name='prioritized_left_3', task_truth=np.array([0.7,-0.2]))
-plot_heatmap(task=prioritized_right_GK,episode=episode, model_dir=model_dir,name='prioritized_right_GK', task_truth=np.array([1.0,0.0]))
-plot_heatmap(task=prioritized_right_1,episode=episode, model_dir=model_dir,name='prioritized_right_1', task_truth=np.array([0.75,0.0]))
+# plot_heatmap(task=prioritized_ball_x_y,episode=episode, model_dir=model_dir,name='prioritized_ball', task_truth=np.array([0.6, 0.0])) # appro 0.63
+# plot_heatmap(task=prioritized_left_GK,episode=episode, model_dir=model_dir,name='prioritized_left_GK', task_truth=np.array([-1.0,0.0]))
+# plot_heatmap(task=prioritized_left_1,episode=episode, model_dir=model_dir,name='prioritized_left_1', task_truth=np.array([0.6,0.0]))
+# plot_heatmap(task=prioritized_left_2,episode=episode, model_dir=model_dir,name='prioritized_left_2', task_truth=np.array([0.7,0.2]))
+# plot_heatmap(task=prioritized_left_3,episode=episode, model_dir=model_dir,name='prioritized_left_3', task_truth=np.array([0.7,-0.2]))
+# plot_heatmap(task=prioritized_right_GK,episode=episode, model_dir=model_dir,name='prioritized_right_GK', task_truth=np.array([1.0,0.0]))
+# plot_heatmap(task=prioritized_right_1,episode=episode, model_dir=model_dir,name='prioritized_right_1', task_truth=np.array([0.75,0.0]))

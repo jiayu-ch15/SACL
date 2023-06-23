@@ -5,7 +5,7 @@ env="Football"
 scenario="academy_run_pass_and_shoot_with_keeper"
 # scenario="academy_3_vs_1_with_keeper"
 algo="mappo"
-exp="sacl_rps_v4_500M"
+exp="sacl_rps_v5_500M"
 seed=2
 
 
@@ -53,7 +53,7 @@ blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/acad
 
 echo "n_rollout_threads: ${n_rollout_threads} \t ppo_epoch: ${ppo_epoch} \t num_mini_batch: ${num_mini_batch}"
 
-CUDA_VISIBLE_DEVICES=1 python train/train_football_curriculum.py \
+CUDA_VISIBLE_DEVICES=0 python train/train_football_curriculum.py \
 --env_name ${env} --scenario_name ${scenario} \
 --algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} \
 --num_agents ${num_agents} --representation ${representation} \

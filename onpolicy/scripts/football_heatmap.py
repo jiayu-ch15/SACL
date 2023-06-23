@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import pdb
-data = np.load('/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/rps_v2@400M_True/run1/logs/cross_play_win_rate.npy')
+data = np.load('/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/rps_v4@400M_True/run1/logs/cross_play_win_rate.npy')
 labels=["SACL", "SP", "FSP", "PSRO", "NeuRD"]
 # labels=["SACL", "PSRO"]
 num_exp = len(labels)
@@ -28,4 +28,4 @@ plt.yticks(fontsize=20)
 
 plt.tight_layout()
 # plt.show()
-plt.savefig("../rps_v2@400M_True.png")
+plt.savefig("../rps_v4@400M_True.png")
