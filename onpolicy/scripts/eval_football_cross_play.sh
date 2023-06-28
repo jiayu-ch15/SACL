@@ -5,7 +5,7 @@ env="Football"
 # scenario="academy_pass_and_shoot_with_keeper"
 scenario="academy_run_pass_and_shoot_with_keeper"
 algo="mappo"
-exp="rps_v4@400M_False"
+exp="rps_v5@400M_True"
 seed=0
 
 
@@ -54,9 +54,9 @@ num_mini_batch=2 # 2, 4
 # model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_pass_and_shoot_with_keeper/mappo/neurd_ps_500M/wandb/run-20230603_093008-9nquujiy/files/300M"
 
 # run_pass_shoot
-model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_v4_500M/wandb/run-20230619_075726-e9iasc3y/files/400M"
-model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_v4_500M/wandb/run-20230619_075800-2yzgvkp9/files/400M"
-model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_v4_500M/wandb/run-20230619_075815-2weaw0bn/files/400M"
+model_dir_list="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_v5_500M/wandb/run-20230623_085941-2d3hhrzp/files/400M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_v5_500M/wandb/run-20230623_090001-15wfer26/files/400M"
+model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_v5_500M/wandb/run-20230623_090017-23q1xpmn/files/400M"
 model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sp_rps_500M/wandb/run-20230522_095012-3rpmifp3/files/400M"
 model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sp_rps_500M/wandb/run-20230526_091634-1h71m5pa/files/400M"
 model_dir_list+=" /home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sp_rps_500M/wandb/run-20230526_091636-3m4x80c4/files/400M"
