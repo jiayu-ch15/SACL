@@ -5,7 +5,7 @@ env="Football"
 scenario="academy_run_pass_and_shoot_with_keeper"
 # scenario="academy_3_vs_1_with_keeper"
 algo="mappo"
-exp="neurd_rps_model3_red@300M"
+exp="sacl_v5_rps_model3_red@400M"
 # exp="psro_3v1_model3_blue@100M_again"
 seed=0
 
@@ -40,19 +40,19 @@ num_mini_batch=2 # 2, 4
 
 # red br
 training_mode="red_br"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/neurd_rps_500M/wandb/run-20230603_093540-39xuz0rg/files/300M"
-red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/neurd_rps_500M/wandb/run-20230603_093540-39xuz0rg/files/300M"
-red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/neurd_rps_500M/wandb/run-20230603_093540-39xuz0rg/files/300M"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_v5_500M/wandb/run-20230623_090017-23q1xpmn/files/400M"
+red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_v5_500M/wandb/run-20230623_090017-23q1xpmn/files/400M"
+red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_v5_500M/wandb/run-20230623_090017-23q1xpmn/files/400M"
 
 # blue br
 # training_mode="blue_br"
-# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/neurd_rps_500M/wandb/run-20230603_093540-39xuz0rg/files/300M"
-# blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/neurd_rps_500M/wandb/run-20230603_093540-39xuz0rg/files/300M"
-# blue_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/neurd_rps_500M/wandb/run-20230603_093540-39xuz0rg/files/300M"
+# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_v5_500M/wandb/run-20230623_090017-23q1xpmn/files/400M"
+# blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_v5_500M/wandb/run-20230623_090017-23q1xpmn/files/400M"
+# blue_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_v5_500M/wandb/run-20230623_090017-23q1xpmn/files/400M"
 
 echo "n_rollout_threads: ${n_rollout_threads} \t ppo_epoch: ${ppo_epoch} \t num_mini_batch: ${num_mini_batch}"
 
-CUDA_VISIBLE_DEVICES=1 python train/train_football_competitive.py \
+CUDA_VISIBLE_DEVICES=0 python train/train_football_competitive.py \
 --env_name ${env} --scenario_name ${scenario} \
 --algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} \
 --num_agents ${num_agents} --representation ${representation} \

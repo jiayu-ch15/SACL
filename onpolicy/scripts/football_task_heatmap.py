@@ -3,8 +3,8 @@ import numpy as np
 import seaborn as sns
 import pdb
 
-episode = 4949
-model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_v3_500M/wandb/run-20230619_075431-abv49lur/files"
+episode = 10149
+model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_run_pass_and_shoot_with_keeper/mappo/sacl_rps_v5_500M/wandb/run-20230623_085941-2d3hhrzp/files"
 task = np.load(model_dir + '/tasks_{}.npy'.format(episode))
 score = np.load(model_dir + '/scores_{}.npy'.format(episode))
 
