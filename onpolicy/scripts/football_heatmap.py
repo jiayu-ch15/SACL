@@ -28,4 +28,4 @@ plt.yticks(fontsize=20)
 
 plt.tight_layout()
 # plt.show()
-plt.savefig("../rps_v3@400M_False.png")
+plt.savefig("../rps@400M.pdf")
