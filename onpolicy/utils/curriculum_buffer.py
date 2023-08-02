@@ -7,11 +7,12 @@ import torch
 
 class CurriculumBuffer(object):
 
-    def __init__(self, buffer_size, update_method="fps", scenario='mpe'):
+    def __init__(self, buffer_size, update_method="fps", scenario='mpe', sample_metric='variance_add_bias'):
         self.eps = 1e-10
         self.buffer_size = buffer_size
         self.update_method = update_method
         self.scenario = scenario
+        self.sample_metric = sample_metric
 
         self._state_buffer = np.zeros((0, 1), dtype=np.float32)
         self._weight_buffer = np.zeros((0, 1), dtype=np.float32)
@@ -66,6 +67,8 @@ class CurriculumBuffer(object):
                 fps_idx = farthest_point_sampler(all_states_tensor, self.buffer_size)[0].numpy()
                 self._state_buffer = all_states[fps_idx]
                 self._share_obs_buffer = all_share_obs[fps_idx]
+                if 'least_visited' in self.sample_metric:
+                    _state_density = np.matmul(self._state_buffer,all_states.T).mean(axis=1)
             else:
                 raise NotImplementedError(f"Update method {self.update_method} is not supported.")
         
@@ -77,7 +80,10 @@ class CurriculumBuffer(object):
         end_time = time.time()
         print(f"curriculum buffer update states time: {end_time - start_time}s")
 
-        return self._share_obs_buffer.copy()
+        if 'least_visited' in self.sample_metric:
+            return self._share_obs_buffer.copy(), _state_density.copy()
+        else:
+            return self._share_obs_buffer.copy()
 
     def update_weights(self, weights):
         self._weight_buffer = weights.copy()

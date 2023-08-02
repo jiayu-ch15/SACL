@@ -73,9 +73,11 @@ def parse_args(args, parser):
     parser.add_argument("--prob_curriculum", type=float, default=0.7, help="probability to reset initial state from curriculum")
     parser.add_argument("--curriculum_buffer_size", type=int, default=10000, help="size of curriculum buffer")
     parser.add_argument("--update_method", type=str,default="fps", choices=["random", "fps"])
-    parser.add_argument("--sample_metric", type=str,default="uniform", choices=["uniform", "variance", "rb_variance", "oracle", "variance_add_bias", "TDerror"])
+    parser.add_argument("--sample_metric", type=str,default="uniform", choices=["uniform", "variance", "rb_variance", "oracle", "variance_add_bias", "TDerror", "least_visited", "least_visited_add_variance"])
     parser.add_argument("--alpha", type=float,default=0.0, help='trade-off for V_variance and V_bias')
     parser.add_argument("--beta", type=float,default=0.0, help='trade-off for V_variance and V_bias')
+    # least_visited_alpha
+    parser.add_argument("--least_visited_alpha", type=float,default=1.0, help='trade-off for V_variance and least_visited')
     # parser.add_argument("--max_staleness", type=int, default=5, help="maximum staleness of state in curriculum buffer")
 
     all_args = parser.parse_known_args(args)[0]

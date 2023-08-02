@@ -1,6 +1,7 @@
 #!/bin/sh
 # exp config
-exp="rb_var_max3"
+exp="least_visited_add_variance_alpha3"
+# exp="debug"
 algo="mappo"
 seed=2
 # env config
@@ -28,8 +29,9 @@ prob_curriculum=0.7
 curriculum_buffer_size=10000
 beta=0.0
 alpha=1.0
+least_visited_alpha=3.0
 update_method="fps"
-sample_metric="rb_variance"
+sample_metric="least_visited_add_variance"
 # user name
 user_name="chenjy"
 wandb_name="sacl"
@@ -38,7 +40,7 @@ ulimit -n 16384
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=2 python train/train_mpe_curriculum.py \
+CUDA_VISIBLE_DEVICES=1 python train/train_mpe_curriculum.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} --hard_boundary \
@@ -51,6 +53,7 @@ CUDA_VISIBLE_DEVICES=2 python train/train_mpe_curriculum.py \
 --curriculum_buffer_size ${curriculum_buffer_size} \
 --update_method ${update_method} --sample_metric ${sample_metric} \
 --alpha ${alpha} --beta ${beta} \
+--least_visited_alpha ${least_visited_alpha} \
 --max_staleness ${max_staleness} \
 --user_name ${user_name} \
 --wandb_name ${wandb_name} \
