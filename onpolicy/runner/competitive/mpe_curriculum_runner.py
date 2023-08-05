@@ -8,10 +8,31 @@ from onpolicy.utils.curriculum_buffer import CurriculumBuffer
 import pdb
 import copy
 import wandb
+import torch.nn as nn
+from onpolicy.algorithms.utils.util import check
 
 def _t2n(x):
     return x.detach().cpu().numpy()
 
+class RND_model(nn.Module):
+    def __init__(self, input_dim, device):
+        super(RND_model, self).__init__()
+        self.fixed_NN = nn.Linear(input_dim, 64)
+        for p in self.parameters():
+            p.require_grad = False
+        self.prediction_NN = nn.Linear(input_dim, 64)
+        self.optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.prediction_NN.parameters()), lr=0.0001, betas=(0.9, 0.999), eps=1e-08, weight_decay=1e-5)
+        self.tpdv = dict(dtype=torch.float32, device=device)
+        self.to(device)
+        
+    def forward(self, obs):
+        obs = check(obs).to(**self.tpdv)
+        return self.prediction_NN(obs)
+    
+    def fixed_output(self, obs):
+        obs = check(obs).to(**self.tpdv)
+        return self.fixed_NN(obs)
+    
 class MPECurriculumRunner(Runner):
     def __init__(self, config):
         super(MPECurriculumRunner, self).__init__(config)
@@ -50,6 +71,9 @@ class MPECurriculumRunner(Runner):
         if self.all_args.sample_metric == 'TDerror':
             self.TD_evaluation_envs = config["TD_evaluation_envs"]
             self.TD_n_rollout_threads = config['TD_config'].n_rollout_threads
+        
+        if self.all_args.sample_metric == 'RND':
+            self.RND_model = RND_model(input_dim = self.envs.observation_space[0][0], device=self.device)
 
     def run(self):
         self.warmup()   
@@ -389,6 +413,14 @@ class MPECurriculumRunner(Runner):
 
             values_denorm = np.concatenate([red_values_denorm, -blue_values_denorm], axis=1)
             weights = np.var(values_denorm, axis=1)[:, 0] + state_density * self.least_visited_alpha
+        elif self.sample_metric == "RND":
+            prediction = self.RND_model(share_obs)
+            fixed_feature = self.RND_model.fixed_output(share_obs)
+            loss = torch.mean(torch.norm(prediction - fixed_feature, dim=1))
+            self.RND_model.optimizer.zero_grad()
+            loss.backward()
+            self.RND_model.optimizer.step()
+            weights = torch.sum(torch.norm(prediction - fixed_feature, dim=-1), dim=-1).detach().to('cpu').numpy()
     
         self.curriculum_buffer.update_weights(weights)
 

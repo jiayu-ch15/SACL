@@ -1,6 +1,6 @@
 #!/bin/sh
 # exp config
-exp="corner_sacl_1var3bias_model1@30M-from_loadred"
+exp="corner_least_visited_model1@10M-again"
 # exp="full_fsp_model3@35M-from_pretrained40M"
 # exp="debug"
 algo="mappo"
@@ -18,11 +18,11 @@ num_landmarks=2
 attn_size=32
 # training config
 training_mode="red_br"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/sacl_1var_3bias/wandb/run-20230522_085701-36wd6wgr/files/30M"
-# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/sacl_1var_3bias/wandb/run-20230522_085701-36wd6wgr/files/40M"
-# red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/sacl_1var_3bias/wandb/run-20230522_085701-36wd6wgr/files/40M"
-red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl_1var3bias_model1@30M-from_sp40M_full/wandb/run-20230524_034904-2uae196m/files"
-red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl_1var3bias_model1@30M-from_sp40M_full/wandb/run-20230524_034904-2uae196m/files"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/least_visited/wandb/run-20230803_032416-3gtqdy31/files/10M"
+red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files"
+red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files"
+# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/least_visited_add_variance_alpha3/wandb/run-20230803_033044-u1p9la9w/files"
+# red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/least_visited_add_variance_alpha3/wandb/run-20230803_033044-u1p9la9w/files"
 num_env_steps=200000000
 episode_length=200
 n_rollout_threads=100
@@ -38,7 +38,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=1 python train/train_mpe_competitive.py \
+CUDA_VISIBLE_DEVICES=3 python train/train_mpe_competitive.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \
