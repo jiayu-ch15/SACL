@@ -1,10 +1,10 @@
 #!/bin/sh
 # exp config
-# exp="least_visited_add_variance_alpha3"
-exp="corner_RND"
+exp="corner_sacl_FPS"
+# exp="corner_RND"
 # exp="debug"
 algo="mappo"
-seed=2
+seed=0
 # env config
 env="MPE"
 scenario="simple_tag_corner"

@@ -90,6 +90,7 @@ class MPECurriculumRunner(Runner):
             # save checkpoint
             if (episode + 1) % self.save_ckpt_interval == 0:
                 self.save_ckpt(total_num_steps)
+                self.curriculum_buffer.save_task(model_dir=self.save_ckpt_dir, episode=episode)
 
             # log information
             if episode % self.log_interval == 0:
