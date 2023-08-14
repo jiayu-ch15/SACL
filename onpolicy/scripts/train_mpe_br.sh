@@ -1,6 +1,6 @@
 #!/bin/sh
 # exp config
-exp="corner_least_visited_alpha1_model3@20M-again"
+exp="corner_RND_model3@5M-again"
 # exp="full_fsp_model3@35M-from_pretrained40M"
 # exp="debug"
 algo="mappo"
@@ -18,11 +18,11 @@ num_landmarks=2
 attn_size=32
 # training config
 training_mode="red_br"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/least_visited_add_variance_alpha1/wandb/run-20230803_032945-1b7lwd88/files/20M"
-# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files"
-# red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files"
-red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/least_visited_add_variance_alpha1/wandb/run-20230803_032945-1b7lwd88/files"
-red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/least_visited_add_variance_alpha1/wandb/run-20230803_032945-1b7lwd88/files"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_rnad/wandb/run-20230513_100851-ujwc33oj/files/5M"
+red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files"
+red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files"
+# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/least_visited_add_variance_alpha1/wandb/run-20230803_032945-1b7lwd88/files"
+# red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/least_visited_add_variance_alpha1/wandb/run-20230803_032945-1b7lwd88/files"
 num_env_steps=200000000
 episode_length=200
 n_rollout_threads=100
@@ -54,4 +54,4 @@ CUDA_VISIBLE_DEVICES=1 python train/train_mpe_competitive.py \
 --wandb_name ${wandb_name} \
 --warm_up ${warm_up} \
 --blue_model_dir ${blue_model_dir} \
---red_model_dir ${red_model_dir} --red_valuenorm_dir ${red_valuenorm_dir} \
+# --red_model_dir ${red_model_dir} --red_valuenorm_dir ${red_valuenorm_dir} \

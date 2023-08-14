@@ -1,6 +1,6 @@
 #!/bin/sh
 # exp config
-exp="corner_sacl_greedy_heatmap"
+exp="corner_sacl_random_heatmap"
 algo="mappo"
 seed=0
 # env config
@@ -22,15 +22,15 @@ n_rollout_threads=100
 ppo_epoch=5
 log_interval=5
 save_interval=50
-save_ckpt_interval=250
+save_ckpt_interval=50
 # curriculum config
 prob_curriculum=0.7
 curriculum_buffer_size=10000
 beta=1.0
 alpha=0.7
 num_critic=3
-update_method="greedy"
-sample_metric="ensemble_var_add_bias"
+update_method="random"
+sample_metric="ensemble_individual_variance"
 # user name
 user_name="chenjy"
 wandb_name="sacl"
@@ -42,7 +42,7 @@ red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=0 python train/train_mpe_ensemble_curriculum.py \
+CUDA_VISIBLE_DEVICES=1 python train/train_mpe_ensemble_curriculum.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \
