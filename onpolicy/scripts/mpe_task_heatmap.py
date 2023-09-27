@@ -34,14 +34,14 @@ for agent_idx in range(num_good_agents):
     good_data.append(starts[:, 3 * 4 + agent_idx * 4 : 3 * 4 + (agent_idx + 1) * 4 - 2])
 good_data = np.concatenate(good_data, axis=1)
 
-adv_data_unif=np.random.uniform(1.0, 2.0, 3000).reshape(-1,2)
-good_data_unif=np.random.uniform(-2.0, -1.0, 3000).reshape(-1,2)
+adv_data_unif=np.random.uniform(1.0, 2.0, 10000).reshape(-1,2)
+good_data_unif=np.random.uniform(-2.0, -1.0, 10000).reshape(-1,2)
 
 # adv_data = np.concatenate([adv_data[:,:2], adv_data_unif],axis=0)
 # good_data = np.concatenate([good_data[:,:2], good_data_unif],axis=0)
 
-adv_data = np.concatenate([adv_data[:,:2]],axis=0)
-good_data = np.concatenate([good_data[:,:2]],axis=0)
+adv_data = np.concatenate([adv_data_unif[:,:2]],axis=0)
+good_data = np.concatenate([good_data_unif[:,:2]],axis=0)
 
 heat_map_one = np.zeros(shape=(grid_size, grid_size))
 entitys = ['adv', 'good', 'landmark']
@@ -87,7 +87,7 @@ ax.set_title("Heatmap of the predator", fontsize=22)
 
 plt.tight_layout()
 # plt.show()
-plt.savefig('../greedy_35M_buffer_hm_predator.pdf')
+plt.savefig('../predator_unif.pdf')
 
 plt.figure()
 ax = sns.heatmap(
@@ -101,4 +101,4 @@ ax.set_title("Heatmap of the prey", fontsize=22)
 
 plt.tight_layout()
 # plt.show()
-plt.savefig('../greedy_35M_buffer_hm_prey.pdf')
+plt.savefig('../prey_unif.pdf')
