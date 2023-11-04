@@ -1,14 +1,16 @@
 #!/bin/sh
 # exp config
-exp="sp_unif_max3"
-algo="mappo"
+# exp="sp_unif_max3"
+exp="mappg_sp"
+# exp="debug"
+algo="mappg"
 seed=2
 # env config
 env="MPE"
 scenario="simple_tag_corner"
 horizon=200
-corner_min=-3.0
-corner_max=3.0
+corner_min=1.0
+corner_max=2.0
 num_adv=3
 num_good=1
 num_landmarks=2
@@ -30,7 +32,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=0 python train/train_mpe_competitive.py \
+CUDA_VISIBLE_DEVICES=1 python train/train_mpe_competitive.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} --hard_boundary \
@@ -44,3 +46,4 @@ CUDA_VISIBLE_DEVICES=0 python train/train_mpe_competitive.py \
 --hard_boundary \
 --user_name ${user_name} \
 --wandb_name ${wandb_name} \
+# --use_wandb \

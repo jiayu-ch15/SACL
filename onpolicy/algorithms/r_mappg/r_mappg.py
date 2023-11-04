@@ -32,6 +32,7 @@ class R_MAPPG():
         self.clone_coef = args.clone_coef
         self.max_grad_norm = args.max_grad_norm       
         self.huber_delta = args.huber_delta
+        self.num_critic = args.num_critic
 
         self._use_recurrent_policy = args.use_recurrent_policy
         self._use_naive_recurrent = args.use_naive_recurrent_policy
@@ -53,9 +54,14 @@ class R_MAPPG():
             self.policy_value_normalizer = None
 
     def policy_loss_update(self, sample):
-        share_obs_batch, obs_batch, rnn_states_batch, rnn_states_critic_batch, actions_batch, \
-            value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, \
-            adv_targ, available_actions_batch = sample
+        # share_obs_batch, obs_batch, rnn_states_batch, rnn_states_critic_batch, actions_batch, \
+        #     value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, \
+        #     adv_targ, available_actions_batch = sample
+
+        obs_batch, rnn_states_batch, actions_batch, masks_batch, \
+        active_masks_batch, adv_targ, old_action_log_probs_batch, available_actions_batch, \
+        _, _, _, _, \
+        _, _ = sample
 
         old_action_log_probs_batch = check(old_action_log_probs_batch).to(**self.tpdv)
         adv_targ = check(adv_targ).to(**self.tpdv)
@@ -80,6 +86,50 @@ class R_MAPPG():
         self.policy.actor_optimizer.step()
 
         return action_loss, dist_entropy, grad_norm, ratio
+
+    def value_loss_update_ensemble(self, sample):
+        # share_obs_batch, obs_batch, rnn_states_batch, rnn_states_critic_batch, actions_batch, \
+        #     value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, \
+        #     adv_targ, available_actions_batch = sample
+
+        obs_actor_batch, rnn_states_actor_batch, actions_actor_batch, masks_actor_batch, \
+        active_masks_actor_batch, adv_targ_actor, old_action_log_probs_actor_batch, available_actions_batch, \
+        share_obs_critic_batch, rnn_states_critic_batch, masks_critic_batch, value_preds_critic_batch, \
+        return_critic_batch, active_masks_critic_batch = sample
+
+        value_preds_critic_batch = check(value_preds_critic_batch).to(**self.tpdv)
+        return_critic_batch = check(return_critic_batch).to(**self.tpdv)
+        active_masks_actor_batch = check(active_masks_actor_batch).to(**self.tpdv)
+        active_masks_critic_batch = check(active_masks_critic_batch).to(**self.tpdv)
+
+        # values = self.policy.get_values(share_obs_batch, rnn_states_critic_batch, masks_batch)
+        values = []
+        for critic_id in range(self.num_critic):
+            values.append(self.policy.get_values_seperate(share_obs_critic_batch[:,critic_id],rnn_states_critic_batch[:,critic_id], masks_critic_batch[:,critic_id], critic_id))
+
+        value_loss = []
+        for critic_id in range(self.num_critic):
+            value_pred_clipped = value_preds_critic_batch[:,critic_id] + (values[critic_id] - value_preds_critic_batch[:, critic_id]).clamp(-self.clip_param, self.clip_param)
+            
+            error_clipped = return_critic_batch[:, critic_id] - value_pred_clipped
+            error_original = return_critic_batch[:, critic_id] - values[critic_id]
+
+            value_loss_clipped = huber_loss(error_clipped, self.huber_delta)
+            value_loss_original = huber_loss(error_original, self.huber_delta)
+
+            value_loss_one = torch.max(value_loss_original, value_loss_clipped)
+
+            value_loss.append((value_loss_one * active_masks_critic_batch[:,critic_id,0]).sum() /  active_masks_critic_batch[:,critic_id,0].sum())
+
+            self.policy.critic_optimizer[critic_id].zero_grad()
+
+            (value_loss[critic_id] * self.value_loss_coef).backward()
+
+            grad_norm = nn.utils.clip_grad_norm_(self.policy.critic[critic_id].parameters(), self.max_grad_norm)
+
+            self.policy.critic_optimizer[critic_id].step()
+
+        return value_loss, grad_norm
 
     def value_loss_update(self, sample):
         share_obs_batch, obs_batch, rnn_states_batch, rnn_states_critic_batch, actions_batch, \
@@ -155,6 +205,7 @@ class R_MAPPG():
             value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, \
             old_action_probs_batch, available_actions_batch = sample
 
+
         old_action_probs_batch = check(old_action_probs_batch).to(**self.tpdv)
         active_masks_batch = check(active_masks_batch).to(**self.tpdv)
         value_preds_batch = check(value_preds_batch).to(**self.tpdv)
@@ -215,11 +266,73 @@ class R_MAPPG():
 
         return joint_loss, grad_norm
 
-    def train(self, buffer):
+    def auxiliary_loss_update_ensemble(self, sample):
+        
+        # share_obs_batch, obs_batch, rnn_states_batch, rnn_states_critic_batch, actions_batch, \
+        #     value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, \
+        #     old_action_probs_batch, available_actions_batch = sample
+
+        obs_actor_batch, rnn_states_actor_batch, actions_actor_batch, masks_actor_batch, \
+        active_masks_actor_batch, old_action_probs_actor_batch, old_action_log_probs_actor_batch, available_actions_batch, \
+        share_obs_critic_batch, rnn_states_critic_batch, masks_critic_batch, value_preds_critic_batch, \
+        return_critic_batch, active_masks_critic_batch = sample
+
+        old_action_probs_actor_batch = check(old_action_probs_actor_batch).to(**self.tpdv)
+        old_action_log_probs_actor_batch = check(old_action_log_probs_actor_batch).to(**self.tpdv)
+        active_masks_actor_batch = check(active_masks_actor_batch).to(**self.tpdv)
+        active_masks_critic_batch = check(active_masks_critic_batch).to(**self.tpdv)
+        value_preds_critic_batch = check(value_preds_critic_batch).to(**self.tpdv)
+        return_critic_batch = check(return_critic_batch).to(**self.tpdv)
+
+        # Reshape to do in a single forward pass for all steps
+        values, new_action_probs = self.policy.get_policy_values_and_probs(obs_actor_batch, rnn_states_actor_batch, masks_actor_batch, available_actions_batch)
+
+        # kl = sum p * log(p / q) = sum p*(logp-logq) = sum plogp - plogq
+        # cross-entropy = sum -plogq
+        eps = (old_action_probs_actor_batch==0) * 1e-8
+        # import pdb; pdb.set_trace()
+        old_action_log_probs_batch = torch.log(old_action_probs_actor_batch + eps.float().detach())
+        eps = (new_action_probs==0) * 1e-8
+        new_action_log_probs = torch.log(new_action_probs + eps.float().detach())
+
+        kl_divergence = torch.sum((old_action_probs_actor_batch * (old_action_log_probs_actor_batch-new_action_log_probs)), dim=-1, keepdim=True)
+        kl_loss = (kl_divergence * active_masks_actor_batch).sum() / active_masks_actor_batch.sum()
+
+        value_pred_clipped = value_preds_critic_batch.mean(dim=1).unsqueeze(1) + (values - value_preds_critic_batch.mean(dim=1).unsqueeze(1)).clamp(-self.clip_param, self.clip_param)
+            
+        error_clipped = return_critic_batch.mean(dim=1).unsqueeze(1) - value_pred_clipped
+        error_original = return_critic_batch.mean(dim=1).unsqueeze(1) - values
+
+        value_loss_clipped = huber_loss(error_clipped, self.huber_delta)
+        value_loss_original = huber_loss(error_original, self.huber_delta)
+
+        value_loss = torch.max(value_loss_original, value_loss_clipped)
+
+        # TODO, use the first active_mask for easy
+        value_loss = (value_loss * active_masks_critic_batch[:,0,]).sum() / active_masks_critic_batch[:,0,].sum()
+
+        joint_loss = value_loss + self.clone_coef * kl_loss
+
+        self.policy.actor_optimizer.zero_grad()
+
+        joint_loss.backward()
+
+        if self._use_max_grad_norm:
+            grad_norm = nn.utils.clip_grad_norm_(self.policy.actor.parameters(), self.max_grad_norm)
+        else:
+            grad_norm = get_gard_norm(self.policy.actor.parameters())
+
+        self.policy.actor_optimizer.step()
+
+        return joint_loss, grad_norm
+
+    def train(self, buffer, turn_on=True):
         if self._use_popart:
             advantages = buffer.returns[:-1] - self.value_normalizer.denormalize(buffer.value_preds[:-1])
         else:
             advantages = buffer.returns[:-1] - buffer.value_preds[:-1]
+        if self.num_critic > 1:
+            advantages = np.mean(advantages, axis=3)[:,:,:,np.newaxis]
         advantages_copy = advantages.copy()
         advantages_copy[buffer.active_masks[:-1] == 0.0] = np.nan
         mean_advantages = np.nanmean(advantages_copy)
@@ -242,10 +355,14 @@ class R_MAPPG():
 
             if self._use_recurrent_policy:
                 data_generator = buffer.recurrent_generator(advantages, self.num_mini_batch, self.data_chunk_length)
-            elif self._use_naive_recurrent_policy:
-                data_generator = buffer.naive_recurrent_generator(advantages, self.num_mini_batch)
+            # elif self._use_naive_recurrent_policy:
+            #     data_generator = buffer.naive_recurrent_generator(advantages, self.num_mini_batch)
             else:
-                data_generator = buffer.feed_forward_generator(advantages, self.num_mini_batch)
+                if self.num_critic > 1:
+                    data_generator = buffer.feed_forward_generator_ensemble(advantages, self.num_mini_batch)
+                else:
+                    data_generator = buffer.feed_forward_generator(advantages, self.num_mini_batch)
+                # data_generator = buffer.feed_forward_generator(advantages, self.num_mini_batch)
 
             for sample in data_generator:
                 action_loss, dist_entropy, actor_grad_norm, ratio = self.policy_loss_update(sample)
@@ -255,7 +372,11 @@ class R_MAPPG():
                 train_info['actor_grad_norm'] += actor_grad_norm.item()
                 train_info['ratio'] += ratio.mean().item()
 
-                value_loss, critic_grad_norm = self.value_loss_update(sample)
+                if self.num_critic > 1:
+                    value_loss, critic_grad_norm = self.value_loss_update_ensemble(sample)
+                    value_loss = torch.mean(torch.tensor(value_loss))
+                else:
+                    value_loss, critic_grad_norm = self.value_loss_update(sample)
 
                 train_info['value_loss'] += value_loss.item()
                 train_info['critic_grad_norm'] += critic_grad_norm.item()
@@ -267,21 +388,31 @@ class R_MAPPG():
 
             if self._use_recurrent_policy:
                 data_generator = buffer.recurrent_generator(action_probs, self.num_mini_batch, self.data_chunk_length)
-            elif self._use_naive_recurrent_policy:
-                data_generator = buffer.naive_recurrent_generator(action_probs, self.num_mini_batch)
+            # elif self._use_naive_recurrent_policy:
+            #     data_generator = buffer.naive_recurrent_generator(action_probs, self.num_mini_batch)
             else:
-                data_generator = buffer.feed_forward_generator(action_probs, self.num_mini_batch)
+                if self.num_critic > 1:
+                    data_generator = buffer.feed_forward_generator_ensemble(action_probs, self.num_mini_batch)
+                else:
+                    data_generator = buffer.feed_forward_generator(action_probs, self.num_mini_batch)
 
             # 2. update auxiliary
             
             for sample in data_generator:
-
-                joint_loss, joint_grad_norm = self.auxiliary_loss_update(sample)
+                if self.num_critic > 1:
+                    joint_loss, joint_grad_norm = self.auxiliary_loss_update_ensemble(sample)
+                else:
+                    joint_loss, joint_grad_norm = self.auxiliary_loss_update(sample)
 
                 train_info['joint_loss'] += joint_loss.item()
                 train_info['joint_grad_norm'] += joint_grad_norm.item()
 
-                value_loss, critic_grad_norm = self.value_loss_update(sample)
+                # value_loss, critic_grad_norm = self.value_loss_update(sample)
+                if self.num_critic > 1:
+                    value_loss, critic_grad_norm = self.value_loss_update_ensemble(sample)
+                    value_loss = torch.mean(torch.tensor(value_loss))
+                else:
+                    value_loss, critic_grad_norm = self.value_loss_update(sample)
 
                 train_info['value_loss'] += value_loss.item()
                 train_info['critic_grad_norm'] += critic_grad_norm.item()

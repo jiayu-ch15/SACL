@@ -104,6 +104,7 @@ class Runner(object):
             else:
                 from onpolicy.algorithms.r_mappg.r_mappg import R_MAPPG as TrainAlgo
                 from onpolicy.algorithms.r_mappg.algorithm.rMAPPGPolicy import R_MAPPGPolicy as Policy
+                from onpolicy.algorithms.r_mappg.algorithm.rMAPPGPolicy import R_MAPPGPolicy_ensemble as Policy_ensemble
         elif "ft" in self.algorithm_name:
             print("use frontier-based algorithm")
         else:

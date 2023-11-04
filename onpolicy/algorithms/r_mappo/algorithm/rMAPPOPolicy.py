@@ -49,6 +49,7 @@ class R_MAPPOPolicy_ensemble:
         values_all = torch.concat(values_all,dim=1)
         return values_all
 
+    # for ensemble
     def get_values_seperate(self, share_obs, rnn_states_critic, masks, critic_id):
         values, _ = self.critic[critic_id](share_obs, rnn_states_critic, masks)
         return values[:,0]

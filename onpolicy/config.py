@@ -184,7 +184,7 @@ def get_config():
 
     # prepare parameters
     parser.add_argument("--algorithm_name", type=str,
-                        default='mappo', choices=["rmappo", "mappo", "rmappg", "mappg", "ft_rrt", "ft_nearest", "ft_apf", "ft_utility"])
+                        default='mappo', choices=["happo", "mat", "rmappo", "mappo", "rmappg", "mappg", "ft_rrt", "ft_nearest", "ft_apf", "ft_utility"])
 
     parser.add_argument("--experiment_name", type=str, default="check", help="an identifier to distinguish different experiment.")
     parser.add_argument("--seed", type=int, default=1, help="Random seed for numpy/torch")
@@ -351,5 +351,14 @@ def get_config():
 
     # cl parameters
     parser.add_argument("--num_critic", type=int,default=1, help='number of critic network')
+
+    # transformer parameters
+    # add for transformer
+    parser.add_argument("--encode_state", action='store_true', default=False)
+    parser.add_argument("--n_block", type=int, default=1)
+    parser.add_argument("--n_embd", type=int, default=64)
+    parser.add_argument("--n_head", type=int, default=1)
+    parser.add_argument("--dec_actor", action='store_true', default=True)
+    parser.add_argument("--share_actor", action='store_true', default=False)
 
     return parser

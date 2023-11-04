@@ -87,6 +87,10 @@ def main(args):
         assert (all_args.use_recurrent_policy or all_args.use_naive_recurrent_policy), ("check recurrent policy!")
     elif all_args.algorithm_name == "mappo" or all_args.algorithm_name == "mappg":
         assert (all_args.use_recurrent_policy == False and all_args.use_naive_recurrent_policy == False), ("check recurrent policy!")
+    elif all_args.algorithm_name == "happo":
+        assert (all_args.use_recurrent_policy == False and all_args.use_naive_recurrent_policy == False), ("check recurrent policy!")
+    elif all_args.algorithm_name == "mat":
+        assert (all_args.use_recurrent_policy == False and all_args.use_naive_recurrent_policy == False), ("check recurrent policy!")
     else:
         raise NotImplementedError(f"Unsupported algorithm name: {all_args.algorithm_name}.")
 

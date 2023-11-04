@@ -102,31 +102,60 @@ class Runner(object):
             else:
                 from onpolicy.algorithms.r_mappg.r_mappg import R_MAPPG as TrainAlgo
                 from onpolicy.algorithms.r_mappg.algorithm.rMAPPGPolicy import R_MAPPGPolicy as Policy
+        elif self.algorithm_name == "mat" or self.algorithm_name == "mat_dec":
+            from onpolicy.algorithms.mat.mat_trainer import MATTrainer as TrainAlgo
+            from onpolicy.algorithms.mat.algorithm.transformer_policy import TransformerPolicy as Policy
+        # elif self.algorithm_name == "happo":
+        #     from onpolicy.algorithms.happo.happo_trainer import HAPPO as TrainAlgo
+        #     from onpolicy.algorithms.happo.policy import HAPPO_Policy as Policy
         elif "ft" in self.algorithm_name:
             print("use frontier-based algorithm")
         else:
             raise NotImplementedError
 
         if "ft" not in self.algorithm_name:
-            # policy network
-            self.red_policy = Policy(
-                self.all_args,
-                self.envs.observation_space[0],
-                self.envs.share_observation_space[0] if self.use_centralized_V else self.envs.observation_space[0],
-                self.envs.action_space[0],
-                device=self.device,
-            )
-            self.blue_policy = Policy(
-                self.all_args,
-                self.envs.observation_space[-1],
-                self.envs.share_observation_space[-1] if self.use_centralized_V else self.envs.observation_space[-1],
-                self.envs.action_space[-1],
-                device=self.device,
-            )
+            if self.algorithm_name == "mat":
+                # policy network
+                self.red_policy = Policy(
+                    self.all_args,
+                    self.envs.observation_space[0],
+                    self.envs.share_observation_space[0] if self.use_centralized_V else self.envs.observation_space[0],
+                    self.envs.action_space[0],
+                    num_agents=self.num_red,
+                    device=self.device,
+                )
+                self.blue_policy = Policy(
+                    self.all_args,
+                    self.envs.observation_space[-1],
+                    self.envs.share_observation_space[-1] if self.use_centralized_V else self.envs.observation_space[-1],
+                    self.envs.action_space[-1],
+                    num_agents=self.num_blue,
+                    device=self.device,
+                )
+            else:
+                # policy network
+                self.red_policy = Policy(
+                    self.all_args,
+                    self.envs.observation_space[0],
+                    self.envs.share_observation_space[0] if self.use_centralized_V else self.envs.observation_space[0],
+                    self.envs.action_space[0],
+                    device=self.device,
+                )
+                self.blue_policy = Policy(
+                    self.all_args,
+                    self.envs.observation_space[-1],
+                    self.envs.share_observation_space[-1] if self.use_centralized_V else self.envs.observation_space[-1],
+                    self.envs.action_space[-1],
+                    device=self.device,
+                )
 
             # algorithm
-            self.red_trainer = TrainAlgo(self.all_args, self.red_policy, device=self.device)
-            self.blue_trainer = TrainAlgo(self.all_args, self.blue_policy, device=self.device)
+            if self.algorithm_name == "mat":
+                self.red_trainer = TrainAlgo(self.all_args, self.red_policy, num_agents=self.num_red, device=self.device)
+                self.blue_trainer = TrainAlgo(self.all_args, self.blue_policy, num_agents=self.num_blue, device=self.device)
+            else:
+                self.red_trainer = TrainAlgo(self.all_args, self.red_policy, device=self.device)
+                self.blue_trainer = TrainAlgo(self.all_args, self.blue_policy, device=self.device)
 
             # restore model
             if self.red_model_dir is not None:
