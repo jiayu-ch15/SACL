@@ -151,43 +151,46 @@ class Runner(object):
                     device=self.device,
                 )
 
-                # algorithm
-                if self.algorithm_name == "mat":
-                    self.red_trainer = TrainAlgo(self.all_args, self.red_policy, num_agents=self.num_red, device=self.device)
-                    self.blue_trainer = TrainAlgo(self.all_args, self.blue_policy, num_agents=self.num_blue, device=self.device)
-                else:
-                    self.red_trainer = TrainAlgo(self.all_args, self.red_policy, device=self.device)
-                    self.blue_trainer = TrainAlgo(self.all_args, self.blue_policy, device=self.device)
+            # algorithm
+            if self.algorithm_name == "mat":
+                self.red_trainer = TrainAlgo(self.all_args, self.red_policy, num_agents=self.num_red, device=self.device)
+                self.blue_trainer = TrainAlgo(self.all_args, self.blue_policy, num_agents=self.num_blue, device=self.device)
+            else:
+                self.red_trainer = TrainAlgo(self.all_args, self.red_policy, device=self.device)
+                self.blue_trainer = TrainAlgo(self.all_args, self.blue_policy, device=self.device)
 
-                # restore model
-                if self.red_model_dir is not None:
-                    self.restore("red_model")
-                if self.blue_model_dir is not None:
-                    self.restore("blue_model")
-                if self.use_valuenorm and self.red_valuenorm_dir is not None:
-                    self.restore("red_valuenorm")
-                if self.use_valuenorm and self.blue_valuenorm_dir is not None:
-                    self.restore("blue_valuenorm")
+            # restore model
+            if self.red_model_dir is not None:
+                self.restore("red_model")
+            if self.blue_model_dir is not None:
+                self.restore("blue_model")
+            if self.use_valuenorm and self.red_valuenorm_dir is not None:
+                self.restore("red_valuenorm")
+            if self.use_valuenorm and self.blue_valuenorm_dir is not None:
+                self.restore("blue_valuenorm")
 
-                # buffer
-                self.red_buffer = SharedReplayBuffer(
-                    self.all_args,
-                    self.num_red,
-                    self.envs.observation_space[0],
-                    self.envs.share_observation_space[0] if self.use_centralized_V else self.envs.observation_space[0],
-                    self.envs.action_space[0],
-                )
-                self.blue_buffer = SharedReplayBuffer(
-                    self.all_args,
-                    self.num_blue,
-                    self.envs.observation_space[-1],
-                    self.envs.share_observation_space[-1] if self.use_centralized_V else self.envs.observation_space[-1],
-                    self.envs.action_space[-1],
-                )
+            # buffer
+            self.red_buffer = SharedReplayBuffer(
+                self.all_args,
+                self.num_red,
+                self.envs.observation_space[0],
+                self.envs.share_observation_space[0] if self.use_centralized_V else self.envs.observation_space[0],
+                self.envs.action_space[0],
+            )
+            self.blue_buffer = SharedReplayBuffer(
+                self.all_args,
+                self.num_blue,
+                self.envs.observation_space[-1],
+                self.envs.share_observation_space[-1] if self.use_centralized_V else self.envs.observation_space[-1],
+                self.envs.action_space[-1],
+            )
         else:
             # br, set opponent_algorithm_name
             if self.opponent_name == 'mappg':
                 from onpolicy.algorithms.r_mappg.algorithm.rMAPPGPolicy import R_MAPPGPolicy as OppoPolicy
+            elif self.opponent_name == 'mat':
+                # from onpolicy.algorithms.mat.algorithm.transformer_policy import TransformerPolicy as OppoPolicy
+                from onpolicy.algorithms.mat.algorithm.transformer_policy import TransformerPolicy_ensemble as OppoPolicy
 
             # policy network
             self.red_policy = Policy(
@@ -197,17 +200,27 @@ class Runner(object):
                 self.envs.action_space[0],
                 device=self.device,
             )
-            self.blue_policy = OppoPolicy(
-                self.all_args,
-                self.envs.observation_space[-1],
-                self.envs.share_observation_space[-1] if self.use_centralized_V else self.envs.observation_space[-1],
-                self.envs.action_space[-1],
-                device=self.device,
-            )
+            if self.opponent_name == 'mat':
+                self.blue_policy = OppoPolicy(
+                    self.all_args,
+                    self.envs.observation_space[-1],
+                    self.envs.share_observation_space[-1] if self.use_centralized_V else self.envs.observation_space[-1],
+                    self.envs.action_space[-1],
+                    num_agents=self.num_blue,
+                    device=self.device,
+                )
+            else:
+                self.blue_policy = OppoPolicy(
+                    self.all_args,
+                    self.envs.observation_space[-1],
+                    self.envs.share_observation_space[-1] if self.use_centralized_V else self.envs.observation_space[-1],
+                    self.envs.action_space[-1],
+                    device=self.device,
+                )
 
             # algorithm
             self.red_trainer = TrainAlgo(self.all_args, self.red_policy, device=self.device)
-            self.blue_trainer = TrainAlgo(self.all_args, self.blue_policy, device=self.device)
+            self.blue_trainer = TrainAlgo(self.all_args, self.blue_policy, device=self.device, role='blue')
 
             # restore model
             if self.red_model_dir is not None:
@@ -373,8 +386,12 @@ class Runner(object):
                 blue_policy_model_state_dict = torch.load(f"{self.blue_model_dir[idx]}/blue_model.pt", map_location=self.device)
                 self.blue_trainer.policy.model.load_state_dict(blue_policy_model_state_dict)
             else:
-                blue_policy_actor_state_dict = torch.load(f"{self.blue_model_dir[idx]}/blue_actor.pt", map_location=self.device)
-                self.blue_trainer.policy.actor.load_state_dict(blue_policy_actor_state_dict)
+                if self.opponent_name == 'mat':
+                    blue_policy_actor_state_dict = torch.load(f"{self.blue_model_dir[idx]}/blue_actor.pt", map_location=self.device)
+                    self.blue_trainer.policy.transformer.load_state_dict(blue_policy_actor_state_dict)
+                else:
+                    blue_policy_actor_state_dict = torch.load(f"{self.blue_model_dir[idx]}/blue_actor.pt", map_location=self.device)
+                    self.blue_trainer.policy.actor.load_state_dict(blue_policy_actor_state_dict)
                 # if not (self.all_args.use_render or self.all_args.use_eval):
                 # blue_policy_critic_state_dict = torch.load(f"{self.blue_model_dir[idx]}/blue_critic.pt", map_location=self.device)
                 # self.blue_trainer.policy.critic.load_state_dict(blue_policy_critic_state_dict)

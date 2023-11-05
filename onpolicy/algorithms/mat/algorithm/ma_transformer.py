@@ -83,7 +83,6 @@ class EncodeBlock(nn.Module):
         x = self.ln2(x + self.mlp(x))
         return x
 
-
 class DecodeBlock(nn.Module):
     """ an unassuming Transformer block """
 
@@ -109,8 +108,7 @@ class DecodeBlock(nn.Module):
 
 
 class Encoder(nn.Module):
-
-    def __init__(self, state_dim, obs_dim, n_block, n_embd, n_head, n_agent, encode_state):
+    def __init__(self, num_critic, state_dim, obs_dim, n_block, n_embd, n_head, n_agent, encode_state):
         super(Encoder, self).__init__()
 
         self.state_dim = state_dim
@@ -118,6 +116,7 @@ class Encoder(nn.Module):
         self.n_embd = n_embd
         self.n_agent = n_agent
         self.encode_state = encode_state
+        self.num_critic = num_critic
         # self.agent_id_emb = nn.Parameter(torch.zeros(1, n_agent, n_embd))
 
         self.state_encoder = nn.Sequential(nn.LayerNorm(state_dim),
@@ -127,24 +126,27 @@ class Encoder(nn.Module):
 
         self.ln = nn.LayerNorm(n_embd)
         self.blocks = nn.Sequential(*[EncodeBlock(n_embd, n_head, n_agent) for _ in range(n_block)])
-        self.head = nn.Sequential(init_(nn.Linear(n_embd, n_embd), activate=True), nn.GELU(), nn.LayerNorm(n_embd),
-                                  init_(nn.Linear(n_embd, 1)))
+        if self.num_critic > 1:
+            self.head = [nn.Sequential(init_(nn.Linear(n_embd, n_embd), activate=True), nn.GELU(), nn.LayerNorm(n_embd),
+                                    init_(nn.Linear(n_embd, 1))) for _ in range(self.num_critic)]
+            self.head = nn.ModuleList(self.head)
+        else:
+            self.head = nn.Sequential(init_(nn.Linear(n_embd, n_embd), activate=True), nn.GELU(), nn.LayerNorm(n_embd),
+                        init_(nn.Linear(n_embd, 1)))
 
-    def forward(self, state, obs):
+    def forward(self, obs, critic_id=None):
         # state: (batch, n_agent, state_dim)
         # obs: (batch, n_agent, obs_dim)
-        if self.encode_state:
-            state_embeddings = self.state_encoder(state)
-            x = state_embeddings
-        else:
-            obs_embeddings = self.obs_encoder(obs)
-            x = obs_embeddings
+        obs_embeddings = self.obs_encoder(obs)
+        x = obs_embeddings
 
         rep = self.blocks(self.ln(x))
-        v_loc = self.head(rep)
+        if critic_id is None:
+            v_loc = self.head(rep)
+        else:
+            v_loc = self.head[critic_id](rep)
 
         return v_loc, rep
-
 
 class Decoder(nn.Module):
 
@@ -225,7 +227,7 @@ class MultiAgentTransformer(nn.Module):
 
     def __init__(self, state_dim, obs_dim, action_dim, n_agent,
                  n_block, n_embd, n_head, encode_state=False, device=torch.device("cpu"),
-                 action_type='Discrete', dec_actor=False, share_actor=False):
+                 action_type='Discrete', dec_actor=False, share_actor=False, num_critic=1):
         super(MultiAgentTransformer, self).__init__()
 
         self.n_agent = n_agent
@@ -233,11 +235,9 @@ class MultiAgentTransformer(nn.Module):
         self.tpdv = dict(dtype=torch.float32, device=device)
         self.action_type = action_type
         self.device = device
+        self.num_critic = num_critic
 
-        # state unused
-        state_dim = 37
-
-        self.encoder = Encoder(state_dim, obs_dim, n_block, n_embd, n_head, n_agent, encode_state)
+        self.encoder = Encoder(num_critic, state_dim, obs_dim, n_block, n_embd, n_head, n_agent, encode_state)
         self.decoder = Decoder(obs_dim, action_dim, n_block, n_embd, n_head, n_agent,
                                self.action_type, dec_actor=dec_actor, share_actor=share_actor)
         self.to(device)
@@ -252,19 +252,19 @@ class MultiAgentTransformer(nn.Module):
         # action: (batch, n_agent, 1)
         # available_actions: (batch, n_agent, act_dim)
 
-        # state unused
-        ori_shape = np.shape(state)
-        state = np.zeros((*ori_shape[:-1], 37), dtype=np.float32)
+        # # state unused
+        # ori_shape = np.shape(state)
+        # state = np.zeros((*ori_shape[:-1], 37), dtype=np.float32)
 
-        state = check(state).to(**self.tpdv)
+        # state = check(state).to(**self.tpdv)
         obs = check(obs).to(**self.tpdv)
         action = check(action).to(**self.tpdv)
 
         if available_actions is not None:
             available_actions = check(available_actions).to(**self.tpdv)
 
-        batch_size = np.shape(state)[0]
-        v_loc, obs_rep = self.encoder(state, obs)
+        batch_size = np.shape(obs)[0]
+        v_loc, obs_rep = self.encoder(obs)
         if self.action_type == 'Discrete':
             action = action.long()
             action_log, entropy = discrete_parallel_act(self.decoder, obs_rep, obs, action, batch_size,
@@ -275,10 +275,34 @@ class MultiAgentTransformer(nn.Module):
 
         return action_log, v_loc, entropy
 
+    def only_evaluate_actions(self, obs, action, available_actions=None):
+        obs = check(obs).to(**self.tpdv)
+        action = check(action).to(**self.tpdv)
+
+        if available_actions is not None:
+            available_actions = check(available_actions).to(**self.tpdv)
+
+        batch_size = np.shape(obs)[0]
+        v_loc = []
+        for critic_id in range(self.num_critic):
+            v_loc_one, obs_rep = self.encoder(obs, critic_id)
+            v_loc.append(v_loc_one)
+        v_loc = torch.stack(v_loc, dim=1)
+        if self.action_type == 'Discrete':
+            action = action.long()
+            action_log, entropy = discrete_parallel_act(self.decoder, obs_rep, obs, action, batch_size,
+                                                        self.n_agent, self.action_dim, self.tpdv, available_actions)
+        else:
+            action_log, entropy = continuous_parallel_act(self.decoder, obs_rep, obs, action, batch_size,
+                                                          self.n_agent, self.action_dim, self.tpdv)
+
+        return action_log, v_loc, entropy
+
+
     def get_actions(self, state, obs, available_actions=None, deterministic=False):
         # state unused
-        ori_shape = np.shape(obs)
-        state = np.zeros((*ori_shape[:-1], 37), dtype=np.float32)
+        # ori_shape = np.shape(obs)
+        # state = np.zeros((*ori_shape[:-1], 37), dtype=np.float32)
 
         state = check(state).to(**self.tpdv)
         obs = check(obs).to(**self.tpdv)
@@ -286,7 +310,13 @@ class MultiAgentTransformer(nn.Module):
             available_actions = check(available_actions).to(**self.tpdv)
 
         batch_size = np.shape(obs)[0]
-        v_loc, obs_rep = self.encoder(obs)
+        
+        v_loc = []
+        for critic_id in range(self.num_critic):
+            v_loc_one, obs_rep = self.encoder(obs, critic_id)
+            v_loc.append(v_loc_one)
+        v_loc = torch.stack(v_loc, dim=1)
+        
         if self.action_type == "Discrete":
             output_action, output_action_log = discrete_autoregreesive_act(self.decoder, obs_rep, obs, batch_size,
                                                                            self.n_agent, self.action_dim, self.tpdv,
@@ -299,13 +329,20 @@ class MultiAgentTransformer(nn.Module):
         return output_action, output_action_log, v_loc
 
     def get_values(self, obs):
-        # state unused
+        # # state unused
         # ori_shape = np.shape(state)
         # state = np.zeros((*ori_shape[:-1], 37), dtype=np.float32)
 
-        # state = check(state).to(**self.tpdv)
         obs = check(obs).to(**self.tpdv)
         v_tot, obs_rep = self.encoder(obs)
         return v_tot
 
+    def get_values_seperate(self, obs, critic_id):
+        # # state unused
+        # ori_shape = np.shape(state)
+        # state = np.zeros((*ori_shape[:-1], 37), dtype=np.float32)
+
+        obs = check(obs).to(**self.tpdv)
+        v_tot, obs_rep = self.encoder(obs, critic_id)
+        return v_tot
 

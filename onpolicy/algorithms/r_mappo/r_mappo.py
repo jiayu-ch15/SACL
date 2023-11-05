@@ -15,7 +15,8 @@ class R_MAPPO():
     def __init__(self,
                  args,
                  policy,
-                 device=torch.device("cpu")):
+                 device=torch.device("cpu"),
+                 role='red'):
 
         self.device = device
         self.tpdv = dict(dtype=torch.float32, device=device)
@@ -31,6 +32,7 @@ class R_MAPPO():
         self.max_grad_norm = args.max_grad_norm       
         self.huber_delta = args.huber_delta
         self.num_critic = args.num_critic
+        self.role = role
 
         self._use_recurrent_policy = args.use_recurrent_policy
         self._use_naive_recurrent = args.use_naive_recurrent_policy
@@ -301,5 +303,8 @@ class R_MAPPO():
         self.policy.critic.train()
 
     def prep_rollout(self):
-        self.policy.actor.eval()
-        self.policy.critic.eval()
+        if self.role == 'blue':
+            self.policy.transformer.eval()
+        else:
+            self.policy.actor.eval()
+            self.policy.critic.eval()
