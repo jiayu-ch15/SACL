@@ -69,6 +69,7 @@ class Runner(object):
         self.use_eval = self.all_args.use_eval
         self.eval_interval = self.all_args.eval_interval
         self.log_interval = self.all_args.log_interval
+        self.opponent_name = self.all_args.oppenent_name
 
         if self.use_render:
             self.gif_dir = f"{self.red_model_dir[0]}/gifs"
@@ -113,7 +114,8 @@ class Runner(object):
         else:
             raise NotImplementedError
 
-        if "ft" not in self.algorithm_name:
+        if self.algorithm_name == self.opponent_name:
+            # self-play
             if self.algorithm_name == "mat":
                 # policy network
                 self.red_policy = Policy(
@@ -149,13 +151,63 @@ class Runner(object):
                     device=self.device,
                 )
 
+                # algorithm
+                if self.algorithm_name == "mat":
+                    self.red_trainer = TrainAlgo(self.all_args, self.red_policy, num_agents=self.num_red, device=self.device)
+                    self.blue_trainer = TrainAlgo(self.all_args, self.blue_policy, num_agents=self.num_blue, device=self.device)
+                else:
+                    self.red_trainer = TrainAlgo(self.all_args, self.red_policy, device=self.device)
+                    self.blue_trainer = TrainAlgo(self.all_args, self.blue_policy, device=self.device)
+
+                # restore model
+                if self.red_model_dir is not None:
+                    self.restore("red_model")
+                if self.blue_model_dir is not None:
+                    self.restore("blue_model")
+                if self.use_valuenorm and self.red_valuenorm_dir is not None:
+                    self.restore("red_valuenorm")
+                if self.use_valuenorm and self.blue_valuenorm_dir is not None:
+                    self.restore("blue_valuenorm")
+
+                # buffer
+                self.red_buffer = SharedReplayBuffer(
+                    self.all_args,
+                    self.num_red,
+                    self.envs.observation_space[0],
+                    self.envs.share_observation_space[0] if self.use_centralized_V else self.envs.observation_space[0],
+                    self.envs.action_space[0],
+                )
+                self.blue_buffer = SharedReplayBuffer(
+                    self.all_args,
+                    self.num_blue,
+                    self.envs.observation_space[-1],
+                    self.envs.share_observation_space[-1] if self.use_centralized_V else self.envs.observation_space[-1],
+                    self.envs.action_space[-1],
+                )
+        else:
+            # br, set opponent_algorithm_name
+            if self.opponent_name == 'mappg':
+                from onpolicy.algorithms.r_mappg.algorithm.rMAPPGPolicy import R_MAPPGPolicy as OppoPolicy
+
+            # policy network
+            self.red_policy = Policy(
+                self.all_args,
+                self.envs.observation_space[0],
+                self.envs.share_observation_space[0] if self.use_centralized_V else self.envs.observation_space[0],
+                self.envs.action_space[0],
+                device=self.device,
+            )
+            self.blue_policy = OppoPolicy(
+                self.all_args,
+                self.envs.observation_space[-1],
+                self.envs.share_observation_space[-1] if self.use_centralized_V else self.envs.observation_space[-1],
+                self.envs.action_space[-1],
+                device=self.device,
+            )
+
             # algorithm
-            if self.algorithm_name == "mat":
-                self.red_trainer = TrainAlgo(self.all_args, self.red_policy, num_agents=self.num_red, device=self.device)
-                self.blue_trainer = TrainAlgo(self.all_args, self.blue_policy, num_agents=self.num_blue, device=self.device)
-            else:
-                self.red_trainer = TrainAlgo(self.all_args, self.red_policy, device=self.device)
-                self.blue_trainer = TrainAlgo(self.all_args, self.blue_policy, device=self.device)
+            self.red_trainer = TrainAlgo(self.all_args, self.red_policy, device=self.device)
+            self.blue_trainer = TrainAlgo(self.all_args, self.blue_policy, device=self.device)
 
             # restore model
             if self.red_model_dir is not None:
