@@ -1,10 +1,10 @@
 #!/bin/sh
 # exp config
 # exp="sp_unif_max3"
-exp="mappg_sp"
-# exp="debug"
-algo="mappg"
-seed=2
+# exp="mappg_sp"
+exp="debug"
+algo="matrpo"
+seed=0
 # env config
 env="MPE"
 scenario="simple_tag_corner"
@@ -46,4 +46,4 @@ CUDA_VISIBLE_DEVICES=1 python train/train_mpe_competitive.py \
 --hard_boundary \
 --user_name ${user_name} \
 --wandb_name ${wandb_name} \
-# --use_wandb \
+--use_wandb \
