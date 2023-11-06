@@ -222,7 +222,7 @@ class Runner(object):
 
             # algorithm
             self.red_trainer = TrainAlgo(self.all_args, self.red_policy, device=self.device)
-            self.blue_trainer = TrainAlgo(self.all_args, self.blue_policy, device=self.device, role='blue')
+            self.blue_trainer = TrainAlgo(self.all_args, self.blue_policy, device=self.device, algo=self.opponent_name)
 
             # restore model
             if self.red_model_dir is not None:
@@ -401,7 +401,6 @@ class Runner(object):
                     self.blue_trainer.policy.transformer.load_state_dict(blue_policy_actor_state_dict)
                 else:
                     blue_policy_actor_state_dict = torch.load(f"{self.blue_model_dir[idx]}/blue_actor.pt", map_location=self.device)
-                    import pdb; pdb.set_trace()
                     self.blue_trainer.policy.actor.load_state_dict(blue_policy_actor_state_dict)
                 # if not (self.all_args.use_render or self.all_args.use_eval):
                 # blue_policy_critic_state_dict = torch.load(f"{self.blue_model_dir[idx]}/blue_critic.pt", map_location=self.device)

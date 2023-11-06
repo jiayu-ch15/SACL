@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from onpolicy.algorithms.r_mappo.algorithm.r_actor_critic import R_Actor, R_Critic
+from onpolicy.algorithms.r_trpo.algorithm.r_actor_critic import R_Actor, R_Critic
 from onpolicy.utils.util import update_linear_schedule
 
 class R_TRPOPolicy_ensemble:
