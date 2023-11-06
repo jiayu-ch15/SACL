@@ -3,7 +3,7 @@
 # exp="sp_unif_max3"
 # exp="mappg_sp"
 exp="debug"
-algo="matrpo"
+algo="mappo"
 seed=0
 # env config
 env="MPE"

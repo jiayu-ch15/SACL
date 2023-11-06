@@ -73,6 +73,7 @@ class MLPBase(nn.Module):
         if self._use_feature_normalization:
             self.feature_norm = nn.LayerNorm(obs_dim)
 
+        import pdb; pdb.set_trace()
         if self._use_attn and self._use_attn_internal:
         
             if self._use_average_pool:
