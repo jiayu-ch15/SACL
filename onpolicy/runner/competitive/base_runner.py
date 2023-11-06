@@ -189,8 +189,10 @@ class Runner(object):
             if self.opponent_name == 'mappg':
                 from onpolicy.algorithms.r_mappg.algorithm.rMAPPGPolicy import R_MAPPGPolicy as OppoPolicy
             elif self.opponent_name == 'mat':
-                # from onpolicy.algorithms.mat.algorithm.transformer_policy import TransformerPolicy as OppoPolicy
-                from onpolicy.algorithms.mat.algorithm.transformer_policy import TransformerPolicy_ensemble as OppoPolicy
+                from onpolicy.algorithms.mat.algorithm.transformer_policy import TransformerPolicy as OppoPolicy
+                # from onpolicy.algorithms.mat.algorithm.transformer_policy import TransformerPolicy_ensemble as OppoPolicy
+            elif self.opponent_name == 'matrpo':
+                from onpolicy.algorithms.r_trpo.algorithm.rTRPOPolicy import R_TRPOPolicy as OppoPolicy
 
             # policy network
             self.red_policy = Policy(
@@ -331,13 +333,17 @@ class Runner(object):
                 red_value_normalizer = self.red_trainer.value_normalizer
                 torch.save(red_value_normalizer.state_dict(), f"{self.save_dir}/red_value_normalizer.pt")
 
-            blue_policy_actor = self.blue_trainer.policy.actor
-            torch.save(blue_policy_actor.state_dict(), f"{self.save_dir}/blue_actor.pt")
-            blue_policy_critic = self.blue_trainer.policy.critic
-            torch.save(blue_policy_critic.state_dict(), f"{self.save_dir}/blue_critic.pt")
-            if self.use_valuenorm:
-                blue_value_normalizer = self.blue_trainer.value_normalizer
-                torch.save(blue_value_normalizer.state_dict(), f"{self.save_dir}/blue_value_normalizer.pt")
+            if self.opponent_name == 'mat':
+                blue_policy = self.blue_trainer.policy.transformer
+                torch.save(blue_policy.state_dict(), f"{self.save_dir}/blue_actor.pt")
+            else:
+                blue_policy_actor = self.blue_trainer.policy.actor
+                torch.save(blue_policy_actor.state_dict(), f"{self.save_dir}/blue_actor.pt")
+                blue_policy_critic = self.blue_trainer.policy.critic
+                torch.save(blue_policy_critic.state_dict(), f"{self.save_dir}/blue_critic.pt")
+                if self.use_valuenorm:
+                    blue_value_normalizer = self.blue_trainer.value_normalizer
+                    torch.save(blue_value_normalizer.state_dict(), f"{self.save_dir}/blue_value_normalizer.pt")
     
     def save_ckpt(self, total_num_steps):
         million_steps = int(total_num_steps // 1000000)
@@ -359,13 +365,17 @@ class Runner(object):
                 red_value_normalizer = self.red_trainer.value_normalizer
                 torch.save(red_value_normalizer.state_dict(), f"{save_ckpt_dir}/red_value_normalizer.pt")
 
-            blue_policy_actor = self.blue_trainer.policy.actor
-            torch.save(blue_policy_actor.state_dict(), f"{save_ckpt_dir}/blue_actor.pt")
-            blue_policy_critic = self.blue_trainer.policy.critic
-            torch.save(blue_policy_critic.state_dict(), f"{save_ckpt_dir}/blue_critic.pt")
-            if self.use_valuenorm:
-                blue_value_normalizer = self.blue_trainer.value_normalizer
-                torch.save(blue_value_normalizer.state_dict(), f"{save_ckpt_dir}/blue_value_normalizer.pt")
+            if self.opponent_name == 'mat':
+                blue_policy = self.blue_trainer.policy.transformer
+                torch.save(blue_policy.state_dict(), f"{save_ckpt_dir}/blue_actor.pt")
+            else:
+                blue_policy_actor = self.blue_trainer.policy.actor
+                torch.save(blue_policy_actor.state_dict(), f"{save_ckpt_dir}/blue_actor.pt")
+                blue_policy_critic = self.blue_trainer.policy.critic
+                torch.save(blue_policy_critic.state_dict(), f"{save_ckpt_dir}/blue_critic.pt")
+                if self.use_valuenorm:
+                    blue_value_normalizer = self.blue_trainer.value_normalizer
+                    torch.save(blue_value_normalizer.state_dict(), f"{save_ckpt_dir}/blue_value_normalizer.pt")
 
     def restore(self, model, idx=0):
         if model == "red_model":
@@ -391,6 +401,7 @@ class Runner(object):
                     self.blue_trainer.policy.transformer.load_state_dict(blue_policy_actor_state_dict)
                 else:
                     blue_policy_actor_state_dict = torch.load(f"{self.blue_model_dir[idx]}/blue_actor.pt", map_location=self.device)
+                    import pdb; pdb.set_trace()
                     self.blue_trainer.policy.actor.load_state_dict(blue_policy_actor_state_dict)
                 # if not (self.all_args.use_render or self.all_args.use_eval):
                 # blue_policy_critic_state_dict = torch.load(f"{self.blue_model_dir[idx]}/blue_critic.pt", map_location=self.device)

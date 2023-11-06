@@ -1,10 +1,10 @@
 #!/bin/sh
 # exp config
-exp="mat_sacl_model1@5M"
+# exp="mat_sp_model1@30M_from_scratch"
 # exp="full_fsp_model3@35M-from_pretrained40M"
-# exp="debug"
+exp="debug"
 algo="mappo"
-oppenent_name="mat"
+oppenent_name="matrpo"
 seed=0
 # env config
 env="MPE"
@@ -19,7 +19,7 @@ num_landmarks=2
 attn_size=32
 # training config
 training_mode="red_br"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mat/mat_sacl/wandb/run-20231105_015933-yh35vkam/files/5M"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/matrpo/matrpo_sacl/wandb/run-20231105_155313-2yr2u41t/files/5M"
 red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files"
 red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files"
 # red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/least_visited_add_variance_alpha1/wandb/run-20230803_032945-1b7lwd88/files"
@@ -57,4 +57,4 @@ CUDA_VISIBLE_DEVICES=0 python train/train_mpe_competitive.py \
 --oppenent_name ${oppenent_name} \
 --blue_model_dir ${blue_model_dir} \
 --red_model_dir ${red_model_dir} --red_valuenorm_dir ${red_valuenorm_dir} \
-# --use_wandb \
+--use_wandb \

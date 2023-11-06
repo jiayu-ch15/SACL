@@ -4,7 +4,7 @@ import torch.nn as nn
 from onpolicy.algorithms.r_mappo.algorithm.r_actor_critic import R_Actor, R_Critic
 from onpolicy.utils.util import update_linear_schedule
 
-class R_MAPPOPolicy_ensemble:
+class R_TRPOPolicy_ensemble:
     def __init__(self, args, obs_space, share_obs_space, act_space, device=torch.device("cpu")):
 
         self.device = device
@@ -31,7 +31,7 @@ class R_MAPPOPolicy_ensemble:
         update_linear_schedule(self.critic_optimizer, episode, episodes, self.critic_lr)
 
     def get_actions(self, share_obs, obs, rnn_states_actor, rnn_states_critic, masks, available_actions=None, deterministic=False):
-        actions, action_log_probs, rnn_states_actor = self.actor(obs, rnn_states_actor, masks, available_actions, deterministic)
+        actions, probs, action_log_probs, rnn_states_actor = self.actor(obs, rnn_states_actor, masks, available_actions, deterministic)
         # values, rnn_states_critic = self.critic(share_obs, rnn_states_critic, masks)
         values_all = []
         # TODO invalid rnn_states_critic
@@ -39,7 +39,7 @@ class R_MAPPOPolicy_ensemble:
             values_one, rnn_states_critic = critic_one(share_obs, rnn_states_critic, masks)
             values_all.append(values_one)
         values_all = torch.concat(values_all,dim=1)
-        return values_all, actions, action_log_probs, rnn_states_actor, rnn_states_critic
+        return values_all, actions, probs, action_log_probs, rnn_states_actor, rnn_states_critic
 
     def get_values(self, share_obs, rnn_states_critic, masks):
         values_all = []
@@ -56,24 +56,24 @@ class R_MAPPOPolicy_ensemble:
 
     # for ensemble, update actor and critic seperately
     def only_evaluate_actions(self, obs, rnn_states_actor, action, masks, available_actions=None, active_masks=None):
-        action_log_probs, dist_entropy, policy_values = self.actor.evaluate_actions(obs, rnn_states_actor, action, masks, available_actions, active_masks)
-        return action_log_probs, dist_entropy, policy_values
+        probs, action_log_probs, dist_entropy, policy_values = self.actor.evaluate_actions(obs, rnn_states_actor, action, masks, available_actions, active_masks)
+        return probs, action_log_probs, dist_entropy, policy_values
 
     def evaluate_actions(self, share_obs, obs, rnn_states_actor, rnn_states_critic, action, masks, available_actions=None, active_masks=None):
-        action_log_probs, dist_entropy, policy_values = self.actor.evaluate_actions(obs, rnn_states_actor, action, masks, available_actions, active_masks)
+        probs, action_log_probs, dist_entropy, policy_values = self.actor.evaluate_actions(obs, rnn_states_actor, action, masks, available_actions, active_masks)
         values_all = []
         for critic_one in self.critic:
             values_one, _ = critic_one(share_obs, rnn_states_critic, masks)
             values_all.append(values_one)
         values_all = torch.concat(values_all,dim=1)
-        return values_all, action_log_probs, dist_entropy, policy_values
+        return values_all, probs, action_log_probs, dist_entropy, policy_values
 
     def act(self, obs, rnn_states_actor, masks, available_actions=None, deterministic=False):
         actions, _, rnn_states_actor = self.actor(obs, rnn_states_actor, masks, available_actions, deterministic)
         return actions, rnn_states_actor
 
-class R_MAPPOPolicy:
-    def __init__(self, args, obs_space, share_obs_space, act_space, device=torch.device("cpu")):
+class R_TRPOPolicy:
+    def __init__(self, args, obs_space, share_obs_space, act_space, device=torch.device("cpu"), cat_self=True):
 
         self.device = device
         self.lr = args.lr
@@ -89,26 +89,22 @@ class R_MAPPOPolicy:
         self.critic = R_Critic(args, self.share_obs_space, self.device)
 
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=self.lr, eps=self.opti_eps, weight_decay=self.weight_decay)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.critic_lr, eps=self.opti_eps, weight_decay=self.weight_decay)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.lr, eps=self.opti_eps, weight_decay=self.weight_decay)
 
     def lr_decay(self, episode, episodes):
         update_linear_schedule(self.actor_optimizer, episode, episodes, self.lr)
-        update_linear_schedule(self.critic_optimizer, episode, episodes, self.critic_lr)
+        update_linear_schedule(self.critic_optimizer, episode, episodes, self.lr)
 
     def get_actions(self, share_obs, obs, rnn_states_actor, rnn_states_critic, masks, available_actions=None, deterministic=False):
-        actions, action_log_probs, rnn_states_actor = self.actor(obs, rnn_states_actor, masks, available_actions, deterministic)
+        actions, probs, action_log_probs, rnn_states_actor = self.actor(obs, rnn_states_actor, masks, available_actions, deterministic)
         values, rnn_states_critic = self.critic(share_obs, rnn_states_critic, masks)
-        return values, actions, action_log_probs, rnn_states_actor, rnn_states_critic
+        return values, actions, probs, action_log_probs, rnn_states_actor, rnn_states_critic
 
     def get_values(self, share_obs, rnn_states_critic, masks):
         values, _ = self.critic(share_obs, rnn_states_critic, masks)
         return values
 
-    def evaluate_actions(self, share_obs, obs, rnn_states_actor, rnn_states_critic, action, masks, available_actions=None, active_masks=None):
-        action_log_probs, dist_entropy, policy_values = self.actor.evaluate_actions(obs, rnn_states_actor, action, masks, available_actions, active_masks)
+    def evaluate_actions(self, share_obs, obs, rnn_states_actor, rnn_states_critic, action, masks, available_actions=None , active_masks=None):
+        probs, action_log_probs, dist_entropy, policy_values = self.actor.evaluate_actions(obs, rnn_states_actor, action, masks, available_actions, active_masks)
         values, _ = self.critic(share_obs, rnn_states_critic, masks)
-        return values, action_log_probs, dist_entropy, policy_values
-
-    def act(self, obs, rnn_states_actor, masks, available_actions=None, deterministic=False):
-        actions, _, rnn_states_actor = self.actor(obs, rnn_states_actor, masks, available_actions, deterministic)
-        return actions, rnn_states_actor
+        return values, probs, action_log_probs, dist_entropy, policy_values
