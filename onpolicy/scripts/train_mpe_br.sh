@@ -1,6 +1,6 @@
 #!/bin/sh
 # exp config
-# exp="mat_sacl_model3@20M_from_scratch"
+# exp="matrpo_sp_model3@40M"
 # exp="full_fsp_model3@35M-from_pretrained40M"
 exp="debug"
 algo="mappo"
@@ -19,7 +19,7 @@ num_landmarks=2
 attn_size=32
 # training config
 training_mode="red_br"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/matrpo/matrpo_sp_attn/wandb/run-20231106_160935-3ul4lh5z/files"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/matrpo/matrpo_sp_attn/wandb/run-20231106_160953-nk09tpz4/files/40M"
 red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files"
 red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files"
 # red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/least_visited_add_variance_alpha1/wandb/run-20230803_032945-1b7lwd88/files"
@@ -39,7 +39,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=2 python train/train_mpe_competitive.py \
+CUDA_VISIBLE_DEVICES=6 python train/train_mpe_competitive.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \
