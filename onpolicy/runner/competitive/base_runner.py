@@ -189,8 +189,8 @@ class Runner(object):
             if self.opponent_name == 'mappg':
                 from onpolicy.algorithms.r_mappg.algorithm.rMAPPGPolicy import R_MAPPGPolicy as OppoPolicy
             elif self.opponent_name == 'mat':
-                from onpolicy.algorithms.mat.algorithm.transformer_policy import TransformerPolicy as OppoPolicy
-                # from onpolicy.algorithms.mat.algorithm.transformer_policy import TransformerPolicy_ensemble as OppoPolicy
+                # from onpolicy.algorithms.mat.algorithm.transformer_policy import TransformerPolicy as OppoPolicy
+                from onpolicy.algorithms.mat.algorithm.transformer_policy import TransformerPolicy_ensemble as OppoPolicy
             elif self.opponent_name == 'matrpo':
                 from onpolicy.algorithms.r_trpo.algorithm.rTRPOPolicy import R_TRPOPolicy as OppoPolicy
 

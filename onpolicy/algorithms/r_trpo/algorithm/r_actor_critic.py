@@ -7,61 +7,12 @@ import torch.nn.functional as F
 
 from onpolicy.algorithms.utils.util import init, check
 from onpolicy.algorithms.utils.cnn import CNNBase
-from onpolicy.algorithms.utils.mlp import MLPLayer
+from onpolicy.algorithms.utils.mlp import MLPBase, MLPLayer
 from onpolicy.algorithms.utils.mix import MIXBase
 from onpolicy.algorithms.utils.rnn import RNNLayer
 from onpolicy.algorithms.utils.act import ACTLayer
 from onpolicy.algorithms.utils.popart import PopArt
 from onpolicy.utils.util import get_shape_from_obs_space
-
-class MLPBase(nn.Module):
-    def __init__(self, args, obs_shape, use_attn_internal=False, use_cat_self=True):
-        super(MLPBase, self).__init__()
-
-        self._use_feature_normalization = args.use_feature_normalization
-        self._use_orthogonal = args.use_orthogonal
-        self._activation_id = args.activation_id
-        self._use_attn = args.use_attn
-        self._use_attn_internal = use_attn_internal
-        self._use_average_pool = args.use_average_pool
-        self._use_conv1d = args.use_conv1d
-        self._stacked_frames = args.stacked_frames
-        self._layer_N = 0 if args.use_single_network else args.layer_N
-        self._attn_size = args.attn_size
-        self.hidden_size = args.hidden_size
-
-        obs_dim = obs_shape[0]
-
-        if self._use_feature_normalization:
-            self.feature_norm = nn.LayerNorm(obs_dim)
-
-        inputs_dim = obs_dim
-
-        self.mlp = MLPLayer(inputs_dim, self.hidden_size,
-                              self._layer_N, self._use_orthogonal, self._activation_id)
-
-    def forward(self, x):
-        if self._use_feature_normalization:
-            x = self.feature_norm(x)
-
-        if self._use_attn and self._use_attn_internal:
-            x = self.attn(x, self_idx=-1)
-            x = self.attn_norm(x)
-
-        if self._use_conv1d:
-            batch_size = x.size(0)
-            x = x.view(batch_size, self._stacked_frames, -1)
-            x = self.conv(x)
-            x = x.view(batch_size, -1)
-
-        x = self.mlp(x)
-
-        return x
-
-    @property
-    def output_size(self):
-        return self.hidden_size
-
 
 class R_Actor(nn.Module):
     def __init__(self, args, obs_space, action_space, device=torch.device("cpu")):
