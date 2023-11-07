@@ -1,9 +1,9 @@
 #!/bin/sh
 # exp config
-exp="mappg_sacl"
-# exp="debug"
+# exp="mappg_sacl"
+exp="debug"
 algo="mappg"
-seed=2
+seed=0
 # env config
 env="MPE"
 scenario="simple_tag_corner"
@@ -61,6 +61,6 @@ CUDA_VISIBLE_DEVICES=2 python train/train_mpe_ensemble_curriculum.py \
 --user_name ${user_name} \
 --wandb_name ${wandb_name} \
 --save_ckpt_interval ${save_ckpt_interval} \
-# --use_wandb \
+--use_wandb \
 # --blue_model_dir ${blue_model_dir} --blue_valuenorm_dir ${blue_valuenorm_dir} \
 # --red_model_dir ${red_model_dir} --red_valuenorm_dir ${red_valuenorm_dir} \
