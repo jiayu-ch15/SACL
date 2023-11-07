@@ -51,6 +51,9 @@ def parse_args(args, parser):
     parser.add_argument("--hard_boundary", action="store_true", default=False, help="by default False, use hard boundary")
     parser.add_argument("--warm_up", type=int, default=0, help="timestep of warmup")
 
+    parser.add_argument("--oppenent_name", type=str,
+                        default='mappo', choices=["matrpo", "happo", "mat", "rmappo", "mappo", "rmappg", "mappg", "ft_rrt", "ft_nearest", "ft_apf", "ft_utility"])
+
     all_args = parser.parse_known_args(args)[0]
     all_args.num_agents = all_args.num_adv + all_args.num_good
     all_args.red_model_dir = all_args.red_model_dir.split(" ") if all_args.red_model_dir is not None else None

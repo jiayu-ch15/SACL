@@ -1,6 +1,6 @@
 #!/bin/sh
 # exp config
-exp="matrpo_sp_again_model3@7M_fromscratch"
+exp="matrpo_sacl_again_model3@1800K"
 # exp="full_fsp_model3@35M-from_pretrained40M"
 # exp="debug"
 algo="mappo"
@@ -19,11 +19,11 @@ num_landmarks=2
 attn_size=32
 # training config
 training_mode="red_br"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/matrpo/matrpo_sp_attn_again/wandb/run-20231107_121623-3f827wdm/files/7000K"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/matrpo/matrpo_sacl_attn_again/wandb/run-20231107_122358-3kvs5r8k/files/1800K"
 red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files"
 red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files"
-# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/least_visited_add_variance_alpha1/wandb/run-20230803_032945-1b7lwd88/files"
-# red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/least_visited_add_variance_alpha1/wandb/run-20230803_032945-1b7lwd88/files"
+# red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031654-1r8njnjd/files/40M"
+# red_valuenorm_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031654-1r8njnjd/files/40M"
 num_env_steps=200000000
 episode_length=200
 n_rollout_threads=100
@@ -39,7 +39,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=3 python train/train_mpe_competitive.py \
+CUDA_VISIBLE_DEVICES=0 python train/train_mpe_competitive.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \
@@ -56,5 +56,5 @@ CUDA_VISIBLE_DEVICES=3 python train/train_mpe_competitive.py \
 --warm_up ${warm_up} \
 --oppenent_name ${oppenent_name} \
 --blue_model_dir ${blue_model_dir} \
-# --red_model_dir ${red_model_dir} --red_valuenorm_dir ${red_valuenorm_dir} \
+--red_model_dir ${red_model_dir} --red_valuenorm_dir ${red_valuenorm_dir} \
 # --use_wandb \

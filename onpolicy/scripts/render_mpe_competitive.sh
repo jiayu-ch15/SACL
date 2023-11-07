@@ -1,7 +1,8 @@
 #!/bin/sh
 # exp config
-exp="1render"
+exp="trpo_sacl"
 algo="mappo"
+oppenent_name="mappo"
 seed=0
 # env config
 env="MPE"
@@ -17,8 +18,9 @@ attn_size=32
 # render config
 render_episodes=5
 n_rollout_threads=1
-red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/psro/wandb/run-20230421_131147-3vcovmuo/files/40M"
-blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/psro/wandb/run-20230421_131147-3vcovmuo/files/40M"
+red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files/40M"
+# blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/corner_sacl/files/run-20230414_031641-n9dn372p/files/10M"
+blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/matrpo/matrpo_sacl_attn_again/wandb/run-20231107_122335-26u7p91d/files/10000K"
 # red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/sp_corner/wandb/run-20230411_083339-rdx6xz91/files/40M"
 # blue_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/sp_corner/wandb/run-20230411_083339-rdx6xz91/files/40M"
 # red_model_dir="/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/MPE/simple_tag_corner/mappo/1var_07bias/wandb/run-20230414_031641-n9dn372p/files/40M"
@@ -40,4 +42,5 @@ CUDA_VISIBLE_DEVICES=0 xvfb-run -s "-screen 0 1400x900x24" python render/render_
 --n_rollout_threads ${n_rollout_threads} \
 --red_model_dir ${red_model_dir} --blue_model_dir ${blue_model_dir} \
 --red_valuenorm_dir ${red_model_dir} --blue_valuenorm_dir ${blue_model_dir} \
+--oppenent_name ${oppenent_name} \
 --use_wandb
