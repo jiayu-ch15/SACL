@@ -1,13 +1,12 @@
 #!/bin/sh
 # exp param
 env="Football"
-# scenario="academy_pass_and_shoot_with_keeper"
+scenario="academy_pass_and_shoot_with_keeper"
 # scenario="academy_run_pass_and_shoot_with_keeper"
-scenario="academy_3_vs_1_with_keeper"
+# scenario="academy_3_vs_1_with_keeper"
 algo="mappo"
-exp="sp_3v1_500M"
-# exp="debug"
-seed=2
+exp="debug"
+seed=0
 
 
 # football param
@@ -40,12 +39,10 @@ num_mini_batch=2 # 2, 4
 
 # sp
 training_mode='self_play'
-model_dir='/home/jiayu-ch15/onpolicy/onpolicy/scripts/results/Football/academy_3_vs_1_with_keeper/mappo/sp_3v1/wandb/run-20230508_081054-2p0jg2f9/files/80M'
-
 
 echo "n_rollout_threads: ${n_rollout_threads} \t ppo_epoch: ${ppo_epoch} \t num_mini_batch: ${num_mini_batch}"
 
-CUDA_VISIBLE_DEVICES=2 python train/train_football_competitive.py \
+CUDA_VISIBLE_DEVICES=0 python train/train_football_competitive.py \
 --env_name ${env} --scenario_name ${scenario} \
 --algorithm_name ${algo} --experiment_name ${exp} --seed ${seed} \
 --num_agents ${num_agents} --representation ${representation} \

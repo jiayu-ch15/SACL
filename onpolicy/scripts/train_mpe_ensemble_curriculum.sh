@@ -1,8 +1,7 @@
 #!/bin/sh
 # exp config
-# exp="mappg_sacl"
 exp="debug"
-algo="mappg"
+algo="mappo"
 seed=0
 # env config
 env="MPE"
@@ -38,7 +37,7 @@ wandb_name="sacl"
 
 echo "exp is ${exp}, env is ${env}, scenario is ${scenario}, algo is ${algo}, seed is ${seed}"
 
-CUDA_VISIBLE_DEVICES=2 python train/train_mpe_ensemble_curriculum.py \
+CUDA_VISIBLE_DEVICES=0 python train/train_mpe_ensemble_curriculum.py \
 --experiment_name ${exp} --algorithm_name ${algo} --seed ${seed} --competitive \
 --env_name ${env} --scenario_name ${scenario} --horizon ${horizon} \
 --corner_min ${corner_min} --corner_max ${corner_max} \
